@@ -8,6 +8,8 @@ A Fabric roleplay campaign framework for Minecraft Java 1.21.10. **Chronicle Cor
 
 The revised draft proposes tangible crop-growth, local-healing and Ancient Forge benefits as connected sculk gains power, with environmental costs. Mine-stabilization physics is withdrawn. Authoring is planned as shared **Chronicle Core in-world tools**: two-corner regions, exact block/location bindings, chest profiles and spawn points. See the [local Vampire SMP reference findings](docs/REFERENCE_VAMPIRE_SMP.md). These revisions are design work; no new crop/forge/editor features have been installed.
 
+The latest [Quiet Below revision](docs/THE_QUIET_BELOW.md) removes authored growth routes and scheduled benefit reveals: sculk follows actual caves/mines from the city, with catalysts/sensors and possible later shriekers. Builders register key sites; the ecology discovers its path. The Ancient Focus is dropped. Destroying a sufficiently weakened Relic Heart provides a full-network eradication ending alongside containment, coexistence and departure. These are design requirements, not installed gameplay.
+
 ## Workspace and setup
 
 ```text

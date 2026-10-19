@@ -9,17 +9,18 @@ The operator tested the M1–M4 prototype and reports that its functions general
 | ID | Work item | Status | Depends on | Done when |
 | --- | --- | --- | --- | --- |
 | QB-01 | Capture the existing technical prototype in Git | Committed: `63c2e84` | — | `chore/prototype-baseline` preserves the previously uncommitted source, tools and evidence. |
-| QB-02 | Campaign premise, benefits/costs and event outline | Draft for operator review | — | Review [THE_QUIET_BELOW](THE_QUIET_BELOW.md); settle cause, first benefit and intended mystery. No code inferred as canon. |
-| QB-03 | Quiet Below bindings on shared authoring tools | Revised draft for review | QB-02, CF-05 | Map city/field/hazard/station meanings onto Core region/location/anchor IDs; no separate campaign editor or mandatory world-copy/import workflow. |
-| QB-04 | Bind Quiet Below's named sites in-world | Planned | QB-03, CF-06 | Operator selects/binds the city, mine and effect sites in the existing world; geometry persists in Core without Java edits. |
+| QB-02 | Campaign premise, benefits/costs and event outline | Revised draft for operator review | — | [THE_QUIET_BELOW](THE_QUIET_BELOW.md) reflects autonomous terrain-led growth, discovery at any time and Heart eradication; settle remaining ecology/lore details. No code inferred as canon. |
+| QB-03 | Quiet Below bindings on shared authoring tools | Key-location direction accepted; specification needed | QB-02, CF-05 | Map source city/Heart, discovery locations and optional ancient stations onto Core IDs; no authored growth paths, per-field registration or separate campaign editor. |
+| QB-04 | Bind Quiet Below's named sites in-world | Planned | QB-03, CF-06 | Operator selects/binds key sites in the existing world; geometry persists in Core without Java edits. No sculk painting or patch-graph setup. |
 | QB-05 | Campaign event delivery and observations | Planned | QB-02, QB-04 | Site-specific, readable cues with clear audience, prerequisites, manual preview/fire and persistent history; remove prototype lore from the production setup. |
 | QB-06 | Active-play clock and scheduled first sound | Planned | QB-05 | E01 timer arms for a designated story session, pauses correctly, survives restart and shares completion with manual fire. |
 | QB-07 | First-entry discovery triggers | Planned | QB-04, QB-05 | E03 fires once for eligible participants, excludes builder walks, handles simultaneous entry/restart and preserves information boundaries. |
-| QB-08 | Connected spread, network power and interventions | Design required | QB-02, QB-03 | Define rooted connections, power thresholds, benefits/costs, retained-stage journals and selective undo; placed decorative sculk does not farm power. |
-| QB-09 | First crop-growth benefit/cost slice | Proposed; awaiting review | QB-05, QB-08, CF-06 | Comparable planted plots show actual bonus crop ages/harvests; pause and severing stop bonus growth, with an explicit local cost and no structural simulation or personal corruption. |
-| QB-10 | Author the production map's campaign setup | Waiting for map and tools | QB-04–QB-09, CF-07 | Configure sites, chests/spawns and behavior directly in the operator's world; validation/test mode does not require importing or rebuilding the map. |
+| QB-08 | Autonomous sculk ecology, network power and interventions | Direction established; technical specification required | QB-02, QB-03 | Trial pinned 1.21.10 growth hooks/ownership, air/light feeding, actual cave-surface traversal, barriers/branch decline, power and work budgets. Automatically index source sculk and retain descendant journals. Track catalysts/sensors and extensive-stage shriekers with explicit Warden policy; no authored routes or per-step approval. |
+| QB-09 | First crop-growth benefit/cost slice | Proposed; awaiting balance review | QB-08 | Derive reach from living growth, not a bound farm. Comparable planted plots show bonus crop ages/harvests; late discovery changes no unlock, and pause/severing stop the bonus. Local costs, no structural simulation or personal corruption. |
+| QB-10 | Author the production map's campaign setup | Waiting for map and tools | QB-04–QB-09, QB-13; CF-07 if used | Configure key sites, optional chests/spawns and ecology/protection rules directly in the operator's world; no importing/rebuilding map or placing growth routes. |
 | QB-11 | First coherent roleplay session | Planned | QB-10 | Human playtest finds the event chain understandable, disagreement voluntary, departure viable and GM controls usable without code changes. |
-| QB-12 | Ancient station assets and mechanics | Design candidate | QB-02, QB-08, CF-06 | Review Focus/Altar/Forge roles and exports; specify a powered forge recipe, station states and reliable input/output handling before registration/crafting implementation. |
+| QB-12 | Ancient station assets and mechanics | Design candidate | QB-02, QB-08, CF-06 | Review Altar/Forge roles and exports, powered forge recipe, states and reliable inventory handling. Ancient Focus is removed; no relay chain gates growth. Heart work is QB-13. |
+| QB-13 | Weakened Relic Heart and complete eradication | Required ending; technical specification needed | QB-04, QB-08 | Readable, validated weakness/destruction; stop growth/services permanently and remove the entire owned network, including source and detached features. Bounded restart-safe cleanup handles unloaded chunks, player edits and conflicts; no false completion, regrowth or unrelated sculk deletion. Test destruction bypasses/concurrency and initial-state removal policy. |
 
 Work may be split further when the implementation specifications exist. A planned row is not permission to implement it immediately: the current request is design and repository discipline.
 
@@ -33,17 +34,19 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 | CF-02 | Journey chapter/outcome contract | Future design | Specify 2–3 end states per chapter, next-world selection/variants, carry-over and restart-safe transitions before implementation. |
 | CF-03 | Werewolf variant and private-state contract | Future design | Select rules/pacing/roles, privacy boundaries, absence/elimination behavior and win conditions before building role/vote systems. |
 | CF-04 | Survival scenario and threat contract | Future design | Define a concrete threat, escalation/counterplay and ending rules before building a general director. |
-| CF-05 | Shared in-world authoring specification | Revised draft for operator review | [MAP_AUTHORING](MAP_AUTHORING.md) defines Core-owned two-corner regions, points/block anchors, chest/spawn bindings and campaign extension boundaries using the supplied Vampire SMP reference. |
+| CF-05 | Shared in-world authoring specification | Direction accepted for now; implementation contract pending | [MAP_AUTHORING](MAP_AUTHORING.md) defines Core-owned two-corner regions, points/block anchors, chest/spawn bindings and campaign extension boundaries using the supplied Vampire SMP reference. Quiet Below setup requires key sites, not spread paths. |
 | CF-06 | Core selection, region/location/anchor registry | Planned after specification review | In the existing world, builders select corners/targets/current position, save/list/inspect/edit definitions and restart without source edits or consuming story triggers. |
 | CF-07 | Core chest profiles, spawn purposes and bindings | Planned after CF-05/CF-06 | Configure content templates and arrival/respawn points in-world; explicit activation and runtime actions preserve inventories, privacy and retry safety. |
 
 ## Review decisions
 
 - [ ] Agree what changed shortly before the story and why growth now reaches the mine.
-- [ ] Review crop growth → local regeneration → Ancient Forge as the capability progression, with concrete environmental costs at each stage.
+- [ ] Balance crop growth, local regeneration and Ancient Forge capability thresholds/costs against actual ecology, without session/reveal gates.
+- [ ] Specify air/light feeding, substrates/protection, connection/vitality rules, catalysts/sensors and extensive-stage shriekers including Warden behavior.
+- [ ] Specify Heart weakness/destruction and full-network removal, including automatically adopted source sculk, detached branches and restart/conflict handling.
 - [ ] Agree how much truth about the phenomenon the GM knows and what stays ambiguous.
 - [ ] Decide whether the marker/lens have a justified production role or stay technical props.
-- [ ] Review Focus/Altar/Forge uses and the Core-owned selection/location/chest/spawn authoring workflow. A mundane alternative and a world import pipeline are not requirements.
+- [ ] Review Altar/Forge details; retain the accepted Core authoring direction. Ancient Focus and authored spread routes are removed; a mundane alternative and a world import pipeline are not requirements.
 - [ ] Set timing/audiences after group size, session length and map geography are known.
 
 ## Branch and commit practice

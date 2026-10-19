@@ -2,6 +2,8 @@
 
 Revised design draft, 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. This is a specification proposal, not installed commands.
 
+The operator accepts this authoring direction for now. For [Quiet Below](THE_QUIET_BELOW.md), register key locations such as the source city, Relic Heart and ancient stations. Autonomous growth discovers cave/mine geometry itself; no painted sculk trail, patch graph, or region for every crop field/hazard is required. The generic selection/binding tools below remain useful without making all of them mandatory campaign setup.
+
 ## Available today
 
 - Run a normal Minecraft 1.21.10 world with the matching Fabric/Core/campaign mods; existing session controls, freeze/status and dossiers work independently of the prototype map.
@@ -15,9 +17,9 @@ The supplied Vampire SMP plugin demonstrates registering meaningful locations th
 
 | Chronicle Core owns | Quiet Below owns |
 | --- | --- |
-| Builder selection tool/commands, named cuboids, points and block anchors, dimensions and orientation, list/show/edit/remove, validation, persistence and permissions | What a city region, connected sculk patch, beneficial field, hazard or ancient station means |
+| Builder selection tool/commands, named cuboids, points and block anchors, dimensions and orientation, list/show/edit/remove, validation, persistence and permissions | What a city, Heart, ancient station or optional campaign region means |
 | Reusable chest content profiles, explicit fill/reset policies, spawn points/groups and generic event/trigger binding services | Plant growth/regen rules, network power, environmental costs and Ancient Forge recipes |
-| Builder previews, draft edits, configuration revisions, stable IDs and reference checks | Stage prerequisites, connected growth topology and narrative pacing |
+| Builder previews, draft edits, configuration revisions, stable IDs and reference checks | Autonomous growth rules, observed network topology, Heart resolution and narrative cues |
 
 Core definitions must work for Journey worlds, Survival spawn areas, Werewolf locations and Situation campaigns. Campaigns reference those definitions by ID rather than inventing their own coordinate editor. Keep sculk ecology out of Core; moving reusable authoring into Core does not move campaign transformation logic there.
 
@@ -26,7 +28,7 @@ Core definitions must work for Journey worlds, Survival spawn areas, Werewolf lo
 1. **Build in the world.** Install the mods for the intended map as usual. Enter author mode while story progression is inactive. Building and registering locations do not require exporting the world or starting another server.
 2. **Select an area.** Set corner 1 and corner 2 with a selection tool or commands. Show a builder-only outline and dimensions. Both corners must be in the same dimension. Save the cuboid under a meaningful ID such as `ancient_city` or `first_garden`; the region is metadata, not a WorldEdit fill operation.
 3. **Register exact locations.** Stand at an arrival/respawn point to save position and facing. Target a chest, forge or altar block to bind its exact block coordinate and expected type. Selection corners, entity spawn positions and block anchors are different primitives; do not round them all into one ambiguous location type.
-4. **Assign a purpose.** Bind the city region to a first-entry event, a field to the campaign's growth effect, a block anchor to a chest profile or forge behavior, and a point to a named spawn group. Reusing one region for several purposes is explicit; the geometry itself does not imply behavior.
+4. **Assign a purpose.** Bind the city region to a first-entry event, a block anchor to a chest profile or forge behavior, and a point to a named spawn group. Campaigns can also bind regional effects when appropriate; Quiet Below derives crop effects from living growth without requiring field registration. Reusing one region for several purposes is explicit; the geometry itself does not imply behavior.
 5. **Configure contents and spawn policy.** Capture/edit a reusable chest template, choose an explicit refill policy, and preview the target inventory action. Set which group uses an arrival/respawn point and when it applies. Saving a point does not immediately teleport anyone or override all vanilla respawns.
 6. **Inspect, validate and save.** List configured things, jump to/show one as a builder, check bounds/references/types and save the draft. A separate apply/arm step activates behavior. Configuration survives restart; it does not recreate buildings or overwrite inventories on every server start.
 7. **Test without consuming the story.** Builder walks do not fire discoveries. An explicit test mode can simulate cues and compare effects in bounded test areas. Moving/deleting a region or anchor invalidates affected armed bindings and pending approvals; do not silently retarget a queued effect.
@@ -69,7 +71,7 @@ The selection tool should offer the same functions without repeatedly typing coo
 | Core location / block anchor | Point with orientation, or exact block position with expected type and revision |
 | Core chest / spawn binding | Profile/group reference, target IDs, explicit fill/respawn policy and validation state |
 | Core event/trigger binding | Source region/point, registered action ID, audience, prerequisites, once-only policy and armed/test state |
-| Campaign extension | Referenced Core IDs plus sculk connection/stage rules, effect parameters, observations or recipes |
+| Campaign extension | Referenced Core IDs plus ecology/Heart rules, effect parameters, observations or recipes; observed growth topology is runtime data |
 | Runtime progress | Clock, completed events, network state, inventory-action records and world-change journals; not the authoring definitions |
 
 This is a proposed data contract, not a schema to implement without review. Core's current pure flag-event callbacks must not acquire hidden inventory/world side effects: generic delivery, chest/spawn actions and campaign effects need explicit services with their own persistence/validation contracts.
@@ -84,4 +86,4 @@ This is a proposed data contract, not a schema to implement without review. Core
 - Specify/test inventory fill/reset and spawn execution separately: no loss/duplication on retry, no replacement of unapproved contents, safe spawn behavior and no automatic map reconstruction.
 - Keep existing pause/freeze, public dossier privacy and conflict-preserving transformation behavior intact. Campaign effects stay dormant outside ACTIVE even though authoring remains available.
 
-Backups and optional rehearsal copies remain operational tools, not the primary builder UX or a condition for defining a region. No new world-import feature is required for this slice. A general terrain editor and the campaign's multi-patch growth engine remain separate work.
+Backups and optional rehearsal copies remain operational tools, not the primary builder UX or a condition for defining a region. No new world-import feature is required for this slice. A general terrain editor and the campaign's autonomous growth engine remain separate work.

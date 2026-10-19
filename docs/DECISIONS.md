@@ -1,5 +1,15 @@
 # Bootstrap decisions — 18 October 2026
 
+## Autonomous ecology and Relic Heart ending — 19 October 2026
+
+The operator accepts the Core map-authoring direction for now but rejects prepared sculk routes/patches and session-paced benefit reveals. Sculk must grow from the ancient city along actual caves/mine passages toward the surface or other ancient sites, consuming air/sunlight. Register only key locations; do not require painting sculk, connecting authored nodes or approving every expansion. A benefit operates when the ecology supports it, even if players only discover it several sessions later. This supersedes earlier prepared-route, bound-farm and five-session-rhythm proposals.
+
+The Ancient Focus role is removed. Living growth supplies visible evidence through sculk, catalysts and sensors; extensive growth may produce shriekers. The Relic Heart becomes the unique network root: weaken the network sufficiently, then destroy the Heart to eradicate all of its sculk, including initial source growth and detached branches. Containment, coexistence and departure remain alternatives. No personal corruption or mandatory boss fight follows from this change.
+
+`THE_QUIET_BELOW.md` proposes surface-frontier growth, runtime power/vitality, automatic source indexing, tracked descendant features and durable cleanup that preserves later player edits. Air/light feeding details, growth budgets/material protection, catalyst interactions, shrieker Warden policy, Heart vulnerability and source/cleanup ownership need a pinned-version technical specification. These proposals are not new vanilla claims or implemented behavior. M4's latest-operation 64-block journal is insufficient for an autonomous network or complete eradication. QB-08/QB-13 track that work; the accepted shared Core editor is not replaced or broadened into a terrain editor.
+
+The entries below record earlier decisions; their authored-route/Focus assumptions are superseded by this entry and the current campaign outline. This revision edits documentation only.
+
 ## Concrete benefits and Core authoring revision — 19 October 2026
 
 The operator rejected the proposed mine-stabilization benefit: no structural-physics model should be introduced to justify it. Benefits need usable Minecraft behavior and may be exclusive; an ordinary substitute is not mandatory. The revised proposal is bonus crop growth first, then local regeneration and powered Ancient Forge recipes as the rooted network expands. Costs also escalate through approved territorial change and temporary environmental hazards, never personal corruption. The supplied Focus/Altar/Forge/Relic assets are candidates for defined functions, not merely props; no new assets or mechanics were registered in this revision.
