@@ -2,6 +2,9 @@ package io.github.chronicle.quietbelow;
 
 import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.authoring.AuthoringCatalog;
+import io.github.chronicle.core.loot.LootType;
+import io.github.chronicle.core.loot.LootEntry;
+import java.util.List;
 import io.github.chronicle.core.campaign.CampaignEvent;
 import io.github.chronicle.core.campaign.EventOutcome;
 import io.github.chronicle.quietbelow.content.ResonanceMarkerBlock;
@@ -67,6 +70,22 @@ public final class QuietBelow implements ModInitializer {
                 "An ancient altar site; station mechanics follow in later milestones.", AuthoringCatalog.Kind.BLOCK));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",
                 "An ancient forge site; station mechanics follow in later milestones.", AuthoringCatalog.Kind.BLOCK));
+        // Map-authoring defaults, adjustable in the server's Core loot configuration.
+        ChronicleCore.chestTypes().register(new LootType("quiet_below:settlement_supplies", "Settlement supplies",
+                "Everyday supplies; a suggested starting distribution, editable by the organizer.", 4, 0, List.of(
+                new LootEntry("minecraft:bread", 65, 2, 5, "{}"),
+                new LootEntry("minecraft:torch", 70, 4, 12, "{}"),
+                new LootEntry("minecraft:iron_ingot", 20, 1, 3, "{}"))));
+        ChronicleCore.chestTypes().register(new LootType("quiet_below:mine_cache", "Mine cache",
+                "Mining supplies; the recommendation is advisory, not a session requirement.", 3, 0, List.of(
+                new LootEntry("minecraft:coal", 70, 3, 8, "{}"),
+                new LootEntry("minecraft:raw_iron", 40, 1, 4, "{}"),
+                new LootEntry("minecraft:torch", 65, 4, 10, "{}"))));
+        ChronicleCore.chestTypes().register(new LootType("quiet_below:ancient_cache", "Ancient cache",
+                "Optional ancient-site finds; this does not activate ecology or reveal events.", 2, 0, List.of(
+                new LootEntry("minecraft:amethyst_shard", 60, 1, 4, "{}"),
+                new LootEntry("minecraft:book", 35, 1, 2, "{}"),
+                new LootEntry("minecraft:echo_shard", 10, 1, 1, "{}"))));
         QuietBelowStages.register();
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ECHO_LENS));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RESONANCE_MARKER));

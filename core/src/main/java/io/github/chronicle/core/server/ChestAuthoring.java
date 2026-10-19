@@ -112,8 +112,11 @@ public final class ChestAuthoring {
         return runtime;
     }
 
+    public static ChestContentService service(MinecraftServer server) { return runtime(server).service; }
+    static void refreshHold(MinecraftServer server) { synchronizeHold(server, runtime(server)); }
+
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher) {
-        var authorChest = literal("chest")
+        var legacy = literal("legacy")
                 .then(literal("capture").then(argument("template", StringArgumentType.string())
                         .executes(context -> capture(context.getSource(), text(context, "template"), false))))
                 .then(literal("replace").then(argument("template", StringArgumentType.string())
@@ -125,7 +128,7 @@ public final class ChestAuthoring {
                         .executes(context -> showTemplate(context.getSource(), text(context, "template")))))
                 .then(literal("bind").then(bindingArguments(false)))
                 .then(literal("rebind").then(bindingArguments(true)));
-        dispatcher.register(literal("chronicle").then(literal("author").requires(source -> source.hasPermissionLevel(2)).then(authorChest)));
+        dispatcher.register(literal("chronicle").then(literal("author").requires(source -> source.hasPermissionLevel(2)).then(literal("chest").then(legacy))));
 
         var chest = literal("chest").requires(source -> source.hasPermissionLevel(2))
                 .then(literal("status").executes(context -> status(context.getSource())))
@@ -274,7 +277,8 @@ public final class ChestAuthoring {
             ResolvedTarget target = resolve(source.getServer(), operation.target());
             requireSavingEnabled(target);
             InventorySnapshot live = snapshot(source.getServer(), target.inventory);
-            RecoveryDecision decision = RecoveryDecision.compare(operation, live);
+            RecoveryDecision decision = binding(runtime, operation.bindingId()).typed() && operation.after().equals(live)
+                    ? RecoveryDecision.COMMIT_APPLIED : RecoveryDecision.compare(operation, live);
             switch (decision) {
                 case ABORT_UNCHANGED -> runtime.service.abortUnchanged(operationId);
                 case COMMIT_APPLIED -> {
@@ -319,7 +323,7 @@ public final class ChestAuthoring {
         return resolve(server, chestTarget(anchor));
     }
 
-    private static ResolvedTarget resolve(MinecraftServer server, ChestTarget target) {
+    static ResolvedTarget resolve(MinecraftServer server, ChestTarget target) {
         ServerWorld world = server.getWorld(RegistryKey.of(RegistryKeys.WORLD, Identifier.of(target.dimension())));
         if (world == null) throw new IllegalStateException("Target dimension is unavailable: " + target.dimension());
         BlockPos pos = new BlockPos(target.x(), target.y(), target.z());
@@ -329,13 +333,13 @@ public final class ChestAuthoring {
         return new ResolvedTarget(world, pos, supported(world, pos));
     }
 
-    private static void requireSavingEnabled(ResolvedTarget target) {
+    static void requireSavingEnabled(ResolvedTarget target) {
         if (target.world.savingDisabled || net.minecraft.SharedConstants.DONT_SAVE_WORLD) {
             throw new IllegalStateException("Enable world saving before applying or recovering a chest fill.");
         }
     }
 
-    private static Inventory supported(ServerWorld world, BlockPos pos) {
+    static Inventory supported(ServerWorld world, BlockPos pos) {
         var entity = world.getBlockEntity(pos);
         if (!(entity instanceof LootableContainerBlockEntity lootable)
                 || (!(entity instanceof ChestBlockEntity) && !(entity instanceof BarrelBlockEntity) && !(entity instanceof ShulkerBoxBlockEntity))) {
@@ -348,7 +352,7 @@ public final class ChestAuthoring {
         return lootable;
     }
 
-    private static InventorySnapshot snapshot(MinecraftServer server, Inventory inventory) {
+    static InventorySnapshot snapshot(MinecraftServer server, Inventory inventory) {
         List<String> encoded = new ArrayList<>(inventory.size());
         RegistryOps<JsonElement> ops = RegistryOps.of(JsonOps.INSTANCE, server.getRegistryManager());
         for (int slot = 0; slot < inventory.size(); slot++) {
@@ -359,7 +363,7 @@ public final class ChestAuthoring {
         return new InventorySnapshot(inventory.size(), encoded);
     }
 
-    private static List<ItemStack> decode(MinecraftServer server, InventorySnapshot snapshot) {
+    static List<ItemStack> decode(MinecraftServer server, InventorySnapshot snapshot) {
         RegistryOps<JsonElement> ops = RegistryOps.of(JsonOps.INSTANCE, server.getRegistryManager());
         List<ItemStack> stacks = new ArrayList<>(snapshot.size());
         for (int slot = 0; slot < snapshot.size(); slot++) {
@@ -370,7 +374,7 @@ public final class ChestAuthoring {
         return List.copyOf(stacks);
     }
 
-    private static List<ItemStack> validateForInventory(MinecraftServer server, InventorySnapshot snapshot, Inventory inventory) {
+    static List<ItemStack> validateForInventory(MinecraftServer server, InventorySnapshot snapshot, Inventory inventory) {
         if (snapshot.size() != inventory.size()) throw new IllegalStateException("Target inventory size changed.");
         List<ItemStack> stacks = decode(server, snapshot);
         for (int slot = 0; slot < stacks.size(); slot++) {
@@ -391,7 +395,7 @@ public final class ChestAuthoring {
         return new ChestTarget(anchor.id(), anchor.revision(), anchor.dimension(), anchor.position().x(), anchor.position().y(), anchor.position().z(), anchor.expectedBlock());
     }
 
-    private static void closeViewers(MinecraftServer server, Inventory inventory) {
+    static void closeViewers(MinecraftServer server, Inventory inventory) {
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             if (player.currentScreenHandler != player.playerScreenHandler
                     && player.currentScreenHandler.slots.stream().anyMatch(slot -> slot.inventory == inventory)) player.closeHandledScreen();
@@ -411,7 +415,7 @@ public final class ChestAuthoring {
         else RuntimeHolds.hold(server, HOLD_OWNER, "A Chronicle chest fill is unresolved; use /chronicle chest status and recover it before play continues.");
     }
 
-    private static BlockPos target(ServerCommandSource source) {
+    static BlockPos target(ServerCommandSource source) {
         ServerPlayerEntity player = player(source);
         var start = player.getEyePos(); var end = start.add(player.getRotationVec(1).multiply(6));
         for (int sample = 0; sample <= 24; sample++) {
@@ -467,6 +471,6 @@ public final class ChestAuthoring {
     }
     private record Preview(String bindingId, long bindingRevision, long templateRevision, long anchorRevision,
                            int sessionNumber, InventorySnapshot before, int expiresAtTick) { }
-    private record ResolvedTarget(ServerWorld world, BlockPos pos, Inventory inventory) { }
+    record ResolvedTarget(ServerWorld world, BlockPos pos, Inventory inventory) { }
     @FunctionalInterface private interface Operation { String run(Runtime runtime) throws IOException; }
 }

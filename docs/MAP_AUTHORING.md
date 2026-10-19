@@ -51,40 +51,61 @@ Core definitions must work for Journey worlds, Survival spawn areas, Werewolf lo
 
 Save/replace/remove persist immediately; no separate save command is needed in M6. Author mode requires operator level 2 and a non-active session. `show` provides a persistent private outline; hide it with `/chronicle author preview hide`, clear the selection, leave author mode or disconnect. Movement does not hide it. Changing dimensions clears it; entering ACTIVE clears author previews. Install the matching M7 client pack. `select target1`/`target2` select a looked-at block within six blocks. A click wand is deferred to builder feedback.
 
-### Registered choices and M7 content tools
+### Registered choices and typed loot chests
 
-Run `/chronicle author` or `/chronicle author menu` to choose registered roles from clickable chat entries. Click **Set** to put the complete command in chat, then press Enter. Region roles use your selected corners; block roles use the block you are looking at; location roles use your position/facing. **Replace** is explicit. Each submod supplies typed IDs, labels and descriptions through `ChronicleCore.authoring()` during initialization. Quiet Below supplies its city, Heart, altar and forge roles; registering them enables no ecology yet. Command completion uses the same catalog. Legacy custom IDs remain usable; namespaced IDs in manually typed commands need quotes.
+`/chronicle author` offers clickable registered place roles. Click **Set** and submit the suggested command; **Replace** is explicit. Each submod supplies typed IDs, labels and descriptions through `ChronicleCore.authoring()` at initialization. Legacy custom place IDs remain readable. Namespaced strings need quotes when typed manually.
+
+For loot containers, look at a single chest, barrel or shulker box, then use the **Loot chests** menu. Choose **Bind** for the type you want. One command records both the targeted container and its type, without first naming an anchor or capturing contents:
 
 ```text
-/chronicle author menu
-/chronicle author region save "quiet_below:source_city"
-/chronicle author chest capture archive_stock
-/chronicle author chest show archive_stock
-/chronicle author chest bind archive_fill archive_chest archive_stock once_campaign
-/chronicle spawn bind "chronicle_core:arrival" arrivals
-/chronicle spawn inspect "chronicle_core:arrival"
+/chronicle author mode on
+/chronicle author chest
+/chronicle author chest bind "quiet_below:settlement_supplies"
+/chronicle author chest inspect
+/chronicle author chest rebind "quiet_below:mine_cache"
+/chronicle author chest unbind
+/chronicle author chest validate
+/chronicle author chest reload
 ```
 
-Capture the container you are looking at while in non-active author mode. Capture preserves its items/components. Supported targets are single chests, barrels and shulker boxes; double chests and unopened loot-table containers are rejected. Bindings pin the template/anchor revisions; after replacing either, explicitly `rebind`. Policies are `manual`, `once_campaign`, `once_session`.
+Bind/rebind/unbind/reload require non-active author mode. Binding changes no items. **Bound loot containers are managed loot: each session-start or periodic fill replaces every existing item**, as requested. Use ordinary unbound chests for personal storage. Double chests and unresolved vanilla loot-table containers remain unsupported. Unbinding stops future management and preserves contents/history.
 
-During an ACTIVE session, an operator deliberately previews and executes:
+Each campaign registers defaults with `ChronicleCore.chestTypes().register(new LootType(...))`. Quiet Below supplies settlement, mine and ancient cache examples with advisory minimum counts. The menu and validator compare bound counts with recommendations; shortages do not block a session. The server owns editable `config/chronicle/chest-loot.json`, generated on first start. Example full type entry inside `types`:
+
+```json
+{
+  "id": "quiet_below:settlement_supplies",
+  "label": "Settlement supplies",
+  "description": "Everyday supplies for this map.",
+  "recommendedChests": 4,
+  "refillMinutes": 15,
+  "entries": [
+    {"item": "minecraft:bread", "chancePercent": 60, "minCount": 2, "maxCount": 5},
+    {"item": "minecraft:iron_ingot", "chancePercent": 25, "minCount": 1, "maxCount": 3}
+  ]
+}
+```
+
+The file root is `{"schemaVersion": 1, "types": [...]}`. Full entries override defaults by ID; additional server-defined types are allowed. Percentages roll independently once per entry: both, either or neither can appear. Quantities are uniformly selected between inclusive minimum/maximum. Optional `components` is a Minecraft item-component JSON object. Up to 27 bounded stacks fit the supported inventories; invalid IDs/components/counts reject the whole reload and leave the running configuration intact. `refillMinutes: 0` means new sessions only. Positive values count active occupied game time, pausing with the session and across downtime. A new session fills once; resuming/restarting does not create another start fill. Unloaded targets wait without forced chunks; only the latest due cycle is filled when available.
+
+The scheduler journals the exact before/rolled-after inventories and uses the existing durable recovery controls. `/chronicle chest status` lists uncertain operations; `/chronicle chest recover <operation>` compares contents without blindly replaying or overwriting conflicts. See [the revised contract/review](M7_LOOT_TYPES.md). Existing captured profiles and their receipts remain available under `/chronicle author chest legacy ...`; they are a compatibility path, not a setup requirement.
+
+Manual player moves remain separate:
 
 ```text
-/chronicle chest preview archive_fill
-/chronicle chest apply archive_fill
-/chronicle chest status
+/chronicle author location save arrivals here
+/chronicle spawn bind "chronicle_core:arrival" arrivals
+/chronicle spawn inspect "chronicle_core:arrival"
 /chronicle spawn preview "chronicle_core:arrival" PlayerName
 /chronicle spawn confirm PlayerName
 ```
 
-Fills require an entirely empty target and a current preview. Pending writes hold world simulation; `/chronicle chest status` identifies the operation for `/chronicle chest recover <operation>`. Recovery compares the exact saved physical target and before/after contents, never blindly repeats a fill. A conflict requires preserving the evidence and resolving it while stopped. Saving spawn metadata never changes vanilla respawns; these commands only move the named online player after safe loaded standing-room checks. Previews expire after 60 seconds and cannot be confirmed by another operator.
-
-Entity spawn groups and automatic arrival/death-respawn policies remain an explicit M7 follow-up. Region/condition trigger bindings belong to M8 and are not implemented.
+Saving a spawn binding changes no vanilla respawns. Runtime preview/confirm requires ACTIVE and validates loaded safe standing room. Entity groups/automatic respawn remain M7 follow-up; trigger bindings belong to M8.
 
 ### Chests and spawns must behave predictably
 
 - Binding an existing chest records its location/type; it does not place or empty one. Capturing its contents creates a template without consuming or distributing those contents. Filling/resetting is a separate, previewable runtime action.
-- Initial chest policies should include manual fill and an explicit once-per-campaign/session option. Define whether only empty slots are filled; replacing player contents requires a deliberate reset policy. Restart/retry must not duplicate loot. A missing/replaced chest disables the binding instead of silently creating a new container.
+- Typed chests fill at each new session and optionally every configured active interval, replacing all contents by explicit operator choice. Legacy captured profiles retain their manual/once policies and empty-only behavior. Restart/retry must not duplicate loot. A missing/replaced chest waits for correction instead of silently creating a container.
 - Location points retain dimension, precise position and yaw/pitch. Spawn groups can reference one or more points or an explicitly selected spawn area. Validate loaded safe standing positions/headroom when actually spawning; no global search or forced loading is implied by registration.
 - Arrival, death respawn and scenario transition are separate spawn purposes. No Quiet Below location may trap a departing character by teleporting them back. Campaign-specific teams/private roles decide group membership without exposing them in public dossiers or public authoring previews.
 - The same named points/regions can support entity-spawn bindings. Which entities, counts and escalation rules belong to the scenario's spawn handler; merely saving an area must not start an encounter or spawn animals automatically.

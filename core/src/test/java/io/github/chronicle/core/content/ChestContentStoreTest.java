@@ -12,6 +12,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChestContentStoreTest {
     @TempDir Path directory;
@@ -59,6 +60,41 @@ class ChestContentStoreTest {
         String missingBindingPending = "{\"schemaVersion\":1,\"revision\":3,\"templates\":[{\"id\":\"kit\",\"revision\":1,\"contents\":{\"size\":1,\"stacks\":[\"{}\"]}}],\"bindings\":[],\"receipts\":[],\"pending\":[{\"operationId\":\"00000000-0000-0000-0000-000000000001\",\"actorUuid\":\"00000000-0000-0000-0000-000000000002\",\"actorName\":\"op\",\"bindingId\":\"cache\",\"bindingRevision\":2,\"sessionNumber\":1,\"target\":{\"anchorId\":\"quiet_below:forge\",\"anchorRevision\":8,\"dimension\":\"minecraft:overworld\",\"x\":0,\"y\":64,\"z\":0,\"expectedBlock\":\"minecraft:barrel\"},\"before\":{\"size\":1,\"stacks\":[\"{}\"]},\"after\":{\"size\":1,\"stacks\":[\"{\\\"id\\\":\\\"minecraft:diamond\\\",\\\"count\\\":1}\"]},\"createdAt\":\"2026-10-19T12:00:00Z\"}]}";
         Files.writeString(file, missingBindingPending);
         assertThrows(IOException.class, new ChestContentStore(file)::load);
+    }
+
+    @Test
+    void schemaOneMigratesOnSaveAndPreservesTheOriginalAsAValidBackup() throws IOException {
+        Path file = directory.resolve("legacy.json");
+        String schemaOne = "{\"schemaVersion\":1,\"revision\":2,\"templates\":[{\"id\":\"kit\",\"revision\":1,\"contents\":{\"size\":1,\"stacks\":[\"{}\"]}}],\"bindings\":[{\"id\":\"cache\",\"revision\":2,\"templateId\":\"kit\",\"templateRevision\":1,\"anchorId\":\"quiet_below:forge\",\"anchorRevision\":8,\"policy\":\"MANUAL\"}],\"receipts\":[],\"pending\":[]}";
+        Files.writeString(file, schemaOne);
+        ChestContentStore store = new ChestContentStore(file);
+        ChestContentState migrated = store.load();
+        assertEquals(LootSchedule.empty(), migrated.schedule());
+        store.save(migrated);
+
+        String schemaTwo = Files.readString(file);
+        assertTrue(schemaTwo.contains("\"schemaVersion\":2"));
+        assertTrue(schemaTwo.contains("\"schedule\""));
+        assertEquals(schemaOne, Files.readString(file.resolveSibling("legacy.json.bak")));
+        assertEquals(migrated, new ChestContentStore(file).load());
+        assertEquals(migrated, new ChestContentStore(file.resolveSibling("legacy.json.bak")).load());
+    }
+
+    @Test
+    void schemaTwoRoundTripsTypedBindingCyclesAndSchedule() throws IOException {
+        Path file = directory.resolve("typed.json");
+        ChestContentStore store = new ChestContentStore(file);
+        ChestTarget physical = new ChestTarget("temporary", 1, "minecraft:overworld", 7, 64, 9, "minecraft:barrel");
+        ChestBinding binding = ChestBinding.typed("chest_00000000000000000000000000000000", 1, "quiet_below:mine", physical);
+        InventorySnapshot snapshot = new InventorySnapshot(1, List.of("{}"));
+        PendingChestOperation pending = new PendingChestOperation(UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+                "operator", binding.id(), binding.revision(), 4, 2, binding.directTarget(), snapshot, snapshot,
+                "2026-10-19T12:00:00Z");
+        ChestContentState state = new ChestContentState(1, Map.of(), Map.of(binding.id(), binding), List.of(),
+                Map.of(pending.operationId(), pending), new LootSchedule(4, 10,
+                Map.of("quiet_below:mine", new LootCycle(2, 30, 20))));
+        store.save(state);
+        assertEquals(state, new ChestContentStore(file).load());
     }
 
     private static ChestContentState state(boolean withPending) {

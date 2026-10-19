@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Typed loot chest revision - 19 October 2026
+
+Operator confirms the persistent outline/chat-role menu and rejects captured templates/separate anchor assignment as the main chest workflow. Core must bind a targeted chest and its registered type in one step. Campaigns register default type distributions and recommended minimum counts; editable server JSON can override/add types. The operator confirms independent per-entry percentages, filling at each new session plus an optional interval every X minutes, and replacing ALL contents at a scheduled fill. These are managed loot containers; legacy captured data/recovery stays compatible, without being a prerequisite. M7_LOOT_TYPES.md replaces the previous chest UX contract. The Vampire SMP artifact was reinspected for its location list/distribution split, not installed or copied.
+
 ## M6 feedback and M7 first slice - 19 October 2026
 
 The operator tested M6 and accepted selection geometry, requesting an outline that remains visible while walking and submod-registered IDs selectable from a menu. Replace the five-second timeout with explicit clearing; private previews remain dimension/connection scoped and author previews clear on ACTIVE. Core exposes a typed startup catalog; each campaign registers its own location roles. The first interface is clickable chat plus completion, with Set/Replace commands suggested for explicit submission. Legacy flat IDs stay readable; namespaced command strings are quoted. The preview channel is versioned so an older client receives the matching-pack notice instead of silently retaining the old timeout.

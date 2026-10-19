@@ -3,6 +3,7 @@ package io.github.chronicle.core.content;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonParser;
 import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
@@ -26,9 +27,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-/** Strict, atomic schema-1 persistence. Stack codec JSON is stored as bounded opaque strings. */
+/** Strict, atomic schema-2 persistence with read-only schema-1 migration support. */
 public final class ChestContentStore implements ChestContentRepository {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
     private static final int MAX_JSON_DEPTH = 32;
     private final Path file;
@@ -121,19 +122,23 @@ public final class ChestContentStore implements ChestContentRepository {
             object.addProperty("id", binding.id()); object.addProperty("revision", binding.revision());
             object.addProperty("templateId", binding.templateId()); object.addProperty("templateRevision", binding.templateRevision());
             object.addProperty("anchorId", binding.anchorId()); object.addProperty("anchorRevision", binding.anchorRevision());
-            object.addProperty("policy", binding.policy().name()); bindings.add(object);
+            object.addProperty("policy", binding.policy().name()); object.addProperty("lootType", binding.lootType());
+            object.add("directTarget", binding.directTarget() == null ? JsonNull.INSTANCE : target(binding.directTarget()));
+            bindings.add(object);
         });
         root.add("bindings", bindings);
         JsonArray receipts = new JsonArray();
         state.receipts().forEach(receipt -> {
             JsonObject object = new JsonObject();
             object.addProperty("operationId", receipt.operationId()); object.addProperty("bindingId", receipt.bindingId());
-            object.addProperty("sessionNumber", receipt.sessionNumber()); object.addProperty("completedAt", receipt.completedAt()); receipts.add(object);
+            object.addProperty("sessionNumber", receipt.sessionNumber()); object.addProperty("cycle", receipt.cycle());
+            object.addProperty("completedAt", receipt.completedAt()); receipts.add(object);
         });
         root.add("receipts", receipts);
         JsonArray pending = new JsonArray();
         state.pending().values().forEach(operation -> pending.add(operation(operation)));
         root.add("pending", pending);
+        root.add("schedule", schedule(state.schedule()));
         return root.toString();
     }
 
@@ -154,8 +159,24 @@ public final class ChestContentStore implements ChestContentRepository {
         JsonObject object = new JsonObject();
         object.addProperty("operationId", operation.operationId()); object.addProperty("actorUuid", operation.actorUuid()); object.addProperty("actorName", operation.actorName());
         object.addProperty("bindingId", operation.bindingId()); object.addProperty("bindingRevision", operation.bindingRevision());
-        object.addProperty("sessionNumber", operation.sessionNumber()); object.add("target", target(operation.target()));
+        object.addProperty("sessionNumber", operation.sessionNumber()); object.addProperty("cycle", operation.cycle()); object.add("target", target(operation.target()));
         object.add("before", snapshot(operation.before())); object.add("after", snapshot(operation.after())); object.addProperty("createdAt", operation.createdAt());
+        return object;
+    }
+
+    private static JsonObject schedule(LootSchedule schedule) {
+        JsonObject object = new JsonObject();
+        object.addProperty("sessionNumber", schedule.sessionNumber());
+        object.addProperty("activeTicks", schedule.activeTicks());
+        JsonObject types = new JsonObject();
+        schedule.types().forEach((id, cycle) -> {
+            JsonObject value = new JsonObject();
+            value.addProperty("generation", cycle.generation());
+            value.addProperty("nextRefillTick", cycle.nextRefillTick());
+            value.addProperty("intervalTicks", cycle.intervalTicks());
+            types.add(id, value);
+        });
+        object.add("types", types);
         return object;
     }
 
@@ -166,8 +187,11 @@ public final class ChestContentStore implements ChestContentRepository {
             reader.setStrictness(Strictness.STRICT); parsed = JsonParser.parseReader(reader);
             if (reader.peek() != JsonToken.END_DOCUMENT) throw new IllegalArgumentException("unexpected trailing JSON content");
         } catch (IOException exception) { throw new IllegalArgumentException("unable to read chest content JSON", exception); }
-        JsonObject root = object(parsed, "root"); exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending"), "root");
-        if (integer(required(root, "schemaVersion"), "schemaVersion") != SCHEMA_VERSION) throw new IllegalArgumentException("unsupported chest content schema");
+        JsonObject root = object(parsed, "root");
+        int schema = integer(required(root, "schemaVersion"), "schemaVersion");
+        if (schema == 1) exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending"), "root");
+        else if (schema == SCHEMA_VERSION) exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending", "schedule"), "root");
+        else throw new IllegalArgumentException("unsupported chest content schema");
         long revision = number(required(root, "revision"), "revision");
         Map<String, ChestTemplate> templates = new LinkedHashMap<>();
         for (JsonElement value : array(required(root, "templates"), "templates")) {
@@ -177,35 +201,72 @@ public final class ChestContentStore implements ChestContentRepository {
         }
         Map<String, ChestBinding> bindings = new LinkedHashMap<>();
         for (JsonElement value : array(required(root, "bindings"), "bindings")) {
-            JsonObject item = object(value, "binding"); exact(item, Set.of("id", "revision", "templateId", "templateRevision", "anchorId", "anchorRevision", "policy"), "binding");
+            JsonObject item = object(value, "binding");
+            if (schema == 1) exact(item, Set.of("id", "revision", "templateId", "templateRevision", "anchorId", "anchorRevision", "policy"), "binding");
+            else exact(item, Set.of("id", "revision", "templateId", "templateRevision", "anchorId", "anchorRevision", "policy", "lootType", "directTarget"), "binding");
             ChestPolicy policy;
             try { policy = ChestPolicy.valueOf(string(required(item, "policy"), "binding policy")); }
             catch (IllegalArgumentException exception) { throw new IllegalArgumentException("unknown chest policy", exception); }
-            ChestBinding binding = new ChestBinding(string(required(item, "id"), "binding id"), number(required(item, "revision"), "binding revision"),
-                    string(required(item, "templateId"), "template ID"), number(required(item, "templateRevision"), "template revision"),
-                    string(required(item, "anchorId"), "anchor ID"), number(required(item, "anchorRevision"), "anchor revision"), policy);
+            ChestBinding binding;
+            if (schema == 1) {
+                binding = new ChestBinding(string(required(item, "id"), "binding id"), number(required(item, "revision"), "binding revision"),
+                        string(required(item, "templateId"), "template ID"), number(required(item, "templateRevision"), "template revision"),
+                        string(required(item, "anchorId"), "anchor ID"), number(required(item, "anchorRevision"), "anchor revision"), policy);
+            } else {
+                String lootType = nullableString(item, "lootType", "loot type");
+                ChestTarget directTarget = nullableTarget(item, "directTarget");
+                String templateId = nullableString(item, "templateId", "template ID");
+                binding = new ChestBinding(string(required(item, "id"), "binding id"), number(required(item, "revision"), "binding revision"),
+                        templateId, number(required(item, "templateRevision"), "template revision"),
+                        string(required(item, "anchorId"), "anchor ID"), number(required(item, "anchorRevision"), "anchor revision"), policy,
+                        lootType, directTarget);
+            }
             unique(bindings, binding.id(), binding, "binding");
         }
         var receipts = new ArrayList<ChestReceipt>();
         for (JsonElement value : array(required(root, "receipts"), "receipts")) {
-            JsonObject item = object(value, "receipt"); exact(item, Set.of("operationId", "bindingId", "sessionNumber", "completedAt"), "receipt");
+            JsonObject item = object(value, "receipt");
+            if (schema == 1) exact(item, Set.of("operationId", "bindingId", "sessionNumber", "completedAt"), "receipt");
+            else exact(item, Set.of("operationId", "bindingId", "sessionNumber", "cycle", "completedAt"), "receipt");
             receipts.add(new ChestReceipt(string(required(item, "operationId"), "operation ID"), string(required(item, "bindingId"), "binding ID"),
-                    integer(required(item, "sessionNumber"), "session number"), string(required(item, "completedAt"), "completion time")));
+                    integer(required(item, "sessionNumber"), "session number"), schema == 1 ? -1 : number(required(item, "cycle"), "receipt cycle"),
+                    string(required(item, "completedAt"), "completion time")));
         }
         Map<String, PendingChestOperation> pending = new LinkedHashMap<>();
         for (JsonElement value : array(required(root, "pending"), "pending")) {
-            PendingChestOperation operation = operation(value); unique(pending, operation.operationId(), operation, "pending operation");
+            PendingChestOperation operation = operation(value, schema); unique(pending, operation.operationId(), operation, "pending operation");
         }
-        return new ChestContentState(revision, templates, bindings, receipts, pending);
+        LootSchedule schedule = schema == 1 ? LootSchedule.empty() : schedule(required(root, "schedule"));
+        return new ChestContentState(revision, templates, bindings, receipts, pending, schedule);
     }
 
-    private static PendingChestOperation operation(JsonElement value) {
+    private static PendingChestOperation operation(JsonElement value, int schema) {
         JsonObject item = object(value, "pending operation");
-        exact(item, Set.of("operationId", "actorUuid", "actorName", "bindingId", "bindingRevision", "sessionNumber", "target", "before", "after", "createdAt"), "pending operation");
+        if (schema == 1) exact(item, Set.of("operationId", "actorUuid", "actorName", "bindingId", "bindingRevision", "sessionNumber", "target", "before", "after", "createdAt"), "pending operation");
+        else exact(item, Set.of("operationId", "actorUuid", "actorName", "bindingId", "bindingRevision", "sessionNumber", "cycle", "target", "before", "after", "createdAt"), "pending operation");
         return new PendingChestOperation(string(required(item, "operationId"), "operation ID"), string(required(item, "actorUuid"), "actor UUID"),
                 string(required(item, "actorName"), "actor name"), string(required(item, "bindingId"), "binding ID"),
                 number(required(item, "bindingRevision"), "binding revision"), integer(required(item, "sessionNumber"), "session number"),
+                schema == 1 ? -1 : number(required(item, "cycle"), "operation cycle"),
                 target(required(item, "target")), snapshot(required(item, "before")), snapshot(required(item, "after")), string(required(item, "createdAt"), "creation time"));
+    }
+
+    private static LootSchedule schedule(JsonElement value) {
+        JsonObject item = object(value, "schedule");
+        exact(item, Set.of("sessionNumber", "activeTicks", "types"), "schedule");
+        JsonObject values = object(required(item, "types"), "schedule types");
+        if (values.size() > LootSchedule.MAX_TYPES) throw new IllegalArgumentException("schedule types exceed " + LootSchedule.MAX_TYPES);
+        LinkedHashMap<String, LootCycle> cycles = new LinkedHashMap<>();
+        values.entrySet().forEach(entry -> {
+            ContentIds.requireNamespacedId(entry.getKey(), "loot type");
+            JsonObject cycle = object(entry.getValue(), "loot cycle");
+            exact(cycle, Set.of("generation", "nextRefillTick", "intervalTicks"), "loot cycle");
+            cycles.put(entry.getKey(), new LootCycle(number(required(cycle, "generation"), "loot generation"),
+                    number(required(cycle, "nextRefillTick"), "next refill tick"),
+                    number(required(cycle, "intervalTicks"), "refill interval")));
+        });
+        return new LootSchedule(integer(required(item, "sessionNumber"), "schedule session"),
+                number(required(item, "activeTicks"), "schedule active ticks"), cycles);
     }
 
     private static ChestTarget target(JsonElement value) {
@@ -213,6 +274,12 @@ public final class ChestContentStore implements ChestContentRepository {
         return new ChestTarget(string(required(item, "anchorId"), "anchor ID"), number(required(item, "anchorRevision"), "anchor revision"),
                 string(required(item, "dimension"), "dimension"), integer(required(item, "x"), "x"), integer(required(item, "y"), "y"), integer(required(item, "z"), "z"),
                 string(required(item, "expectedBlock"), "expected block"));
+    }
+
+    private static ChestTarget nullableTarget(JsonObject object, String field) {
+        JsonElement value = object.get(field);
+        if (value == null) throw new IllegalArgumentException("missing " + field);
+        return value.isJsonNull() ? null : target(value);
     }
 
     private static InventorySnapshot snapshot(JsonElement value) {
@@ -245,6 +312,7 @@ public final class ChestContentStore implements ChestContentRepository {
     private static JsonObject object(JsonElement value, String field) { if (value == null || !value.isJsonObject()) throw new IllegalArgumentException(field + " must be an object"); return value.getAsJsonObject(); }
     private static JsonArray array(JsonElement value, String field) { if (value == null || !value.isJsonArray()) throw new IllegalArgumentException(field + " must be an array"); return value.getAsJsonArray(); }
     private static String string(JsonElement value, String field) { if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) throw new IllegalArgumentException(field + " must be a string"); return value.getAsString(); }
+    private static String nullableString(JsonObject object, String name, String field) { JsonElement value = object.get(name); if (value == null) throw new IllegalArgumentException("missing " + name); return value.isJsonNull() ? null : string(value, field); }
     private static int integer(JsonElement value, String field) { long result = number(value, field); if (result < Integer.MIN_VALUE || result > Integer.MAX_VALUE) throw new IllegalArgumentException(field + " is outside integer range"); return (int) result; }
     private static long number(JsonElement value, String field) { if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) throw new IllegalArgumentException(field + " must be an integer"); String source = value.getAsString(); if (!source.matches("-?(0|[1-9][0-9]*)")) throw new IllegalArgumentException(field + " must be an integer"); try { return Long.parseLong(source); } catch (NumberFormatException exception) { throw new IllegalArgumentException(field + " is outside long range", exception); } }
     private static void exact(JsonObject object, Set<String> fields, String label) { if (!object.keySet().equals(fields)) throw new IllegalArgumentException(label + " fields must be exactly " + fields); }

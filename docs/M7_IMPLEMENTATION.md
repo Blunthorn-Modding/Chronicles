@@ -1,5 +1,7 @@
 # M7 — reusable content and spawn tools
 
+> Superseded chest UX: the operator accepted persistent outlines and registered chat choices, but rejected capture/template-first authoring. [M7_LOOT_TYPES](M7_LOOT_TYPES.md) is the current chest contract: one-step typed target binding, independent loot percentages, campaign defaults/server overrides, session-start and optional periodic full replacement. This document records the original slice and legacy recovery behavior.
+
 Implementation contract, 19 October 2026. Operator feedback accepts M6's geometry approach and requests persistent previews plus campaign-registered choices. These fixes precede M7 on the same scoped branch. Existing worlds/IDs stay readable; no growth, lore or scheduled revelations are enabled.
 
 ## Authoring corrections

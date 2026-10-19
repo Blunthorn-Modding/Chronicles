@@ -51,6 +51,27 @@ def _stage(w):
     return root
 
 
+def _loot_fixture(root):
+    loot = root / 'config/chronicle'
+    loot.mkdir(parents=True)
+    # Explicit test overrides, never copied from or applied to the play server.
+    def loot_type(identifier, label, interval, entries):
+        return {'id': identifier, 'label': label, 'description': 'Disposable deterministic test type',
+                'recommendedChests': 2, 'refillMinutes': interval, 'entries': entries}
+    def entry(item, chance, count, components=None):
+        result = {'item': item, 'chancePercent': chance, 'minCount': count, 'maxCount': count}
+        if components is not None:
+            result['components'] = components
+        return result
+    (loot / 'chest-loot.json').write_text(json.dumps({'schemaVersion': 1, 'types': [
+        loot_type('quiet_below:settlement_supplies', 'Fixture supplies', 0, [
+            entry('minecraft:bread', 100, 4, {'minecraft:custom_name': 'Typed supply'}),
+            entry('minecraft:diamond', 0, 1)]),
+        loot_type('test:timed', 'Timed test cache', 0.05, [entry('minecraft:coal', 100, 2)]),
+        loot_type('test:empty', 'All-miss cache', 0, [entry('minecraft:diamond', 0, 1)])
+    ]}), encoding='utf-8')
+
+
 def _java_arg(value):
     value = str(value)
     if any(char in value for char in '\r\n\0'):
@@ -135,6 +156,8 @@ def run(include_content=True, regression=True):
     w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':campaigns:quiet-below:writeSmokeClientLaunch'])
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text())
     root = _stage(w)
+    if regression:
+        _loot_fixture(root)
     reports = w.REPORTS / ('fabric-smoke-' + root.name)
     reports.mkdir(parents=True)
     report = {'world': str(root), 'reports': str(reports), 'minecraft': w.LOCK['minecraft'],
@@ -173,14 +196,14 @@ def run(include_content=True, regression=True):
                     raise RuntimeError('M6 authoring registry revision/type persistence mismatch')
                 report['checks'].append(phase + ': M6 metadata commands, permissions and durable region/location/anchor checks passed')
                 chest = json.loads((root / 'world/chronicle/chest-content.json').read_text(encoding='utf-8'))
-                if len(chest['templates']) != 1 or len(chest['bindings']) != 1 or len(chest['receipts']) != 1 or chest['pending']:
+                if len(chest['templates']) != 1 or len(chest['bindings']) != 4 or len(chest['receipts']) != 4 or chest['pending']:
                     raise RuntimeError('M7 chest templates/receipts/pending persistence mismatch')
                 if 'Chronicle supply' not in chest['templates'][0]['contents']['stacks'][0]:
                     raise RuntimeError('M7 item components lost in captured template')
                 spawns = json.loads((root / 'world/chronicle/spawns.json').read_text(encoding='utf-8'))
                 if len(spawns['bindings']) != 1 or spawns['bindings'][0]['locationId'] != 'smoke_arrival':
                     raise RuntimeError('M7 spawn binding persistence mismatch')
-                report['checks'].append(phase + ': M7 chest components/once receipt and safe named player move persistence passed')
+                report['checks'].append(phase + ': typed loot session/timer replacement, components/cycle persistence and legacy/spawn checks passed')
                 state = json.loads((root / 'world/chronicle/campaign-state.json').read_text())
                 expected = ('PAUSED', 1) if phase == 'initial' else ('ENDED', 2)
                 if (state['phase'], state['sessionNumber']) != expected:
@@ -208,14 +231,14 @@ def run(include_content=True, regression=True):
                 # interruption before the content receipt was committed.
                 content_file = root / 'world/chronicle/chest-content.json'
                 chest = json.loads(content_file.read_text(encoding='utf-8'))
-                binding = chest['bindings'][0]
+                binding = next(binding for binding in chest['bindings'] if binding['id'] == 'smoke_stock')
                 anchor = next(site for site in authoring['sites'] if site['id'] == binding['anchorId'])
                 contents = chest['templates'][0]['contents']
-                chest['receipts'] = []
+                chest['receipts'] = [receipt for receipt in chest['receipts'] if receipt['bindingId'] != 'smoke_stock']
                 chest['pending'] = [{
                     'operationId': '00000000-0000-0000-0000-000000000007',
                     'actorUuid': offline_uuid('ChronicleFabricA'), 'actorName': 'ChronicleFabricA',
-                    'bindingId': binding['id'], 'bindingRevision': binding['revision'], 'sessionNumber': 1,
+                    'bindingId': binding['id'], 'bindingRevision': binding['revision'], 'sessionNumber': 1, 'cycle': -1,
                     'target': {'anchorId': anchor['id'], 'anchorRevision': anchor['revision'],
                                'dimension': anchor['dimension'], 'x': anchor['position']['x'],
                                'y': anchor['position']['y'], 'z': anchor['position']['z'],

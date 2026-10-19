@@ -20,3 +20,11 @@ The inspected entry points demonstrate named points and radius-based beacon site
 Adopt the interaction pattern: build the place, select/register it in-game, bind a purpose, inspect and save. Put reusable regions, location/block anchors, chest/spawn configuration and authoring permissions in Chronicle Core. Keep sculk progression, forge recipes and campaign-specific effects in Quiet Below. Use Fabric-native implementation; this reference does not call for a Paper compatibility layer, a wholesale port, copied faction rules or its fixed map coordinates.
 
 See the revised [in-world authoring plan](MAP_AUTHORING.md). No third-party source, plugin binary or new dependency is included in the repository by this documentation change.
+
+## Chest-distribution reinspection - 19 October 2026
+
+Rechecked the same supplied artifact after the operator rejected capture/template-first authoring. `CommandHandler.handleAddTomeChestCommand` calls `TomeDistributionManager.addTomeLocation` with the player location, saves the list through ConfigManager and places a chest at that location. `ConfigManager.addTomeChestLocation` rejects duplicate coordinates and saves `tome-chests.locations`. This supports the desired one-step location/purpose workflow rather than Chronicle's separate anchor/template prerequisites.
+
+The packaged config has `tome-distribution-interval-minutes: 20`, a chest location list, and `cure_books_spawn_chance: 0.3`. `TomeDistributionManager.distributeTomes` returns unless the reference session state is active, clears registered tome chests, selects random locations/types, distributes tomes, adds enchanted books to remaining locations, then applies its cure-book chance. This is a scenario-specific distribution algorithm, not an existing generic percentage-per-entry profile editor. The findings come from config and `javap -c -p` bytecode, not from running the Paper plugin.
+
+Chronicle adopts direct typed binding plus separately editable distributions. The operator explicitly confirms independent percentages, fills at a new session, optional periodic refills and replacement of **all** bound chest contents. Core supplies the registry/config/scheduler; campaigns supply defaults and recommendations. No reference binary, fixed coordinates, factions, forced loading or copied source is installed.

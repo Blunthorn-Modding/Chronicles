@@ -198,9 +198,11 @@ public final class FabricRegressionSmoke {
     }
 
     private void initialA(MinecraftClient client) {
+        long[] pausedLootCycle = new long[1];
         waitForMarker("wait for B unauthorized denial", marker("B", "initial", "denied"));
         initialAuthoring(client);
         initialContentAuthoring(client);
+        setupTypedLoot(client);
         actionbar("inactive actionbar", "Chronicle | Session 0: Inactive | World frozen");
         timeQuery(client, "capture frozen time", value -> firstTime = value);
         movement(client, "player moves while inactive and frozen");
@@ -210,6 +212,8 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "start session 1", "chronicle session start 1", "^Started Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
         actionbar("active session 1 actionbar", "Chronicle | Session 1: Active");
+        delay("allow queued session-start loot batch", 1_300);
+        verifyTypedStart(client);
         exerciseContent(client);
         Path authoring = serverRoot.resolve("world/chronicle/authoring.json");
         capture("authoring before ACTIVE rejection", authoring);
@@ -243,6 +247,12 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "pause session 1", "chronicle session pause", "^Paused Chronicle session 1\\.$", () -> assertCampaign("PAUSED", 1));
         actionbar("paused session 1 actionbar", "Chronicle | Session 1: Paused | World frozen");
+        check("capture cycle before paused refill wait", () -> pausedLootCycle[0] = typedReceipt("test:timed").get("cycle").getAsLong());
+        capture("paused loot clock", serverRoot.resolve("world/chronicle/chest-content.json"));
+        command(client, "put sentinel in managed timed chest while paused", "item replace block 26 -60 16 container.0 with minecraft:stone 1", ".*Replaced.*");
+        delay("pause lasts longer than configured refill interval", 3_500);
+        unchanged("paused scheduler does not advance persisted clock", "paused loot clock", serverRoot.resolve("world/chronicle/chest-content.json"));
+        command(client, "paused timed chest is not refilled", "data get block 26 -60 16 Items", ".*minecraft:stone.*");
         timeQuery(client, "capture paused time", value -> firstTime = value);
         delay("observe paused time freeze", 1_100);
         timeQuery(client, "capture paused time after delay", value -> secondTime = value);
@@ -262,6 +272,9 @@ public final class FabricRegressionSmoke {
         pigYQuery(client, "capture active pig Y", value -> secondPigY = value);
         check("tagged pig falls while active", () -> require(secondPigY < firstPigY - 0.1,
                 "tagged pig did not fall after resume: " + firstPigY + " -> " + secondPigY));
+        delay("allow resumed active refill timer", 3_500);
+        command(client, "timer replaces contents after resume", "data get block 26 -60 16 Items", "^(?!.*minecraft:stone).*minecraft:coal.*$");
+        check("resumed timer advances its generation", () -> require(typedReceipt("test:timed").get("cycle").getAsLong() > pausedLootCycle[0], "periodic refill did not advance generation after resume"));
         command(client, "remove only uniquely tagged pig",
                 "kill @e[type=minecraft:pig,tag=chronicle_fabric_smoke,limit=1]", ".*killed.*");
         mutation(client, "leave session 1 paused", "chronicle session pause", "^Paused Chronicle session 1\\.$", () -> assertCampaign("PAUSED", 1));
@@ -288,6 +301,7 @@ public final class FabricRegressionSmoke {
             assertProfile(FABRIC_B, "Fabric B", "", "", 1);
             assertAudit(INITIAL_AUDIT);
         });
+        command(client, "save restart sentinel in session-only chest", "item replace block 24 -60 16 container.0 with minecraft:emerald 1", ".*Replaced.*");
         markerTask("publish initial final marker", marker("A", "initial", "final"));
     }
 
@@ -305,7 +319,8 @@ public final class FabricRegressionSmoke {
                 "chronicle author region save forbidden", "chronicle author location save forbidden here",
                 "chronicle author block bind forbidden target", "chronicle author remove smoke_city",
                 "chronicle author show smoke_city", "chronicle author list",
-                "chronicle author chest capture forbidden", "chronicle chest status", "chronicle spawn list")) {
+                "chronicle author chest legacy capture forbidden", "chronicle chest status", "chronicle spawn list",
+                "chronicle author chest", "chronicle author chest bind \"test:timed\"", "chronicle author chest reload")) {
             delay("respect vanilla non-op command rate: " + command, 1_100);
             command(client, "non-op denied: " + command, command, UNAUTHORIZED_REPLY, matcher -> { });
         }
@@ -343,10 +358,11 @@ public final class FabricRegressionSmoke {
     private void restartA(MinecraftClient client) {
         check("authoring persists all three site types across restart", this::assertAuthoring);
         actionbar("restart pending-fill status is visible", "Chronicle | Session 1: Paused | World frozen: A Chronicle chest fill is unresolved; use /chronicle chest status and recover it before play continues.");
-        command(client, "restart retains uncertain fill intent", "chronicle chest status", ".*templates=1; bindings=1; receipts=0; pending=1.*");
+        command(client, "restart retains uncertain fill intent", "chronicle chest status", ".*templates=1; bindings=4; receipts=3; pending=1.*");
         command(client, "recover persisted after without replay", "chronicle chest recover 00000000-0000-0000-0000-000000000007", ".*applied contents verified; durable receipt recorded.*");
-        command(client, "recovered receipt survives uncertainty", "chronicle chest status", ".*templates=1; bindings=1; receipts=1; pending=0.*");
+        command(client, "recovered receipt survives uncertainty", "chronicle chest status", ".*templates=1; bindings=4; receipts=4; pending=0.*");
         command(client, "recovery preserves item components", "data get block 16 -60 16 Items", ".*Chronicle supply.*");
+        command(client, "restart preserves session-only sentinel", "data get block 24 -60 16 Items", ".*minecraft:emerald.*");
         command(client, "spawn binding survives restart", "chronicle spawn inspect \"chronicle_core:arrival\"", ".*smoke_arrival.*safety=safe.*");
         command(client, "author mode is not restored on restart", "chronicle author remove smoke_city", ".*Enable author mode first.*");
         command(client, "persisted region can be shown", "chronicle author show smoke_city", ".*region smoke_city.*volume=36.*validation=valid.*");
@@ -366,8 +382,13 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "restart resume session 1", "chronicle session resume", "^Resumed Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
         actionbar("restart active actionbar", "Chronicle | Session 1: Active");
+        delay("resume does not create another session-start cycle", 1_300);
+        command(client, "resume preserves session-only chest contents", "data get block 24 -60 16 Items", ".*minecraft:emerald.*");
         mutation(client, "end session 1", "chronicle session end", "^Ended Chronicle session 1\\.$", () -> assertCampaign("ENDED", 1));
         mutation(client, "start default session 2", "chronicle session start", "^Started Chronicle session 2\\.$", () -> assertCampaign("ACTIVE", 2));
+        delay("new session queues fresh typed loot", 1_300);
+        command(client, "new session replaces old contents", "data get block 24 -60 16 Items", "^(?!.*minecraft:emerald)(?!.*minecraft:cobblestone).*Typed supply.*$");
+        check("session two receipts record new session", () -> require(typedReceipt("quiet_below:settlement_supplies").get("sessionNumber").getAsInt() == 2, "new session did not refill typed chest"));
         mutation(client, "end session 2", "chronicle session end", "^Ended Chronicle session 2\\.$", () -> assertCampaign("ENDED", 2));
         actionbar("ended session 2 actionbar", "Chronicle | Session 2: Ended | World frozen");
         timeQuery(client, "capture ended time", value -> firstTime = value);
@@ -491,13 +512,62 @@ public final class FabricRegressionSmoke {
         // Leave author mode on: starting play must clear it, not let later pause resurrect it.
     }
 
+    private void setupTypedLoot(MinecraftClient client) {
+        command(client, "open campaign loot type picker", "chronicle author chest", ".*Loot types=5.*");
+        check("menu shows server override and campaign recommendations", () -> require(messages.stream().anyMatch(message -> message.text.contains("Fixture supplies") && message.text.contains("recommended=2")), "loot type override/count missing from picker"));
+        String[] types = {"quiet_below:settlement_supplies", "test:timed", "test:empty"};
+        for (int i = 0; i < types.length; i++) {
+            int x = 24 + i * 2;
+            command(client, "place typed fixture " + x, "setblock " + x + " -60 16 minecraft:chest", ".*Changed the block.*");
+            command(client, "seed replaceable contents " + x, "item replace block " + x + " -60 16 container.0 with minecraft:cobblestone 1", ".*Replaced.*");
+            command(client, "look at typed fixture " + x, "tp @s " + (x + .5) + " -58 16.5 0 90", ".*Teleported.*");
+            command(client, "one step target and type " + types[i], "chronicle author chest bind \"" + types[i] + "\"", ".*Bound loot chest.*to " + types[i] + ".*binding changed no items.*");
+            command(client, "binding preserves existing items " + x, "data get block " + x + " -60 16 Items", ".*minecraft:cobblestone.*");
+            command(client, "inspect saved loot type " + x, "chronicle author chest inspect", ".*type=" + types[i] + ".*");
+        }
+        command(client, "duplicate target bind is explicit", "chronicle author chest bind \"test:empty\"", ".*already exists.*");
+        command(client, "loot counts are advisory", "chronicle author chest validate", ".*type shortages=[1-9].*Recommendations are advisory.*");
+        Path config = serverRoot.resolve("config/chronicle/chest-loot.json");
+        String[] original = new String[1];
+        check("prepare invalid server loot override", () -> {
+            original[0] = Files.readString(config);
+            Files.writeString(config, original[0].replace("minecraft:bread", "minecraft:not_an_item"));
+        });
+        command(client, "registry validation rejects bad reload", "chronicle author chest reload", ".*Unknown loot item.*minecraft:not_an_item.*");
+        check("restore valid fixture config", () -> Files.writeString(config, original[0]));
+        command(client, "reload whole valid candidate", "chronicle author chest reload", ".*Reloaded 5 loot types.*not reset.*");
+        check("direct type binding does not add named map anchors", this::assertAuthoring);
+    }
+
+    private void verifyTypedStart(MinecraftClient client) {
+        command(client, "start fill uses configured item components", "data get block 24 -60 16 Items", "^(?!.*minecraft:emerald)(?!.*minecraft:cobblestone).*Typed supply.*$");
+        command(client, "zero percent entries produce a valid empty chest", "data get block 28 -60 16 Items", ".*\\[\\].*");
+        command(client, "typed edits refused while active", "chronicle author chest bind \"test:timed\"", ".*require non-active author mode.*");
+        check("session-start type receipts and timer configuration persisted", () -> {
+            require(typedReceipt("quiet_below:settlement_supplies").get("cycle").getAsLong() == 0, "session-only chest cycle mismatch");
+            require(typedReceipt("test:empty").get("cycle").getAsLong() == 0, "empty rolled result was not consumed");
+        });
+    }
+
+    private JsonObject typedReceipt(String type) throws IOException {
+        JsonObject state = JsonParser.parseString(Files.readString(serverRoot.resolve("world/chronicle/chest-content.json"))).getAsJsonObject();
+        String id = null;
+        for (JsonElement value : state.getAsJsonArray("bindings")) {
+            JsonObject binding = value.getAsJsonObject();
+            if (binding.has("lootType") && !binding.get("lootType").isJsonNull() && binding.get("lootType").getAsString().equals(type)) id = binding.get("id").getAsString();
+        }
+        require(id != null, "typed binding missing: " + type);
+        for (JsonElement value : state.getAsJsonArray("receipts")) if (value.getAsJsonObject().get("bindingId").getAsString().equals(id)) return value.getAsJsonObject();
+        throw new IllegalStateException("typed receipt missing: " + type);
+    }
+
     private void initialContentAuthoring(MinecraftClient client) {
         command(client, "look at chest for template capture", "tp @s 16.5 -58 16.5 0 90", ".*Teleported.*");
         command(client, "prepare named fixture supply", "item replace block 16 -60 16 container.0 with minecraft:diamond[minecraft:custom_name='Chronicle supply'] 7", ".*Replaced.*");
-        command(client, "capture reusable contents", "chronicle author chest capture smoke_supply", ".*Captured chest template smoke_supply.*slots=27.*");
+        command(client, "capture reusable contents", "chronicle author chest legacy capture smoke_supply", ".*Captured chest template smoke_supply.*slots=27.*");
         command(client, "capture preserves source components", "data get block 16 -60 16 Items", ".*Chronicle supply.*");
         command(client, "clear disposable source for fill test", "item replace block 16 -60 16 container.0 with minecraft:air", ".*Replaced.*");
-        command(client, "bind once per campaign chest", "chronicle author chest bind smoke_stock smoke_chest smoke_supply once_campaign", ".*Bound chest smoke_stock.*once_campaign.*");
+        command(client, "bind once per campaign chest", "chronicle author chest legacy bind smoke_stock smoke_chest smoke_supply once_campaign", ".*Bound chest smoke_stock.*once_campaign.*");
         command(client, "bind manual arrival purpose", "chronicle spawn bind \"chronicle_core:arrival\" smoke_arrival", ".*Bound chronicle_core:arrival.*No player was moved.*");
         command(client, "inspect safe arrival", "chronicle spawn inspect \"chronicle_core:arrival\"", ".*safety=safe.*");
         command(client, "inactive fills refused", "chronicle chest preview smoke_stock", ".*require an active Chronicle session.*");
@@ -509,7 +579,7 @@ public final class FabricRegressionSmoke {
         command(client, "journal and apply empty-only fill", "chronicle chest apply smoke_stock", ".*Filled chest smoke_stock.*receipt saved.*");
         command(client, "filled target preserves item components", "data get block 16 -60 16 Items", ".*Chronicle supply.*");
         command(client, "once campaign rejects repeat", "chronicle chest preview smoke_stock", ".*already run in this campaign.*");
-        command(client, "fill receipt has no pending intent", "chronicle chest status", ".*templates=1; bindings=1; receipts=1; pending=0.*");
+        command(client, "fill receipt has no pending intent", "chronicle chest status", ".*templates=1; bindings=4; receipts=4; pending=0.*");
         command(client, "teleport requires preview", "chronicle spawn confirm ChronicleFabricA", ".*Preview this destination.*first.*");
         command(client, "preview exact named player", "chronicle spawn preview \"chronicle_core:arrival\" ChronicleFabricA", ".*Previewed chronicle_core:arrival.*yaw=90.0.*");
         command(client, "block unsafe destination after preview", "setblock 16 -60 18 minecraft:stone", ".*Changed the block.*");

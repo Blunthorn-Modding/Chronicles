@@ -281,6 +281,7 @@ public final class AuthoringCommands {
             source.sendFeedback(() -> Text.empty().append(choice("[Author mode] ", "/chronicle author mode on", "Enter author mode while the session is not active."))
                     .append(choice("[Corner 1] ", "/chronicle author select target1", "Look at the first corner block within six blocks."))
                     .append(choice("[Corner 2] ", "/chronicle author select target2", "Look at the second corner block within six blocks."))
+                    .append(choice("[Loot chests] ", "/chronicle author chest", "Look at a container, then choose its loot type."))
                     .append(choice("[Clear]", "/chronicle author select clear", "Clear the selection and its preview.")), false);
             var roles = ChronicleCore.authoring().roles();
             int pages = Math.max(1, (roles.size() + 15) / 16);
