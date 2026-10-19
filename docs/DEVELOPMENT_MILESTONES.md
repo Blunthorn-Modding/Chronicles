@@ -15,6 +15,8 @@ Do not turn Core's flag-only event callbacks into implicit inventory/world mutat
 
 ## Delivery sequence and review gates
 
+**Current priority: CF-10 design review.** The operator rejects the accumulated menu after M8 and requests a full UI/command mockup before continuing. [CORE_UI_REDESIGN](CORE_UI_REDESIGN.md) audits current controls and reserves future library features; its implementation slices follow review. M9 ecology is not started during this preparation pass.
+
 | Milestone | Result / work IDs | Dependencies | Evidence and review boundary |
 | --- | --- | --- | --- |
 | **M6 — Core key-location authoring** | In the current world select two corners, save/replace named regions, save precise position/facing, target and bind a block, list/show/validate/remove definitions. CF-06, foundation of QB-03/04. | Existing Core | Domain/store tests, full build, real Fabric permissions/restart/outline smoke. Then operator reviews the actual builder workflow; no world mutations or inventory actions. |

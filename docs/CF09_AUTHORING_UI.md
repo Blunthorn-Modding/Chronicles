@@ -1,5 +1,7 @@
 # CF-09: Core authoring interface
 
+Current design checkpoint: the operator rejects the accumulated interface after M8 and requests [CF-10's full menu/command redesign](CORE_UI_REDESIGN.md). This file describes the deployed first screen, not the proposed replacement. No new UI has been installed as part of the design pass.
+
 19 October 2026. Implement the operator's requested proper in-game UI before extending chat authoring. Core owns the screen and protocol; campaigns supply the existing registered roles and loot defaults. Reuse current services and persistence, with no map migration or new story mechanics.
 
 ## First coherent screen

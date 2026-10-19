@@ -4,6 +4,8 @@ Updated 19 October 2026. Stable QB IDs are repository work items, not claims tha
 
 ## Current checkpoint
 
+Latest feedback rejects the accumulated menu after M8 testing. **CF-10 UI/command design review takes priority before further authoring/gameplay implementation.** [The redesign](CORE_UI_REDESIGN.md) contains the current-control audit, left/middle/right mockup, terminology, complete planned-library placement, state-sync diagnosis and staged migration. The design is not installed; existing services/data remain intact.
+
 The operator authorizes implementation after designing [M6–M13](DEVELOPMENT_MILESTONES.md), continuing until a necessary product decision or hands-on review. These are engineering milestones, never a session/event schedule. The agent-built pilot remains a test fixture; M5's production session is not complete. The operator handcrafts the production map.
 
 | ID | Work item | Status | Depends on | Done when |
@@ -39,8 +41,11 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 | CF-07 | Core chest and spawn authoring | Typed loot/manual/automatic player policies accepted; entity groups pending | Operator rejects capture-first chest UX; [typed loot contract](M7_LOOT_TYPES.md) provides direct type binding, campaign defaults/server JSON, independent chances, session/timed full replacements and count recommendations. Manual safe player moves remain; [automatic player policies](M7_AUTOMATIC_SPAWNS.md) add independent opt-in first arrival/death respawn, durable once claims and voluntary leave. Entity groups remain pending. |
 | CF-08 | Shared participation, active clock and opt-in conditions | M8 verified; hands-on review pending | Core supplies author exclusion, eligibility, persistent ACTIVE occupied time, entry/manual/condition cue delivery and completion/audience contracts. Quiet Below chooses observations without a mandatory schedule. |
 | CF-09 | Proper Core authoring UI | Operator accepted; periodic refresh fix verified with M7 policies | [Core screen](CF09_AUTHORING_UI.md) replaces the primary chat workflow for typed chests, saved places, registered roles, manual spawn controls and sessions. Shows mode/phase and prerequisite remedies; reuses validated services with bounded private snapshots and stale-request rejection. Commands remain advanced fallback; probability editing remains JSON and custom IDs remain commands. Review practical screen flow before expanding authoring. |
+| CF-10 | Coherent Core menu and command redesign | Design/mockup for operator review | [CORE_UI_REDESIGN](CORE_UI_REDESIGN.md): vertical Session/Players/Events and Advanced setup, contextual item/actions, definition preview before setup, explicit server editing status, current/future function inventory and compatible commands/migration before implementation. |
 
 ## Review decisions
+
+CF-10: review the navigation, Locations versus Game setup, Players movement settings and Events preview/check/run separation before implementing the new facade. Earlier screen-layout acceptance is superseded; service-level verification remains valid.
 
 - [ ] Agree what changed shortly before the story and why growth now reaches the mine.
 - [ ] Balance crop growth, local regeneration and Ancient Forge capability thresholds/costs against actual ecology, without session/reveal gates.

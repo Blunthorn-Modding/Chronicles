@@ -1,5 +1,7 @@
 # Chronicle workspace
 
+- Latest operator direction: the accumulated Core menu is rejected. CF-10 is a **design pass before further UI/gameplay implementation**; read `docs/CORE_UI_REDESIGN.md` and `docs/design/chronicle-menu.html`. Proposed left navigation: Session / Players / Events, then Advanced Chests / Regions / Locations / Game setup; selected items in the middle, contextual details/actions right. Eliminate public map “Roles”, “Policies” and “Observations” jargon; separate definition content preview from live execution preview. Mode is server-owned today but polling/clearing is confusing; redesign requires explicit server state and pushed acknowledgements. Future function placement is a proposal, not installed functionality. Preserve all existing commands/data until a reviewed compatibility migration; no server deployment is part of this design pass.
+
 Read `docs/CHRONICLE_PROJECT_OVERVIEW.md`, `docs/DECISIONS.md`, and `docs/TEST_PLAN.md` before changing architecture. The original overview is a brief, not implemented behavior.
 
 - Current design authority: `docs/THE_QUIET_BELOW.md`, `docs/MAP_AUTHORING.md`, `docs/DEVELOPMENT_MILESTONES.md`, `docs/BACKLOG.md`. Latest operator instruction authorizes milestone design followed by implementation until a necessary decision or hands-on review. No prescribed event/session outline: engineering milestones must not become narrative gates. The operator handcrafts the production map; agent maps are test fixtures. Unsettled ecology/lore details remain proposals.

@@ -1,5 +1,7 @@
 # Chronicle
 
+**Current preparation: full menu redesign (CF-10).** After M8 testing, the operator requests a coherent library UI/command design before continuing implementation. See [the proposed navigation, button audit and commands](docs/CORE_UI_REDESIGN.md) and [interactive mockup source](docs/design/chronicle-menu.html). This design is not deployed; the existing dev.11 services, client pack and saved world remain unchanged.
+
 Chronicle's planned campaign formats are **Survival, Journey, Werewolf and Situation** (working name for “Happening”). [The format guide](docs/CAMPAIGN_FORMATS.md) defines their session/world structures and proposes Operation and Intrigue as optional additions. The Quiet Below is the first Situation campaign; the four formats are design direction, not four installed modes.
 
 A Fabric roleplay campaign framework for Minecraft Java 1.21.10. **Chronicle Core** and **The Quiet Below** provide persistent sessions, simulation freezing, hotbar status, public character dossiers, custom investigative content and bounded environmental stages. The [pilot runbook](docs/PILOT_RUNBOOK.md) prepares the first group playtest.
