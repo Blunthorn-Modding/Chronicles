@@ -69,6 +69,21 @@ public final class SpawnAuthoring {
         var runtime = WORLDS.get(server); if (runtime == null) throw new IllegalStateException("Spawn authoring unavailable; inspect chronicle/spawns.json while stopped."); return runtime.service;
     }
 
+    /** Resolves a policy's exact pinned binding without silently following a later rebind. */
+    static AuthoringSite.Location safePolicyDestination(MinecraftServer server, io.github.chronicle.core.spawn.SpawnBinding pinned) {
+        if (!pinned.equals(service(server).state().bindings().get(pinned.purpose()))) throw new IllegalStateException("Spawn policy is stale; assign the current purpose again.");
+        var location = service(server).resolve(AuthoringRuntime.get(server).service().state(), pinned.purpose());
+        var verdict = SpawnDestinationValidator.validate(new MinecraftWorld(server), location);
+        if (!verdict.safe()) throw new IllegalStateException(verdict.reason());
+        return location;
+    }
+
+    static void moveToPolicy(ServerPlayerEntity player, AuthoringSite.Location destination) {
+        var world = world(player.getEntityWorld().getServer(), destination.dimension());
+        if (world == null || !player.teleport(world, destination.x(), destination.y(), destination.z(), Set.<PositionFlag>of(), destination.yaw(), destination.pitch(), false))
+            throw new IllegalStateException("Minecraft rejected the automatic spawn move.");
+    }
+
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher) {
         var spawn = literal("spawn").requires(source -> source.hasPermissionLevel(2))
                 .executes(context -> AuthoringUi.open(context.getSource(), io.github.chronicle.core.authoring.ui.AuthoringUiModel.Tab.SPAWNS));

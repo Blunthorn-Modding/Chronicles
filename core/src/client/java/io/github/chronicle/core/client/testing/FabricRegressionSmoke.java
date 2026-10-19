@@ -17,6 +17,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.AccessibilityOnboardingScreen;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.DeathScreen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
@@ -83,6 +84,7 @@ public final class FabricRegressionSmoke {
     private int authoringViews;
     private Snapshot lastAuthoringState;
     private final List<String> authoringNotices = new ArrayList<>();
+    private boolean expectTestDeath;
     public static void onAuthoringView(Snapshot state) { if (instance != null) { instance.authoringViews++; instance.lastAuthoringState = state; } }
     public static void onAuthoringNotice(String notice) { if (instance != null) instance.authoringNotices.add(notice); }
 
@@ -160,6 +162,7 @@ public final class FabricRegressionSmoke {
                 return;
             }
             if (client.player == null) return;
+            if (expectTestDeath && client.currentScreen instanceof DeathScreen) { client.player.requestRespawn(); client.setScreen(null); }
             if (client.currentScreen instanceof DossierScreen) client.setScreen(null);
             if (client.currentScreen != null && !(client.currentScreen instanceof AuthoringScreen)) return;
             if (!scriptBuilt) {
@@ -213,6 +216,7 @@ public final class FabricRegressionSmoke {
         initialContentAuthoring(client);
         setupTypedLoot(client);
         authoringUi(client);
+        configureAutomaticSpawns(client);
         actionbar("inactive actionbar", "Chronicle | Session 0: Inactive | World frozen");
         timeQuery(client, "capture frozen time", value -> firstTime = value);
         movement(client, "player moves while inactive and frozen");
@@ -223,9 +227,14 @@ public final class FabricRegressionSmoke {
         mutation(client, "start session 1", "chronicle session start 1", "^Started Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
         actionbar("active session 1 actionbar", "Chronicle | Session 1: Active");
         delay("allow queued session-start loot batch", 1_300);
+        check("first arrival moves exactly once with facing", () -> {
+            require(Math.abs(client.player.getX() - 16.5) < .05 && Math.abs(client.player.getZ() - 18.5) < .05 && Math.abs(client.player.getYaw() - 90) < .05, "automatic first arrival did not use the bound oriented point");
+            require(automaticArrival(FABRIC_A).get("status").getAsString().equals("MOVED"), "automatic first arrival lacks a MOVED receipt");
+        });
         verifyTypedStart(client);
         exerciseContent(client);
         activeAuthoringUi(client);
+        automaticDeathSpawns(client);
         Path authoring = serverRoot.resolve("world/chronicle/authoring.json");
         capture("authoring before ACTIVE rejection", authoring);
         command(client, "author mode rejected during ACTIVE", "chronicle author mode on", ".*Authoring edits require a non-active.*");
@@ -258,6 +267,7 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "pause session 1", "chronicle session pause", "^Paused Chronicle session 1\\.$", () -> assertCampaign("PAUSED", 1));
         actionbar("paused session 1 actionbar", "Chronicle | Session 1: Paused | World frozen");
+        testDeath(client, "paused death retains vanilla position", 8.5, 8.5);
         check("capture cycle before paused refill wait", () -> pausedLootCycle[0] = typedReceipt("test:timed").get("cycle").getAsLong());
         capture("paused loot clock", serverRoot.resolve("world/chronicle/chest-content.json"));
         command(client, "put sentinel in managed timed chest while paused", "item replace block 26 -60 16 container.0 with minecraft:stone 1", ".*Replaced.*");
@@ -313,6 +323,7 @@ public final class FabricRegressionSmoke {
             assertAudit(INITIAL_AUDIT);
         });
         command(client, "save restart sentinel in session-only chest", "item replace block 24 -60 16 container.0 with minecraft:emerald 1", ".*Replaced.*");
+        command(client, "leave away from arrival before restart", "tp @s 38.5 -60 18.5 0 0", ".*Teleported.*");
         markerTask("publish initial final marker", marker("A", "initial", "final"));
     }
 
@@ -331,7 +342,8 @@ public final class FabricRegressionSmoke {
                 "chronicle author block bind forbidden target", "chronicle author remove smoke_city",
                 "chronicle author show smoke_city", "chronicle author list",
                 "chronicle author chest legacy capture forbidden", "chronicle chest status", "chronicle spawn list",
-                "chronicle author chest", "chronicle author chest bind \"test:timed\"", "chronicle author chest reload")) {
+                "chronicle author chest", "chronicle author chest bind \"test:timed\"", "chronicle author chest reload",
+                "chronicle spawn automatic arrival ChronicleFabricB \"chronicle_core:arrival\"")) {
             delay("respect vanilla non-op command rate: " + command, 1_100);
             command(client, "non-op denied: " + command, command, UNAUTHORIZED_REPLY, matcher -> { });
         }
@@ -340,6 +352,9 @@ public final class FabricRegressionSmoke {
                 () -> authoringNotices.stream().anyMatch(notice -> notice.contains("Operator permission")));
         check("non-op receives no private authoring snapshot", () -> require(authoringViews == 0, "private authoring data sent to ordinary player"));
         markerTask("publish B unauthorized denial", marker("B", "initial", "denied"));
+        waitForMarker("wait for explicit automatic policy for B", marker("A", "initial", "automatic-policy"));
+        command(client, "ordinary player can leave own automatic policies", "chronicle leave", ".*You left automatic arrival and respawn policies.*");
+        markerTask("publish B left automatic policies", marker("B", "initial", "automatic-left"));
 
         waitForMarker("wait for A profile save", marker("A", "initial", "profile-saved"));
         check("ordinary player never receives the private authoring preview", () -> require(AuthoringPreviewRenderer.renderedFrames() == 0,
@@ -387,6 +402,7 @@ public final class FabricRegressionSmoke {
             assertProfile(FABRIC_A, "Fabric A", "they/them", "A public test card", 1);
             assertProfile(FABRIC_B, "Fabric B", "", "", 1);
             assertAudit(INITIAL_AUDIT);
+            require(automaticArrival(FABRIC_A).get("status").getAsString().equals("CLAIMED"), "uncertain stopped-fixture arrival claim was lost");
         });
         profileRequest("A fetches own persisted profile", FABRIC_A,
                 view -> assertView(view, FABRIC_A, "Fabric A", "they/them", "A public test card", 1, true, false));
@@ -396,6 +412,11 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "restart resume session 1", "chronicle session resume", "^Resumed Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
         actionbar("restart active actionbar", "Chronicle | Session 1: Active");
+        delay("uncertain arrival is not retried after restart and resume", 1_200);
+        check("restart does not pull departed player back", () -> {
+            require(Math.abs(client.player.getX() - 38.5) < .1 && Math.abs(client.player.getZ() - 18.5) < .1, "claimed first arrival repeated after restart");
+            require(automaticArrival(FABRIC_A).get("status").getAsString().equals("CLAIMED"), "uncertain claim was silently rewritten");
+        });
         delay("resume does not create another session-start cycle", 1_300);
         command(client, "resume preserves session-only chest contents", "data get block 24 -60 16 Items", ".*minecraft:emerald.*");
         mutation(client, "end session 1", "chronicle session end", "^Ended Chronicle session 1\\.$", () -> assertCampaign("ENDED", 1));
@@ -530,7 +551,8 @@ public final class FabricRegressionSmoke {
         command(client, "disable author mode to test GUI guidance", "chronicle author mode off", ".*Author mode disabled.*");
         openUi(client, "open proper authoring screen", Tab.CHESTS);
         check("GUI explains missing author mode", () -> require(!ui(client).state().author() && ui(client).state().editable(), "UI mode state incorrect"));
-        uiPress(client, "Mode on", state -> state.author());
+        check("choose listed type before observing stable polling", () -> ui(client).chooseTypeForTest("test:empty"));
+        stableAuthoringPolling(client);
         check("choose all-miss chest in proper UI", () -> {
             ui(client).chooseTypeForTest("test:empty");
             ui(client).selectForTest(ui(client).state().entries().stream().filter(entry -> entry.reference().equals("test:empty")).findFirst().orElseThrow().id());
@@ -570,6 +592,50 @@ public final class FabricRegressionSmoke {
         check("UI did not mutate world geometry or unrelated sites", this::assertAuthoring);
     }
 
+    /**
+     * The background refresh is intentionally a live read, rather than a modal request.
+     * Prove two equal snapshots retain the same focused, active widget, then prove a later
+     * changed server snapshot still rebuilds controls to reflect author mode.
+     */
+    private void stableAuthoringPolling(MinecraftClient client) {
+        final int[] stableIdentity = new int[1];
+        final int[] firstViews = new int[1];
+        final boolean[] firstPending = new boolean[1];
+        check("focus actual loot picker before polling", () -> ui(client).focusButtonForTest("Loot >"));
+        task("first authoring background refresh keeps focused widget", () -> {
+            AuthoringScreen.ButtonProbe probe = ui(client).probeButtonForTest("Loot >");
+            require(probe.active() && probe.focused(), "baseline loot picker is not interactive and focused");
+            stableIdentity[0] = probe.identity();
+            firstViews[0] = authoringViews;
+        }, () -> {
+            AuthoringScreen screen = ui(client);
+            AuthoringScreen.ButtonProbe probe = screen.probeButtonForTest("Loot >");
+            require(probe.identity() == stableIdentity[0] && probe.active() && probe.focused(), "background refresh rebuilt or disabled the loot picker");
+            firstPending[0] |= screen.pending();
+            return firstPending[0] && authoringViews > firstViews[0] && !screen.pending();
+        });
+
+        final int[] secondViews = new int[1];
+        final boolean[] secondPending = new boolean[1];
+        task("second authoring background refresh keeps same widget", () -> secondViews[0] = authoringViews, () -> {
+            AuthoringScreen screen = ui(client);
+            AuthoringScreen.ButtonProbe probe = screen.probeButtonForTest("Loot >");
+            require(probe.identity() == stableIdentity[0] && probe.active() && probe.focused(), "second background refresh rebuilt or disabled the loot picker");
+            secondPending[0] |= screen.pending();
+            return secondPending[0] && authoringViews > secondViews[0] && !screen.pending();
+        });
+
+        command(client, "change author state while UI is open", "chronicle author mode on", ".*Author mode enabled.*");
+        final int[] changedViews = new int[1];
+        task("changed authoring snapshot rebuilds stale controls", () -> changedViews[0] = authoringViews, () -> {
+            AuthoringScreen screen = ui(client);
+            if (authoringViews <= changedViews[0] || screen.pending()) return false;
+            AuthoringScreen.ButtonProbe bind = screen.probeButtonForTest("Bind looked container");
+            require(screen.state().author() && bind.active(), "changed author mode did not update stale UI controls");
+            return true;
+        });
+    }
+
     private void activeAuthoringUi(MinecraftClient client) {
         openUi(client, "open UI during active play", Tab.SPAWNS);
         check("active GUI disables author entry", () -> require(!ui(client).triggerForTest("Mode on"), "GUI enabled edits during ACTIVE"));
@@ -585,6 +651,55 @@ public final class FabricRegressionSmoke {
         check("confirm move is explicit", () -> require(ui(client).triggerForTest("Confirm move"), "confirm move not enabled"));
         uiPress(client, "Confirm: Confirm move", state -> state.success() && state.previewPlayer().isBlank());
         check("close active authoring UI", () -> client.setScreen(null));
+    }
+
+    private void configureAutomaticSpawns(MinecraftClient client) {
+        openUi(client, "open automatic player policies", Tab.POLICIES);
+        uiPress(client, "Purpose: choose a saved binding", state -> state.tab() == Tab.POLICY_PURPOSES);
+        check("select actual saved arrival purpose", () -> ui(client).selectForTest("chronicle_core:arrival"));
+        uiPress(client, "Use selected purpose", state -> state.tab() == Tab.POLICIES);
+        check("select exact policy account", () -> { ui(client).selectForTest(FABRIC_A.toString()); require(ui(client).triggerForTest("First arrival once"), "arrival confirmation unavailable"); });
+        uiPress(client, "Confirm: First arrival once", state -> state.success() && state.entries().stream().anyMatch(entry -> entry.id().equals(FABRIC_A.toString()) && entry.detail().contains("Arrival: chronicle_core:arrival")));
+        check("confirm separate death policy", () -> require(ui(client).triggerForTest("Death respawn"), "death policy confirmation unavailable"));
+        uiPress(client, "Confirm: Death respawn", state -> state.success() && state.entries().stream().anyMatch(entry -> entry.id().equals(FABRIC_A.toString()) && entry.detail().contains("death respawn: chronicle_core:arrival")));
+        check("capture automatic policy screen", () -> ScreenshotRecorder.saveScreenshot(output.toFile(), "m7-automatic-policies.png", client.getFramebuffer(), 1, ignored -> { }));
+        delay("settle policy screen capture", 250);
+        check("configuring policies does not teleport players", () -> { require(Math.abs(client.player.getX() - 30.5) < .05, "saving policy moved the player"); client.setScreen(null); });
+        command(client, "configure ordinary player policy for leave test", "chronicle spawn automatic arrival ChronicleFabricB \"chronicle_core:arrival\"", ".*Automatic first arrival enabled.*No player was moved.*");
+        markerTask("publish B automatic policy configured", marker("A", "initial", "automatic-policy"));
+        waitForMarker("wait for B voluntary departure", marker("B", "initial", "automatic-left"));
+        check("ordinary leave removes policy without consuming arrival", () -> {
+            var root = automaticState();
+            require(root.getAsJsonArray("policies").size() == 1 && root.getAsJsonArray("arrivals").isEmpty(), "leave removed history or failed to remove B policy");
+        });
+    }
+
+    private void automaticDeathSpawns(MinecraftClient client) {
+        command(client, "set distinct vanilla respawn", "spawnpoint @s 8 -60 8", ".*Set spawn point.*");
+        final String[] vanilla = new String[1];
+        command(client, "capture vanilla respawn metadata", "data get entity @s respawn", Pattern.compile("^(.*following entity data:.*)$"), matcher -> vanilla[0] = matcher.group(1));
+        command(client, "automatic policy edits rejected during ACTIVE", "chronicle spawn automatic arrival_off ChronicleFabricA", ".*non-active author mode.*");
+        testDeath(client, "active death follows configured policy", 16.5, 18.5);
+        command(client, "automatic death preserves vanilla respawn metadata", "data get entity @s respawn", Pattern.compile("^(.*following entity data:.*)$"), matcher -> require(vanilla[0].equals(matcher.group(1)), "automatic respawn changed vanilla spawn settings"));
+        command(client, "obstruct automatic respawn destination", "setblock 16 -60 18 minecraft:stone", ".*Changed the block.*");
+        testDeath(client, "unsafe policy retains vanilla respawn", 8.5, 8.5);
+        command(client, "restore automatic destination after fallback", "setblock 16 -60 18 minecraft:air", ".*Changed the block.*");
+        command(client, "fallback preserves vanilla respawn metadata", "data get entity @s respawn", Pattern.compile("^(.*following entity data:.*)$"), matcher -> require(vanilla[0].equals(matcher.group(1)), "fallback changed vanilla spawn settings"));
+        check("death respawn does not rearm first arrival", () -> require(automaticArrival(FABRIC_A).get("status").getAsString().equals("MOVED"), "death rewrote the arrival receipt"));
+    }
+
+    private void testDeath(MinecraftClient client, String name, double expectedX, double expectedZ) {
+        command(client, name + " move away before death", "tp @s 40.5 -60 16.5 0 0", ".*Teleported.*");
+        check(name + " arm real death", () -> expectTestDeath = true);
+        command(client, name + " kill test account", "kill @s", ".*Killed.*");
+        task(name + " completes through real respawn", () -> { }, () -> client.player != null && client.player.isAlive()
+                && Math.abs(client.player.getX() - expectedX) < .1 && Math.abs(client.player.getZ() - expectedZ) < .1);
+        check(name + " disarm test-only respawn", () -> expectTestDeath = false);
+    }
+    private JsonObject automaticState() throws IOException { return JsonParser.parseString(Files.readString(serverRoot.resolve("world/chronicle/automatic-spawns.json"))).getAsJsonObject(); }
+    private JsonObject automaticArrival(UUID player) throws IOException {
+        for (var element : automaticState().getAsJsonArray("arrivals")) if (element.getAsJsonObject().get("player").getAsString().equals(player.toString())) return element.getAsJsonObject();
+        throw new IllegalStateException("Missing automatic arrival receipt for " + player);
     }
 
     private static AuthoringScreen ui(MinecraftClient client) { return (AuthoringScreen) client.currentScreen; }

@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Automatic player spawn policies and accepted Core screen - 19 October 2026
+
+The operator accepts the Core screen, reports minor periodic flicker and asks for its fix bundled with the next feature review. Background refreshes must preserve unchanged widgets and hover/focus. Continue M7 with explicit per-player first-arrival/death-respawn policies over pinned saved purposes, default off, without changing bed/anchor settings or trapping departing characters. First arrival records a durable claim before moving and never automatically retries uncertainty; explicit reset requires non-active author mode. Players may leave their own policies. Entity encounter groups and shared M8 conditions remain separate. [M7_AUTOMATIC_SPAWNS](M7_AUTOMATIC_SPAWNS.md) specifies behavior and remaining human checks.
+
 ## Core authoring UI feedback - 19 October 2026
 
 The operator reports the growing chat interface is hard to read and requests a proper UI for library/generic tools, including selecting chests and their types. Record this as CF-09, the next authoring priority, with commands retained as an advanced fallback. Reuse Core's registered catalogs/services rather than introducing campaign-specific screens for generic tools. Show author-mode/session state and actionable prerequisite feedback. The reported chest-edit rejection was resolved by enabling per-connection author mode; this was a discoverability problem, not authorization to remove the non-active authoring requirement. No runtime change or server restart is needed for this documentation update.

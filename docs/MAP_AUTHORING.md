@@ -6,19 +6,19 @@ The operator accepts this authoring direction for now. For [Quiet Below](THE_QUI
 
 ## Core authoring screen (CF-09)
 
-Press **O** (rebindable), or run `/chronicle author`, with the matching client pack. The tabs are **Chests**, **Places**, **Roles**, **Spawns** and **Session**. Session phase and per-connection author mode are visible. Use **Mode on** at the bottom before editing; during ACTIVE, first pause using the Session tab. Author mode clears on reconnect and when play becomes ACTIVE. The screen never silently pauses play or enables author mode.
+Press **O** (rebindable), or run `/chronicle author`, with the matching client pack. The tabs are **Chests**, **Places**, **Roles**, **Spawns**, **Policies** and **Session**. Session phase and per-connection author mode are visible. Use **Mode on** at the bottom before editing; during ACTIVE, first pause using the Session tab. Author mode clears on reconnect and when play becomes ACTIVE. The screen never silently pauses play or enables author mode.
 
 For chests, look at a single chest/barrel/shulker, choose a registered loot type with the Loot controls, then **Bind looked container**. Saved chests can be shown, retyped or unbound; destructive changes require confirmation. **Reload loot** reads `config/chronicle/chest-loot.json`. Managed fills replace all contents; keep personal storage separate. Probabilities remain JSON-configured.
 
-For map sites, choose a registered **Role** and use **Corner 1/2** at your feet or **Target 1/2** for looked-at blocks. Close the screen to walk between corners; reopen to finish the selection and save. Location roles save your current position/facing, block roles bind the looked-at block. **Places** lists saved sites for show/replace/remove. **Spawns** chooses a purpose, saved location and online player, with explicit preview/confirm for an ACTIVE manual move. No automatic respawn or entity-group editor is included.
+For map sites, choose a registered **Role** and use **Corner 1/2** at your feet or **Target 1/2** for looked-at blocks. Close the screen to walk between corners; reopen to finish the selection and save. Location roles save your current position/facing, block roles bind the looked-at block. **Places** lists saved sites for show/replace/remove. **Spawns** chooses a purpose, saved location and online player, with explicit preview/confirm for an ACTIVE manual move. The **Policies** tab independently enables opt-in first arrival/death respawn per player; see [the policy guide](M7_AUTOMATIC_SPAWNS.md). No entity-group editor is included.
 
-Commands below remain the advanced fallback, including custom IDs and `/chronicle author menu` / `/chronicle author chest types` for the old chat pickers. [CF09_AUTHORING_UI](CF09_AUTHORING_UI.md) describes the implementation and review gate. Review the screen flow before broadening authoring features.
+Commands below remain the advanced fallback, including custom IDs and `/chronicle author menu` / `/chronicle author chest types` for the old chat pickers. [CF09_AUTHORING_UI](CF09_AUTHORING_UI.md) describes the implementation and review gate. The operator accepted the screen; review now covers the new M7 policy flow together with the refresh fix.
 
 ## Available today
 
 - Run a normal Minecraft 1.21.10 world with the matching Fabric/Core/campaign mods; existing session controls, freeze/status and dossiers work independently of the prototype map.
 - A GM can define a cuboid of up to 64 loaded, supported natural blocks with `/quiet_below zone define <id> <from> <to>`, preview it and apply/undo the latest stage during ACTIVE. See [M4](M4_IMPLEMENTATION.md).
-- Chronicle Core M6 adds per-player author mode, two-corner selection at feet/coordinates/targeted blocks, named regions, precise locations with facing, expected-type block anchors, list/show/validate/remove and explicit replace. Metadata persists with revisions and private previews. Chest/spawn execution and entry/timer configuration remain M7/M8; saving geometry alone activates nothing.
+- Chronicle Core M6 adds per-player author mode, two-corner selection at feet/coordinates/targeted blocks, named regions, precise locations with facing, expected-type block anchors, list/show/validate/remove and explicit replace. Metadata persists with revisions and private previews. M7 adds typed loot and manual/opt-in automatic player spawns; entry/timer configuration remains M8. Saving geometry alone activates nothing.
 - `pilot-prepare`, `pilot-smoke` and `pilot-promote` concern the generated technical fixture. They are not the production authoring workflow and must not rebuild or replace the operator's map.
 
 ## Reference and ownership
@@ -110,7 +110,7 @@ Manual player moves remain separate:
 /chronicle spawn confirm PlayerName
 ```
 
-Saving a spawn binding changes no vanilla respawns. Runtime preview/confirm requires ACTIVE and validates loaded safe standing room. Entity groups/automatic respawn remain M7 follow-up; trigger bindings belong to M8.
+Saving a spawn binding changes no vanilla respawns. Runtime preview/confirm requires ACTIVE and validates loaded safe standing room. Automatic player policies are now a separate explicit opt-in step in **Policies**; merely binding a point still changes no respawn behavior. Entity encounter groups remain M7 follow-up; trigger bindings belong to M8.
 
 ### Chests and spawns must behave predictably
 

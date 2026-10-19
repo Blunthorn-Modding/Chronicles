@@ -22,7 +22,7 @@ Pure checks: probability boundaries/independence/counts/reproducibility; strict 
 
 ## Builder review
 
-Install `../client/Chronicle-CF09-1.21.10.mrpack` and join localhost. During a non-active session:
+Install `../client/Chronicle-M7-spawns-1.21.10.mrpack` and join localhost. During a non-active session:
 
 Author mode is per connection: after reconnecting, enable it again. If you see `Loot chest edits require non-active author mode`, check the session phase and run `/chronicle author mode on` before retrying the picker. The operator confirmed this resolves the reported rejection. CF-09 now provides the proper [Core authoring screen](CF09_AUTHORING_UI.md), including a visible Mode on button. Commands remain a fallback.
 
@@ -31,7 +31,7 @@ Author mode is per connection: after reconnecting, enable it again. If you see `
 3. Edit `../server/config/chronicle/chest-loot.json` and run `/chronicle author chest reload`. For a quick test, give bread 100%, iron 0%, and set refillMinutes to 1. Defaults use 0 (session-start only); these are starting suggestions, not settled campaign balance.
 4. Start a new session and inspect the chest. Add a recognizable item, wait for the interval, and verify the entire inventory is replaced. Pause the session to check the timer stops; resume to continue the remaining time. Retyping does not immediately refill.
 
-Legacy captured definitions are preserved, and personal/unbound containers are unaffected. A managed container's old contents are intentionally replaced at its scheduled fill. Future entity groups/automatic respawn and M8 conditions remain separate work; this review concerns the corrected chest model.
+Legacy captured definitions are preserved, and personal/unbound containers are unaffected. A managed container's old contents are intentionally replaced at its scheduled fill. Entity encounter groups and M8 conditions remain separate work; automatic player policies are described in M7_AUTOMATIC_SPAWNS.md. This review concerns the corrected chest model.
 
 The active clock is checkpointed before each refill and on a clean stop, plus periodically while running. A crash with no refill may lose up to a minute of uncheckpointed elapsed time, delaying the next fill; saved receipts prevent duplicate generations. Rollback to the old binary requires the matching stopped backup because schema 2 is not readable by the previous build.
 

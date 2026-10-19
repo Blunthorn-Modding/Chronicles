@@ -9,6 +9,7 @@ import io.github.chronicle.core.network.AuthoringUiPayloads;
 import io.github.chronicle.core.server.RuntimeHolds;
 import io.github.chronicle.core.server.ChestAuthoring;
 import io.github.chronicle.core.server.SpawnAuthoring;
+import io.github.chronicle.core.server.AutomaticPlayerSpawns;
 import io.github.chronicle.core.server.ChronicleCommands;
 import io.github.chronicle.core.server.AuthoringCommands;
 import io.github.chronicle.core.server.AuthoringRuntime;
@@ -62,6 +63,7 @@ public final class ChronicleCore implements ModInitializer {
         ChestAuthoring.register();
         TypedChestLoot.register();
         SpawnAuthoring.register();
+        AutomaticPlayerSpawns.register();
         ServerLifecycleEvents.SERVER_STARTED.register(SessionPresentation::changed);
         ServerTickEvents.START_SERVER_TICK.register(SessionPresentation::tick);
         ServerTickEvents.END_SERVER_TICK.register(AuthoringRuntime::tick);

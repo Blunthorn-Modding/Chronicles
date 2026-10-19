@@ -81,7 +81,8 @@ public final class AuthoringUi {
         return new Frame(player.getEntityWorld().getRegistryKey().getValue().toString(), target(player), campaign.phase().name(), campaign.sessionNumber(), author,
                 author ? authoring.selection(player.getUuid()) : null, authoring.service().state().revision(),
                 ChestAuthoring.service(server).state().bindings(), SpawnAuthoring.service(server).state().revision(),
-                TypedChestLoot.types(server), RuntimeHolds.reason(server), server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList());
+                TypedChestLoot.types(server), RuntimeHolds.reason(server), server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),
+                AutomaticPlayerSpawns.available(server) == null ? -1 : AutomaticPlayerSpawns.available(server).revision());
     }
     private static Target target(ServerPlayerEntity player) {
         var source = player.getCommandSource();
@@ -102,6 +103,28 @@ public final class AuthoringUi {
         var server = player.getEntityWorld().getServer();
         String id = request.id(), argument = request.argument();
         switch (request.action()) {
+            case AUTO_ARRIVAL_ON, AUTO_RESPAWN_ON, AUTO_ARRIVAL_OFF, AUTO_RESPAWN_OFF, AUTO_ARRIVAL_RESET -> {
+                requireAuthor(player);
+                UUID target = UUID.fromString(id);
+                var state = AutomaticPlayerSpawns.service(server).state();
+                if (server.getPlayerManager().getPlayer(target) == null && !state.policies().containsKey(target) && !state.arrivals().containsKey(target))
+                    throw new IllegalArgumentException("Choose an online player or an existing saved policy.");
+                switch (request.action()) {
+                    case AUTO_ARRIVAL_ON, AUTO_RESPAWN_ON -> {
+                        AutomaticPlayerSpawns.enable(player.getCommandSource(), target, argument, request.action() == Action.AUTO_ARRIVAL_ON);
+                        return "Automatic policy enabled. No player was moved; arrival history is retained.";
+                    }
+                    case AUTO_ARRIVAL_OFF, AUTO_RESPAWN_OFF -> {
+                        AutomaticPlayerSpawns.disable(player.getCommandSource(), target, request.action() == Action.AUTO_ARRIVAL_OFF);
+                        return "Automatic policy disabled. Arrival history is retained.";
+                    }
+                    case AUTO_ARRIVAL_RESET -> {
+                        AutomaticPlayerSpawns.reset(player.getCommandSource(), target);
+                        return "Arrival claim reset. Next eligible join or ACTIVE transition may attempt arrival; no player was moved now.";
+                    }
+                    default -> throw new IllegalArgumentException("Unsupported automatic policy action.");
+                }
+            }
             case CHEST_RETYPE, CHEST_UNBIND -> {
                 requireAuthor(player);
                 ChestBinding binding = chest(server, id);
@@ -225,6 +248,24 @@ public final class AuthoringUi {
                 }).toList();
             }
             case SPAWN_PLAYERS -> server.getPlayerManager().getPlayerList().stream().map(target -> new Entry(target.getUuidAsString(), target.getName().getString(), "Online player", "PLAYER", "", 0)).toList();
+            case POLICIES -> {
+                var state = AutomaticPlayerSpawns.available(server);
+                if (state == null) yield List.of(new Entry("unavailable", "Automatic spawns unavailable", "Inspect automatic-spawns.json and the server log; manual tools remain available.", "STATUS", "", 0));
+                var players = new TreeMap<String, String>();
+                state.policies().keySet().forEach(id -> players.put(id.toString(), id.toString()));
+                state.arrivals().keySet().forEach(id -> players.put(id.toString(), id.toString()));
+                server.getPlayerManager().getPlayerList().forEach(target -> players.put(target.getUuidAsString(), target.getName().getString()));
+                yield players.entrySet().stream().map(entry -> {
+                    UUID id = UUID.fromString(entry.getKey());
+                    var policy = state.policies().get(id); var attempt = state.arrivals().get(id);
+                    String detail = "Arrival: " + (policy == null || policy.arrival() == null ? "off" : policy.arrival().purpose())
+                            + "; death respawn: " + (policy == null || policy.respawn() == null ? "off" : policy.respawn().purpose())
+                            + "; first arrival: " + (attempt == null ? "not attempted" : attempt.status() + " - " + attempt.detail());
+                    return new Entry(entry.getKey(), entry.getValue(), detail, "PLAYER", attempt == null ? "" : attempt.status().name(), state.revision());
+                }).toList();
+            }
+            case POLICY_PURPOSES -> SpawnAuthoring.service(server).state().bindings().values().stream().map(binding ->
+                    new Entry(binding.purpose(), shortText(binding.purpose(), 128), "Location: " + binding.locationId() + " revision " + binding.locationRevision(), "PURPOSE", binding.locationId(), binding.locationRevision())).toList();
             case SESSION -> List.of();
         };
     }
@@ -269,7 +310,7 @@ public final class AuthoringUi {
     private static void notice(ServerPlayerEntity player, String message) { if (ServerPlayNetworking.canSend(player, Notice.ID)) ServerPlayNetworking.send(player, new Notice(shortText(message, 512))); }
     private record Target(String key, String label, ChestTarget container) { }
     private record Frame(String dimension, Target target, String phase, int session, boolean author, AuthoringRuntime.Selection selection, long siteRevision,
-                         Map<String, ChestBinding> chests, long spawnRevision, Map<String, LootType> types, String hold, List<UUID> players) { }
+                         Map<String, ChestBinding> chests, long spawnRevision, Map<String, LootType> types, String hold, List<UUID> players, long automaticRevision) { }
     private static final class Context {
         long token, window, previewExpires; int requests; Frame frame;
         String previewPlayer = "", previewPurpose = "";

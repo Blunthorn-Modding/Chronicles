@@ -28,6 +28,8 @@ public final class AuthoringScreen extends Screen {
     private int idleTicks;
     private int entryOffset;
     private Action requestedAction;
+    /** Polling is deliberately non-blocking: the current snapshot remains server-authoritative. */
+    private boolean backgroundRefresh;
     private String selectedEntry = "";
     private String selectedPurpose = "";
     private String previewedPurpose = "";
@@ -78,7 +80,22 @@ public final class AuthoringScreen extends Screen {
         return true;
     }
 
+    /** Focuses a real active widget through the screen's normal keyboard-navigation API. */
+    public void focusButtonForTest(String label) {
+        ButtonWidget button = testButtons.get(label);
+        if (button == null || !button.active) throw new IllegalArgumentException("Active button not present: " + label);
+        setFocused(button);
+    }
+
+    /** Reports widget identity/state without mutating it or taking desktop cursor ownership. */
+    public ButtonProbe probeButtonForTest(String label) {
+        ButtonWidget button = testButtons.get(label);
+        if (button == null) throw new IllegalArgumentException("Button not present: " + label);
+        return new ButtonProbe(System.identityHashCode(button), button.active, button.isHovered(), button.isFocused());
+    }
+
     void accept(Snapshot updated) {
+        boolean preserveWidgets = backgroundRefresh && requestedAction == Action.REFRESH && updated.equals(state);
         if (updated.tab() != state.tab() || updated.page() != state.page()) entryOffset = 0;
         if (updated.token() != state.token()) confirmation = null;
         if (requestedAction == Action.SPAWN_PREVIEW && updated.success()) previewedPurpose = selectedPurpose;
@@ -90,6 +107,7 @@ public final class AuthoringScreen extends Screen {
         if (!updated.message().isBlank()) inlineNotice = updated.message();
         else if (requestedAction != Action.REFRESH) inlineNotice = null;
         requestedAction = null;
+        backgroundRefresh = false;
         if (!contains(updated.entries(), selectedEntry)) {
             selectedEntry = "";
             selectedEntryLabel = selectedEntryDetail = selectedEntryKind = selectedEntryReference = "";
@@ -97,14 +115,23 @@ public final class AuthoringScreen extends Screen {
         }
         if (updated.tab() == Tab.SPAWN_LOCATIONS && contains(updated.entries(), selectedLocation)) selectedEntry = selectedLocation;
         if (updated.tab() == Tab.SPAWN_PLAYERS && contains(updated.entries(), selectedPlayer)) selectedEntry = selectedPlayer;
-        clearAndInit();
+        Entry current = find(updated.entries(), selectedEntry);
+        if (current != null) {
+            selectedEntryLabel = current.label(); selectedEntryDetail = current.detail(); selectedEntryKind = current.kind();
+            selectedEntryReference = current.reference(); selectedEntryRevision = current.revision();
+        }
+        // Stable polling must not recreate widgets. Rebuilding every two seconds cleared hover,
+        // focus and confirmation state and visibly flickered even when the server snapshot was identical.
+        if (!preserveWidgets) clearAndInit();
     }
 
     void notice(String message) {
+        boolean preserveWidgets = backgroundRefresh;
         pending = false;
         requestedAction = Action.REFRESH;
+        backgroundRefresh = false;
         inlineNotice = message;
-        clearAndInit();
+        if (!preserveWidgets) clearAndInit();
     }
 
     void openCurrentTab() { request(Action.OPEN, "", "", state.tab(), 0); }
@@ -115,8 +142,8 @@ public final class AuthoringScreen extends Screen {
         int left = 5;
         int full = Math.max(310, width - 10);
         button("Refresh", width - 59, 2, 54, 16, () -> request(Action.REFRESH, "", "", state.tab(), state.page()), true);
-        int tabWidth = Math.max(49, Math.min(62, (full - 4) / 5));
-        Tab[] tabs = {Tab.CHESTS, Tab.PLACES, Tab.ROLES, Tab.SPAWNS, Tab.SESSION};
+        int tabWidth = Math.max(49, Math.min(62, (full - 4) / 6));
+        Tab[] tabs = {Tab.CHESTS, Tab.PLACES, Tab.ROLES, Tab.SPAWNS, Tab.POLICIES, Tab.SESSION};
         for (int index = 0; index < tabs.length; index++) {
             Tab tab = tabs[index];
             button(tab.name().substring(0, 1) + tab.name().substring(1).toLowerCase(), left + index * tabWidth, 35, tabWidth - 2, 18,
@@ -132,6 +159,9 @@ public final class AuthoringScreen extends Screen {
             case SPAWN_LOCATIONS -> spawnLocations(left, controlsY, full);
             case SPAWN_PLAYERS -> spawnPlayers(left, controlsY, full);
             case SESSION -> session(left, controlsY, full);
+            case POLICIES -> policies(left, controlsY, full);
+            case POLICY_PURPOSES -> button("Use selected purpose", left, controlsY, full, 18,
+                    () -> request(Action.OPEN, "", "", Tab.POLICIES, 0), !selectedPurpose.isBlank());
         }
         int navY = height - 24;
         button("< Page", left, navY, 68, 18, () -> request(Action.OPEN, "", "", state.tab(), Math.max(0, state.page() - 1)), state.page() > 0);
@@ -227,6 +257,20 @@ public final class AuthoringScreen extends Screen {
         confirmButton("End session", Action.SESSION_END, "", "", left + full / 2 + 2, y + 20, full / 2 - 2, phase.equals("ACTIVE") || phase.equals("PAUSED"), "End the current session.");
     }
 
+    private void policies(int left, int y, int full) {
+        boolean edit = canEdit() && !selectedEntry.isBlank() && selectedEntryKind.equals("PLAYER");
+        button("Purpose: " + (selectedPurposeLabel.isBlank() ? "choose a saved binding" : selectedPurposeLabel), left, y, full, 18,
+                () -> request(Action.OPEN, "", "", Tab.POLICY_PURPOSES, 0), true);
+        confirmButton("First arrival once", Action.AUTO_ARRIVAL_ON, selectedEntry, selectedPurpose, left, y + 20, full / 2 - 2,
+                edit && !selectedPurpose.isBlank(), "Enable one first-arrival attempt on an eligible join or ACTIVE transition. No move now.");
+        confirmButton("Death respawn", Action.AUTO_RESPAWN_ON, selectedEntry, selectedPurpose, left + full / 2 + 2, y + 20, full / 2 - 2,
+                edit && !selectedPurpose.isBlank(), "Use this purpose after actual deaths during ACTIVE. Bed/anchor settings remain intact.");
+        confirmButton("Arrival off", Action.AUTO_ARRIVAL_OFF, selectedEntry, "", left, y + 40, full / 3 - 2, edit, "Disable first arrival; retain its attempt history.");
+        confirmButton("Respawn off", Action.AUTO_RESPAWN_OFF, selectedEntry, "", left + full / 3 + 1, y + 40, full / 3 - 2, edit, "Disable automatic death respawn.");
+        confirmButton("Reset arrival", Action.AUTO_ARRIVAL_RESET, selectedEntry, "", left + 2 * full / 3 + 2, y + 40, full / 3 - 2,
+                edit && !selectedEntryReference.isBlank(), "Remove the first-arrival claim. An enabled policy may move this player on the next eligible join or ACTIVE transition.");
+    }
+
     private void select(Entry entry) {
         selectedEntry = entry.id();
         selectedEntryLabel = entry.label();
@@ -234,7 +278,7 @@ public final class AuthoringScreen extends Screen {
         selectedEntryKind = entry.kind();
         selectedEntryReference = entry.reference();
         selectedEntryRevision = entry.revision();
-        if (state.tab() == Tab.SPAWNS) { selectedPurpose = entry.id(); selectedPurposeLabel = entry.label(); }
+        if (state.tab() == Tab.SPAWNS || state.tab() == Tab.POLICY_PURPOSES) { selectedPurpose = entry.id(); selectedPurposeLabel = entry.label(); }
         if (state.tab() == Tab.CHESTS && find(state.choices(), entry.id()) != null) selectedChoice = entry.id();
         if (state.tab() == Tab.SPAWN_LOCATIONS) { selectedLocation = entry.id(); selectedLocationLabel = entry.label(); }
         if (state.tab() == Tab.SPAWN_PLAYERS) { selectedPlayer = entry.id(); selectedPlayerLabel = entry.label(); }
@@ -262,7 +306,7 @@ public final class AuthoringScreen extends Screen {
         ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(label, Math.max(1, w - 8))), ignored -> action.run())
                 .dimensions(x, y, Math.max(1, w), 18).build());
         button.setTooltip(Tooltip.of(Text.literal(screenText(tooltip))));
-        button.active = !pending;
+        button.active = !pending || backgroundRefresh;
         testButtons.put(label, button);
     }
 
@@ -278,23 +322,30 @@ public final class AuthoringScreen extends Screen {
         String visible = textRenderer.trimToWidth(label, Math.max(1, w - 8));
         ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(visible), ignored -> action.run()).dimensions(x, y, Math.max(1, w), h).build());
         button.setTooltip(Tooltip.of(Text.literal(screenText(label))));
-        button.active = enabled && !pending;
+        button.active = enabled && (!pending || backgroundRefresh);
         testButtons.put(label, button);
     }
 
     private boolean canEdit() { return state.editable() && state.author(); }
 
     private void request(Action action, String id, String argument, Tab tab, int page) {
+        request(action, id, argument, tab, page, false);
+    }
+
+    private void request(Action action, String id, String argument, Tab tab, int page, boolean polling) {
         if (pending || !ClientPlayNetworking.canSend(AuthoringUiPayloads.Request.ID)) {
             inlineNotice = "Authoring UI is unavailable; wait for a server response.";
             return;
         }
         ClientPlayNetworking.send(new AuthoringUiPayloads.Request(action, id, argument, state.token(), tab, page));
         requestedAction = action;
+        backgroundRefresh = polling;
         pending = true;
         pendingTicks = 0;
         idleTicks = 0;
-        clearAndInit();
+        // An explicit request disables controls until its response. Background refreshes leave
+        // the existing widgets live so unchanged snapshots do not flicker every two seconds.
+        if (!polling) clearAndInit();
     }
 
     @Override
@@ -303,7 +354,7 @@ public final class AuthoringScreen extends Screen {
             if (++pendingTicks >= RESPONSE_TIMEOUT_TICKS) { pending = false; inlineNotice = "No authoring response after 10 seconds. Try Refresh."; clearAndInit(); }
             return;
         }
-        if (++idleTicks >= REFRESH_INTERVAL_TICKS) request(Action.REFRESH, "", "", state.tab(), state.page());
+        if (++idleTicks >= REFRESH_INTERVAL_TICKS) request(Action.REFRESH, "", "", state.tab(), state.page(), true);
     }
 
     @Override
@@ -334,7 +385,7 @@ public final class AuthoringScreen extends Screen {
         int controlsY = Math.max(121, height - 98);
         context.drawTextWithShadow(textRenderer, Text.literal(screenText(summary)), 5, controlsY - 24, 0xFFA0A0A0);
         context.drawTextWithShadow(textRenderer, Text.literal(screenText(selected)), 5, controlsY - 13, 0xFFA0A0A0);
-        String notice = inlineNotice == null || inlineNotice.isBlank() ? (pending ? "Waiting for server..." : "Scroll entries; select an item, then choose an action.") : inlineNotice;
+        String notice = inlineNotice == null || inlineNotice.isBlank() ? (pending && !backgroundRefresh ? "Waiting for server..." : "Scroll entries; select an item, then choose an action.") : inlineNotice;
         context.drawTextWithShadow(textRenderer, Text.literal(screenText(notice)), 5, height - 36, state.success() ? 0xFF77FF77 : 0xFFFFCC66);
         super.render(context, mouseX, mouseY, deltaTicks);
         if (mouseY >= height - 37 && mouseY <= height - 26)
@@ -359,4 +410,7 @@ public final class AuthoringScreen extends Screen {
             return action == otherAction && id.equals(otherId) && argument.equals(otherArgument) && token == otherToken;
         }
     }
+
+    /** Immutable graphical-test observation of an actual rendered button. */
+    public record ButtonProbe(int identity, boolean active, boolean hovered, boolean focused) { }
 }

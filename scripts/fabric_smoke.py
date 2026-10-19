@@ -203,6 +203,12 @@ def run(include_content=True, regression=True):
                 spawns = json.loads((root / 'world/chronicle/spawns.json').read_text(encoding='utf-8'))
                 if len(spawns['bindings']) != 1 or spawns['bindings'][0]['locationId'] != 'smoke_arrival':
                     raise RuntimeError('M7 spawn binding persistence mismatch')
+                automatic = json.loads((root / 'world/chronicle/automatic-spawns.json').read_text(encoding='utf-8'))
+                if len(automatic['policies']) != 1 or automatic['policies'][0]['player'] != offline_uuid('ChronicleFabricA'):
+                    raise RuntimeError('M7 automatic policy/self-leave persistence mismatch')
+                expected_arrival = 'MOVED' if phase == 'initial' else 'CLAIMED'
+                if len(automatic['arrivals']) != 1 or automatic['arrivals'][0]['status'] != expected_arrival:
+                    raise RuntimeError('M7 once/uncertain automatic arrival history mismatch')
                 report['checks'].append(phase + ': typed loot session/timer replacement, components/cycle persistence and legacy/spawn checks passed')
                 state = json.loads((root / 'world/chronicle/campaign-state.json').read_text())
                 expected = ('PAUSED', 1) if phase == 'initial' else ('ENDED', 2)
@@ -247,6 +253,12 @@ def run(include_content=True, regression=True):
                     'after': contents, 'createdAt': '2026-10-19T12:00:00Z'}]
                 chest['revision'] += 1
                 content_file.write_text(json.dumps(chest), encoding='utf-8')
+                automatic_file = root / 'world/chronicle/automatic-spawns.json'
+                automatic = json.loads(automatic_file.read_text(encoding='utf-8'))
+                automatic['arrivals'][0]['status'] = 'CLAIMED'
+                automatic['arrivals'][0]['detail'] = 'Stopped disposable fixture: interrupted before arrival outcome was recorded'
+                automatic['revision'] += 1
+                automatic_file.write_text(json.dumps(automatic), encoding='utf-8')
                 report['checks'].append('stopped disposable fixture: pending intent after flushed mutation before receipt')
 
             for _, logfile in clients:
