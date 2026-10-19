@@ -40,7 +40,7 @@ public final class AuthoringCommands {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         var author = literal("author").requires(source -> source.hasPermissionLevel(2))
-                .executes(context -> menu(context.getSource(), 1))
+                .executes(context -> AuthoringUi.open(context.getSource()))
                 .then(literal("menu").executes(context -> menu(context.getSource(), 1))
                         .then(argument("page", IntegerArgumentType.integer(1)).executes(context -> menu(context.getSource(), IntegerArgumentType.getInteger(context, "page")))))
                 .then(literal("preview").then(literal("hide").executes(context -> run(context.getSource(), runtime -> {

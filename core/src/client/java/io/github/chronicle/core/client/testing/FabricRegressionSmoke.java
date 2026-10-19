@@ -7,6 +7,9 @@ import com.google.gson.JsonParser;
 import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.client.DossierScreen;
 import io.github.chronicle.core.client.AuthoringPreviewRenderer;
+import io.github.chronicle.core.client.AuthoringScreen;
+import io.github.chronicle.core.authoring.ui.AuthoringUiModel.*;
+import io.github.chronicle.core.network.AuthoringUiPayloads;
 import io.github.chronicle.core.network.ProfilePayloads;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
@@ -76,6 +79,12 @@ public final class FabricRegressionSmoke {
     private final List<Task> tasks = new ArrayList<>();
     private final List<String> completedSteps = new ArrayList<>();
     private final Map<String, String> snapshots = new HashMap<>();
+
+    private int authoringViews;
+    private Snapshot lastAuthoringState;
+    private final List<String> authoringNotices = new ArrayList<>();
+    public static void onAuthoringView(Snapshot state) { if (instance != null) { instance.authoringViews++; instance.lastAuthoringState = state; } }
+    public static void onAuthoringNotice(String notice) { if (instance != null) instance.authoringNotices.add(notice); }
 
     private long messageSequence;
     private int taskIndex;
@@ -152,7 +161,7 @@ public final class FabricRegressionSmoke {
             }
             if (client.player == null) return;
             if (client.currentScreen instanceof DossierScreen) client.setScreen(null);
-            if (client.currentScreen != null) return;
+            if (client.currentScreen != null && !(client.currentScreen instanceof AuthoringScreen)) return;
             if (!scriptBuilt) {
                 ServerInfo server = client.getCurrentServerEntry();
                 require(server != null && server.address.equals("127.0.0.1:25575"),
@@ -203,6 +212,7 @@ public final class FabricRegressionSmoke {
         initialAuthoring(client);
         initialContentAuthoring(client);
         setupTypedLoot(client);
+        authoringUi(client);
         actionbar("inactive actionbar", "Chronicle | Session 0: Inactive | World frozen");
         timeQuery(client, "capture frozen time", value -> firstTime = value);
         movement(client, "player moves while inactive and frozen");
@@ -215,6 +225,7 @@ public final class FabricRegressionSmoke {
         delay("allow queued session-start loot batch", 1_300);
         verifyTypedStart(client);
         exerciseContent(client);
+        activeAuthoringUi(client);
         Path authoring = serverRoot.resolve("world/chronicle/authoring.json");
         capture("authoring before ACTIVE rejection", authoring);
         command(client, "author mode rejected during ACTIVE", "chronicle author mode on", ".*Authoring edits require a non-active.*");
@@ -325,6 +336,9 @@ public final class FabricRegressionSmoke {
             command(client, "non-op denied: " + command, command, UNAUTHORIZED_REPLY, matcher -> { });
         }
         unchanged("non-op author commands preserve registry", "authoring before unauthorized edits", authoring);
+        task("forged non-op UI request is denied", () -> ClientPlayNetworking.send(new AuthoringUiPayloads.Request(Action.OPEN, "", "", 0, Tab.CHESTS, 0)),
+                () -> authoringNotices.stream().anyMatch(notice -> notice.contains("Operator permission")));
+        check("non-op receives no private authoring snapshot", () -> require(authoringViews == 0, "private authoring data sent to ordinary player"));
         markerTask("publish B unauthorized denial", marker("B", "initial", "denied"));
 
         waitForMarker("wait for A profile save", marker("A", "initial", "profile-saved"));
@@ -512,8 +526,80 @@ public final class FabricRegressionSmoke {
         // Leave author mode on: starting play must clear it, not let later pause resurrect it.
     }
 
+    private void authoringUi(MinecraftClient client) {
+        command(client, "disable author mode to test GUI guidance", "chronicle author mode off", ".*Author mode disabled.*");
+        openUi(client, "open proper authoring screen", Tab.CHESTS);
+        check("GUI explains missing author mode", () -> require(!ui(client).state().author() && ui(client).state().editable(), "UI mode state incorrect"));
+        uiPress(client, "Mode on", state -> state.author());
+        check("choose all-miss chest in proper UI", () -> {
+            ui(client).chooseTypeForTest("test:empty");
+            ui(client).selectForTest(ui(client).state().entries().stream().filter(entry -> entry.reference().equals("test:empty")).findFirst().orElseThrow().id());
+            require(ui(client).triggerForTest("Unbind selected"), "unbind not enabled");
+        });
+        uiPress(client, "Confirm: Unbind selected", state -> state.entries().size() == 2 && state.success());
+        uiPress(client, "Bind looked container", state -> state.entries().size() == 3 && state.success());
+        check("clear offline auth toast for UI inspection", () -> client.getToastManager().clear());
+        delay("settle unobstructed UI header", 250);
+        check("capture small authoring UI", () -> ScreenshotRecorder.saveScreenshot(output.toFile(), "cf09-chests-small.png", client.getFramebuffer(), 1, ignored -> { }));
+        delay("settle small UI capture", 250);
+        // Change the looked-at fixture after receiving the snapshot, then send its old token.
+        check("close UI retaining stale target token", () -> client.setScreen(null));
+        final long[] token = new long[1];
+        openUi(client, "capture view before stale target test", Tab.CHESTS);
+        check("remember target snapshot token", () -> { token[0] = ui(client).state().token(); client.setScreen(null); });
+        command(client, "place unbound target for stale test", "setblock 30 -60 16 minecraft:chest", ".*Changed the block.*");
+        command(client, "change actual target after snapshot", "tp @s 30.5 -58 16.5 0 90", ".*Teleported.*");
+        check("clear stale snapshot response marker", () -> lastAuthoringState = null);
+        task("stale target request is rejected", () -> ClientPlayNetworking.send(new AuthoringUiPayloads.Request(Action.CHEST_BIND, "test:timed", "", token[0], Tab.CHESTS, 0)),
+                () -> lastAuthoringState != null && !lastAuthoringState.success() && lastAuthoringState.message().contains("configuration changed"));
+        check("late mutation response does not reopen closed screen", () -> require(client.currentScreen == null, "late response reopened the GUI"));
+        openUi(client, "refresh after stale target rejection", Tab.ROLES);
+        uiPress(client, "Corner 1", state -> !state.selection().contains("first null"));
+        uiPress(client, "Corner 2", state -> !state.selection().contains("second null"));
+        check("pick registered region role in UI", () -> ui(client).selectForTest("quiet_below:source_city"));
+        uiPress(client, "Save role", state -> state.success() && state.entries().stream().anyMatch(entry -> entry.id().equals("quiet_below:source_city") && entry.revision() > 0));
+        uiPress(client, "Places", state -> state.tab() == Tab.PLACES);
+        check("select newly saved region in UI", () -> { ui(client).selectForTest("quiet_below:source_city"); require(ui(client).triggerForTest("Remove"), "remove confirmation unavailable"); });
+        uiPress(client, "Confirm: Remove", state -> state.success() && state.entries().stream().noneMatch(entry -> entry.id().equals("quiet_below:source_city")));
+        uiPress(client, "Chests", state -> state.tab() == Tab.CHESTS);
+        check("resize GUI for large-screen inspection", () -> client.getWindow().setWindowedSize(1024, 768));
+        delay("settle large authoring UI", 500);
+        check("capture large authoring UI", () -> ScreenshotRecorder.saveScreenshot(output.toFile(), "cf09-chests-large.png", client.getFramebuffer(), 1, ignored -> { }));
+        delay("settle large UI capture", 250);
+        check("restore small fixture window", () -> { client.setScreen(null); client.getWindow().setWindowedSize(640, 480); });
+        check("UI did not mutate world geometry or unrelated sites", this::assertAuthoring);
+    }
+
+    private void activeAuthoringUi(MinecraftClient client) {
+        openUi(client, "open UI during active play", Tab.SPAWNS);
+        check("active GUI disables author entry", () -> require(!ui(client).triggerForTest("Mode on"), "GUI enabled edits during ACTIVE"));
+        final long[] token = new long[1];
+        check("capture active view for forged edit", () -> { token[0] = ui(client).state().token(); lastAuthoringState = null; });
+        task("server rejects active edit even with valid GUI token", () -> ClientPlayNetworking.send(new AuthoringUiPayloads.Request(Action.MODE_ON, "", "", token[0], Tab.SPAWNS, 0)),
+                () -> lastAuthoringState != null && !lastAuthoringState.success() && !lastAuthoringState.author() && lastAuthoringState.message().contains("non-active"));
+        check("select saved spawn purpose", () -> ui(client).selectForTest("chronicle_core:arrival"));
+        uiPress(client, "Choose player", state -> state.tab() == Tab.SPAWN_PLAYERS);
+        check("pick exact named player", () -> ui(client).selectForTest(FABRIC_A.toString()));
+        uiPress(client, "Use selected player", state -> state.tab() == Tab.SPAWNS);
+        uiPress(client, "Preview player", state -> state.success() && state.previewPlayer().equals(FABRIC_A.toString()));
+        check("confirm move is explicit", () -> require(ui(client).triggerForTest("Confirm move"), "confirm move not enabled"));
+        uiPress(client, "Confirm: Confirm move", state -> state.success() && state.previewPlayer().isBlank());
+        check("close active authoring UI", () -> client.setScreen(null));
+    }
+
+    private static AuthoringScreen ui(MinecraftClient client) { return (AuthoringScreen) client.currentScreen; }
+    private void openUi(MinecraftClient client, String name, Tab tab) {
+        task(name, () -> ClientPlayNetworking.send(new AuthoringUiPayloads.Request(Action.OPEN, "", "", 0, tab, 0)),
+                () -> client.currentScreen instanceof AuthoringScreen screen && !screen.pending() && screen.state().tab() == tab);
+    }
+    private void uiPress(MinecraftClient client, String label, java.util.function.Predicate<Snapshot> accepted) {
+        task("GUI button: " + label, () -> require(ui(client).triggerForTest(label), "GUI button unavailable: " + label),
+                () -> client.currentScreen instanceof AuthoringScreen screen && !screen.pending() && accepted.test(screen.state()));
+        delay("settle GUI " + label, 100);
+    }
+
     private void setupTypedLoot(MinecraftClient client) {
-        command(client, "open campaign loot type picker", "chronicle author chest", ".*Loot types=5.*");
+        command(client, "open campaign loot type picker", "chronicle author chest types", ".*Loot types=5.*");
         check("menu shows server override and campaign recommendations", () -> require(messages.stream().anyMatch(message -> message.text.contains("Fixture supplies") && message.text.contains("recommended=2")), "loot type override/count missing from picker"));
         String[] types = {"quiet_below:settlement_supplies", "test:timed", "test:empty"};
         for (int i = 0; i < types.length; i++) {
@@ -595,7 +681,7 @@ public final class FabricRegressionSmoke {
 
     private void assertAuthoring() throws IOException {
         JsonObject root = JsonParser.parseString(Files.readString(serverRoot.resolve("world/chronicle/authoring.json"))).getAsJsonObject();
-        require(root.get("schemaVersion").getAsInt() == 1 && root.get("revision").getAsLong() == 8, "authoring schema/revision mismatch");
+        require(root.get("schemaVersion").getAsInt() == 1 && (root.get("revision").getAsLong() == 8 || root.get("revision").getAsLong() == 10), "authoring schema/revision mismatch");
         JsonArray sites = root.getAsJsonArray("sites");
         require(sites.size() == 3, "authoring lost or added definitions");
         Map<String, JsonObject> byId = new HashMap<>();

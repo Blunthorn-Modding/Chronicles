@@ -14,15 +14,17 @@ import net.minecraft.util.Identifier;
 
 /** Client-only dossier key binding and profile packet handlers. */
 public final class ChronicleCoreClient implements ClientModInitializer {
+    public static final KeyBinding.Category KEY_CATEGORY = KeyBinding.Category.create(Identifier.of(ChronicleCore.MOD_ID, "chronicle"));
     private static final KeyBinding DOSSIER_KEY = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.chronicle.profile.open",
             InputUtil.Type.KEYSYM,
             InputUtil.GLFW_KEY_K,
-            KeyBinding.Category.create(Identifier.of(ChronicleCore.MOD_ID, "chronicle"))));
+            KEY_CATEGORY));
 
     @Override
     public void onInitializeClient() {
         AuthoringPreviewRenderer.register();
+        AuthoringUiClient.register();
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.View.ID,
                 (payload, context) -> context.client().execute(() -> receiveView(context.client(), payload)));
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.Notice.ID,

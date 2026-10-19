@@ -70,7 +70,8 @@ public final class SpawnAuthoring {
     }
 
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher) {
-        var spawn = literal("spawn").requires(source -> source.hasPermissionLevel(2));
+        var spawn = literal("spawn").requires(source -> source.hasPermissionLevel(2))
+                .executes(context -> AuthoringUi.open(context.getSource(), io.github.chronicle.core.authoring.ui.AuthoringUiModel.Tab.SPAWNS));
         for (boolean replace : new boolean[]{false, true}) {
             String verb = replace ? "rebind" : "bind";
             final boolean replacement = replace;

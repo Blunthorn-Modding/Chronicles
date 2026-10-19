@@ -4,6 +4,8 @@ import io.github.chronicle.core.campaign.CampaignEvents;
 import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.loot.LootCatalog;
 import io.github.chronicle.core.server.TypedChestLoot;
+import io.github.chronicle.core.server.AuthoringUi;
+import io.github.chronicle.core.network.AuthoringUiPayloads;
 import io.github.chronicle.core.server.RuntimeHolds;
 import io.github.chronicle.core.server.ChestAuthoring;
 import io.github.chronicle.core.server.SpawnAuthoring;
@@ -47,6 +49,8 @@ public final class ChronicleCore implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> Profiles.registerCommands(dispatcher));
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> AuthoringCommands.register(dispatcher));
         ProfilePayloads.register();
+        AuthoringUiPayloads.register();
+        AuthoringUi.register();
         AuthoringPreviewPayload.register();
         Profiles.registerNetworking();
         ServerLifecycleEvents.SERVER_STARTING.register(server -> EVENTS.freeze());

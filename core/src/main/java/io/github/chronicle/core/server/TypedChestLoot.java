@@ -55,7 +55,7 @@ public final class TypedChestLoot {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
-            var chest = literal("chest").executes(context -> menu(context.getSource(), 1))
+            var chest = literal("chest").executes(context -> AuthoringUi.open(context.getSource()))
                     .then(literal("types").executes(context -> menu(context.getSource(), 1)))
                     .then(literal("inspect").executes(context -> inspect(context.getSource())))
                     .then(literal("unbind").executes(context -> unbind(context.getSource())))
@@ -106,6 +106,8 @@ public final class TypedChestLoot {
         RuntimeHolds.release(server, HOLD);
         ChronicleCore.LOGGER.info("Chronicle loot types ready: {} types from {}", candidate.size(), configPath());
     }
+
+    public static Map<String, LootType> types(MinecraftServer server) { return runtime(server).types; }
 
     private static Runtime runtime(MinecraftServer server) {
         Runtime result = WORLDS.get(server);

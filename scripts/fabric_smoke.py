@@ -192,7 +192,7 @@ def run(include_content=True, regression=True):
                 _await_clients(clients, [reports / f'role-{role}-{phase}.json' for role in ('A', 'B')])
                 report['checks'].append(phase + ': GM/non-op matching Fabric clients passed M1/M2 checks')
                 authoring = json.loads((root / 'world/chronicle/authoring.json').read_text(encoding='utf-8'))
-                if authoring['revision'] != 8 or {site['type'] for site in authoring['sites']} != {'region', 'location', 'anchor'}:
+                if authoring['revision'] != 10 or {site['type'] for site in authoring['sites']} != {'region', 'location', 'anchor'}:
                     raise RuntimeError('M6 authoring registry revision/type persistence mismatch')
                 report['checks'].append(phase + ': M6 metadata commands, permissions and durable region/location/anchor checks passed')
                 chest = json.loads((root / 'world/chronicle/chest-content.json').read_text(encoding='utf-8'))

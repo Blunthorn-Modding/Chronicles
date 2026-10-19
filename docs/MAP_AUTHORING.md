@@ -1,16 +1,18 @@
 # In-world authoring with Chronicle Core
 
-Updated 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. M6 implements the first geometry/selection slice; chest/spawn execution and trigger bindings below remain later milestones. See [M6's exact commands and review checklist](M6_IMPLEMENTATION.md).
+Updated 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. M6 implements geometry/selection, M7 adds typed loot and manual player moves, and CF-09 adds their shared screen. Trigger bindings remain later work. See [M6's exact commands and review checklist](M6_IMPLEMENTATION.md).
 
 The operator accepts this authoring direction for now. For [Quiet Below](THE_QUIET_BELOW.md), register key locations such as the source city, Relic Heart and ancient stations. Autonomous growth discovers cave/mine geometry itself; no painted sculk trail, patch graph, or region for every crop field/hazard is required. The generic selection/binding tools below remain useful without making all of them mandatory campaign setup.
 
-## Next authoring priority: proper Core UI (CF-09)
+## Core authoring screen (CF-09)
 
-Operator feedback on 19 October 2026: the growing chat commands/menus are becoming hard to read. Replace them as the primary library/generic authoring interface with a proper in-game UI, including container selection/type assignment and other shared region/location/anchor/spawn tools. Campaigns continue supplying their registered choices/defaults; the UI belongs in Core and reuses existing validated services and persistence. Commands remain an advanced fallback. Do not solve this feedback by adding more chat panels.
+Press **O** (rebindable), or run `/chronicle author`, with the matching client pack. The tabs are **Chests**, **Places**, **Roles**, **Spawns** and **Session**. Session phase and per-connection author mode are visible. Use **Mode on** at the bottom before editing; during ACTIVE, first pause using the Session tab. Author mode clears on reconnect and when play becomes ACTIVE. The screen never silently pauses play or enables author mode.
 
-The UI must make the current session phase and per-connection author mode visible, offer a clear entry/exit action, and distinguish an active-session restriction from author mode being off. Disabled actions should explain the specific reason and remedy. Review the screen flow with the operator before broadening authoring features.
+For chests, look at a single chest/barrel/shulker, choose a registered loot type with the Loot controls, then **Bind looked container**. Saved chests can be shown, retyped or unbound; destructive changes require confirmation. **Reload loot** reads `config/chronicle/chest-loot.json`. Managed fills replace all contents; keep personal storage separate. Probabilities remain JSON-configured.
 
-For the current build, chest edits need `/chronicle author mode on` while the session is non-active, followed by `/chronicle author chest`. Author mode clears on disconnect/reconnect and when a session becomes ACTIVE. The existing error combines both restrictions; the operator confirmed enabling author mode fixed the reported chest-edit rejection. This UI requirement is recorded, not yet implemented.
+For map sites, choose a registered **Role** and use **Corner 1/2** at your feet or **Target 1/2** for looked-at blocks. Close the screen to walk between corners; reopen to finish the selection and save. Location roles save your current position/facing, block roles bind the looked-at block. **Places** lists saved sites for show/replace/remove. **Spawns** chooses a purpose, saved location and online player, with explicit preview/confirm for an ACTIVE manual move. No automatic respawn or entity-group editor is included.
+
+Commands below remain the advanced fallback, including custom IDs and `/chronicle author menu` / `/chronicle author chest types` for the old chat pickers. [CF09_AUTHORING_UI](CF09_AUTHORING_UI.md) describes the implementation and review gate. Review the screen flow before broadening authoring features.
 
 ## Available today
 

@@ -25,5 +25,6 @@
   "chronicle.session.phase.inactive": "Inactive",
   "chronicle.session.phase.active": "Active",
   "chronicle.session.phase.paused": "Paused",
-  "chronicle.session.phase.ended": "Ended"
+  "chronicle.session.phase.ended": "Ended",
+  "key.chronicle.authoring.open": "Open Core authoring"
 }
