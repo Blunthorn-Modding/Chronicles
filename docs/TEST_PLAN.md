@@ -2,6 +2,8 @@
 
 ## Operator feedback — 19 October 2026
 
+Follow-up design feedback rejects the mine-stabilization proposal and copy/import-first authoring. The revised documents propose actual crop-growth/local-regeneration/forge mechanics and Core-owned in-world selections, named regions, block/location bindings, chests and spawns. Future checks must exercise observable game effects, power loss/pause, temporary environmental costs and station inventory reliability. Region registration must work directly in the builder's current world. The local Vampire SMP JAR was inspected without executing it; this documentation pass does not constitute runtime validation of that plugin or implementation of the proposed Chronicle features.
+
 The operator tested the added functions and reports that they generally work, but that the event/marker fiction lacks a coherent cause or purpose. This validates perceived technical function, not campaign quality, human voice audio or every individual acceptance case. Gameplay expansion is paused for the [campaign outline](THE_QUIET_BELOW.md). The operator will build the production map; the generated pilot remains a regression fixture. M5's production session now depends on design review, map-authoring tools and the handcrafted map; another generic pilot playtest alone does not complete it. Branch/commit tracking begins from a preserved technical baseline; see [BACKLOG](BACKLOG.md).
 
 Run commands from `Chronicles`. Update this evidence when subsequent milestones change behavior.

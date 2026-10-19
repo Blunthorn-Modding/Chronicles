@@ -1,5 +1,13 @@
 # Bootstrap decisions — 18 October 2026
 
+## Concrete benefits and Core authoring revision — 19 October 2026
+
+The operator rejected the proposed mine-stabilization benefit: no structural-physics model should be introduced to justify it. Benefits need usable Minecraft behavior and may be exclusive; an ordinary substitute is not mandatory. The revised proposal is bonus crop growth first, then local regeneration and powered Ancient Forge recipes as the rooted network expands. Costs also escalate through approved territorial change and temporary environmental hazards, never personal corruption. The supplied Focus/Altar/Forge/Relic assets are candidates for defined functions, not merely props; no new assets or mechanics were registered in this revision.
+
+The operator also rejected a copy/import-first authoring workflow. Shared two-corner regions, points/block anchors, chest content profiles and spawn bindings belong in Chronicle Core and are configured in the current world. Quiet Below owns sculk power/effects/recipes and references Core IDs. Backups/rehearsal copies remain optional operational tools, not prerequisites to defining a site. This explicit reusable requirement supersedes the earlier suggestion to defer all authoring infrastructure to the campaign.
+
+The supplied `VampireSMP-1.1.2.jar` was inspected as data/bytecode, not installed or run. Named beacon sites, chest locations, saved respawn positions and validation handlers inform the authoring UX; two-corner selection is the operator's WorldEdit-style requirement. Record exact evidence/limitations in `REFERENCE_VAMPIRE_SMP.md`; do not port faction rules, hard-coded map coordinates or force-loading behavior. `MAP_AUTHORING.md` and CF-05–CF-07 replace the prior world-import-first plan.
+
 ## Campaign formats — 19 October 2026
 
 The operator and co-organizer identified four experience formats: Survival (group against an external threat), Journey (one contained world per session, with two or three end states influencing the next world), Werewolf (themed social deduction), and Happening (characters in a place responding to change). `CAMPAIGN_FORMATS.md` proposes Situation as the fourth name and classifies Quiet Below there. At the operator's invitation, Operation and Intrigue are additional candidates; they are not approved implementation work.

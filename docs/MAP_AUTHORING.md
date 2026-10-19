@@ -1,46 +1,87 @@
-# Handcrafted map integration
+# In-world authoring with Chronicle Core
 
-Planning draft, 19 October 2026. The operator authors the production map. Agent-built maps are technical fixtures. This document defines tools still needed; it does not advertise unimplemented commands.
+Revised design draft, 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. This is a specification proposal, not installed commands.
 
 ## Available today
 
 - Run a normal Minecraft 1.21.10 world with the matching Fabric/Core/campaign mods; existing session controls, freeze/status and dossiers work independently of the prototype map.
 - A GM can define a cuboid of up to 64 loaded, supported natural blocks with `/quiet_below zone define <id> <from> <to>`, preview it and apply/undo the latest stage during ACTIVE. See [M4](M4_IMPLEMENTATION.md).
-- No general map-import tool, landmark/region editor, timed/entry triggers, multi-stage spread network or authored event binding exists yet. The current marker observations are global hard-coded prototype text, not per-location authoring.
-- `pilot-prepare`, `pilot-smoke` and `pilot-promote` concern the generated technical fixture. They are **not** a production-map import workflow; do not use the build function to “adapt” the operator's world.
+- Chronicle Core does not yet have an in-world region/anchor editor, generic chest/spawn bindings or entry/timer configuration. The current campaign cuboid command is a narrow transformation prototype, not the shared authoring system.
+- `pilot-prepare`, `pilot-smoke` and `pilot-promote` concern the generated technical fixture. They are not the production authoring workflow and must not rebuild or replace the operator's map.
+
+## Reference and ownership
+
+The supplied Vampire SMP plugin demonstrates registering meaningful locations through in-game admin commands and saving them for later behavior. See [the inspection record](REFERENCE_VAMPIRE_SMP.md). Chronicle should follow that usable interaction pattern and add the requested two-corner region selection. It remains a Fabric project; no Paper plugin installation or dependency is needed.
+
+| Chronicle Core owns | Quiet Below owns |
+| --- | --- |
+| Builder selection tool/commands, named cuboids, points and block anchors, dimensions and orientation, list/show/edit/remove, validation, persistence and permissions | What a city region, connected sculk patch, beneficial field, hazard or ancient station means |
+| Reusable chest content profiles, explicit fill/reset policies, spawn points/groups and generic event/trigger binding services | Plant growth/regen rules, network power, environmental costs and Ancient Forge recipes |
+| Builder previews, draft edits, configuration revisions, stable IDs and reference checks | Stage prerequisites, connected growth topology and narrative pacing |
+
+Core definitions must work for Journey worlds, Survival spawn areas, Werewolf locations and Situation campaigns. Campaigns reference those definitions by ID rather than inventing their own coordinate editor. Keep sculk ecology out of Core; moving reusable authoring into Core does not move campaign transformation logic there.
 
 ## The intended builder workflow
 
-1. **Bring in a copy.** Stop the source world; retain an untouched export. A future import tool copies it to a fresh workspace destination, checks game/data version and required content, and creates an import report. It does not overwrite either the source or the existing play world. An upgraded rehearsal must not be reopened in an older game version.
-2. **Establish a campaign instance.** Associate a stable map/configuration ID with this copy. Keep story/session progress separate from authored definitions, so a rehearsal can start fresh without deleting the map or dossiers indiscriminately. Replacing an authored definition must not silently reset a live campaign.
-3. **Choose the ancient city.** The builder can use a generated city or place/adapt the vanilla structure in the handcrafted landscape. The mod takes a selected site as input; it does not pick another city, regenerate terrain or require a custom city replacement. Preserve an ordinary route out of the settlement.
-4. **Name places in-game.** Select regions/points for the settlement, mine entrance, first trace, city boundary, benefit site, first cost and optional departure route. Store dimension and exact bounds; show outlines/labels to the builder only. The in-game authoring tool should capture selections without requiring hand-edited coordinates.
-5. **Approve connected growth patches.** Select only positions allowed to change; preview exact before/after states and counts. Record protected builds and connections between patches. A decorative city full of existing sculk is a backdrop, not a request to replace or journal the entire structure.
-6. **Bind event definitions.** Choose an event's location, cue, recipients, readable observation, prerequisites and optional proposed stage. Configure E01's active-play delay and E03's discovery region. An item interaction must identify the local observation/site; it must not reveal the same arbitrary sentence everywhere.
-7. **Validate and rehearse.** Produce actionable errors for missing sites, wrong dimensions, unsupported blocks, unconnected growth, unreachable prerequisites, missing cue assets or conflicting bindings. Walk the map in builder mode without consuming discoveries. Arm a fresh rehearsal instance and exercise the real player paths.
-8. **Activate deliberately.** Save/export a versioned configuration, back up the stopped play world, review changes and explicitly activate. The activation report records world/config versions and a recovery point. Disable test authoring/automatic fixtures. No map rebuild happens on server start.
+1. **Build in the world.** Install the mods for the intended map as usual. Enter author mode while story progression is inactive. Building and registering locations do not require exporting the world or starting another server.
+2. **Select an area.** Set corner 1 and corner 2 with a selection tool or commands. Show a builder-only outline and dimensions. Both corners must be in the same dimension. Save the cuboid under a meaningful ID such as `ancient_city` or `first_garden`; the region is metadata, not a WorldEdit fill operation.
+3. **Register exact locations.** Stand at an arrival/respawn point to save position and facing. Target a chest, forge or altar block to bind its exact block coordinate and expected type. Selection corners, entity spawn positions and block anchors are different primitives; do not round them all into one ambiguous location type.
+4. **Assign a purpose.** Bind the city region to a first-entry event, a field to the campaign's growth effect, a block anchor to a chest profile or forge behavior, and a point to a named spawn group. Reusing one region for several purposes is explicit; the geometry itself does not imply behavior.
+5. **Configure contents and spawn policy.** Capture/edit a reusable chest template, choose an explicit refill policy, and preview the target inventory action. Set which group uses an arrival/respawn point and when it applies. Saving a point does not immediately teleport anyone or override all vanilla respawns.
+6. **Inspect, validate and save.** List configured things, jump to/show one as a builder, check bounds/references/types and save the draft. A separate apply/arm step activates behavior. Configuration survives restart; it does not recreate buildings or overwrite inventories on every server start.
+7. **Test without consuming the story.** Builder walks do not fire discoveries. An explicit test mode can simulate cues and compare effects in bounded test areas. Moving/deleting a region or anchor invalidates affected armed bindings and pending approvals; do not silently retarget a queued effect.
+
+### Illustrative commands — proposed, not implemented
+
+```text
+/chronicle author mode on
+/chronicle author select pos1
+/chronicle author select pos2
+/chronicle author region save ancient_city
+/chronicle author location save arrivals here
+/chronicle author block bind archive_chest target
+/chronicle author block bind ancient_forge target
+/chronicle author chest profile capture archive_stock target
+/chronicle author chest assign archive_chest archive_stock
+/chronicle author spawn assign arrivals participants arrival
+/chronicle author trigger enter ancient_city quiet_below:city_discovery
+/chronicle author show ancient_city
+/chronicle author validate
+/chronicle author save
+```
+
+The selection tool should offer the same functions without repeatedly typing coordinates. Detailed syntax, permission levels and edit/apply confirmation belong in the first implementation specification. The namespaces above illustrate ownership, not an existing event API.
+
+### Chests and spawns must behave predictably
+
+- Binding an existing chest records its location/type; it does not place or empty one. Capturing its contents creates a template without consuming or distributing those contents. Filling/resetting is a separate, previewable runtime action.
+- Initial chest policies should include manual fill and an explicit once-per-campaign/session option. Define whether only empty slots are filled; replacing player contents requires a deliberate reset policy. Restart/retry must not duplicate loot. A missing/replaced chest disables the binding instead of silently creating a new container.
+- Location points retain dimension, precise position and yaw/pitch. Spawn groups can reference one or more points or an explicitly selected spawn area. Validate loaded safe standing positions/headroom when actually spawning; no global search or forced loading is implied by registration.
+- Arrival, death respawn and scenario transition are separate spawn purposes. No Quiet Below location may trap a departing character by teleporting them back. Campaign-specific teams/private roles decide group membership without exposing them in public dossiers or public authoring previews.
+- The same named points/regions can support entity-spawn bindings. Which entities, counts and escalation rules belong to the scenario's spawn handler; merely saving an area must not start an encounter or spawn animals automatically.
 
 ## Minimum authoring data
 
 | Definition | Required information |
 | --- | --- |
-| Campaign/map binding | Schema, map ID, campaign instance, compatible game/mod versions, configuration revision |
-| Landmark/region | Stable ID, dimension, point or bounds, display name, purpose, builder-only preview |
-| Growth patch | Stable ID, exact eligible coordinates/states, connected predecessor(s), permitted outcome, protected boundaries, approval/undo record |
-| Observation | Stable ID, site binding, plain readable text, discovery prerequisites, optional additional tool reading, alternate access route |
-| Trigger/event | Stable ID, prerequisites, manual/timer/entry source, target event, audience, once-only policy, armed/held state |
-| Runtime progress | Clock, completed/discovered events, intervention state and journals; stored separately from definitions |
+| Core authoring scope | Schema, world/campaign configuration ID, revision; separate from runtime completion/history |
+| Core region | Stable ID, dimension, two normalized block corners, name, builder preview; membership checks without scanning every contained block |
+| Core location / block anchor | Point with orientation, or exact block position with expected type and revision |
+| Core chest / spawn binding | Profile/group reference, target IDs, explicit fill/respawn policy and validation state |
+| Core event/trigger binding | Source region/point, registered action ID, audience, prerequisites, once-only policy and armed/test state |
+| Campaign extension | Referenced Core IDs plus sculk connection/stage rules, effect parameters, observations or recipes |
+| Runtime progress | Clock, completed events, network state, inventory-action records and world-change journals; not the authoring definitions |
 
-This is a proposed contract, not a JSON schema to implement without review. Keep campaign ecology in Quiet Below. Extract a Core API only when reuse is demonstrated. Proposed CLI/UI names belong in the authoring specification rather than pretending they are current commands.
+This is a proposed data contract, not a schema to implement without review. Core's current pure flag-event callbacks must not acquire hidden inventory/world side effects: generic delivery, chest/spawn actions and campaign effects need explicit services with their own persistence/validation contracts.
 
 ## Acceptance criteria for the first authoring slice
 
-- Import an operator-supplied stopped world copy without modifying its source or any existing server world; report incompatibilities instead of replacing missing blocks.
-- Bind the city and mine using in-game selections, save, restart and confirm exact dimension/bounds round-trip.
-- Inspect and walk regions as a builder without firing story events; change into participant rehearsal explicitly.
-- Reject malformed/future schemas, missing references, unsupported targets and unsafe stage selections. A moved region must invalidate affected approvals rather than retargeting a queued write.
-- Verify cue audiences with two test clients, including one outside the discovery region. A discovery does not reveal the city's coordinates to uninvolved characters.
-- Retain existing pause/freeze, permissions, per-world persistence and conflict-preserving world-change checks.
-- Move the same event setup to a different rehearsal map through configuration, without a source edit/build and without importing another world's campaign progress.
+- In one existing world, select two corners, save a named cuboid and see its outline without editing JSON, exporting a world or rebuilding the mod.
+- Save an exact location/facing and bind an existing chest/custom station by targeting it. List/show/remove definitions; round-trip them across restart.
+- Register/select a chest profile and spawn point/group in Core without importing Quiet Below classes. Rebinding geometry does not activate a story action by itself.
+- Inspect locations in author mode without consuming discoveries. Reject unauthorized edits, cross-dimension selections, invalid schemas, broken references and stale target types.
+- Separate harmless large-region registration from authorized block changes. A city-sized discovery region is allowed; it is not permission to transform every block or bypass M4's current stage limit.
+- Specify/test inventory fill/reset and spawn execution separately: no loss/duplication on retry, no replacement of unapproved contents, safe spawn behavior and no automatic map reconstruction.
+- Keep existing pause/freeze, public dossier privacy and conflict-preserving transformation behavior intact. Campaign effects stay dormant outside ACTIVE even though authoring remains available.
 
-Coordinate limits, protected-region editing, configuration migration and exact operator commands need an implementation specification before coding. A large visual editor, general quest engine, schematic generator and global free-growing sculk simulation are outside this first slice.
+Backups and optional rehearsal copies remain operational tools, not the primary builder UX or a condition for defining a region. No new world-import feature is required for this slice. A general terrain editor and the campaign's multi-patch growth engine remain separate work.

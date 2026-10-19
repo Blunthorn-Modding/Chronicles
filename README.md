@@ -6,6 +6,8 @@ A Fabric roleplay campaign framework for Minecraft Java 1.21.10. **Chronicle Cor
 
 **Current direction — 19 October 2026:** the operator has tested the mechanics; the campaign fiction needs definition before further gameplay work. Start with [The Quiet Below outline](docs/THE_QUIET_BELOW.md), [handcrafted-map tools](docs/MAP_AUTHORING.md) and the [tracked backlog](docs/BACKLOG.md). The operator builds the production map. Generated pilot worlds and their marker/lens lore are technical fixtures, not the production scenario. Timed/region events and connected spread in the outline are proposals, not installed features.
 
+The revised draft proposes tangible crop-growth, local-healing and Ancient Forge benefits as connected sculk gains power, with environmental costs. Mine-stabilization physics is withdrawn. Authoring is planned as shared **Chronicle Core in-world tools**: two-corner regions, exact block/location bindings, chest profiles and spawn points. See the [local Vampire SMP reference findings](docs/REFERENCE_VAMPIRE_SMP.md). These revisions are design work; no new crop/forge/editor features have been installed.
+
 ## Workspace and setup
 
 ```text

@@ -16,6 +16,8 @@ The central question is: **what does this community do when something it cannot 
 - Use an initially undiscovered ancient city and sculk as the backdrop. Reusing the recognizable vanilla structure is welcome; an entirely custom replacement is unnecessary.
 - Something changes now, and sculk spreads outward in a way that feels connected to the place.
 - Give sculk credible benefits and costs, so reasonable characters can disagree about its future.
+- Benefits must have concrete Minecraft behavior. As the connected network spreads, it becomes more capable and its environmental costs increase. No structural-physics simulation or mandatory mundane substitute is part of this direction.
+- Important regions, block anchors, chests and spawn locations are authored in-world with shared Chronicle Core tools. Quiet Below consumes those definitions; a map-import workflow is not the primary authoring experience.
 - No mandatory vampire/human-style split, infected/uninfected teams, personal corruption meter, involuntary personality changes or required betrayal.
 - Characters can contain, remove, study or live alongside the phenomenon, or choose another response. A character can leave. No supernatural border, unavoidable curse or punishment exists to keep them in the scenario.
 - Keep manual GM events; add optional timed and discovery triggers that create situations without choosing the players' actions.
@@ -32,15 +34,58 @@ It responds to changes in its surroundings and can carry repeated sounds through
 | --- | --- | --- |
 | Growth follows connected routes from the city. | New traces appear along a fissure, tunnel or adjoining seam before appearing farther away. | No unrelated sculk patch simply appears in someone's house for drama. |
 | A bounded intervention changes the next local development. | Removing a connecting trace or building a barrier holds a tested approach; opening another route gives it somewhere else to go. | Containment produces understandable evidence. It need not secretly make things worse. |
-| The network can make a specific place useful. | A previously unstable branch of the mine settles while growth occupies a nearby support seam. | Keeping some sculk can serve practical interests. |
-| Increasing occupation changes how a place can be used. | A work route becomes difficult to maintain, a valued chamber changes, or growth approaches foundations. | Costs concern land, work, heritage and acceptable risk, rather than corrupted people. |
+| Connected spread increases what the network can do. | An affected plot grows crops unusually quickly; a larger network supports a healing site or powers an ancient station. | The benefit is observable game behavior, and limiting growth means accepting a limit on capabilities. |
+| Increasing occupation also increases environmental costs. | Approved ground is lost to growth; dense areas later produce local Hunger/Darkness effects or interfere with an authored farming area. | Costs affect places, resources and access. They do not assign corrupted identities or control character choices. |
 | Intervention is local and imperfectly understood, but consistent. | Similar small experiments have comparable results; later clues can refine an earlier theory. | Mystery comes from incomplete evidence, not arbitrary rule changes. |
 
-**Recommended first benefit:** sculk stabilizes one damaged area of the old workings, making a useful route or salvage site accessible. This needs a visible before/after example early in play. It is a proposed authored site change, not an implemented structural-physics mechanic. Builders can also repair a route conventionally; sculk is neither the only source of survival nor the only solution to the campaign.
+The previous mine-stabilization proposal is withdrawn. Minecraft does not need a structural-support simulation for this campaign, and merely describing a stable mine does not deliver a useful game mechanic. Benefits should be visibly supernatural and actually usable. They may offer something ordinary methods cannot reproduce; a mundane alternative is not a design requirement. Characters still retain the option to refuse a benefit, contain the network or leave.
 
-Make the benefit something the group has reason to value: a workshop supply route, a community restoration project or access to part of its history. Agree that stake with players in Session 0. Do not depend on pretending Minecraft has no other wood, water or stone outside the valley.
+## Power, benefits and costs
 
-One primary benefit is enough for the first trial. Recoverable sound traces from the city could be a second benefit later, but should not become unlimited prophecy, exact recordings of every player conversation or a compulsory investigation tool. Avoid adding farming buffs, personal powers and a new resource economy before the first benefit has proved interesting.
+Proposed common thread for the fiction: the connected growth carries an unfamiliar energy. At its living edges this stimulates crops and recovery; the city's ancient stations can channel it into equipment enchantments. The source and full nature of that energy remain a GM design decision. This gives the effects a relationship without introducing structural physics or treating every new benefit as an unrelated magical incident.
+
+**Recommended first demonstration: accelerated plant growth.** Bind a small farm region to a connected sculk patch. During ACTIVE play, give eligible planted crops additional bounded growth pulses, advancing their normal growth ages rather than changing the world's random-tick rate. A nearby ordinary plot provides a visible comparison: the affected wheat matures earlier and produces normal harvestable crops. Do not need a new food economy, polluted-water system or a physics model to demonstrate the first unnatural benefit.
+
+For a rehearsal, plant the same crops under comparable ordinary conditions in the affected and control plots; show that growth differs, that pausing stops bonus pulses, and that severing the local connection stops the bonus. The extra growth rate, affected crop set and pulse budget need balancing. It does not place/harvest crops for players, accelerate arbitrary blocks or run through unloaded terrain.
+
+### Proposed progression — place-based, not character levels
+
+| Network condition | Concrete new capability | Associated cost to reveal |
+| --- | --- | --- |
+| **Rooted:** a small connected foothold reaches a prepared site. | Additional normal growth-age increments in an authored crop plot. | New sculk visibly occupies approved surrounding ground. Keeping the benefit means tolerating that foothold; an early intervention can hold it here. |
+| **Established:** more of the prepared connected route is active. | An authored refuge/altar region can refresh a short Regeneration effect while a player is inside. It improves ordinary health recovery without changing identity, faction or maximum health. | Dense, separately bound overgrowth areas can apply a short Hunger effect while occupied. Lost ground and the awkward passage are real costs; signs/particles and an initial mild pulse make them observable before escalation. |
+| **Extensive:** the network reaches and powers an ancient station. | The Ancient Forge enables defined enchanted-equipment recipes; stronger or broader site effects become possible if deliberately authored. | More approved territory is occupied, and named high-density approaches can produce short Darkness pulses. The group must decide whether wider access to the network's capabilities is worth its larger footprint and hazards. |
+
+These are proposed campaign capabilities and costs, not implemented effects or a mandatory sequence. Regeneration, Hunger and Darkness are examples of familiar Minecraft effects used as temporary location-based conditions. Stop refreshing them when the player leaves the relevant region; there is no lasting exposure meter, infection, species conversion or involuntary personality change. Healing already received is not revoked when a player leaves.
+
+Growth pulses, effect refreshes and crafting require ACTIVE. Specify how already-applied campaign effects suspend on pause so a short lingering regeneration does not quietly keep the campaign service running; do not clear unrelated vanilla potion effects to accomplish this. Test enter/leave, pause/resume and reconnect explicitly.
+
+Define power from the living network rooted in the city and the state of its authored connected patches. Do **not** count all sculk blocks on the server: mined/re-placed sculk carpets and unrelated ancient-city decorations must not farm power. Author thresholds against the prepared patch graph, with visible milestones and consistent connection rules. Exact thresholds and physical connection checks require their own specification. An unloaded connection is unknown, not proof it has been cut; do not force-load the world to resolve it.
+
+Disconnecting a branch removes its ongoing services and can lower available capacity; reconnecting a valid route can restore them. Finished enchanted gear stays enchanted. The consequence is loss of future station access, not a hidden punishment attached to a character or item when its owner leaves. Costs must also follow known locality/power rules: reconnecting one patch must not suddenly destroy an unrelated house.
+
+The first cost can be small and the later costs more severe, but the system must not have an indefinitely beneficial state followed by an arbitrary unavoidable catastrophe. Show clues to the relationship between footprint, capability and danger, and let successful containment hold a useful smaller network. No territorial conversion or crop damage is authorized merely by selecting a large effect region; destructive targets require explicit authored approvals and reversible-stage rules.
+
+### Other benefit candidates
+
+- **Water purification** remains a valid possible later capability. It needs a defined polluted-water condition, visible feedback, a real harmful effect and rules for buckets/bottles/transport so ordinary water cannot accidentally become toxic or bypass the mechanic. It is extra game content, not something to claim vanilla water already provides. Plant growth is the proposed simpler first slice, not a rejection of purification.
+- **Recoverable sound traces** can support investigation later, but should not replace practical benefits or become unlimited prophecy/recordings of player conversations.
+- A rare or exclusive forge recipe can be a legitimate reason to preserve the network. It need not have an ordinary substitute, provided the campaign does not make that recipe mandatory for escape, essential information or the only viable ending.
+
+## Ancient blocks as usable places
+
+The operator's existing Blockbench designs can support this progression, rather than adding unrelated props. Names and mechanics below are proposals; the source filenames are asset provenance, not settled lore.
+
+| Existing design | Proposed campaign role | Interaction to specify |
+| --- | --- | --- |
+| `ancient_focus` | A visible local relay/indicator of network connection and available capability. | Read its current connection/power state; it is not a compulsory key that gates all discoveries. |
+| `purification_altar` | An Ancient Altar used for a bounded refuge or a later material/purification process. | Bind its effect region and choose one initial function. “Purification” does not imply curing corrupted players. |
+| `purification_forge` plus kindling/active variants | **Ancient Forge:** a powered workshop that creates defined enchanted gear. | Clearly indicate idle, kindling and working state; accept explicit materials/gear, show the offered output, and consume inputs only on a valid server-confirmed operation. |
+| `RelicHeart` / `RelicShard` | Possible network focus or forge reagent if a concrete use is approved. | Inspect export readiness and define acquisition/use before registering a collectible or starting a grind loop. |
+
+Illustrative forge recipe, **not a balance commitment**: an unenchanted iron pickaxe, two amethyst shards and three XP levels produce an Efficiency III iron pickaxe while the forge is powered and ACTIVE. A later recipe could offer a rarer combination. This is an actual equipment change with visible input/output, not a promise that a newly accessible tunnel is valuable. Decide rules for prior enchantments, item components, repairs and recipes before implementation.
+
+Bind the station block and its area with Chronicle Core authoring. Quiet Below owns what network state powers it and which recipes it offers. Placing a decorative copy of the model must not create an unlimited powered forge everywhere. Cutting power stops new crafting; pause/restart/double-click handling must neither consume inputs without output nor duplicate output. Station inventory actions need their own transaction design rather than pretending M4's block-only undo restores inventories.
 
 ## What people do during play
 
@@ -61,10 +106,10 @@ The IDs and triggers below are **design names, not implemented commands**. Sessi
 | QB-E01: The first low sound | Example default: 30 minutes of active, occupied play in the first story session; also available manually. Recent opening of the deep passage is the cause. | Everyone in the campaign audience hears a restrained distant sound from the mine direction. People near it hear a clearer local version. A short accessible text cue accompanies it. No blocks change. | A shared incident people can discuss. They can investigate now, dismiss it or finish their current scene. |
 | QB-E02: A trace with a direction | First investigation of a mapped mine threshold after E01, or manual introduction during an earlier investigation. | A small pre-approved trace connects the disturbed mine to a deeper route. There is visible physical evidence and a plain-language observation. | A lead that can be followed and checked, not a cryptic line unrelated to the landscape. |
 | QB-E03: The buried city | First eligible player enters the map's named city-discovery region. Can occur before E01/E02. | Nearby explorers receive a brief environmental cue and a place to observe the city. Record discovery once. Do not announce a precise hidden location to everyone else. | Recognition that the traces have a source and scale. Discoverers choose what to tell the settlement. No forced teleport, fight or sealed exit. |
-| QB-E04: Something worth keeping | A mapped benefit site is investigated and the GM decides the evidence is ready to show; discovery is an input, not sufficient permission to rewrite terrain. | One damaged work area becomes visibly more stable alongside connected sculk. It provides access to the agreed useful route/site. | Concrete grounds for someone to defend preserving a limited part of the growth. A written survey and visible site both explain the evidence. |
-| QB-E05: The first cost | The useful patch has had time to matter; GM approves the next connected stage. | Growth approaches an authored maintenance route, a significant boundary or a valued feature. Clearly show what is at stake before any lasting loss. | A practical dispute: tolerate this extent, redirect it, remove it, stop expanding the mine, or invest in another solution. |
-| QB-E06: An intervention has a result | Players attempt a declared experiment or plan; the GM maps their action to an authored local outcome. | Show that a barrier holds, a removed connection changes local activity, a preserved buffer retains the benefit, or an opened route permits another prepared stage. | Reliable feedback. Publish what is observed, without declaring that it proves every theory about the city. Reversible small experiments come first. |
-| QB-E07: The community's decision | Player-led decision or accumulated conduct; GM selects only the world response needed to represent it. | Preserve a bounded coexistence site, establish containment and an alternate work route, undertake removal, close the mine, depart, or combine these. | A visible consequence and closing scenes consistent with what characters actually did. No ending menu, score or required boss. |
+| QB-E04: Something worth keeping | A connected patch reaches the bound farm; the GM enables the prepared first capability when its evidence can be observed. | Eligible planted crops receive bonus growth pulses; players can compare them with a nearby control plot and harvest the result. | A concrete unnatural benefit they can test and use, with no support-physics fiction required. |
+| QB-E05: More capable, more costly | Players preserve or allow further connected spread; the GM approves the next authored network stage. | A refuge/altar or, later, the forge becomes usable. More approved ground is occupied and the corresponding bound hazard begins with a readable mild effect. | A real trade-off between food/healing/equipment access and a network with a larger footprint and stronger environmental costs. |
+| QB-E06: An intervention has a result | Players act on a connecting route or propose containment; the GM/validated connection rules apply the prepared local outcome. | Cutting a branch stops its bonus growth or station access; successful containment holds a smaller benefit/cost state; reconnecting a valid route restores the corresponding service. | Repeatable evidence that interventions matter. Already healed players and completed gear are not retroactively punished. |
+| QB-E07: The community's decision | Player-led decision or accumulated conduct; GM selects only the world response needed to represent it. | Hold a limited beneficial patch, accept wider growth for advanced stations, remove a branch to protect land, undertake removal, close the mine, depart, or combine these. | A visible consequence and closing scenes consistent with what characters actually did. No ending menu, score or required boss. |
 
 E01 is the proposed first-session disturbance; E03 is the proposed first-entry trigger. Neither should depend on a player holding the existing lens or finding the existing marker. If the city is discovered early, acknowledge that discovery and retire or adapt obsolete introductory cues. Do not replay a “nobody knows what is below” beat after players have already walked through it.
 
@@ -98,7 +143,7 @@ Natural-looking spread and uncontrolled world simulation are different requireme
 
 Author a graph of small patches: city edge → fissure → old workings → settlement approach, with optional side routes and containment boundaries. Every proposed expansion must have a valid connected predecessor and fit the current intervention state. GM discretion controls pacing and consequences. Authored static city sculk is backdrop; it is not something the mod should try to capture or undo wholesale.
 
-The current M4 prototype handles at most 64 safe natural-block positions and retains only the latest operation until undo. That proves one reversible stage, **not** a multi-stage spread network. Keeping multiple accepted patches, tracking dependencies, removing one branch and preserving later player edits need a separate design and implementation slice. Do not raise the limit or quietly remove undo restrictions to approximate this outline.
+The current M4 prototype handles at most 64 safe natural-block positions and retains only the latest operation until undo. That proves one reversible stage, **not** a multi-stage spread network, crop-growth service or powered station. Keeping multiple accepted patches, tracking power/dependencies and preserving later player edits need a separate design and implementation slice. Do not raise the limit or quietly remove undo restrictions to approximate this outline. Large Core regions define where an effect is eligible; they do not authorize enumerating/mutating every block in the cuboid.
 
 Any plan for “containment works” must define the actual evidence/authoring check. A player placing arbitrary blocks is not already an implemented detector. First trials can use a declared player plan, GM confirmation and a prepared outcome; more physical detection can follow if it improves play.
 
@@ -112,14 +157,14 @@ Recommended disposition: leave those assets in the technical fixture for now; do
 
 The map is the operator's creative work. The mod must adapt to its saved world, dimensions and chosen ancient city; it must not generate the production settlement, rebuild the city, or impose the test world's coordinates.
 
-Needed workflow: import a stopped copy, identify the intended city, name important locations in-game, select small eligible stage patches, bind events, validate everything in a rehearsal copy, then activate that configuration for play. No Java edits or source rebuild should be required just to move an event to another map.
+Needed workflow: work in the map, select two corners for a region, stand at or target an exact location, save a name, then bind an event, chest profile, spawn purpose, station or local effect through shared Chronicle Core tools. Quiet Below references those IDs for city discovery, power and effects. Save/inspect/test directly in-world; backups and optional rehearsal copies are separate operational tools, not the authoring experience. No Java edits or source rebuild should be required to move or configure a site.
 
 See [map-authoring tools](MAP_AUTHORING.md) for the planned workflow and the limits of today's commands. See [tracked work](BACKLOG.md) for the dependency order. **Next work is design review and a map-authoring specification, not more isolated supernatural interactions.**
 
 ## Decisions to settle before gameplay implementation
 
 1. Is the mine connection a suitable cause for the current change, or should it be a collapse, water movement or a different authored incident?
-2. Is stabilizing a valuable worksite the right first benefit? If not, choose a comparably concrete benefit with a visible cost and an ordinary alternative.
+2. Is accelerated crop growth the right first demonstration, followed by local regeneration and a powered Ancient Forge? Choose the initial environmental cost and progression thresholds; a mundane alternative is not required.
 3. Should the truth remain an ecological mystery throughout the pilot, or is there a specific deeper revelation the operator wants? No sentient/corrupting entity is assumed here.
 
-The exact city location, event timings and optional use of custom props can be decided during map authoring. Group size/session length will tune the rhythm. These remain proposals for review, not hidden implementation decisions.
+The exact city/field/refuge/forge locations and event timings are configured through authoring. Group size/session length will tune the rhythm. Mechanics, recipes, costs and thresholds above remain proposals for review, not hidden implementation decisions.

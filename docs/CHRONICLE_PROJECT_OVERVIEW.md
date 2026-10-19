@@ -1,5 +1,7 @@
 # Chronicle
 
+> Latest design correction, 19 October 2026: [Quiet Below's revised benefit progression](THE_QUIET_BELOW.md) replaces mine-stabilization fiction with concrete game effects and powered ancient stations; no support-physics model or mandatory mundane substitute is required. [Core in-world authoring](MAP_AUTHORING.md) owns reusable two-corner regions, location/block anchors and chest/spawn configuration. Importing a world copy is not the primary authoring workflow. These are revised design proposals, not installed features.
+
 > Framework scope update, 19 October 2026: [Campaign formats](CAMPAIGN_FORMATS.md) records Survival, Journey, Werewolf and Situation (“Happening”). This brief primarily describes the Quiet Below trial; its restrictions on fixed teams/secret roles/competitive elimination are not universal prohibitions for a Werewolf campaign. Journey's per-session worlds and branching outcomes are desired future functionality, not existing behavior.
 
 > Current campaign direction: [The Quiet Below](THE_QUIET_BELOW.md), [handcrafted-map authoring](MAP_AUTHORING.md) and [tracked work](BACKLOG.md), updated after operator feedback on 19 October 2026. This original brief remains historical context. The operator now handcrafts the production map; prototype marker/lens fiction and the generated pilot do not define the campaign. New narrative/gameplay implementation waits for design review.
