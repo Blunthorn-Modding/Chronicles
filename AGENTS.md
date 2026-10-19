@@ -2,6 +2,9 @@
 
 Read `docs/CHRONICLE_PROJECT_OVERVIEW.md`, `docs/DECISIONS.md`, and `docs/TEST_PLAN.md` before changing architecture. The original overview is a brief, not implemented behavior.
 
+- Current design authority: `docs/THE_QUIET_BELOW.md`, `docs/MAP_AUTHORING.md`, `docs/BACKLOG.md`. Operator feedback on 19 October 2026 pauses gameplay expansion for narrative definition. The operator handcrafts the production map; agent maps are test fixtures. Do not treat proposed benefits/triggers or existing prototype lore as approved canon.
+- Use scoped Git branches and coherent commits with tracked QB work IDs. The operator requested GitHub workflow; push requested work on scoped branches, review diffs/evidence, and keep main merges separate. Never fabricate milestone history or include runtime worlds/tools/credentials.
+
 - Source/configuration/scripts belong in this repository. Its parent `MC RP` contains portable tools, caches, server worlds, client packs, backups, reports, and disposable test worlds. Keep generated runtime data outside Git.
 - Target Minecraft Java **1.21.10**, Fabric, **Java 21**. Pins live in `bootstrap.lock.json` and `gradle.properties`; update together after compatibility checks.
 - Two mods: `core` (`chronicle_core`) and `campaigns/quiet-below` (`quiet_below`). Client code belongs under `src/client`; common code must never import `net.minecraft.client`.

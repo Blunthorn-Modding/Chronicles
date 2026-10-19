@@ -2,6 +2,8 @@
 
 A Fabric roleplay campaign framework for Minecraft Java 1.21.10. **Chronicle Core** and **The Quiet Below** provide persistent sessions, simulation freezing, hotbar status, public character dossiers, custom investigative content and bounded environmental stages. The [pilot runbook](docs/PILOT_RUNBOOK.md) prepares the first group playtest.
 
+**Current direction — 19 October 2026:** the operator has tested the mechanics; the campaign fiction needs definition before further gameplay work. Start with [The Quiet Below outline](docs/THE_QUIET_BELOW.md), [handcrafted-map tools](docs/MAP_AUTHORING.md) and the [tracked backlog](docs/BACKLOG.md). The operator builds the production map. Generated pilot worlds and their marker/lens lore are technical fixtures, not the production scenario. Timed/region events and connected spread in the outline are proposals, not installed features.
+
 ## Workspace and setup
 
 ```text

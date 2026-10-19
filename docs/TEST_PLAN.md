@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## Operator feedback — 19 October 2026
+
+The operator tested the added functions and reports that they generally work, but that the event/marker fiction lacks a coherent cause or purpose. This validates perceived technical function, not campaign quality, human voice audio or every individual acceptance case. Gameplay expansion is paused for the [campaign outline](THE_QUIET_BELOW.md). The operator will build the production map; the generated pilot remains a regression fixture. M5's production session now depends on design review, map-authoring tools and the handcrafted map; another generic pilot playtest alone does not complete it. Branch/commit tracking begins from a preserved technical baseline; see [BACKLOG](BACKLOG.md).
+
 Run commands from `Chronicles`. Update this evidence when subsequent milestones change behavior.
 
 ## Repeatable checks

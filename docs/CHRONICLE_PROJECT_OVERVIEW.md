@@ -1,4 +1,6 @@
 # Chronicle
+
+> Current campaign direction: [The Quiet Below](THE_QUIET_BELOW.md), [handcrafted-map authoring](MAP_AUTHORING.md) and [tracked work](BACKLOG.md), updated after operator feedback on 19 October 2026. This original brief remains historical context. The operator now handcrafts the production map; prototype marker/lens fiction and the generated pilot do not define the campaign. New narrative/gameplay implementation waits for design review.
 ## Minecraft Roleplay Campaign Framework — Project Overview & Codex Handoff
 
 **Status:** Proposed direction / implementation starting point  

@@ -1,5 +1,13 @@
 # Bootstrap decisions — 18 October 2026
 
+## Campaign design reset — 19 October 2026
+
+The operator tested the prototype and reports that the functions generally work; the event/marker fiction feels disconnected. Stop expanding gameplay until its purpose is defined. The operator handcrafts the production map; agent worlds remain technical fixtures. The intended backdrop is an initially unknown ancient city, with connected sculk spread offering benefits and costs. Characters may remove, contain, study, coexist, depart or invent other responses. No required faction split, personal corruption or forced stay is part of the direction. Timed first-session cues and first-entry discovery are desired future tools, while manual GM controls remain.
+
+`THE_QUIET_BELOW.md` proposes a causal event outline and explicitly separates established direction from unapproved cause/benefit/lore. `MAP_AUTHORING.md` identifies tools needed to adapt the mod to the operator's world without code edits. `BACKLOG.md` tracks QB work items and dependencies. Existing M3/M4 features prove technical capability; they are not proof of a coherent campaign or of proposed scheduling/region/multi-stage support.
+
+The operator requested branches, change tracking and commits. Capture prior uncommitted work once as a tested-prototype baseline, then use scoped branches and coherent commits. Keep runtime data out of Git; publish requested GitHub work on branches and keep merging main a separate decision. Do not invent earlier milestone commits or hosted issue IDs.
+
 ## Scope
 
 M0 established local operations; M1 adds sessions/persistence, flags/events/audit, simulation freezing and hotbar status; M2 adds public character cards; M3 adds investigative content; M4 adds campaign-local bounded stages. M5 has a separate prototype site and session material pending group playtest. The original brief is preserved with explicit operator policy updates. Core and campaign build separate jars; campaign has a hard Core dependency. Package prefix: `io.github.chronicle`. License/distribution remains open; no license was invented.
