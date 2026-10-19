@@ -6,10 +6,10 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
-/** A single private, short-lived geometry preview. No client-to-server mutation packet exists. */
+/** A single private, explicitly cleared geometry preview. No client-to-server mutation packet exists. */
 public record AuthoringPreviewPayload(String dimension, boolean visible, double minX, double minY, double minZ,
                                      double maxX, double maxY, double maxZ, boolean facing, float yaw, float pitch) implements CustomPayload {
-    public static final Id<AuthoringPreviewPayload> ID = new Id<>(Identifier.of("chronicle_core", "authoring_preview"));
+    public static final Id<AuthoringPreviewPayload> ID = new Id<>(Identifier.of("chronicle_core", "authoring_preview_v2"));
     public static final PacketCodec<RegistryByteBuf, AuthoringPreviewPayload> CODEC = PacketCodec.ofStatic((buf, value) -> {
         buf.writeString(value.dimension(), 256);
         buf.writeBoolean(value.visible());

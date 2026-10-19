@@ -13,16 +13,16 @@ import net.minecraft.util.math.Box;
 /** Frame-rendered Core geometry: remains visible while vanilla simulation/particles are frozen. */
 public final class AuthoringPreviewRenderer {
     private static AuthoringPreviewPayload preview;
-    private static long expires;
+    private static net.minecraft.client.world.ClientWorld previewWorld;
     private static long renderedFrames;
 
     private AuthoringPreviewRenderer() { }
     public static void register() {
         ClientPlayNetworking.registerGlobalReceiver(AuthoringPreviewPayload.ID, (payload, context) -> context.client().execute(() -> {
             preview = payload.visible() ? payload : null;
-            expires = System.nanoTime() + 5_000_000_000L;
+            previewWorld = context.client().world;
         }));
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { preview = null; renderedFrames = 0; });
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> { preview = null; previewWorld = null; renderedFrames = 0; });
         WorldRenderEvents.BEFORE_DEBUG_RENDER.register(AuthoringPreviewRenderer::render);
     }
 
@@ -32,7 +32,7 @@ public final class AuthoringPreviewRenderer {
     private static void render(WorldRenderContext context) {
         var value = preview;
         var client = MinecraftClient.getInstance();
-        if (value == null || System.nanoTime() >= expires || client.world == null) { preview = null; return; }
+        if (value == null || client.world == null || client.world != previewWorld) { preview = null; return; }
         if (!client.world.getRegistryKey().getValue().toString().equals(value.dimension())) return;
         var camera = context.worldState().cameraRenderState.pos;
         var box = new Box(value.minX(), value.minY(), value.minZ(), value.maxX(), value.maxY(), value.maxZ()).offset(camera.negate());

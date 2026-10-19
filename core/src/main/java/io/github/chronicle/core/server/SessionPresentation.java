@@ -26,7 +26,7 @@ public final class SessionPresentation {
     private static void apply(MinecraftServer server, boolean refresh) {
         CampaignService service = ChronicleRuntime.available(server);
         CampaignState state = service == null ? null : service.state();
-        boolean frozen = state == null || state.phase() != SessionPhase.ACTIVE;
+        boolean frozen = state == null || state.phase() != SessionPhase.ACTIVE || RuntimeHolds.reason(server) != null;
         ServerTickManager ticks = server.getTickManager();
         if (frozen) {
             ticks.stopSprinting();
@@ -53,6 +53,7 @@ public final class SessionPresentation {
 
     private static void show(ServerPlayerEntity player, CampaignState state) {
         Text message;
+        String hold = RuntimeHolds.reason(player.getEntityWorld().getServer());
         if (state == null) {
             message = Text.translatableWithFallback("chronicle.session.unavailable",
                     "Chronicle: unavailable | World frozen").formatted(Formatting.RED);
@@ -60,7 +61,10 @@ public final class SessionPresentation {
             String phase = state.phase().name().toLowerCase(Locale.ROOT);
             String fallback = phase.substring(0, 1).toUpperCase(Locale.ROOT) + phase.substring(1);
             Text phaseText = Text.translatableWithFallback("chronicle.session.phase." + phase, fallback);
-            message = state.phase() == SessionPhase.ACTIVE
+            message = hold != null
+                    ? Text.translatableWithFallback("chronicle.session.held", "Chronicle | Session %s: %s | World frozen: %s",
+                            state.sessionNumber(), phaseText, hold).formatted(Formatting.GOLD)
+                    : state.phase() == SessionPhase.ACTIVE
                     ? Text.translatableWithFallback("chronicle.session.active", "Chronicle | Session %s: %s",
                             state.sessionNumber(), phaseText).formatted(Formatting.GREEN)
                     : Text.translatableWithFallback("chronicle.session.frozen", "Chronicle | Session %s: %s | World frozen",

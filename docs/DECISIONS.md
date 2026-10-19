@@ -1,5 +1,11 @@
 # Bootstrap decisions — 18 October 2026
 
+## M6 feedback and M7 first slice - 19 October 2026
+
+The operator tested M6 and accepted selection geometry, requesting an outline that remains visible while walking and submod-registered IDs selectable from a menu. Replace the five-second timeout with explicit clearing; private previews remain dimension/connection scoped and author previews clear on ACTIVE. Core exposes a typed startup catalog; each campaign registers its own location roles. The first interface is clickable chat plus completion, with Set/Replace commands suggested for explicit submission. Legacy flat IDs stay readable; namespaced command strings are quoted. The preview channel is versioned so an older client receives the matching-pack notice instead of silently retaining the old timeout.
+
+Continue CF-07 with Core-owned empty-only chest templates/fill receipts and manual named-player spawn moves. Preserve item components, reject unsupported/lazy containers, pin references and journal before mutation. Hold native simulation immediately during uncertain fills, flush saves before receipts, compare before/after for recovery, and preserve conflicts. Normal hopper/piston/explosion ticking stops during a hold; deliberate operator/plugin world edits remain an out-of-band bypass and can require stopped manual conflict resolution. Spawn metadata does not change vanilla respawns. Entity groups and automatic arrival/death-respawn are explicit M7 follow-up, before treating CF-07 as complete. Human review of the content/move workflow is the next gate; this does not enable sculk ecology.
+
 ## Engineering milestones and implementation authorization — 19 October 2026
 
 Follow-up answers confirm exposure-fed growth without oxygen depletion/suffocation. Grown shriekers support vanilla Warden summoning, vanilla warnings and vanilla despawning; do not add a custom warning/encounter system. M9's pinned-version trial must establish the correct generated-shrieker state and ownership/pause integration while preserving that vanilla behavior.

@@ -24,6 +24,7 @@ public final class AuthoringRuntime {
     private static final Map<MinecraftServer, AuthoringRuntime> WORLDS = new IdentityHashMap<>();
     private final AuthoringService service;
     private final Map<UUID, Selection> authors = new HashMap<>();
+    private final Map<UUID, String> previews = new HashMap<>();
 
     private AuthoringRuntime(AuthoringService service) { this.service = service; }
 
@@ -51,6 +52,7 @@ public final class AuthoringRuntime {
         var runtime = WORLDS.get(player.getEntityWorld().getServer());
         if (runtime != null) {
             runtime.authors.remove(player.getUuid());
+            runtime.previews.remove(player.getUuid());
         }
     }
 
@@ -75,8 +77,12 @@ public final class AuthoringRuntime {
     }
     public void selection(UUID player, Selection selection) { selection(player); authors.put(player, selection); }
     public void preview(ServerPlayerEntity player, AuthoringSite site) {
+        if (!site.dimension().equals(player.getEntityWorld().getRegistryKey().getValue().toString())) {
+            clearPreview(player);
+            return;
+        }
         if (!ServerPlayNetworking.canSend(player, AuthoringPreviewPayload.ID)) {
-            player.sendMessage(Text.literal("Preview requires the matching Chronicle M6 client pack."), false);
+            player.sendMessage(Text.literal("Preview requires the matching Chronicle M7 client pack."), false);
             return;
         }
         AuthoringPreviewPayload payload;
@@ -93,9 +99,12 @@ public final class AuthoringRuntime {
             payload = new AuthoringPreviewPayload(site.dimension(), true, pos.x(), pos.y(), pos.z(), pos.x() + 1.0, pos.y() + 1.0, pos.z() + 1.0, false, 0, 0);
         }
         ServerPlayNetworking.send(player, payload);
+        previews.put(player.getUuid(), site.dimension());
     }
 
     public static void clearPreview(ServerPlayerEntity player) {
+        var runtime = WORLDS.get(player.getEntityWorld().getServer());
+        if (runtime != null) runtime.previews.remove(player.getUuid());
         if (ServerPlayNetworking.canSend(player, AuthoringPreviewPayload.ID)) {
             ServerPlayNetworking.send(player, AuthoringPreviewPayload.clear(player.getEntityWorld().getRegistryKey().getValue().toString()));
         }
@@ -103,7 +112,20 @@ public final class AuthoringRuntime {
 
     public static void tick(MinecraftServer server) {
         var runtime = WORLDS.get(server);
-        if (runtime != null && !editable(server)) runtime.authors.clear();
+        if (runtime == null) return;
+        if (!editable(server) && !runtime.authors.isEmpty()) {
+            for (UUID id : java.util.List.copyOf(runtime.authors.keySet())) {
+                var player = server.getPlayerManager().getPlayer(id);
+                if (player != null) clearPreview(player);
+            }
+            runtime.authors.clear();
+        }
+        for (var entry : java.util.List.copyOf(runtime.previews.entrySet())) {
+            var player = server.getPlayerManager().getPlayer(entry.getKey());
+            if (player == null) runtime.previews.remove(entry.getKey());
+            else if (!player.getCommandSource().hasPermissionLevel(2)
+                    || !entry.getValue().equals(player.getEntityWorld().getRegistryKey().getValue().toString())) clearPreview(player);
+        }
     }
 
     public record Selection(String dimension, BlockPosition first, BlockPosition second) { }

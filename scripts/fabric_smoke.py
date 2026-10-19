@@ -169,9 +169,18 @@ def run(include_content=True, regression=True):
                 _await_clients(clients, [reports / f'role-{role}-{phase}.json' for role in ('A', 'B')])
                 report['checks'].append(phase + ': GM/non-op matching Fabric clients passed M1/M2 checks')
                 authoring = json.loads((root / 'world/chronicle/authoring.json').read_text(encoding='utf-8'))
-                if authoring['revision'] != 6 or {site['type'] for site in authoring['sites']} != {'region', 'location', 'anchor'}:
+                if authoring['revision'] != 8 or {site['type'] for site in authoring['sites']} != {'region', 'location', 'anchor'}:
                     raise RuntimeError('M6 authoring registry revision/type persistence mismatch')
                 report['checks'].append(phase + ': M6 metadata commands, permissions and durable region/location/anchor checks passed')
+                chest = json.loads((root / 'world/chronicle/chest-content.json').read_text(encoding='utf-8'))
+                if len(chest['templates']) != 1 or len(chest['bindings']) != 1 or len(chest['receipts']) != 1 or chest['pending']:
+                    raise RuntimeError('M7 chest templates/receipts/pending persistence mismatch')
+                if 'Chronicle supply' not in chest['templates'][0]['contents']['stacks'][0]:
+                    raise RuntimeError('M7 item components lost in captured template')
+                spawns = json.loads((root / 'world/chronicle/spawns.json').read_text(encoding='utf-8'))
+                if len(spawns['bindings']) != 1 or spawns['bindings'][0]['locationId'] != 'smoke_arrival':
+                    raise RuntimeError('M7 spawn binding persistence mismatch')
+                report['checks'].append(phase + ': M7 chest components/once receipt and safe named player move persistence passed')
                 state = json.loads((root / 'world/chronicle/campaign-state.json').read_text())
                 expected = ('PAUSED', 1) if phase == 'initial' else ('ENDED', 2)
                 if (state['phase'], state['sessionNumber']) != expected:
@@ -194,6 +203,29 @@ def run(include_content=True, regression=True):
             server_log.close()
             server_log = None
             report['checks'].append(phase + ': clean server save/stop')
+            if regression and phase == 'initial':
+                # Disposable, stopped fixture: model world-save success followed by
+                # interruption before the content receipt was committed.
+                content_file = root / 'world/chronicle/chest-content.json'
+                chest = json.loads(content_file.read_text(encoding='utf-8'))
+                binding = chest['bindings'][0]
+                anchor = next(site for site in authoring['sites'] if site['id'] == binding['anchorId'])
+                contents = chest['templates'][0]['contents']
+                chest['receipts'] = []
+                chest['pending'] = [{
+                    'operationId': '00000000-0000-0000-0000-000000000007',
+                    'actorUuid': offline_uuid('ChronicleFabricA'), 'actorName': 'ChronicleFabricA',
+                    'bindingId': binding['id'], 'bindingRevision': binding['revision'], 'sessionNumber': 1,
+                    'target': {'anchorId': anchor['id'], 'anchorRevision': anchor['revision'],
+                               'dimension': anchor['dimension'], 'x': anchor['position']['x'],
+                               'y': anchor['position']['y'], 'z': anchor['position']['z'],
+                               'expectedBlock': anchor['expectedBlock']},
+                    'before': {'size': contents['size'], 'stacks': ['{}'] * contents['size']},
+                    'after': contents, 'createdAt': '2026-10-19T12:00:00Z'}]
+                chest['revision'] += 1
+                content_file.write_text(json.dumps(chest), encoding='utf-8')
+                report['checks'].append('stopped disposable fixture: pending intent after flushed mutation before receipt')
+
             for _, logfile in clients:
                 logfile.close()
             clients = []

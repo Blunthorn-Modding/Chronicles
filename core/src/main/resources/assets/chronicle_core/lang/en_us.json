@@ -19,6 +19,7 @@
   "chronicle.profile.error.unsupported": "Matching Chronicle client/server support is required for the editor.",
   "chronicle.profile.error.timeout": "Saving took too long. Your edits are still here; retry.",
   "chronicle.session.unavailable": "Chronicle: unavailable | World frozen",
+  "chronicle.session.held": "Chronicle | Session %s: %s | World frozen: %s",
   "chronicle.session.active": "Chronicle | Session %s: %s",
   "chronicle.session.frozen": "Chronicle | Session %s: %s | World frozen",
   "chronicle.session.phase.inactive": "Inactive",

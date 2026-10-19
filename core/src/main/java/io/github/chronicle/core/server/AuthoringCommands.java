@@ -2,6 +2,10 @@ package io.github.chronicle.core.server;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.suggestion.Suggestions;
+import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.authoring.AuthoringSite;
 import io.github.chronicle.core.authoring.BlockPosition;
@@ -14,6 +18,9 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.text.ClickEvent;
+import net.minecraft.text.HoverEvent;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
@@ -22,6 +29,7 @@ import net.minecraft.world.RaycastContext;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
@@ -32,6 +40,13 @@ public final class AuthoringCommands {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         var author = literal("author").requires(source -> source.hasPermissionLevel(2))
+                .executes(context -> menu(context.getSource(), 1))
+                .then(literal("menu").executes(context -> menu(context.getSource(), 1))
+                        .then(argument("page", IntegerArgumentType.integer(1)).executes(context -> menu(context.getSource(), IntegerArgumentType.getInteger(context, "page")))))
+                .then(literal("preview").then(literal("hide").executes(context -> run(context.getSource(), runtime -> {
+                    AuthoringRuntime.clearPreview(player(context.getSource()));
+                    return "Authoring preview hidden.";
+                }))))
                 .then(literal("mode")
                         .then(literal("on").executes(context -> run(context.getSource(), runtime -> {
                             requireEditable(context.getSource());
@@ -46,6 +61,7 @@ public final class AuthoringCommands {
         var select = literal("select")
                 .then(literal("clear").executes(context -> edit(context.getSource(), runtime -> {
                     runtime.selection(player(context.getSource()).getUuid(), new AuthoringRuntime.Selection(null, null, null));
+                    AuthoringRuntime.clearPreview(player(context.getSource()));
                     return "Author selection cleared.";
                 })));
         for (int corner = 1; corner <= 2; corner++) {
@@ -64,7 +80,8 @@ public final class AuthoringCommands {
         for (boolean replace : new boolean[]{false, true}) {
             String verb = replace ? "replace" : "save";
             // Merges into the same region/location/block nodes through Brigadier.
-            author.then(literal("region").then(literal(verb).then(argument("id", StringArgumentType.word())
+            author.then(literal("region").then(literal(verb).then(argument("id", StringArgumentType.string())
+                    .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, replace, builder))
                     .executes(context -> edit(context.getSource(), runtime -> {
                         var source = context.getSource();
                         var selected = runtime.selection(player(source).getUuid());
@@ -73,7 +90,8 @@ public final class AuthoringCommands {
                         validateWritable(source, site);
                         return persist(source, runtime, site, replace);
                     })))));
-            author.then(literal("location").then(literal(verb).then(argument("id", StringArgumentType.word())
+            author.then(literal("location").then(literal(verb).then(argument("id", StringArgumentType.string())
+                    .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.LOCATION, replace, builder))
                     .then(literal("here").executes(context -> edit(context.getSource(), runtime -> {
                         var source = context.getSource();
                         var player = player(source);
@@ -82,7 +100,8 @@ public final class AuthoringCommands {
                         validateWritable(source, site);
                         return persist(source, runtime, site, replace);
                     }))))));
-            author.then(literal("block").then(literal(replace ? "replace" : "bind").then(argument("id", StringArgumentType.word())
+            author.then(literal("block").then(literal(replace ? "replace" : "bind").then(argument("id", StringArgumentType.string())
+                    .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.BLOCK, replace, builder))
                     .then(literal("target").executes(context -> edit(context.getSource(), runtime -> {
                         var source = context.getSource();
                         BlockPos target = target(source);
@@ -97,9 +116,9 @@ public final class AuthoringCommands {
             return "Authoring revision=" + state.revision() + "; sites=" + state.sites().size() + ": "
                     + String.join(", ", state.sites().keySet());
         })));
-        author.then(literal("show").then(argument("id", StringArgumentType.word())
+        author.then(literal("show").then(argument("id", StringArgumentType.string())
                 .suggests((context, builder) -> {
-                    try { return CommandSource.suggestMatching(AuthoringRuntime.get(context.getSource().getServer()).service().state().sites().keySet(), builder); }
+                    try { return suggestValues(AuthoringRuntime.get(context.getSource().getServer()).service().state().sites().keySet(), builder); }
                     catch (IllegalStateException exception) { return builder.buildFuture(); }
                 })
                 .executes(context -> run(context.getSource(), runtime -> {
@@ -108,9 +127,11 @@ public final class AuthoringCommands {
                     if (player != null) runtime.preview(player, site);
                     return describe(site) + "; validation=" + validate(context.getSource(), site) + ".";
                 }))));
-        author.then(literal("remove").then(argument("id", StringArgumentType.word())
+        author.then(literal("remove").then(argument("id", StringArgumentType.string())
+                .suggests((context, builder) -> suggest(context.getSource(), null, true, builder))
                 .executes(context -> edit(context.getSource(), runtime -> {
                     runtime.service().remove(id(context));
+                    AuthoringRuntime.clearPreview(player(context.getSource()));
                     log(context.getSource(), "remove", id(context), runtime.service().state().revision());
                     return "Removed authoring site " + id(context) + "; revision=" + runtime.service().state().revision() + ".";
                 }))));
@@ -152,6 +173,7 @@ public final class AuthoringCommands {
     }
 
     private static String persist(ServerCommandSource source, AuthoringRuntime runtime, AuthoringSite site, boolean replace) throws IOException {
+        ChronicleCore.authoring().validate(site);
         var saved = runtime.service().put(site, replace);
         log(source, replace ? "replace" : "save", saved.id(), saved.revision());
         runtime.preview(player(source), saved);
@@ -195,6 +217,8 @@ public final class AuthoringCommands {
     }
 
     private static String validate(ServerCommandSource source, AuthoringSite site) {
+        try { ChronicleCore.authoring().validate(site); }
+        catch (IllegalArgumentException exception) { return "invalid: " + exception.getMessage(); }
         var world = source.getServer().getWorld(RegistryKey.of(RegistryKeys.WORLD, Identifier.of(site.dimension())));
         if (world == null) return "invalid: dimension unavailable";
         try {
@@ -240,6 +264,54 @@ public final class AuthoringCommands {
     }
     private static void requireEditable(ServerCommandSource source) {
         if (!AuthoringRuntime.editable(source.getServer())) throw new IllegalStateException("Authoring edits require a non-active, available Chronicle session.");
+    }
+
+    private static CompletableFuture<Suggestions> suggest(ServerCommandSource source, AuthoringCatalog.Kind kind, boolean existing, SuggestionsBuilder builder) {
+        try {
+            var sites = AuthoringRuntime.get(source.getServer()).service().state().sites();
+            var choices = existing ? sites.values().stream().filter(site -> kind == null || kind.accepts(site)).map(AuthoringSite::id).toList()
+                    : ChronicleCore.authoring().roles().stream().filter(role -> role.kind() == kind && !sites.containsKey(role.id())).map(AuthoringCatalog.Role::id).toList();
+            return suggestValues(choices, builder);
+        } catch (IllegalStateException exception) { return builder.buildFuture(); }
+    }
+
+    private static int menu(ServerCommandSource source, int page) {
+        return run(source, runtime -> {
+            source.sendFeedback(() -> Text.literal("Authoring: select corners, then choose a registered place. Click an action and press Enter.").formatted(Formatting.GOLD), false);
+            source.sendFeedback(() -> Text.empty().append(choice("[Author mode] ", "/chronicle author mode on", "Enter author mode while the session is not active."))
+                    .append(choice("[Corner 1] ", "/chronicle author select target1", "Look at the first corner block within six blocks."))
+                    .append(choice("[Corner 2] ", "/chronicle author select target2", "Look at the second corner block within six blocks."))
+                    .append(choice("[Clear]", "/chronicle author select clear", "Clear the selection and its preview.")), false);
+            var roles = ChronicleCore.authoring().roles();
+            int pages = Math.max(1, (roles.size() + 15) / 16);
+            if (page > pages) throw new IllegalArgumentException("Authoring menu has " + pages + " pages.");
+            for (var role : roles.subList((page - 1) * 16, Math.min(page * 16, roles.size()))) {
+                boolean bound = runtime.service().state().sites().containsKey(role.id());
+                String roleArgument = StringArgumentType.escapeIfRequired(role.id());
+                String command = switch (role.kind()) {
+                    case REGION -> "/chronicle author region " + (bound ? "replace " : "save ") + roleArgument;
+                    case LOCATION -> "/chronicle author location " + (bound ? "replace " : "save ") + roleArgument + " here";
+                    case BLOCK -> "/chronicle author block " + (bound ? "replace " : "bind ") + roleArgument + " target";
+                };
+                source.sendFeedback(() -> Text.literal(role.label() + " (" + role.id() + ") ")
+                        .append(choice(bound ? "[Replace] " : "[Set] ", command, role.description()))
+                        .append(bound ? choice("[Show]", "/chronicle author show " + roleArgument, "Inspect the saved site.") : Text.literal("unbound").formatted(Formatting.GRAY)), false);
+            }
+            if (page < pages) source.sendFeedback(() -> choice("[Next page]", "/chronicle author menu " + (page + 1), "More registered places."), false);
+            return "Authoring menu page " + page + "/" + pages + "; registered roles=" + roles.size() + ".";
+        });
+    }
+    private static CompletableFuture<Suggestions> suggestValues(Iterable<String> values, SuggestionsBuilder builder) {
+        String prefix = builder.getRemainingLowerCase();
+        for (String value : values) {
+            String escaped = StringArgumentType.escapeIfRequired(value);
+            if (value.startsWith(prefix) || escaped.startsWith(prefix)) builder.suggest(escaped);
+        }
+        return builder.buildFuture();
+    }
+    private static Text choice(String label, String command, String help) {
+        return Text.literal(label).styled(style -> style.withColor(Formatting.AQUA)
+                .withClickEvent(new ClickEvent.SuggestCommand(command)).withHoverEvent(new HoverEvent.ShowText(Text.literal(help))));
     }
     private static void requireEditor(ServerCommandSource source, AuthoringRuntime runtime) {
         requireEditable(source);

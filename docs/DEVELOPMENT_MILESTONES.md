@@ -28,7 +28,7 @@ Do not turn Core's flag-only event callbacks into implicit inventory/world mutat
 
 Complete each slice with scoped commits/pushes, updated backlog and exact evidence. Never mark a whole milestone complete because its specification or domain tests exist. Broaden tests when new risk warrants it; preserve the authenticated play server and its world. Build/test new features in disposable worlds first; deployment requires a saving shutdown and matching client pack. Human review gates concern usability, appearance, balance or the actual map, not routine code choices.
 
-Current delivery: [M6 implementation](M6_IMPLEMENTATION.md) is built for operator review. Its technical evidence lives in [TEST_PLAN](TEST_PLAN.md); human builder acceptance remains open. M7–M13 are specified deliveries, not implemented features.
+Current delivery: the operator tested M6 and accepted its geometry approach, requesting persistent outlines and registered menu choices. Those refinements and the first [M7 content/player-move slice](M7_IMPLEMENTATION.md) are implemented for review. Entity spawn groups and automatic respawn remain M7 follow-up; M8-M13 are design specifications. Evidence and remaining human checks are in [TEST_PLAN](TEST_PLAN.md).
 
 ## M6 implementation contract
 

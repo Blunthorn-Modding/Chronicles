@@ -200,6 +200,7 @@ public final class FabricRegressionSmoke {
     private void initialA(MinecraftClient client) {
         waitForMarker("wait for B unauthorized denial", marker("B", "initial", "denied"));
         initialAuthoring(client);
+        initialContentAuthoring(client);
         actionbar("inactive actionbar", "Chronicle | Session 0: Inactive | World frozen");
         timeQuery(client, "capture frozen time", value -> firstTime = value);
         movement(client, "player moves while inactive and frozen");
@@ -209,6 +210,7 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "start session 1", "chronicle session start 1", "^Started Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
         actionbar("active session 1 actionbar", "Chronicle | Session 1: Active");
+        exerciseContent(client);
         Path authoring = serverRoot.resolve("world/chronicle/authoring.json");
         capture("authoring before ACTIVE rejection", authoring);
         command(client, "author mode rejected during ACTIVE", "chronicle author mode on", ".*Authoring edits require a non-active.*");
@@ -302,7 +304,9 @@ public final class FabricRegressionSmoke {
         for (String command : List.of("chronicle author mode on", "chronicle author select pos1 0 -60 0",
                 "chronicle author region save forbidden", "chronicle author location save forbidden here",
                 "chronicle author block bind forbidden target", "chronicle author remove smoke_city",
-                "chronicle author show smoke_city", "chronicle author list")) {
+                "chronicle author show smoke_city", "chronicle author list",
+                "chronicle author chest capture forbidden", "chronicle chest status", "chronicle spawn list")) {
+            delay("respect vanilla non-op command rate: " + command, 1_100);
             command(client, "non-op denied: " + command, command, UNAUTHORIZED_REPLY, matcher -> { });
         }
         unchanged("non-op author commands preserve registry", "authoring before unauthorized edits", authoring);
@@ -338,6 +342,12 @@ public final class FabricRegressionSmoke {
 
     private void restartA(MinecraftClient client) {
         check("authoring persists all three site types across restart", this::assertAuthoring);
+        actionbar("restart pending-fill status is visible", "Chronicle | Session 1: Paused | World frozen: A Chronicle chest fill is unresolved; use /chronicle chest status and recover it before play continues.");
+        command(client, "restart retains uncertain fill intent", "chronicle chest status", ".*templates=1; bindings=1; receipts=0; pending=1.*");
+        command(client, "recover persisted after without replay", "chronicle chest recover 00000000-0000-0000-0000-000000000007", ".*applied contents verified; durable receipt recorded.*");
+        command(client, "recovered receipt survives uncertainty", "chronicle chest status", ".*templates=1; bindings=1; receipts=1; pending=0.*");
+        command(client, "recovery preserves item components", "data get block 16 -60 16 Items", ".*Chronicle supply.*");
+        command(client, "spawn binding survives restart", "chronicle spawn inspect \"chronicle_core:arrival\"", ".*smoke_arrival.*safety=safe.*");
         command(client, "author mode is not restored on restart", "chronicle author remove smoke_city", ".*Enable author mode first.*");
         command(client, "persisted region can be shown", "chronicle author show smoke_city", ".*region smoke_city.*volume=36.*validation=valid.*");
         command(client, "persisted anchor validates", "chronicle author validate", ".*valid=3; invalid=0; unresolved=0.*");
@@ -414,7 +424,7 @@ public final class FabricRegressionSmoke {
         unchanged("duplicate save leaves registry unchanged", "registry before duplicate region", authoring);
         command(client, "change selected corner", "chronicle author select pos1 19 -58 18", "^Selected corner 1.*");
         command(client, "explicitly replace region", "chronicle author region replace smoke_city", ".*region smoke_city.*revision=2.*volume=36.*");
-        command(client, "move to precise oriented test location", "tp @s 16.5 -58 16.5 90 0", ".*Teleported.*");
+        command(client, "move to precise oriented test location", "tp @s 16.5 -60 18.5 90 0", ".*Teleported.*");
         command(client, "save exact point with facing", "chronicle author location save smoke_arrival here", ".*location smoke_arrival.*yaw=90.00; pitch=0.00.*");
         command(client, "place fixture chest", "setblock 16 -60 16 minecraft:chest", ".*Changed the block.*");
         command(client, "put seven diamonds in fixture chest", "item replace block 16 -60 16 container.0 with minecraft:diamond 7", ".*Replaced.*");
@@ -429,10 +439,36 @@ public final class FabricRegressionSmoke {
         command(client, "remove disposable definition", "chronicle author remove smoke_delete", ".*Removed authoring site smoke_delete; revision=6.*");
         command(client, "list all shared types", "chronicle author list", ".*sites=3: smoke_arrival, smoke_chest, smoke_city.*");
         command(client, "validate all metadata", "chronicle author validate", ".*valid=3; invalid=0; unresolved=0.*");
+        command(client, "open registered campaign role menu", "chronicle author menu", ".*registered roles=[1-9][0-9]*.*");
+        check("menu includes Quiet Below's registered choices", () -> require(messages.stream().anyMatch(message -> message.text.contains("quiet_below:source_city"))
+                && messages.stream().anyMatch(message -> message.text.contains("quiet_below:relic_heart")), "campaign roles absent from menu"));
+        java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions>> suggestions = new java.util.concurrent.atomic.AtomicReference<>();
+        task("registered region roles appear as command choices", () -> {
+            var handler = client.player.networkHandler;
+            var dispatcher = handler.getCommandDispatcher();
+            suggestions.set(dispatcher.getCompletionSuggestions(dispatcher.parse("chronicle author region save ", handler.getCommandSource())));
+        }, () -> {
+            if (!suggestions.get().isDone()) return false;
+            var values = suggestions.get().join().getList().stream().map(com.mojang.brigadier.suggestion.Suggestion::getText).toList();
+            require(values.contains("\"quiet_below:source_city\""), "registered region completion missing: " + values);
+            require(!values.contains("\"quiet_below:ancient_forge\""), "block role offered for region save");
+            return true;
+        });
+        command(client, "registered role rejects wrong geometry", "chronicle author location save \"quiet_below:source_city\" here", ".*Source city requires region geometry.*");
+        command(client, "save selected campaign role without custom ID", "chronicle author region save \"quiet_below:source_city\"", ".*region quiet_below:source_city.*revision=7.*");
+        command(client, "remove temporary campaign role binding", "chronicle author remove \"quiet_below:source_city\"", ".*revision=8.*");
         check("independently inspect durable authoring metadata", this::assertAuthoring);
         unchanged("metadata authoring preserves campaign progress", "campaign before metadata authoring", campaignFile);
         command(client, "view region outline from outside", "tp @s 22 -56 22 135 30", ".*Teleported.*");
         command(client, "show private outline", "chronicle author show smoke_city", ".*region smoke_city.*validation=valid.*");
+        long[] outlineFrames = new long[1];
+        check("capture outline frames before movement", () -> outlineFrames[0] = AuthoringPreviewRenderer.renderedFrames());
+        movement(client, "move while selection outline remains visible");
+        delay("outline remains beyond the old five-second timeout", 6_000);
+        check("capture frames after the old timeout", () -> outlineFrames[0] = AuthoringPreviewRenderer.renderedFrames());
+        delay("observe rendering after the old timeout", 350);
+        check("persistent outline still renders after movement", () -> require(AuthoringPreviewRenderer.renderedFrames() > outlineFrames[0],
+                "outline expired while author was moving"));
         check("hide HUD for outline inspection", () -> client.options.hudHidden = true);
         delay("allow particle outline to render", 300);
         check("private outline renders while world frozen", () -> require(AuthoringPreviewRenderer.renderedFrames() > 0,
@@ -440,6 +476,10 @@ public final class FabricRegressionSmoke {
         check("capture authoring outline", () -> ScreenshotRecorder.saveScreenshot(output.toFile(), "m6-outline.png", client.getFramebuffer(), 1, ignored -> { }));
         delay("allow outline screenshot to complete", 300);
         check("restore HUD after outline inspection", () -> client.options.hudHidden = false);
+        command(client, "hide persistent preview explicitly", "chronicle author preview hide", "^Authoring preview hidden.*");
+        check("capture frames after hiding", () -> outlineFrames[0] = AuthoringPreviewRenderer.renderedFrames());
+        delay("observe hidden preview", 350);
+        check("explicitly hidden preview stops rendering", () -> require(AuthoringPreviewRenderer.renderedFrames() == outlineFrames[0], "hidden preview still rendered"));
         task("disconnect and reconnect same author", 45_000_000_000L, () -> {
             client.disconnect(new TitleScreen(), false);
             connecting = false;
@@ -451,9 +491,41 @@ public final class FabricRegressionSmoke {
         // Leave author mode on: starting play must clear it, not let later pause resurrect it.
     }
 
+    private void initialContentAuthoring(MinecraftClient client) {
+        command(client, "look at chest for template capture", "tp @s 16.5 -58 16.5 0 90", ".*Teleported.*");
+        command(client, "prepare named fixture supply", "item replace block 16 -60 16 container.0 with minecraft:diamond[minecraft:custom_name='Chronicle supply'] 7", ".*Replaced.*");
+        command(client, "capture reusable contents", "chronicle author chest capture smoke_supply", ".*Captured chest template smoke_supply.*slots=27.*");
+        command(client, "capture preserves source components", "data get block 16 -60 16 Items", ".*Chronicle supply.*");
+        command(client, "clear disposable source for fill test", "item replace block 16 -60 16 container.0 with minecraft:air", ".*Replaced.*");
+        command(client, "bind once per campaign chest", "chronicle author chest bind smoke_stock smoke_chest smoke_supply once_campaign", ".*Bound chest smoke_stock.*once_campaign.*");
+        command(client, "bind manual arrival purpose", "chronicle spawn bind \"chronicle_core:arrival\" smoke_arrival", ".*Bound chronicle_core:arrival.*No player was moved.*");
+        command(client, "inspect safe arrival", "chronicle spawn inspect \"chronicle_core:arrival\"", ".*safety=safe.*");
+        command(client, "inactive fills refused", "chronicle chest preview smoke_stock", ".*require an active Chronicle session.*");
+    }
+
+    private void exerciseContent(MinecraftClient client) {
+        command(client, "fills require a preview", "chronicle chest apply smoke_stock", ".*Preview this binding before applying.*");
+        command(client, "preview empty target fill", "chronicle chest preview smoke_stock", ".*Previewed chest smoke_stock.*occupied=1.*");
+        command(client, "journal and apply empty-only fill", "chronicle chest apply smoke_stock", ".*Filled chest smoke_stock.*receipt saved.*");
+        command(client, "filled target preserves item components", "data get block 16 -60 16 Items", ".*Chronicle supply.*");
+        command(client, "once campaign rejects repeat", "chronicle chest preview smoke_stock", ".*already run in this campaign.*");
+        command(client, "fill receipt has no pending intent", "chronicle chest status", ".*templates=1; bindings=1; receipts=1; pending=0.*");
+        command(client, "teleport requires preview", "chronicle spawn confirm ChronicleFabricA", ".*Preview this destination.*first.*");
+        command(client, "preview exact named player", "chronicle spawn preview \"chronicle_core:arrival\" ChronicleFabricA", ".*Previewed chronicle_core:arrival.*yaw=90.0.*");
+        command(client, "block unsafe destination after preview", "setblock 16 -60 18 minecraft:stone", ".*Changed the block.*");
+        command(client, "recheck standing room at confirm", "chronicle spawn confirm ChronicleFabricA", ".*Cannot execute.*standing.*");
+        command(client, "restore safe standing room", "setblock 16 -60 18 minecraft:air", ".*Changed the block.*");
+        command(client, "preview restored arrival", "chronicle spawn preview \"chronicle_core:arrival\" ChronicleFabricA", ".*Previewed chronicle_core:arrival.*");
+        command(client, "move exact named player", "chronicle spawn confirm ChronicleFabricA", ".*Moved ChronicleFabricA.*Vanilla respawn was not changed.*");
+        check("manual arrival retains precise position and facing", () -> {
+            require(Math.abs(client.player.getX() - 16.5) < .05 && Math.abs(client.player.getZ() - 18.5) < .05, "manual spawn destination differs");
+            require(Math.abs(client.player.getYaw() - 90) < .05, "manual spawn facing differs");
+        });
+    }
+
     private void assertAuthoring() throws IOException {
         JsonObject root = JsonParser.parseString(Files.readString(serverRoot.resolve("world/chronicle/authoring.json"))).getAsJsonObject();
-        require(root.get("schemaVersion").getAsInt() == 1 && root.get("revision").getAsLong() == 6, "authoring schema/revision mismatch");
+        require(root.get("schemaVersion").getAsInt() == 1 && root.get("revision").getAsLong() == 8, "authoring schema/revision mismatch");
         JsonArray sites = root.getAsJsonArray("sites");
         require(sites.size() == 3, "authoring lost or added definitions");
         Map<String, JsonObject> byId = new HashMap<>();

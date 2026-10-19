@@ -1,6 +1,7 @@
 package io.github.chronicle.quietbelow;
 
 import io.github.chronicle.core.ChronicleCore;
+import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.campaign.CampaignEvent;
 import io.github.chronicle.core.campaign.EventOutcome;
 import io.github.chronicle.quietbelow.content.ResonanceMarkerBlock;
@@ -58,6 +59,14 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:source_city", "Source city",
+                "The source ancient city region; registers geometry without enabling growth.", AuthoringCatalog.Kind.REGION));
+        ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:relic_heart", "Relic Heart",
+                "The future unique network heart site; binding alone enables no behavior.", AuthoringCatalog.Kind.BLOCK));
+        ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_altar", "Ancient Altar",
+                "An ancient altar site; station mechanics follow in later milestones.", AuthoringCatalog.Kind.BLOCK));
+        ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",
+                "An ancient forge site; station mechanics follow in later milestones.", AuthoringCatalog.Kind.BLOCK));
         QuietBelowStages.register();
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ECHO_LENS));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RESONANCE_MARKER));

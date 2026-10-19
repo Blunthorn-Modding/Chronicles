@@ -5,7 +5,8 @@ import java.util.regex.Pattern;
 
 /** Immutable authoring definitions shared by campaigns, without Minecraft runtime dependencies. */
 public sealed interface AuthoringSite permits AuthoringSite.Region, AuthoringSite.Location, AuthoringSite.Anchor {
-    Pattern ID = Pattern.compile("[a-z][a-z0-9_]{0,63}");
+    // Legacy plain names stay valid. Registered campaign roles use namespace:name.
+    Pattern ID = Pattern.compile("[a-z][a-z0-9_]{0,63}(?::[a-z][a-z0-9_]{0,63})?");
     Pattern NAMESPACED_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
     String id();

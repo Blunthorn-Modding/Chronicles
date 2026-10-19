@@ -33,7 +33,7 @@ Core definitions must work for Journey worlds, Survival spawn areas, Werewolf lo
 6. **Inspect, validate and save.** List configured things, jump to/show one as a builder, check bounds/references/types and save the draft. A separate apply/arm step activates behavior. Configuration survives restart; it does not recreate buildings or overwrite inventories on every server start.
 7. **Test without consuming the story.** Builder walks do not fire discoveries. An explicit test mode can simulate cues and compare effects in bounded test areas. Moving/deleting a region or anchor invalidates affected armed bindings and pending approvals; do not silently retarget a queued effect.
 
-### Implemented M6 commands
+### Implemented geometry commands (M6, refined in M7)
 
 ```text
 /chronicle author mode on
@@ -49,18 +49,37 @@ Core definitions must work for Journey worlds, Survival spawn areas, Werewolf lo
 /chronicle author mode off
 ```
 
-Save/replace/remove persist immediately; no separate save command is needed in M6. Author mode requires operator level 2 and a non-active session. `show` provides a five-second private outline; `select target1`/`target2` select a looked-at block within six blocks. A click wand is deferred to builder feedback.
+Save/replace/remove persist immediately; no separate save command is needed in M6. Author mode requires operator level 2 and a non-active session. `show` provides a persistent private outline; hide it with `/chronicle author preview hide`, clear the selection, leave author mode or disconnect. Movement does not hide it. Changing dimensions clears it; entering ACTIVE clears author previews. Install the matching M7 client pack. `select target1`/`target2` select a looked-at block within six blocks. A click wand is deferred to builder feedback.
 
-### Later milestones — proposed commands, not implemented
+### Registered choices and M7 content tools
+
+Run `/chronicle author` or `/chronicle author menu` to choose registered roles from clickable chat entries. Click **Set** to put the complete command in chat, then press Enter. Region roles use your selected corners; block roles use the block you are looking at; location roles use your position/facing. **Replace** is explicit. Each submod supplies typed IDs, labels and descriptions through `ChronicleCore.authoring()` during initialization. Quiet Below supplies its city, Heart, altar and forge roles; registering them enables no ecology yet. Command completion uses the same catalog. Legacy custom IDs remain usable; namespaced IDs in manually typed commands need quotes.
 
 ```text
-/chronicle author chest profile capture archive_stock target
-/chronicle author chest assign archive_chest archive_stock
-/chronicle author spawn assign arrivals participants arrival
-/chronicle author trigger enter ancient_city quiet_below:city_discovery
+/chronicle author menu
+/chronicle author region save "quiet_below:source_city"
+/chronicle author chest capture archive_stock
+/chronicle author chest show archive_stock
+/chronicle author chest bind archive_fill archive_chest archive_stock once_campaign
+/chronicle spawn bind "chronicle_core:arrival" arrivals
+/chronicle spawn inspect "chronicle_core:arrival"
 ```
 
-These later commands illustrate ownership, not an existing content/spawn/event API. M7/M8 specify their transactions and activation separately; selecting a location never implicitly fills or spawns anything.
+Capture the container you are looking at while in non-active author mode. Capture preserves its items/components. Supported targets are single chests, barrels and shulker boxes; double chests and unopened loot-table containers are rejected. Bindings pin the template/anchor revisions; after replacing either, explicitly `rebind`. Policies are `manual`, `once_campaign`, `once_session`.
+
+During an ACTIVE session, an operator deliberately previews and executes:
+
+```text
+/chronicle chest preview archive_fill
+/chronicle chest apply archive_fill
+/chronicle chest status
+/chronicle spawn preview "chronicle_core:arrival" PlayerName
+/chronicle spawn confirm PlayerName
+```
+
+Fills require an entirely empty target and a current preview. Pending writes hold world simulation; `/chronicle chest status` identifies the operation for `/chronicle chest recover <operation>`. Recovery compares the exact saved physical target and before/after contents, never blindly repeats a fill. A conflict requires preserving the evidence and resolving it while stopped. Saving spawn metadata never changes vanilla respawns; these commands only move the named online player after safe loaded standing-room checks. Previews expire after 60 seconds and cannot be confirmed by another operator.
+
+Entity spawn groups and automatic arrival/death-respawn policies remain an explicit M7 follow-up. Region/condition trigger bindings belong to M8 and are not implemented.
 
 ### Chests and spawns must behave predictably
 
@@ -84,7 +103,7 @@ These later commands illustrate ownership, not an existing content/spawn/event A
 
 This is a proposed data contract, not a schema to implement without review. Core's current pure flag-event callbacks must not acquire hidden inventory/world side effects: generic delivery, chest/spawn actions and campaign effects need explicit services with their own persistence/validation contracts.
 
-## Acceptance criteria across M6–M8
+## Acceptance criteria across M6â€“M8
 
 - In one existing world, select two corners, save a named cuboid and see its outline without editing JSON, exporting a world or rebuilding the mod.
 - Save an exact location/facing and bind an existing chest/custom station by targeting it. List/show/remove definitions; round-trip them across restart.

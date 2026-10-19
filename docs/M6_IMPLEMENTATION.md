@@ -1,5 +1,7 @@
 # M6 — Core key-location authoring
 
+> M7 update: the operator tested this slice and accepted the geometry approach. Persistent previews and registered clickable choices supersede the five-second preview below. Use the matching M7 pack and [current authoring workflow](MAP_AUTHORING.md); the remainder records the original M6 delivery.
+
 19 October 2026. Scope: the first slice of [M6–M13](DEVELOPMENT_MILESTONES.md), implementing CF-06. Core owns the reusable geometry/selection tools. Quiet Below meanings, chest/spawn execution, observation triggers and autonomous ecology follow in later milestones.
 
 ## Builder workflow
