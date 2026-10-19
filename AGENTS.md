@@ -3,6 +3,7 @@
 Read `docs/CHRONICLE_PROJECT_OVERVIEW.md`, `docs/DECISIONS.md`, and `docs/TEST_PLAN.md` before changing architecture. The original overview is a brief, not implemented behavior.
 
 - Current design authority: `docs/THE_QUIET_BELOW.md`, `docs/MAP_AUTHORING.md`, `docs/BACKLOG.md`. Operator feedback on 19 October 2026 pauses gameplay expansion for narrative definition. The operator handcrafts the production map; agent maps are test fixtures. Do not treat proposed benefits/triggers or existing prototype lore as approved canon.
+- Framework format direction is in `docs/CAMPAIGN_FORMATS.md`: Survival, Journey, Werewolf and Situation (“Happening”); Operation/Intrigue are proposed additions. Journey uses a contained world per session with 2–3 outcomes influencing the next world. Quiet Below's no-forced-factions policy is campaign-specific, not a ban on Werewolf. Do not implement new modes from this taxonomy without a scoped plan.
 - Use scoped Git branches and coherent commits with tracked QB work IDs. The operator requested GitHub workflow; push requested work on scoped branches, review diffs/evidence, and keep main merges separate. Never fabricate milestone history or include runtime worlds/tools/credentials.
 
 - Source/configuration/scripts belong in this repository. Its parent `MC RP` contains portable tools, caches, server worlds, client packs, backups, reports, and disposable test worlds. Keep generated runtime data outside Git.

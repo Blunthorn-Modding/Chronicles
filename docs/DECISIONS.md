@@ -1,5 +1,11 @@
 # Bootstrap decisions — 18 October 2026
 
+## Campaign formats — 19 October 2026
+
+The operator and co-organizer identified four experience formats: Survival (group against an external threat), Journey (one contained world per session, with two or three end states influencing the next world), Werewolf (themed social deduction), and Happening (characters in a place responding to change). `CAMPAIGN_FORMATS.md` proposes Situation as the fourth name and classifies Quiet Below there. At the operator's invitation, Operation and Intrigue are additional candidates; they are not approved implementation work.
+
+Use format for the overall experience and event/action for an individual triggerable incident. Quiet Below's refusal of compulsory factions/personal corruption does not prohibit hidden teams or elimination in a separate Werewolf scenario. Keep the existing two-module layout until concrete reuse justifies another campaign/service; do not build four mode engines now. Private Werewolf state and Journey outcome/world transitions are distinct future requirements that existing public dossiers/session flags do not already satisfy.
+
 ## Campaign design reset — 19 October 2026
 
 The operator tested the prototype and reports that the functions generally work; the event/marker fiction feels disconnected. Stop expanding gameplay until its purpose is defined. The operator handcrafts the production map; agent worlds remain technical fixtures. The intended backdrop is an initially unknown ancient city, with connected sculk spread offering benefits and costs. Characters may remove, contain, study, coexist, depart or invent other responses. No required faction split, personal corruption or forced stay is part of the direction. Timed first-session cues and first-entry discovery are desired future tools, while manual GM controls remain.

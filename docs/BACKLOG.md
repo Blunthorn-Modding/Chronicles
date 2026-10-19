@@ -22,6 +22,17 @@ The operator tested the M1–M4 prototype and reports that its functions general
 
 Work may be split further when the implementation specifications exist. A planned row is not permission to implement it immediately: the current request is design and repository discipline.
 
+## Framework formats
+
+The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.md) records the wider product direction without expanding the current gameplay scope.
+
+| ID | Work item | Status | Done when |
+| --- | --- | --- | --- |
+| CF-01 | Define the four requested campaign formats | Documented; naming/additions for review | Survival, Journey, Werewolf and Situation/Happening have distinct drivers and session/world models; Quiet Below is classified as Situation. Operation/Intrigue remain optional candidates. |
+| CF-02 | Journey chapter/outcome contract | Future design | Specify 2–3 end states per chapter, next-world selection/variants, carry-over and restart-safe transitions before implementation. |
+| CF-03 | Werewolf variant and private-state contract | Future design | Select rules/pacing/roles, privacy boundaries, absence/elimination behavior and win conditions before building role/vote systems. |
+| CF-04 | Survival scenario and threat contract | Future design | Define a concrete threat, escalation/counterplay and ending rules before building a general director. |
+
 ## Review decisions
 
 - [ ] Agree what changed shortly before the story and why growth now reaches the mine.

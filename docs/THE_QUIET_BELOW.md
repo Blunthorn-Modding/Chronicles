@@ -2,6 +2,8 @@
 
 Design draft, 19 October 2026. **For discussion before further gameplay implementation.** The operator has tested the prototype and confirmed that its functions generally work; its fiction and event sequence did not feel coherent. This outline replaces the prototype's narrative assumptions. Existing code remains a technical experiment until it serves this design.
 
+**Campaign format:** Situation (working name for the organizers' “Happening”). See [Chronicle's formats](CAMPAIGN_FORMATS.md). The no-fixed-factions, no-personal-corruption and voluntary-departure decisions below belong to The Quiet Below; they do not prohibit hidden-role Werewolf scenarios elsewhere in the framework.
+
 ## The experience
 
 A community discovers an ancient city beneath its familiar surroundings. Sculk begins moving out of that buried environment into the places above. It offers something useful as well as something unsettling. Characters must decide what they value, what they are willing to change, and whether they want to stay.
