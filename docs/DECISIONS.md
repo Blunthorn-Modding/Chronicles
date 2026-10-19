@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Core authoring UI feedback - 19 October 2026
+
+The operator reports the growing chat interface is hard to read and requests a proper UI for library/generic tools, including selecting chests and their types. Record this as CF-09, the next authoring priority, with commands retained as an advanced fallback. Reuse Core's registered catalogs/services rather than introducing campaign-specific screens for generic tools. Show author-mode/session state and actionable prerequisite feedback. The reported chest-edit rejection was resolved by enabling per-connection author mode; this was a discoverability problem, not authorization to remove the non-active authoring requirement. No runtime change or server restart is needed for this documentation update.
+
 ## Typed loot chest revision - 19 October 2026
 
 Operator confirms the persistent outline/chat-role menu and rejects captured templates/separate anchor assignment as the main chest workflow. Core must bind a targeted chest and its registered type in one step. Campaigns register default type distributions and recommended minimum counts; editable server JSON can override/add types. The operator confirms independent per-entry percentages, filling at each new session plus an optional interval every X minutes, and replacing ALL contents at a scheduled fill. These are managed loot containers; legacy captured data/recovery stays compatible, without being a prerequisite. M7_LOOT_TYPES.md replaces the previous chest UX contract. The Vampire SMP artifact was reinspected for its location list/distribution split, not installed or copied.

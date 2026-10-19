@@ -24,6 +24,8 @@ Pure checks: probability boundaries/independence/counts/reproducibility; strict 
 
 Install `../client/Chronicle-M7-loot-1.21.10.mrpack` and join localhost. During a non-active session:
 
+Author mode is per connection: after reconnecting, enable it again. If you see `Loot chest edits require non-active author mode`, check the session phase and run `/chronicle author mode on` before retrying the picker. The operator confirmed this resolves the reported rejection. Proper UI work is tracked as CF-09 in [BACKLOG](BACKLOG.md); the current chat picker is an interim interface.
+
 1. Run `/chronicle author mode on`, look at a single chest/barrel/shulker, then `/chronicle author chest`. Click **Bind** for the desired type and submit. No name, anchor or captured inventory is needed.
 2. Inspect/retype/unbind the target from that menu. `validate` shows the bound/recommended totals. The menu is paginated for larger catalogs.
 3. Edit `../server/config/chronicle/chest-loot.json` and run `/chronicle author chest reload`. For a quick test, give bread 100%, iron 0%, and set refillMinutes to 1. Defaults use 0 (session-start only); these are starting suggestions, not settled campaign balance.

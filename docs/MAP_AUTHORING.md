@@ -4,6 +4,14 @@ Updated 19 October 2026. The operator builds the map and defines its important p
 
 The operator accepts this authoring direction for now. For [Quiet Below](THE_QUIET_BELOW.md), register key locations such as the source city, Relic Heart and ancient stations. Autonomous growth discovers cave/mine geometry itself; no painted sculk trail, patch graph, or region for every crop field/hazard is required. The generic selection/binding tools below remain useful without making all of them mandatory campaign setup.
 
+## Next authoring priority: proper Core UI (CF-09)
+
+Operator feedback on 19 October 2026: the growing chat commands/menus are becoming hard to read. Replace them as the primary library/generic authoring interface with a proper in-game UI, including container selection/type assignment and other shared region/location/anchor/spawn tools. Campaigns continue supplying their registered choices/defaults; the UI belongs in Core and reuses existing validated services and persistence. Commands remain an advanced fallback. Do not solve this feedback by adding more chat panels.
+
+The UI must make the current session phase and per-connection author mode visible, offer a clear entry/exit action, and distinguish an active-session restriction from author mode being off. Disabled actions should explain the specific reason and remedy. Review the screen flow with the operator before broadening authoring features.
+
+For the current build, chest edits need `/chronicle author mode on` while the session is non-active, followed by `/chronicle author chest`. Author mode clears on disconnect/reconnect and when a session becomes ACTIVE. The existing error combines both restrictions; the operator confirmed enabling author mode fixed the reported chest-edit rejection. This UI requirement is recorded, not yet implemented.
+
 ## Available today
 
 - Run a normal Minecraft 1.21.10 world with the matching Fabric/Core/campaign mods; existing session controls, freeze/status and dossiers work independently of the prototype map.
