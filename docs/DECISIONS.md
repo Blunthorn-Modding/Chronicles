@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Engineering milestones and implementation authorization — 19 October 2026
+
+The operator removes the event outline and rejects assigning developments to sessions. Remove that outline and its default first-session timer; shared timers/entry/manual observations remain opt-in tools, never required reveals or ecology unlocks. `DEVELOPMENT_MILESTONES.md` specifies M6–M13 as engineering deliveries with Core/campaign ownership, dependencies, tests and concrete review gates. Existing M0–M5 retain their historical meaning. The operator now authorizes implementation after planning, continuing until a necessary question or hands-on review; the earlier blanket implementation hold is superseded. Unanswered ecology choices do not block independent Core authoring work.
+
 ## Autonomous ecology and Relic Heart ending — 19 October 2026
 
 The operator accepts the Core map-authoring direction for now but rejects prepared sculk routes/patches and session-paced benefit reveals. Sculk must grow from the ancient city along actual caves/mine passages toward the surface or other ancient sites, consuming air/sunlight. Register only key locations; do not require painting sculk, connecting authored nodes or approving every expansion. A benefit operates when the ecology supports it, even if players only discover it several sessions later. This supersedes earlier prepared-route, bound-farm and five-session-rhythm proposals.

@@ -1,6 +1,6 @@
 # The Quiet Below — campaign outline
 
-Design draft, 19 October 2026. **For discussion before further gameplay implementation.** The operator has tested the prototype and confirmed that its functions generally work; its fiction and event sequence did not feel coherent. This outline replaces the prototype's narrative assumptions. Existing code remains a technical experiment until it serves this design.
+Design draft, 19 October 2026. **Current campaign direction; implementation follows the engineering milestones.** The operator has tested the prototype and confirmed that its functions generally work; its fiction and event sequence did not feel coherent. This outline replaces the prototype's narrative assumptions. Existing code remains a technical experiment until it serves this design.
 
 **Campaign format:** Situation (working name for the organizers' “Happening”). See [Chronicle's formats](CAMPAIGN_FORMATS.md). No fixed factions, personal corruption or forced stay are campaign decisions, not restrictions on other formats.
 
@@ -118,30 +118,13 @@ Players have homes, shared projects, relationships and reasons to care before en
 
 Leaving is valid. Do not teleport a departing character back, disable their account or send a revenge event. A player can take a break, return, or introduce another character by agreement. Current dossiers support one card per account; a multiple-character/archive system is not implied. The map needs an ordinary believable exit even if the group keeps play centred on the settlement.
 
-## Event outline — ecology first, knowledge follows play
-
-The IDs below are design names, not implemented commands. They describe opportunities and observations, not a compulsory order or one reveal per session.
-
-| Event | Cause / trigger | What happens |
-| --- | --- | --- |
-| QB-E01: The first low sound | Example: 30 minutes of ACTIVE occupied play in the first designated story session; also manual. | A restrained sound from the mine direction and accessible text give the campaign audience something to discuss. No scripted block change. |
-| QB-E02: A trace with a direction | A participant encounters the actual growing frontier in a cave/mine. | Existing visible sculk provides a lead toward its origin. An optional observation cue describes what is there; it does not place a pre-approved trail. |
-| QB-E03: The buried city | First eligible participant enters the named city-discovery region. | A local cue records discovery once. Explorers choose what to tell others; no forced teleport, fight or sealed exit. |
-| QB-E04: Something worth keeping | Crops or other eligible targets come within the living network's actual effect reach. | The benefit operates. Players can notice, experiment or overlook it for several sessions. No GM readiness gate. |
-| QB-E05: More capable, more costly | Actual network conditions reach a capability/density threshold. | New services and hazards become possible from that ecology, including extensive-stage shriekers. No authored next-stage approval. |
-| QB-E06: An intervention has a result | Players change the real growth/connections/environment. | Pruning, barriers and disconnection change expansion and services under the same rules; successful containment can hold a smaller network. |
-| QB-E07: A community response | Player choices and conduct. | Contain, coexist, encourage growth, pursue eradication, leave or combine responses. No ending menu or forced consensus. |
-| QB-E08: The Heart falls | A player destroys the sufficiently weakened Heart. | Persist terminal network death, stop services/growth, begin complete tracked removal, and offer a restrained local cue. Closing scenes follow the group's actual actions. |
-
-If players discover the city before the first sound, retire/adapt obsolete introductory cues. Never replay “nobody knows what is below” after exploration. No five-session schedule gates crops, discovery or resolution. The GM facilitates scenes and can inspect/hold simulation, but need not hand-deliver each benefit or approve each growth cell.
-
 ## Trigger behavior the mod would need
 
 Manual, timer and region cues share named events, prerequisites, audience, audit and completion records. Keep these delivery records separate from ecological state: manually firing a sound cannot conjure a powered forge or falsely mark the Heart destroyed. Testing a hypothetical observation is explicit test mode, not a canonical state transition.
 
-- The first-sound clock accumulates only ACTIVE, occupied participant time in its designated story session. Pause, inactive state, downtime, empty servers, builder walks and Session 0 do not consume the story. Persist progress; avoid restart catch-up bursts.
+- Optional configured timers use ACTIVE, occupied participant time. Pause, inactive state, downtime, empty servers and builder walks do not advance them. Persist progress and avoid restart catch-up bursts. No first-session timer or reveal schedule is configured by default.
 - Entry discovery observes real participants in a validated Core region. Proposed default: a participant already inside when armed counts on the next eligible check. Simultaneous arrivals produce one group discovery; personal knowledge and repeat ambience are separate.
-- E01 targets online campaign participants; E03 targets the discovering group near the city. A recap for late joiners must not reveal undiscovered coordinates or replay global events.
+- Each optional cue declares its audience, such as the discovering group near the city. A recap for late joiners must not reveal undiscovered coordinates or replay global events.
 - GM arm/disarm, inspect, hold/release and manual fire apply to cues; ecology has a separately explicit enable/hold control. Enabling the reviewed ecology rules authorizes their ongoing bounded work, not a sequence of manual patch approvals. Existing M4 scripted stages retain their own preview/approval rules.
 - A crash can make sound delivery uncertain: expose that state for a deliberate GM decision rather than promising exactly-once audio. World mutations and the Heart ending need durable, recoverable records, not the same delivery guarantee as a sound.
 
@@ -162,4 +145,4 @@ The autonomous direction, removal of the Ancient Focus and the Heart eradication
 3. Crop/recovery/forge balance and costs; catalyst/sensor timing and generated-shrieker Warden policy.
 4. Weakness feedback/window, Heart destruction handling, initial/encountered sculk ownership and conflict-safe total cleanup. Validate the technical feasibility against pinned Minecraft 1.21.10 before coding the ecology.
 
-See [tracked work](BACKLOG.md) for dependency order. This revision changes design documents only; autonomous growth, Core authoring, crop/healing/forge services and the Heart ending are not installed features.
+See [implementation milestones](DEVELOPMENT_MILESTONES.md) and [tracked work](BACKLOG.md) for delivery order. Milestones describe engineering, not sessions or story beats. This revision changes design documents only; autonomous growth, Core authoring, crop/healing/forge services and the Heart ending are not installed features.

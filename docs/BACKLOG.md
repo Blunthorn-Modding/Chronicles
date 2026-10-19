@@ -4,7 +4,7 @@ Updated 19 October 2026. Stable QB IDs are repository work items, not claims tha
 
 ## Current checkpoint
 
-The operator tested the M1–M4 prototype and reports that its functions generally work. The narrative lacks a coherent purpose. **Gameplay expansion and production map generation are on hold while the campaign design is reviewed.** The agent-built pilot remains a test fixture; M5's production session is not complete.
+The operator authorizes implementation after designing [M6–M13](DEVELOPMENT_MILESTONES.md), continuing until a necessary product decision or hands-on review. These are engineering milestones, never a session/event schedule. The agent-built pilot remains a test fixture; M5's production session is not complete. The operator handcrafts the production map.
 
 | ID | Work item | Status | Depends on | Done when |
 | --- | --- | --- | --- | --- |
@@ -13,8 +13,8 @@ The operator tested the M1–M4 prototype and reports that its functions general
 | QB-03 | Quiet Below bindings on shared authoring tools | Key-location direction accepted; specification needed | QB-02, CF-05 | Map source city/Heart, discovery locations and optional ancient stations onto Core IDs; no authored growth paths, per-field registration or separate campaign editor. |
 | QB-04 | Bind Quiet Below's named sites in-world | Planned | QB-03, CF-06 | Operator selects/binds key sites in the existing world; geometry persists in Core without Java edits. No sculk painting or patch-graph setup. |
 | QB-05 | Campaign event delivery and observations | Planned | QB-02, QB-04 | Site-specific, readable cues with clear audience, prerequisites, manual preview/fire and persistent history; remove prototype lore from the production setup. |
-| QB-06 | Active-play clock and scheduled first sound | Planned | QB-05 | E01 timer arms for a designated story session, pauses correctly, survives restart and shares completion with manual fire. |
-| QB-07 | First-entry discovery triggers | Planned | QB-04, QB-05 | E03 fires once for eligible participants, excludes builder walks, handles simultaneous entry/restart and preserves information boundaries. |
+| QB-06 | Optional active-play cue timing | M8; opt-in only | QB-05, CF-08 | A configured timer pauses correctly, survives restart and shares completion with manual fire. No scheduled first sound, session-specific reveal or default event outline. |
+| QB-07 | Optional first-entry discovery observations | M8 | QB-04, QB-05, CF-08 | Configured discovery fires once for eligible participants, excludes author walks, handles simultaneous entry/restart and preserves information boundaries. |
 | QB-08 | Autonomous sculk ecology, network power and interventions | Direction established; technical specification required | QB-02, QB-03 | Trial pinned 1.21.10 growth hooks/ownership, air/light feeding, actual cave-surface traversal, barriers/branch decline, power and work budgets. Automatically index source sculk and retain descendant journals. Track catalysts/sensors and extensive-stage shriekers with explicit Warden policy; no authored routes or per-step approval. |
 | QB-09 | First crop-growth benefit/cost slice | Proposed; awaiting balance review | QB-08 | Derive reach from living growth, not a bound farm. Comparable planted plots show bonus crop ages/harvests; late discovery changes no unlock, and pause/severing stop the bonus. Local costs, no structural simulation or personal corruption. |
 | QB-10 | Author the production map's campaign setup | Waiting for map and tools | QB-04–QB-09, QB-13; CF-07 if used | Configure key sites, optional chests/spawns and ecology/protection rules directly in the operator's world; no importing/rebuilding map or placing growth routes. |
@@ -22,7 +22,7 @@ The operator tested the M1–M4 prototype and reports that its functions general
 | QB-12 | Ancient station assets and mechanics | Design candidate | QB-02, QB-08, CF-06 | Review Altar/Forge roles and exports, powered forge recipe, states and reliable inventory handling. Ancient Focus is removed; no relay chain gates growth. Heart work is QB-13. |
 | QB-13 | Weakened Relic Heart and complete eradication | Required ending; technical specification needed | QB-04, QB-08 | Readable, validated weakness/destruction; stop growth/services permanently and remove the entire owned network, including source and detached features. Bounded restart-safe cleanup handles unloaded chunks, player edits and conflicts; no false completion, regrowth or unrelated sculk deletion. Test destruction bypasses/concurrency and initial-state removal policy. |
 
-Work may be split further when the implementation specifications exist. A planned row is not permission to implement it immediately: the current request is design and repository discipline.
+Work follows the milestone dependencies and review gates. The latest instruction authorizes implementation; unresolved product choices block their dependent slice only, not independent Core work. Never infer a narrative sequence from these IDs.
 
 ## Framework formats
 
@@ -37,6 +37,7 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 | CF-05 | Shared in-world authoring specification | Direction accepted for now; implementation contract pending | [MAP_AUTHORING](MAP_AUTHORING.md) defines Core-owned two-corner regions, points/block anchors, chest/spawn bindings and campaign extension boundaries using the supplied Vampire SMP reference. Quiet Below setup requires key sites, not spread paths. |
 | CF-06 | Core selection, region/location/anchor registry | Planned after specification review | In the existing world, builders select corners/targets/current position, save/list/inspect/edit definitions and restart without source edits or consuming story triggers. |
 | CF-07 | Core chest profiles, spawn purposes and bindings | Planned after CF-05/CF-06 | Configure content templates and arrival/respawn points in-world; explicit activation and runtime actions preserve inventories, privacy and retry safety. |
+| CF-08 | Shared participation, active clock and opt-in conditions | M8 | Core supplies author exclusion, eligibility, persistent ACTIVE occupied time, entry/manual/condition cue delivery and completion/audience contracts. Quiet Below chooses observations without a mandatory schedule. |
 
 ## Review decisions
 
