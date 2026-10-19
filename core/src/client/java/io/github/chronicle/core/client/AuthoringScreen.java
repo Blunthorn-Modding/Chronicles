@@ -5,11 +5,14 @@ import io.github.chronicle.core.authoring.ui.AuthoringUiModel.Entry;
 import io.github.chronicle.core.authoring.ui.AuthoringUiModel.Snapshot;
 import io.github.chronicle.core.authoring.ui.AuthoringUiModel.Tab;
 import io.github.chronicle.core.network.AuthoringUiPayloads;
+import io.github.chronicle.core.play.ObservationConfiguration;
+import io.github.chronicle.core.play.PlayState;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
@@ -44,6 +47,12 @@ public final class AuthoringScreen extends Screen {
     private String selectedPurposeLabel = "";
     private String selectedLocationLabel = "";
     private String selectedPlayerLabel = "";
+    private String selectedObservation = "";
+    private Entry observationSavedConfig;
+    private String observationRegion = "", observationFlag = "", observationDelay = "60";
+    private String previewedObservation = "";
+    private long observationPreviewExpires;
+    private TextFieldWidget delayInput;
     private Confirmation confirmation;
     private String inlineNotice;
     private final List<Entry> visibleEntries = new ArrayList<>();
@@ -93,11 +102,23 @@ public final class AuthoringScreen extends Screen {
         if (button == null) throw new IllegalArgumentException("Button not present: " + label);
         return new ButtonProbe(System.identityHashCode(button), button.active, button.isHovered(), button.isFocused());
     }
+    /** Uses the normal text-field validation/change callback in opt-in graphical tests. */
+    public void setObservationDelayForTest(String seconds) {
+        if (delayInput == null || state.tab() != Tab.OBSERVATIONS) throw new IllegalStateException("Open Observations first.");
+        delayInput.setText(seconds);
+    }
 
     void accept(Snapshot updated) {
-        boolean preserveWidgets = backgroundRefresh && requestedAction == Action.REFRESH && updated.equals(state);
+        boolean preserveWidgets = backgroundRefresh && requestedAction == Action.REFRESH && updated.sameControls(state);
+        Entry savedObservation = find(updated.choices(), selectedObservation);
+        if (updated.tab() == Tab.OBSERVATIONS && savedObservation != null && !savedObservation.equals(observationSavedConfig))
+            loadObservation(savedObservation);
         if (updated.tab() != state.tab() || updated.page() != state.page()) entryOffset = 0;
-        if (updated.token() != state.token()) confirmation = null;
+        if (updated.token() != state.token()) { confirmation = null; previewedObservation = ""; }
+        if (requestedAction == Action.OBS_PREVIEW && updated.success()) {
+            previewedObservation = selectedObservation; observationPreviewExpires = System.nanoTime() + 30_000_000_000L;
+        }
+        if (requestedAction == Action.OBS_FIRE || !updated.success()) previewedObservation = "";
         if (requestedAction == Action.SPAWN_PREVIEW && updated.success()) previewedPurpose = selectedPurpose;
         if (updated.previewPlayer().isBlank()) previewedPurpose = "";
         state = updated;
@@ -115,6 +136,7 @@ public final class AuthoringScreen extends Screen {
         }
         if (updated.tab() == Tab.SPAWN_LOCATIONS && contains(updated.entries(), selectedLocation)) selectedEntry = selectedLocation;
         if (updated.tab() == Tab.SPAWN_PLAYERS && contains(updated.entries(), selectedPlayer)) selectedEntry = selectedPlayer;
+        if (updated.tab() == Tab.OBSERVATIONS && contains(updated.entries(), selectedObservation)) selectedEntry = selectedObservation;
         Entry current = find(updated.entries(), selectedEntry);
         if (current != null) {
             selectedEntryLabel = current.label(); selectedEntryDetail = current.detail(); selectedEntryKind = current.kind();
@@ -139,6 +161,7 @@ public final class AuthoringScreen extends Screen {
     @Override
     protected void init() {
         testButtons.clear();
+        delayInput = null;
         int left = 5;
         int full = Math.max(310, width - 10);
         button("Refresh", width - 59, 2, 54, 16, () -> request(Action.REFRESH, "", "", state.tab(), state.page()), true);
@@ -159,6 +182,12 @@ public final class AuthoringScreen extends Screen {
             case SPAWN_LOCATIONS -> spawnLocations(left, controlsY, full);
             case SPAWN_PLAYERS -> spawnPlayers(left, controlsY, full);
             case SESSION -> session(left, controlsY, full);
+            case PARTICIPANTS -> participants(left, controlsY, full);
+            case OBSERVATIONS -> observations(left, controlsY, full);
+            case OBS_REGIONS -> button("Use selected region", left, controlsY, full, 18,
+                    () -> request(Action.OPEN, "", "", Tab.OBSERVATIONS, 0), !selectedEntry.isBlank());
+            case OBS_FLAGS -> button("Use selected flag", left, controlsY, full, 18,
+                    () -> request(Action.OPEN, "", "", Tab.OBSERVATIONS, 0), !selectedEntry.isBlank());
             case POLICIES -> policies(left, controlsY, full);
             case POLICY_PURPOSES -> button("Use selected purpose", left, controlsY, full, 18,
                     () -> request(Action.OPEN, "", "", Tab.POLICIES, 0), !selectedPurpose.isBlank());
@@ -255,6 +284,68 @@ public final class AuthoringScreen extends Screen {
         button("Pause", left + full / 2 + 2, y, full / 2 - 2, 18, () -> request(Action.SESSION_PAUSE, "", "", state.tab(), state.page()), phase.equals("ACTIVE"));
         button("Resume", left, y + 20, full / 2 - 2, 18, () -> request(Action.SESSION_RESUME, "", "", state.tab(), state.page()), phase.equals("PAUSED"));
         confirmButton("End session", Action.SESSION_END, "", "", left + full / 2 + 2, y + 20, full / 2 - 2, phase.equals("ACTIVE") || phase.equals("PAUSED"), "End the current session.");
+        button("Participants", left, y + 40, full / 2 - 2, 18, () -> request(Action.OPEN, "", "", Tab.PARTICIPANTS, 0), true);
+        button("Observations", left + full / 2 + 2, y + 40, full / 2 - 2, 18, () -> request(Action.OPEN, "", "", Tab.OBSERVATIONS, 0), true);
+    }
+
+    private void participants(int left, int y, int full) {
+        boolean edit = canEdit() && selectedEntryKind.equals("PLAYER");
+        confirmButton("Enroll", Action.PARTICIPANT_ON, selectedEntry, "", left, y, full / 2 - 2,
+                edit && selectedEntryReference.isBlank(), "Enroll this player in active play and public observation audiences.");
+        confirmButton("Exclude", Action.PARTICIPANT_OFF, selectedEntry, "", left + full / 2 + 2, y, full / 2 - 2,
+                edit && !selectedEntryReference.isBlank(), "Remove participation; retain observation history and existing spawn policies.");
+        button("Back to Session", left, y + 40, full, 18, () -> request(Action.OPEN, "", "", Tab.SESSION, 0), true);
+    }
+
+    private void observations(int left, int y, int full) {
+        int cell = full / 3;
+        button("Region: " + (observationRegion.isBlank() ? "choose" : observationRegion), left, y, cell - 2, 18,
+                () -> request(Action.OPEN, "", "", Tab.OBS_REGIONS, 0), true);
+        button("Flag: " + (observationFlag.isBlank() ? "none" : observationFlag), left + cell + 1, y, cell - 2, 18,
+                () -> request(Action.OPEN, "", "", Tab.OBS_FLAGS, 0), true);
+        delayInput = new TextFieldWidget(textRenderer, left + 2 * cell + 2, y, full - 2 * cell - 2, 18, Text.literal("Active delay in seconds"));
+        delayInput.setMaxLength(6);
+        delayInput.setTextPredicate(value -> value.matches("[0-9]{0,6}"));
+        delayInput.setText(observationDelay);
+        delayInput.setChangedListener(value -> { observationDelay = value; confirmation = null; });
+        delayInput.setTooltip(Tooltip.of(Text.literal("Timer delay in seconds of active, occupied play (1 to 604800).")));
+        delayInput.active = canEdit() && (!pending || backgroundRefresh);
+        addDrawableChild(delayInput);
+        boolean selected = !selectedObservation.isBlank() && selectedEntryKind.equals("OBSERVATION");
+        int quarter = full / 4;
+        PlayState.Mode[] modes = PlayState.Mode.values();
+        for (int index = 0; index < modes.length; index++) {
+            var mode = modes[index];
+            String label = mode.name().substring(0, 1) + mode.name().substring(1).toLowerCase(java.util.Locale.ROOT);
+            boolean confirming = confirmation != null && confirmation.matches(Action.OBS_REPLACE, selectedObservation, observationConfig(mode), state.token());
+            button(confirming ? "Confirm: " + label : label, left + index * quarter, y + 20, quarter - 2, 18,
+                    () -> saveObservation(mode), canEdit() && selected);
+        }
+        boolean active = state.phase().equalsIgnoreCase("ACTIVE") && state.hold().isBlank() && selected && selectedEntryRevision > 0 && selectedEntryReference.isBlank();
+        button("Preview", left, y + 40, quarter - 2, 18, () -> request(Action.OBS_PREVIEW, selectedObservation, "", state.tab(), state.page()), active);
+        confirmButton("Fire", Action.OBS_FIRE, selectedObservation, "", left + quarter, y + 40, quarter - 2,
+                active && selectedObservation.equals(previewedObservation) && System.nanoTime() < observationPreviewExpires, "Send the previewed cue once to the same eligible audience.");
+        confirmButton("Off", Action.OBS_OFF, selectedObservation, "", left + 2 * quarter, y + 40, quarter - 2,
+                canEdit() && selected && selectedEntryRevision > 0, "Turn off this binding; retain delivery history.");
+        confirmButton("Reset", Action.OBS_RESET, selectedObservation, "", left + 3 * quarter, y + 40, quarter - 2,
+                canEdit() && selected && !selectedEntryReference.isBlank(), "Clear completion deliberately. The cue can fire again; timer delay restarts now.");
+    }
+
+    private String observationConfig(PlayState.Mode mode) {
+        try { return new ObservationConfiguration(mode, observationRegion, observationFlag, mode == PlayState.Mode.TIMER ? Long.parseLong(observationDelay) : 0).encode(); }
+        catch (IllegalArgumentException exception) { return null; }
+    }
+
+    private void saveObservation(PlayState.Mode mode) {
+        String config = observationConfig(mode);
+        if (config == null) { inlineNotice = "Choose the required region/flag and a valid timer delay (1 to 604800 seconds)."; return; }
+        Action action = selectedEntryRevision == 0 ? Action.OBS_SAVE : Action.OBS_REPLACE;
+        if (action == Action.OBS_SAVE || confirmation != null && confirmation.matches(action, selectedObservation, config, state.token()))
+            request(action, selectedObservation, config, state.tab(), state.page());
+        else {
+            confirmation = new Confirmation(action, selectedObservation, config, state.token(), "Replace this observation binding. Existing completion is retained.");
+            inlineNotice = confirmation.help(); clearAndInit();
+        }
     }
 
     private void policies(int left, int y, int full) {
@@ -282,8 +373,23 @@ public final class AuthoringScreen extends Screen {
         if (state.tab() == Tab.CHESTS && find(state.choices(), entry.id()) != null) selectedChoice = entry.id();
         if (state.tab() == Tab.SPAWN_LOCATIONS) { selectedLocation = entry.id(); selectedLocationLabel = entry.label(); }
         if (state.tab() == Tab.SPAWN_PLAYERS) { selectedPlayer = entry.id(); selectedPlayerLabel = entry.label(); }
+        if (state.tab() == Tab.OBSERVATIONS) {
+            selectedObservation = entry.id(); previewedObservation = "";
+            Entry config = find(state.choices(), entry.id());
+            if (config != null) loadObservation(config);
+            else { observationSavedConfig = null; observationRegion = ""; observationFlag = ""; observationDelay = "60"; }
+        }
+        if (state.tab() == Tab.OBS_REGIONS) observationRegion = entry.id().equals("none") ? "" : entry.id();
+        if (state.tab() == Tab.OBS_FLAGS) observationFlag = entry.id().equals("none") ? "" : entry.id();
         confirmation = null;
         clearAndInit();
+    }
+
+    private void loadObservation(Entry config) {
+        observationSavedConfig = config;
+        var saved = ObservationConfiguration.decode(config.detail());
+        observationRegion = saved.regionId(); observationFlag = saved.requiredFlag();
+        observationDelay = Long.toString(saved.delaySeconds() == 0 ? 60 : saved.delaySeconds());
     }
 
     private void cycleChoice(int direction) {
@@ -350,6 +456,9 @@ public final class AuthoringScreen extends Screen {
 
     @Override
     public void tick() {
+        if (!previewedObservation.isBlank() && System.nanoTime() >= observationPreviewExpires) {
+            previewedObservation = ""; confirmation = null; clearAndInit();
+        }
         if (pending) {
             if (++pendingTicks >= RESPONSE_TIMEOUT_TICKS) { pending = false; inlineNotice = "No authoring response after 10 seconds. Try Refresh."; clearAndInit(); }
             return;
@@ -374,7 +483,8 @@ public final class AuthoringScreen extends Screen {
         String mode = state.author() ? "Author mode ON" : "Author mode OFF — enable it before editing";
         context.drawTextWithShadow(textRenderer, Text.literal(screenText("Session " + state.session() + " " + state.phase() + " | " + mode)), 5, 17, state.author() ? 0xFF77FF77 : 0xFFFFCC66);
         if (!state.editable()) context.drawTextWithShadow(textRenderer, Text.literal(screenText("ACTIVE: pause the session before editing; use Session for controls.")), 5, 26, 0xFFFF7777);
-        String summary = (state.hold().isBlank() ? "" : "Hold: " + clipped(state.hold(), 42) + " | ") + "Target: " + state.target();
+        boolean playTab = state.tab() == Tab.SESSION || state.tab() == Tab.PARTICIPANTS || state.tab() == Tab.OBSERVATIONS;
+        String summary = (state.hold().isBlank() ? "" : "Hold: " + clipped(state.hold(), 42) + " | ") + (playTab ? state.selection() : "Target: " + state.target());
         Entry choice = find(state.choices(), selectedChoice);
         String selected = state.tab() == Tab.CHESTS && choice != null
                 ? "Fills replace ALL contents | " + choice.detail()

@@ -24,7 +24,7 @@ Pure policy/store tests cover independent policies, pinned references, once clai
 
 ## Current builder workflow
 
-Use the matching `Chronicle-M7-spawns-1.21.10.mrpack`. In non-active author mode, save a location with **Roles** (or choose an existing location), then use **Spawns** to bind an arrival/respawn purpose to it. These remain harmless definitions.
+Use the matching `Chronicle-M8-1.21.10.mrpack`. In non-active author mode, save a location with **Roles** (or choose an existing location), then use **Spawns** to bind an arrival/respawn purpose to it. These remain harmless definitions.
 
 Open **Policies**, choose a saved purpose, return and select the exact online player. **First arrival once** and **Death respawn** each ask for confirmation. **Arrival off** / **Respawn off** disable them independently. **Reset arrival** explicitly removes an attempt record, including a failed or uncertain attempt; enabling a policy alone does not reset history. Offline saved accounts remain selectable by UUID. All policy data is private to operators.
 

@@ -8,6 +8,8 @@ import io.github.chronicle.core.authoring.ui.AuthoringUiModel.*;
 import io.github.chronicle.core.content.ChestBinding;
 import io.github.chronicle.core.content.ChestTarget;
 import io.github.chronicle.core.loot.LootType;
+import io.github.chronicle.core.play.ObservationConfiguration;
+import io.github.chronicle.core.play.PlayState;
 import io.github.chronicle.core.network.AuthoringUiPayloads.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -77,12 +79,14 @@ public final class AuthoringUi {
         var server = player.getEntityWorld().getServer();
         var campaign = ChronicleRuntime.service(server).state();
         var authoring = AuthoringRuntime.get(server);
+        var play = PlayRuntime.available(server);
         boolean author = AuthoringRuntime.isAuthor(player);
         return new Frame(player.getEntityWorld().getRegistryKey().getValue().toString(), target(player), campaign.phase().name(), campaign.sessionNumber(), author,
                 author ? authoring.selection(player.getUuid()) : null, authoring.service().state().revision(),
                 ChestAuthoring.service(server).state().bindings(), SpawnAuthoring.service(server).state().revision(),
                 TypedChestLoot.types(server), RuntimeHolds.reason(server), server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),
-                AutomaticPlayerSpawns.available(server) == null ? -1 : AutomaticPlayerSpawns.available(server).revision());
+                AutomaticPlayerSpawns.available(server) == null ? -1 : AutomaticPlayerSpawns.available(server).revision(),
+                play == null ? null : new PlayControls(play.participants(), play.bindings(), play.deliveries()), PlayRuntime.eligibleIds(server), campaign.flags());
     }
     private static Target target(ServerPlayerEntity player) {
         var source = player.getCommandSource();
@@ -103,6 +107,30 @@ public final class AuthoringUi {
         var server = player.getEntityWorld().getServer();
         String id = request.id(), argument = request.argument();
         switch (request.action()) {
+            case PARTICIPANT_ON, PARTICIPANT_OFF -> {
+                UUID target = UUID.fromString(id);
+                var state = PlayRuntime.service(server).state();
+                if (server.getPlayerManager().getPlayer(target) == null && !state.participants().contains(target))
+                    throw new IllegalArgumentException("Choose an online player or a saved participant.");
+                PlayRuntime.setParticipant(player.getCommandSource(), target, request.action() == Action.PARTICIPANT_ON);
+                return request.action() == Action.PARTICIPANT_ON ? "Participant enrolled. Spectators and author walks do not count as active play." : "Participation removed. Delivery history is retained.";
+            }
+            case OBS_SAVE, OBS_REPLACE -> {
+                PlayRuntime.bind(player.getCommandSource(), id, ObservationConfiguration.decode(argument), request.action() == Action.OBS_REPLACE);
+                return "Observation configured. Completion history is retained; no cue was sent now.";
+            }
+            case OBS_OFF -> { PlayRuntime.off(player.getCommandSource(), id); return "Observation turned off. Completion history is retained."; }
+            case OBS_RESET -> { PlayRuntime.reset(player.getCommandSource(), id); return "Completion reset. A configured timer starts its delay again from now."; }
+            case OBS_PREVIEW -> {
+                context.observationPreview = PlayRuntime.preview(server, id);
+                return context.observationPreview.description();
+            }
+            case OBS_FIRE -> {
+                var preview = context.observationPreview;
+                context.observationPreview = null;
+                PlayRuntime.fire(server, id, preview, player.getUuid());
+                return "Observation delivery recorded. Each recipient received the public cue privately.";
+            }
             case AUTO_ARRIVAL_ON, AUTO_RESPAWN_ON, AUTO_ARRIVAL_OFF, AUTO_RESPAWN_OFF, AUTO_ARRIVAL_RESET -> {
                 requireAuthor(player);
                 UUID target = UUID.fromString(id);
@@ -207,7 +235,7 @@ public final class AuthoringUi {
     private static void send(ServerPlayerEntity player, Request request, Context context, Frame frame, String message, boolean success, boolean consume) {
         if (!ServerPlayNetworking.canSend(player, View.ID)) return;
         if (System.nanoTime() > context.previewExpires) { context.previewPlayer = ""; context.previewPurpose = ""; }
-        if (context.frame != null && !context.frame.equals(frame)) { context.previewPlayer = ""; context.previewPurpose = ""; }
+        if (context.frame != null && !context.frame.equals(frame)) { context.previewPlayer = ""; context.previewPurpose = ""; context.observationPreview = null; }
         if (consume || context.token == 0 || !frame.equals(context.frame)) context.token = ThreadLocalRandom.current().nextLong(1, Long.MAX_VALUE);
         context.frame = frame;
         List<Entry> all = entries(player, request.tab());
@@ -216,10 +244,17 @@ public final class AuthoringUi {
             long bound = frame.chests.values().stream().filter(chest -> type.id().equals(chest.lootType())).count();
             return new Entry(type.id(), type.label(), "Bound " + bound + " / recommended " + type.recommendedChests() + "; refill "
                     + (type.refillMinutes() == 0 ? "each new session" : type.refillMinutes() + " active minutes") + ". " + type.description(), "LOOT", "", 0);
-        }).toList() : List.of();
+        }).toList() : request.tab() == Tab.OBSERVATIONS && PlayRuntime.available(player.getEntityWorld().getServer()) != null
+                ? PlayRuntime.available(player.getEntityWorld().getServer()).bindings().values().stream().map(binding ->
+                new Entry(binding.id(), shortText(binding.id(), 128), new ObservationConfiguration(binding.mode(), binding.regionId(), binding.requiredFlag(), binding.delayTicks() / 20).encode(),
+                        "CONFIG", binding.regionId(), binding.revision())).toList() : List.of();
+        String selectionText = frame.selection == null ? "No author selection. Enable author mode to select corners." : selection(frame.selection);
+        if (request.tab() == Tab.PARTICIPANTS || request.tab() == Tab.OBSERVATIONS || request.tab() == Tab.SESSION)
+            selectionText = frame.play == null ? "Participation and observations unavailable. Inspect the server log."
+                    : "Active play: " + (PlayRuntime.elapsedTicks(player.getEntityWorld().getServer()) / 20) + "s | Eligible online: " + frame.eligible.size();
         var state = new Snapshot(context.token, request.tab(), page, pages, frame.phase, frame.session, frame.author,
                 AuthoringRuntime.editable(player.getEntityWorld().getServer()), frame.hold == null ? "" : shortText(frame.hold, 512),
-                frame.selection == null ? "No author selection. Enable author mode to select corners." : selection(frame.selection), frame.target.label,
+                selectionText, frame.target.label,
                 shortText(message, 1024), success, all.subList(page * 12, Math.min((page + 1) * 12, all.size())), choices, context.previewPlayer);
         ServerPlayNetworking.send(player, new View(state, request.action() == Action.OPEN));
     }
@@ -228,6 +263,50 @@ public final class AuthoringUi {
         var server = player.getEntityWorld().getServer();
         var sites = AuthoringRuntime.get(server).service().state().sites();
         return switch (tab) {
+            case PARTICIPANTS -> {
+                var state = PlayRuntime.available(server);
+                if (state == null) yield List.of(new Entry("unavailable", "Participation unavailable", "Inspect play-runtime.json and the server log.", "STATUS", "", 0));
+                var players = new TreeMap<String, String>();
+                state.participants().forEach(id -> players.put(id.toString(), id.toString()));
+                server.getPlayerManager().getPlayerList().forEach(target -> players.put(target.getUuidAsString(), target.getName().getString()));
+                yield players.entrySet().stream().map(entry -> {
+                    UUID id = UUID.fromString(entry.getKey()); boolean member = state.participants().contains(id);
+                    return new Entry(entry.getKey(), entry.getValue(), member ? "Enrolled; counts while online, alive, non-spectator and outside author mode." : "Not participating. Self-service: /chronicle join or /chronicle leave.",
+                            "PLAYER", member ? "MEMBER" : "", 0);
+                }).toList();
+            }
+            case OBSERVATIONS -> {
+                var state = PlayRuntime.available(server);
+                if (state == null) yield List.of(new Entry("unavailable", "Observations unavailable", "Inspect play-runtime.json and the server log.", "STATUS", "", 0));
+                var definitions = new TreeMap<String, String>();
+                ChronicleCore.observations().definitions().forEach(def -> definitions.put(def.id(), def.label()));
+                state.bindings().keySet().forEach(id -> definitions.putIfAbsent(id, id));
+                state.deliveries().keySet().forEach(id -> definitions.putIfAbsent(id, id));
+                yield definitions.entrySet().stream().map(entry -> {
+                    var def = ChronicleCore.observations().get(entry.getKey()).orElse(null);
+                    var binding = state.bindings().get(entry.getKey()); var delivery = state.deliveries().get(entry.getKey());
+                    String problem = "";
+                    if (def != null && binding != null) {
+                        try { PlayRuntime.service(server).validate(def, AuthoringRuntime.get(server).service().state(), binding.id()); }
+                        catch (IllegalArgumentException | IllegalStateException exception) { problem = " | BLOCKED: " + shortText(exception.getMessage(), 180); }
+                    }
+                    String detail = (def == null ? "Missing registered definition" : def.text() + " | Audience: " + def.audience())
+                            + (binding == null ? " | OFF" : " | " + binding.mode() + (binding.regionId().isBlank() ? "" : " region " + binding.regionId())
+                            + (binding.requiredFlag().isBlank() ? "" : " requires " + binding.requiredFlag()) + (binding.delayTicks() == 0 ? "" : " delay " + binding.delayTicks() / 20 + "s"))
+                            + " | " + (delivery == null ? "not delivered" : delivery.status()) + problem;
+                    return new Entry(entry.getKey(), shortText(entry.getValue(), 128), shortText(detail, 768), "OBSERVATION", delivery == null ? "" : delivery.status().name(), binding == null ? 0 : binding.revision());
+                }).toList();
+            }
+            case OBS_REGIONS -> {
+                var entries = new ArrayList<Entry>(); entries.add(new Entry("none", "No region", "All-participant cues can use no region; entry and region-audience cues require one.", "REGION", "", 0));
+                sites.values().stream().filter(site -> site instanceof AuthoringSite.Region).forEach(site -> entries.add(new Entry(site.id(), site.id(), describe(site), "REGION", "", site.revision())));
+                yield entries;
+            }
+            case OBS_FLAGS -> {
+                var entries = new ArrayList<Entry>(); entries.add(new Entry("none", "No prerequisite", "A configured flag must be true. CONDITION requires a flag.", "FLAG", "", 0));
+                ChronicleRuntime.service(server).state().flags().forEach((id, value) -> entries.add(new Entry(id, shortText(id, 128), "Current value: " + value, "FLAG", "", 0)));
+                yield entries;
+            }
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(binding -> {
                 var target = binding.directTarget(); var type = TypedChestLoot.types(server).get(binding.lootType());
                 return new Entry(binding.id(), (type == null ? binding.lootType() : type.label()) + " @ " + target.x() + " " + target.y() + " " + target.z(),
@@ -310,9 +389,13 @@ public final class AuthoringUi {
     private static void notice(ServerPlayerEntity player, String message) { if (ServerPlayNetworking.canSend(player, Notice.ID)) ServerPlayNetworking.send(player, new Notice(shortText(message, 512))); }
     private record Target(String key, String label, ChestTarget container) { }
     private record Frame(String dimension, Target target, String phase, int session, boolean author, AuthoringRuntime.Selection selection, long siteRevision,
-                         Map<String, ChestBinding> chests, long spawnRevision, Map<String, LootType> types, String hold, List<UUID> players, long automaticRevision) { }
+                         Map<String, ChestBinding> chests, long spawnRevision, Map<String, LootType> types, String hold, List<UUID> players, long automaticRevision,
+                         PlayControls play, List<UUID> eligible, Map<String, Boolean> flags) { }
+    /** Durable clock checkpoints alone do not change authorization or recreate controls. */
+    private record PlayControls(Set<UUID> participants, Map<String, PlayState.Binding> bindings, Map<String, PlayState.Delivery> deliveries) { }
     private static final class Context {
         long token, window, previewExpires; int requests; Frame frame;
         String previewPlayer = "", previewPurpose = "";
+        PlayRuntime.Preview observationPreview;
     }
 }

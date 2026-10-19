@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Shared participation and optional observations - 19 October 2026
+
+The operator accepts the automatic player-policy slice and asks to continue until hands-on review is needed. M8 follows the existing Core/campaign boundary: explicit membership, an ACTIVE occupied/unheld tick clock, finite opt-in conditions, private audience delivery and durable shared manual/automatic claims belong in Core. Quiet Below registers cue definitions; registration creates no bindings, scheduled story or ecology effects. First eligible presence includes a participant already inside an armed region. Clock-only updates, including durable clock checkpoints, preserve UI controls and typed input. Exact binding/definition/session/audience preview checks and uncertain CLAIMED history prevent automatic retries. `/chronicle leave` removes moving policies first, then participation; either persistence failure is reported. See [M8 implementation and review workflow](M8_IMPLEMENTATION.md). This is an implementation choice grounded in the existing design, not new canonical lore or settlement of the later ecological rules.
+
 ## Automatic player spawn policies and accepted Core screen - 19 October 2026
 
 The operator accepts the Core screen, reports minor periodic flicker and asks for its fix bundled with the next feature review. Background refreshes must preserve unchanged widgets and hover/focus. Continue M7 with explicit per-player first-arrival/death-respawn policies over pinned saved purposes, default off, without changing bed/anchor settings or trapping departing characters. First arrival records a durable claim before moving and never automatically retries uncertainty; explicit reset requires non-active author mode. Players may leave their own policies. Entity encounter groups and shared M8 conditions remain separate. [M7_AUTOMATIC_SPAWNS](M7_AUTOMATIC_SPAWNS.md) specifies behavior and remaining human checks.

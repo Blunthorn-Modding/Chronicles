@@ -22,7 +22,7 @@ Pure checks: probability boundaries/independence/counts/reproducibility; strict 
 
 ## Builder review
 
-Install `../client/Chronicle-M7-spawns-1.21.10.mrpack` and join localhost. During a non-active session:
+Install `../client/Chronicle-M8-1.21.10.mrpack` and join localhost. During a non-active session:
 
 Author mode is per connection: after reconnecting, enable it again. If you see `Loot chest edits require non-active author mode`, check the session phase and run `/chronicle author mode on` before retrying the picker. The operator confirmed this resolves the reported rejection. CF-09 now provides the proper [Core authoring screen](CF09_AUTHORING_UI.md), including a visible Mode on button. Commands remain a fallback.
 

@@ -6,14 +6,16 @@ import java.util.Objects;
 /** Bounded presentation data. No client-provided coordinates or command strings are accepted. */
 public final class AuthoringUiModel {
     private AuthoringUiModel() { }
-    public enum Tab { CHESTS, PLACES, ROLES, SPAWNS, SPAWN_LOCATIONS, SPAWN_PLAYERS, SESSION, POLICIES, POLICY_PURPOSES }
+    public enum Tab { CHESTS, PLACES, ROLES, SPAWNS, SPAWN_LOCATIONS, SPAWN_PLAYERS, SESSION, POLICIES, POLICY_PURPOSES,
+        PARTICIPANTS, OBSERVATIONS, OBS_REGIONS, OBS_FLAGS }
     public enum Action {
         OPEN, REFRESH, MODE_ON, MODE_OFF, CORNER_1, CORNER_2, TARGET_1, TARGET_2, CLEAR_SELECTION, HIDE_PREVIEW,
         CHEST_BIND, CHEST_RETYPE, CHEST_UNBIND, CHEST_SHOW, LOOT_RELOAD,
         ROLE_SAVE, ROLE_REPLACE, SITE_REPLACE, SITE_REMOVE, SITE_SHOW,
         SPAWN_BIND, SPAWN_REBIND, SPAWN_REMOVE, SPAWN_PREVIEW, SPAWN_CONFIRM,
         SESSION_START, SESSION_PAUSE, SESSION_RESUME, SESSION_END,
-        AUTO_ARRIVAL_ON, AUTO_RESPAWN_ON, AUTO_ARRIVAL_OFF, AUTO_RESPAWN_OFF, AUTO_ARRIVAL_RESET
+        AUTO_ARRIVAL_ON, AUTO_RESPAWN_ON, AUTO_ARRIVAL_OFF, AUTO_RESPAWN_OFF, AUTO_ARRIVAL_RESET,
+        PARTICIPANT_ON, PARTICIPANT_OFF, OBS_SAVE, OBS_REPLACE, OBS_PREVIEW, OBS_FIRE, OBS_OFF, OBS_RESET
     }
     public record Entry(String id, String label, String detail, String kind, String reference, long revision) {
         public Entry {
@@ -31,6 +33,13 @@ public final class AuthoringUiModel {
             if (token < 1 || page < 0 || pages < 1 || page >= pages || session < 0) throw new IllegalArgumentException("Invalid UI state");
             entries = List.copyOf(entries); choices = List.copyOf(choices);
             if (entries.size() > 12 || choices.size() > 128) throw new IllegalArgumentException("UI page exceeds bounds");
+        }
+        /** Render-only clock/feedback changes do not invalidate focus, hover or typed input. */
+        public boolean sameControls(Snapshot other) {
+            return other != null && token == other.token && tab == other.tab && page == other.page && pages == other.pages
+                    && phase.equals(other.phase) && session == other.session && author == other.author && editable == other.editable
+                    && hold.equals(other.hold) && target.equals(other.target) && entries.equals(other.entries)
+                    && choices.equals(other.choices) && previewPlayer.equals(other.previewPlayer);
         }
     }
     private static void text(String value, int max) {

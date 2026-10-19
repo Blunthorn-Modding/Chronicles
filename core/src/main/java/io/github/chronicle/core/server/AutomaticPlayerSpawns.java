@@ -58,8 +58,11 @@ public final class AutomaticPlayerSpawns {
                 var source = context.getSource();
                 if (source.getPlayer() == null) { source.sendError(Text.literal("Leave requires your player account.")); return 0; }
                 try {
+                    // Remove the policy capable of moving a player first. A later membership
+                    // save failure must not leave a teleport policy waiting after restart.
                     service(source.getServer()).leave(source.getPlayer().getUuid());
-                    source.sendFeedback(() -> Text.literal("You left automatic arrival and respawn policies. Arrival history is retained; you were not moved."), false);
+                    PlayRuntime.setSelfParticipant(source.getPlayer(), false);
+                    source.sendFeedback(() -> Text.literal("You left participation and automatic arrival and respawn policies. History is retained; you were not moved."), false);
                     return 1;
                 } catch (IOException | IllegalStateException exception) { disableAfterWriteFailure(source.getServer(), exception); source.sendError(Text.literal("Could not persist leaving. Automatic spawns are disabled; inspect the server log.")); return 0; }
             })));

@@ -3,6 +3,8 @@ package io.github.chronicle.core;
 import io.github.chronicle.core.campaign.CampaignEvents;
 import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.loot.LootCatalog;
+import io.github.chronicle.core.play.ObservationCatalog;
+import io.github.chronicle.core.server.PlayRuntime;
 import io.github.chronicle.core.server.TypedChestLoot;
 import io.github.chronicle.core.server.AuthoringUi;
 import io.github.chronicle.core.network.AuthoringUiPayloads;
@@ -36,11 +38,13 @@ public final class ChronicleCore implements ModInitializer {
     private static final CampaignEvents EVENTS = new CampaignEvents();
     private static final AuthoringCatalog AUTHORING = new AuthoringCatalog();
     private static final LootCatalog CHEST_TYPES = new LootCatalog();
+    private static final ObservationCatalog OBSERVATIONS = new ObservationCatalog();
 
     /** Register campaign definitions during mod initialization, before the server starts. */
     public static CampaignEvents events() { return EVENTS; }
     public static AuthoringCatalog authoring() { return AUTHORING; }
     public static LootCatalog chestTypes() { return CHEST_TYPES; }
+    public static ObservationCatalog observations() { return OBSERVATIONS; }
 
     @Override
     public void onInitialize() {
@@ -57,6 +61,7 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTING.register(server -> EVENTS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> AUTHORING.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> CHEST_TYPES.freeze());
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> OBSERVATIONS.freeze());
         ServerLifecycleEvents.SERVER_STARTED.register(ChronicleRuntime::start);
         ServerLifecycleEvents.SERVER_STARTED.register(Profiles::start);
         ServerLifecycleEvents.SERVER_STARTED.register(AuthoringRuntime::start);
@@ -64,6 +69,7 @@ public final class ChronicleCore implements ModInitializer {
         TypedChestLoot.register();
         SpawnAuthoring.register();
         AutomaticPlayerSpawns.register();
+        PlayRuntime.register();
         ServerLifecycleEvents.SERVER_STARTED.register(SessionPresentation::changed);
         ServerTickEvents.START_SERVER_TICK.register(SessionPresentation::tick);
         ServerTickEvents.END_SERVER_TICK.register(AuthoringRuntime::tick);

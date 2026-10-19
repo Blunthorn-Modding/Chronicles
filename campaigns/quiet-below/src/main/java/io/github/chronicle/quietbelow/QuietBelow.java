@@ -4,6 +4,7 @@ import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.loot.LootType;
 import io.github.chronicle.core.loot.LootEntry;
+import io.github.chronicle.core.play.ObservationCatalog;
 import java.util.List;
 import io.github.chronicle.core.campaign.CampaignEvent;
 import io.github.chronicle.core.campaign.EventOutcome;
@@ -62,6 +63,11 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        // Optional public cues. Registering definitions arms no triggers or story timetable.
+        ChronicleCore.observations().register(new ObservationCatalog.Definition("quiet_below:city_presence", "City vibration",
+                "The ancient stone carries a low vibration.", "minecraft:ambient.cave", ObservationCatalog.Audience.REGION));
+        ChronicleCore.observations().register(new ObservationCatalog.Definition("quiet_below:distant_stir", "Distant stirring",
+                "A low, unfamiliar rumble breaks the quiet.", "minecraft:ambient.cave", ObservationCatalog.Audience.PARTICIPANTS));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:source_city", "Source city",
                 "The source ancient city region; registers geometry without enabling growth.", AuthoringCatalog.Kind.REGION));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:relic_heart", "Relic Heart",

@@ -72,6 +72,22 @@ def _loot_fixture(root):
     ]}), encoding='utf-8')
 
 
+def _m8_fixture(root):
+    """A valid inactive campaign flag makes the optional condition available to the UI.
+
+    The real command may only edit flags during ACTIVE play, while M8 bindings must be
+    authored while inactive.  This isolated world starts with one false test flag and no
+    history; the graphical client later proves the cue waits until ACTIVE changes it.
+    """
+    chronicle = root / 'world/chronicle'
+    chronicle.mkdir(parents=True, exist_ok=True)
+    (chronicle / 'campaign-state.json').write_text(json.dumps({
+        'schemaVersion': 1, 'sessionNumber': 0, 'phase': 'INACTIVE',
+        'flags': {'quiet_below:m8_gate': False}, 'completedEvents': [],
+        'history': [], 'nextSequence': 0
+    }), encoding='utf-8')
+
+
 def _java_arg(value):
     value = str(value)
     if any(char in value for char in '\r\n\0'):
@@ -158,6 +174,7 @@ def run(include_content=True, regression=True):
     root = _stage(w)
     if regression:
         _loot_fixture(root)
+        _m8_fixture(root)
     reports = w.REPORTS / ('fabric-smoke-' + root.name)
     reports.mkdir(parents=True)
     report = {'world': str(root), 'reports': str(reports), 'minecraft': w.LOCK['minecraft'],
@@ -209,7 +226,20 @@ def run(include_content=True, regression=True):
                 expected_arrival = 'MOVED' if phase == 'initial' else 'CLAIMED'
                 if len(automatic['arrivals']) != 1 or automatic['arrivals'][0]['status'] != expected_arrival:
                     raise RuntimeError('M7 once/uncertain automatic arrival history mismatch')
+                play = json.loads((root / 'world/chronicle/play-runtime.json').read_text(encoding='utf-8'))
+                if play.get('schemaVersion') != 1 or len(play.get('participants', [])) != 2 or len(play.get('bindings', [])) != 2:
+                    raise RuntimeError('M8 explicit participation/binding persistence mismatch')
+                deliveries = {delivery['id']: delivery for delivery in play.get('deliveries', [])}
+                expected_city = 'DELIVERED' if phase == 'initial' else 'CLAIMED'
+                if set(deliveries) != {'quiet_below:city_presence', 'quiet_below:distant_stir'} or deliveries['quiet_below:city_presence']['status'] != expected_city or deliveries['quiet_below:distant_stir']['status'] != 'DELIVERED':
+                    raise RuntimeError('M8 observation completion/uncertain-claim persistence mismatch')
+                if deliveries['quiet_below:distant_stir'].get('source') != 'TIMER':
+                    raise RuntimeError('M8 reset timer did not replace the earlier manual delivery')
+                for delivery in deliveries.values():
+                    if set(delivery.get('recipients', [])) != {offline_uuid('ChronicleFabricA'), offline_uuid('ChronicleFabricB')}:
+                        raise RuntimeError('M8 observation audience persistence mismatch')
                 report['checks'].append(phase + ': typed loot session/timer replacement, components/cycle persistence and legacy/spawn checks passed')
+                report['checks'].append(phase + ': M8 opt-in participants, configured cues and durable delivery audience checks passed')
                 state = json.loads((root / 'world/chronicle/campaign-state.json').read_text())
                 expected = ('PAUSED', 1) if phase == 'initial' else ('ENDED', 2)
                 if (state['phase'], state['sessionNumber']) != expected:
@@ -259,7 +289,14 @@ def run(include_content=True, regression=True):
                 automatic['arrivals'][0]['detail'] = 'Stopped disposable fixture: interrupted before arrival outcome was recorded'
                 automatic['revision'] += 1
                 automatic_file.write_text(json.dumps(automatic), encoding='utf-8')
+                play_file = root / 'world/chronicle/play-runtime.json'
+                play = json.loads(play_file.read_text(encoding='utf-8'))
+                city = next(delivery for delivery in play['deliveries'] if delivery['id'] == 'quiet_below:city_presence')
+                city['status'] = 'CLAIMED'
+                play['revision'] += 1
+                play_file.write_text(json.dumps(play), encoding='utf-8')
                 report['checks'].append('stopped disposable fixture: pending intent after flushed mutation before receipt')
+                report['checks'].append('stopped disposable fixture: observation claim after durable claim before delivery completion')
 
             for _, logfile in clients:
                 logfile.close()

@@ -28,7 +28,7 @@ LOCK = json.loads((REPO / 'bootstrap.lock.json').read_text(encoding='utf-8'))
 JAVA = TOOLS / 'java' / 'current' / 'bin' / 'java.exe'
 GRADLE = TOOLS / f"gradle-{LOCK['gradle']['version']}" / 'bin' / 'gradle.bat'
 BOT = REPO / 'testing' / 'minecraft-bot'
-MILESTONE = 'M7-spawns'
+MILESTONE = 'M8'
 ALLOWED = {'api.modrinth.com', 'cdn.modrinth.com', 'maven.fabricmc.net',
            'services.gradle.org', 'downloads.gradle.org', 'github.com',
            'release-assets.githubusercontent.com', 'objects.githubusercontent.com'}

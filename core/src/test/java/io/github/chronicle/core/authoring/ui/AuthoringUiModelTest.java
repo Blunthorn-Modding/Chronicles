@@ -11,6 +11,7 @@ import static io.github.chronicle.core.authoring.ui.AuthoringUiModel.Tab.CHESTS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuthoringUiModelTest {
     private static final Gson JSON = new Gson();
@@ -89,6 +90,19 @@ class AuthoringUiModelTest {
         assertEquals(CHEST_BIND, AuthoringUiModel.Action.valueOf("CHEST_BIND"));
         assertThrows(IllegalArgumentException.class, () -> AuthoringUiModel.Action.valueOf("RUN_SERVER_COMMAND"));
         assertFalse(List.of(AuthoringUiModel.Action.values()).stream().anyMatch(action -> action.name().contains("COMMAND")));
+    }
+
+    @Test
+    void renderOnlyClockAndFeedbackChangesKeepControlsButAuthorityChangesDoNot() {
+        var before = snapshot(12, 0, 1, 3);
+        var clock = new AuthoringUiModel.Snapshot(12, CHESTS, 0, 1, "phase", 3, false, false,
+                "hold", "Active play: 13s", "target", "new feedback", true, List.of(), List.of(), "player");
+        assertTrue(before.sameControls(clock));
+        assertFalse(before.sameControls(snapshot(13, 0, 1, 3)));
+        assertFalse(before.sameControls(snapshot(12, 0, 1, 4)));
+        var changedEntry = new AuthoringUiModel.Snapshot(12, CHESTS, 0, 1, "phase", 3, false, false,
+                "hold", "selection", "target", "message", false, List.of(entry("new")), List.of(), "player");
+        assertFalse(before.sameControls(changedEntry));
     }
 
     private static AuthoringUiModel.Entry entry(String id) {

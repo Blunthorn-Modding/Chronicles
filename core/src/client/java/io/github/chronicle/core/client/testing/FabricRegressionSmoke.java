@@ -60,9 +60,9 @@ public final class FabricRegressionSmoke {
     private static final UUID FABRIC_A = offlineUuid("ChronicleFabricA");
     private static final UUID FABRIC_B = offlineUuid("ChronicleFabricB");
     private static final List<String> INITIAL_AUDIT = List.of(
-            "session.start", "flag.set", "event.trigger", "session.pause", "session.resume", "session.pause");
+            "session.start", "flag.set", "flag.set", "event.trigger", "session.pause", "session.resume", "session.pause");
     private static final List<String> RESTART_AUDIT = List.of(
-            "session.start", "flag.set", "event.trigger", "session.pause", "session.resume", "session.pause",
+            "session.start", "flag.set", "flag.set", "event.trigger", "session.pause", "session.resume", "session.pause",
             "session.resume", "session.end", "session.start", "session.end");
 
     private static FabricRegressionSmoke instance;
@@ -73,6 +73,7 @@ public final class FabricRegressionSmoke {
     private final Path serverRoot;
     private final Path campaignFile;
     private final Path profilesDirectory;
+    private final Path playRuntimeFile;
     private final long overallDeadline = System.nanoTime() + OVERALL_TIMEOUT_NANOS;
     private final List<Message> messages = new ArrayList<>();
     private final List<ProfilePayloads.View> views = new ArrayList<>();
@@ -114,6 +115,7 @@ public final class FabricRegressionSmoke {
         if (!worldRoot.startsWith(this.serverRoot)) throw new IllegalArgumentException("resolved test world escaped the staged server directory");
         this.campaignFile = worldRoot.resolve("chronicle/campaign-state.json");
         this.profilesDirectory = worldRoot.resolve("chronicle/profiles");
+        this.playRuntimeFile = worldRoot.resolve("chronicle/play-runtime.json");
     }
 
     /** Registers only when the host explicitly supplies the smoke output path. */
@@ -217,6 +219,7 @@ public final class FabricRegressionSmoke {
         setupTypedLoot(client);
         authoringUi(client);
         configureAutomaticSpawns(client);
+        configureM8Observations(client);
         actionbar("inactive actionbar", "Chronicle | Session 0: Inactive | World frozen");
         timeQuery(client, "capture frozen time", value -> firstTime = value);
         movement(client, "player moves while inactive and frozen");
@@ -226,6 +229,7 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "start session 1", "chronicle session start 1", "^Started Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
         actionbar("active session 1 actionbar", "Chronicle | Session 1: Active");
+        previewAndFireTimerObservation(client);
         delay("allow queued session-start loot batch", 1_300);
         check("first arrival moves exactly once with facing", () -> {
             require(Math.abs(client.player.getX() - 16.5) < .05 && Math.abs(client.player.getZ() - 18.5) < .05 && Math.abs(client.player.getYaw() - 90) < .05, "automatic first arrival did not use the bound oriented point");
@@ -252,6 +256,11 @@ public final class FabricRegressionSmoke {
                 () -> require(campaign().getAsJsonObject("flags").get("quiet_below:fabric_smoke").getAsBoolean(), "Fabric smoke flag was not persisted"));
         command(client, "read Fabric smoke flag", "chronicle flag get quiet_below:fabric_smoke",
                 "^Chronicle flag quiet_below:fabric_smoke = true\\.$");
+        command(client, "return discovery group to the city after respawn regressions", "tp @s 17.5 -59 17.5 0 0", ".*Teleported.*");
+        mutation(client, "satisfy M8 city cue prerequisite", "chronicle flag set quiet_below:m8_gate true",
+                "^Chronicle flag quiet_below:m8_gate = true\\.$", () -> require(campaign().getAsJsonObject("flags").get("quiet_below:m8_gate").getAsBoolean(),
+                        "M8 cue prerequisite was not persisted as true"));
+        awaitObservationDelivery(client, "city presence waits for its configured flag prerequisite", "quiet_below:city_presence");
 
         readOnlyCommand(client, "event list is read-only", "chronicle event list", ".*quiet_below:readiness_check.*");
         readOnlyCommand(client, "event preview is read-only", "chronicle event preview quiet_below:readiness_check",
@@ -266,6 +275,12 @@ public final class FabricRegressionSmoke {
                 "^Event has already been completed\\.$");
 
         mutation(client, "pause session 1", "chronicle session pause", "^Paused Chronicle session 1\\.$", () -> assertCampaign("PAUSED", 1));
+        final long[] pausedPlayTicks = new long[1];
+        check("capture shared active-play clock while paused", () -> pausedPlayTicks[0] = playRuntime().get("elapsedTicks").getAsLong());
+        delay("paused shared active-play clock does not advance", 1_100);
+        check("shared active-play clock remains frozen while paused", () -> require(playRuntime().get("elapsedTicks").getAsLong() == pausedPlayTicks[0],
+                "shared active-play clock advanced while paused"));
+        rearmTimerForResume(client);
         actionbar("paused session 1 actionbar", "Chronicle | Session 1: Paused | World frozen");
         testDeath(client, "paused death retains vanilla position", 8.5, 8.5);
         check("capture cycle before paused refill wait", () -> pausedLootCycle[0] = typedReceipt("test:timed").get("cycle").getAsLong());
@@ -289,6 +304,7 @@ public final class FabricRegressionSmoke {
         check("tagged pig gravity is frozen while paused", () -> require(Math.abs(firstPigY - secondPigY) < 0.01,
                 "tagged pig moved while paused: " + firstPigY + " -> " + secondPigY));
         mutation(client, "resume session 1", "chronicle session resume", "^Resumed Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
+        awaitObservationDelivery(client, "reset timer delivers once after resumed active play", "quiet_below:distant_stir");
         delay("allow tagged pig gravity while active", 900);
         pigYQuery(client, "capture active pig Y", value -> secondPigY = value);
         check("tagged pig falls while active", () -> require(secondPigY < firstPigY - 0.1,
@@ -350,11 +366,21 @@ public final class FabricRegressionSmoke {
         unchanged("non-op author commands preserve registry", "authoring before unauthorized edits", authoring);
         task("forged non-op UI request is denied", () -> ClientPlayNetworking.send(new AuthoringUiPayloads.Request(Action.OPEN, "", "", 0, Tab.CHESTS, 0)),
                 () -> authoringNotices.stream().anyMatch(notice -> notice.contains("Operator permission")));
+        final int[] deniedM8Notices = new int[1];
+        task("forged non-op observation screen is denied", () -> {
+            deniedM8Notices[0] = authoringNotices.size();
+            ClientPlayNetworking.send(new AuthoringUiPayloads.Request(Action.OPEN, "", "", 0, Tab.OBSERVATIONS, 0));
+        }, () -> authoringNotices.size() > deniedM8Notices[0]
+                && authoringNotices.subList(deniedM8Notices[0], authoringNotices.size()).stream().anyMatch(notice -> notice.contains("Operator permission")));
         check("non-op receives no private authoring snapshot", () -> require(authoringViews == 0, "private authoring data sent to ordinary player"));
         markerTask("publish B unauthorized denial", marker("B", "initial", "denied"));
         waitForMarker("wait for explicit automatic policy for B", marker("A", "initial", "automatic-policy"));
-        command(client, "ordinary player can leave own automatic policies", "chronicle leave", ".*You left automatic arrival and respawn policies.*");
+        command(client, "ordinary player can leave own automatic policies", "chronicle leave", ".*You left participation and automatic arrival and respawn policies.*");
         markerTask("publish B left automatic policies", marker("B", "initial", "automatic-left"));
+        command(client, "ordinary player opts into Chronicle participation", "chronicle join", ".*You joined Chronicle participation.*");
+        markerTask("publish B participation opt-in", marker("B", "initial", "m8-joined"));
+        waitForMarker("wait for operator positioning in the configured city region", marker("A", "initial", "m8-positioned"));
+        markerTask("publish B participation and city presence", marker("B", "initial", "m8-ready"));
 
         waitForMarker("wait for A profile save", marker("A", "initial", "profile-saved"));
         check("ordinary player never receives the private authoring preview", () -> require(AuthoringPreviewRenderer.renderedFrames() == 0,
@@ -375,6 +401,9 @@ public final class FabricRegressionSmoke {
         check("B own profile persisted", () -> assertProfile(FABRIC_B, "Fabric B", "", "", 1));
         markerTask("publish B profile complete", marker("B", "initial", "profile-complete"));
 
+        waitForMarker("wait for M8 observation configuration", marker("A", "initial", "m8-configured"));
+        awaitObservationMessage("B receives private city cue", "The ancient stone carries a low vibration.");
+        awaitObservationMessage("B receives private distant cue", "A low, unfamiliar rumble breaks the quiet.");
         waitForMarker("wait for A initial final marker", marker("A", "initial", "final"));
         check("B observes final initial durability", () -> {
             assertCampaign("PAUSED", 1);
@@ -386,6 +415,10 @@ public final class FabricRegressionSmoke {
 
     private void restartA(MinecraftClient client) {
         check("authoring persists all three site types across restart", this::assertAuthoring);
+        check("restart preserves uncertain observation claim without replay", () -> {
+            JsonObject delivery = observationDelivery("quiet_below:city_presence");
+            require(delivery.get("status").getAsString().equals("CLAIMED"), "stopped-fixture observation claim was lost");
+        });
         actionbar("restart pending-fill status is visible", "Chronicle | Session 1: Paused | World frozen: A Chronicle chest fill is unresolved; use /chronicle chest status and recover it before play continues.");
         command(client, "restart retains uncertain fill intent", "chronicle chest status", ".*templates=1; bindings=4; receipts=3; pending=1.*");
         command(client, "recover persisted after without replay", "chronicle chest recover 00000000-0000-0000-0000-000000000007", ".*applied contents verified; durable receipt recorded.*");
@@ -417,6 +450,9 @@ public final class FabricRegressionSmoke {
             require(Math.abs(client.player.getX() - 38.5) < .1 && Math.abs(client.player.getZ() - 18.5) < .1, "claimed first arrival repeated after restart");
             require(automaticArrival(FABRIC_A).get("status").getAsString().equals("CLAIMED"), "uncertain claim was silently rewritten");
         });
+        check("uncertain observation claim remains unresolved after resumed eligibility", () -> require(
+                observationDelivery("quiet_below:city_presence").get("status").getAsString().equals("CLAIMED"),
+                "uncertain observation was silently replayed or completed after restart"));
         delay("resume does not create another session-start cycle", 1_300);
         command(client, "resume preserves session-only chest contents", "data get block 24 -60 16 Items", ".*minecraft:emerald.*");
         mutation(client, "end session 1", "chronicle session end", "^Ended Chronicle session 1\\.$", () -> assertCampaign("ENDED", 1));
@@ -674,6 +710,179 @@ public final class FabricRegressionSmoke {
         });
     }
 
+    /**
+     * M8 deliberately has no implicit player membership or cue bindings.  Build both
+     * examples through the operator screen, after B has independently opted in and
+     * positioned itself in the saved test region.  The city cue proves ENTRY uses the
+     * selected region audience; the second cue proves a timer uses shared active time.
+     */
+    private void configureM8Observations(MinecraftClient client) {
+        waitForMarker("wait for B participation opt-in", marker("B", "initial", "m8-joined"));
+        command(client, "author enters configured city region before arming entry cue", "tp @s 17.5 -59 17.5 0 0", ".*Teleported.*");
+        command(client, "operator places participating B in configured city region", "tp ChronicleFabricB 17.5 -59 17.5 0 0", ".*Teleported.*");
+        markerTask("publish M8 participant positioning", marker("A", "initial", "m8-positioned"));
+        waitForMarker("wait for B participation and city presence", marker("B", "initial", "m8-ready"));
+        openUi(client, "open Session screen for M8 authoring", Tab.SESSION);
+        uiPress(client, "Participants", state -> state.tab() == Tab.PARTICIPANTS);
+        check("M8 starts with no implicit author membership", () -> require(ui(client).state().entries().stream()
+                .noneMatch(entry -> entry.id().equals(FABRIC_A.toString()) && entry.reference().equals("MEMBER")),
+                "author was enrolled without opting in"));
+        check("select author participation entry", () -> {
+            ui(client).selectForTest(FABRIC_A.toString());
+            require(ui(client).triggerForTest("Enroll"), "participant enrollment confirmation unavailable for author");
+        });
+        uiPress(client, "Confirm: Enroll", state -> state.tab() == Tab.PARTICIPANTS && state.success()
+                && state.entries().stream().anyMatch(entry -> entry.id().equals(FABRIC_A.toString()) && entry.reference().equals("MEMBER")));
+        check("self-service B membership appears in the operator screen", () -> {
+            ui(client).selectForTest(FABRIC_B.toString());
+            require(ui(client).triggerForTest("Exclude"), "self-service B membership was not visible to the operator");
+        });
+        uiPress(client, "Confirm: Exclude", state -> state.tab() == Tab.PARTICIPANTS && state.success()
+                && state.entries().stream().anyMatch(entry -> entry.id().equals(FABRIC_B.toString()) && entry.reference().isBlank()));
+        check("select excluded B for explicit operator re-enrollment", () -> {
+            ui(client).selectForTest(FABRIC_B.toString());
+            require(ui(client).triggerForTest("Enroll"), "participant enrollment confirmation unavailable for B");
+        });
+        uiPress(client, "Confirm: Enroll", state -> state.tab() == Tab.PARTICIPANTS && state.success()
+                && state.entries().stream().anyMatch(entry -> entry.id().equals(FABRIC_B.toString()) && entry.reference().equals("MEMBER")));
+        uiPress(client, "Back to Session", state -> state.tab() == Tab.SESSION);
+        uiPress(client, "Observations", state -> state.tab() == Tab.OBSERVATIONS);
+
+        check("select registered region-audience observation", () -> ui(client).selectForTest("quiet_below:city_presence"));
+        uiPress(client, "Region: choose", state -> state.tab() == Tab.OBS_REGIONS);
+        check("select saved city region for entry cue", () -> ui(client).selectForTest("smoke_city"));
+        uiPress(client, "Use selected region", state -> state.tab() == Tab.OBSERVATIONS);
+        uiPress(client, "Flag: none", state -> state.tab() == Tab.OBS_FLAGS);
+        check("select false city-cue prerequisite", () -> ui(client).selectForTest("quiet_below:m8_gate"));
+        uiPress(client, "Use selected flag", state -> state.tab() == Tab.OBSERVATIONS);
+        uiPress(client, "Entry", state -> state.success() && state.entries().stream()
+                .anyMatch(entry -> entry.id().equals("quiet_below:city_presence") && entry.revision() > 0));
+
+        check("select registered participant-audience observation", () -> ui(client).selectForTest("quiet_below:distant_stir"));
+        check("set long active-time timer for manual-preview smoke", () -> ui(client).setObservationDelayForTest("3600"));
+        uiPress(client, "Timer", state -> state.success() && state.entries().stream()
+                .anyMatch(entry -> entry.id().equals("quiet_below:distant_stir") && entry.revision() > 0));
+        check("capture M8 participant and observation screen", () -> ScreenshotRecorder.saveScreenshot(output.toFile(), "m8-observations.png", client.getFramebuffer(), 1, ignored -> { }));
+        delay("settle M8 screen capture", 250);
+        check("M8 bindings and membership persist independently", () -> {
+            JsonObject state = playRuntime();
+            require(state.getAsJsonArray("participants").size() == 2, "expected exactly two explicit smoke participants");
+            require(jsonArrayContains(state.getAsJsonArray("participants"), FABRIC_A.toString())
+                    && jsonArrayContains(state.getAsJsonArray("participants"), FABRIC_B.toString()), "M8 participant UUIDs were not persisted");
+            require(state.getAsJsonArray("bindings").size() == 2, "expected two explicitly configured observations");
+            require(state.getAsJsonArray("deliveries").isEmpty(), "observation delivered before ACTIVE play");
+        });
+        check("close M8 authoring UI before ACTIVE", () -> client.setScreen(null));
+        markerTask("publish M8 observation configuration", marker("A", "initial", "m8-configured"));
+    }
+
+    private void previewAndFireTimerObservation(MinecraftClient client) {
+        capture("M8 timer state before private preview", playRuntimeFile);
+        openUi(client, "open active M8 observation screen", Tab.OBSERVATIONS);
+        check("select configured timer observation", () -> ui(client).selectForTest("quiet_below:distant_stir"));
+        uiPress(client, "Preview", state -> state.success() && state.tab() == Tab.OBSERVATIONS && state.message().contains("Recipients="));
+        unchanged("M8 preview is read-only", "M8 timer state before private preview", playRuntimeFile);
+        final long[] previewToken = new long[1];
+        check("capture private preview token before audience change", () -> previewToken[0] = ui(client).state().token());
+        command(client, "make B temporarily ineligible for preview audience", "gamemode spectator ChronicleFabricB", ".*");
+        capture("M8 state before stale audience fire", playRuntimeFile);
+        check("clear stale audience fire response", () -> lastAuthoringState = null);
+        task("server rejects preview fire after audience changes", () -> ClientPlayNetworking.send(new AuthoringUiPayloads.Request(
+                Action.OBS_FIRE, "quiet_below:distant_stir", "", previewToken[0], Tab.OBSERVATIONS, 0)),
+                () -> lastAuthoringState != null && !lastAuthoringState.success()
+                        && (lastAuthoringState.message().toLowerCase(java.util.Locale.ROOT).contains("audience")
+                        || lastAuthoringState.message().toLowerCase(java.util.Locale.ROOT).contains("configuration changed")));
+        unchanged("audience-change rejection creates no delivery", "M8 state before stale audience fire", playRuntimeFile);
+        command(client, "restore B after preview audience rejection", "gamemode creative ChronicleFabricB", ".*");
+        uiPress(client, "Refresh", state -> state.success() && state.tab() == Tab.OBSERVATIONS);
+        check("choose timer again after rejected preview", () -> ui(client).selectForTest("quiet_below:distant_stir"));
+        uiPress(client, "Preview", state -> state.success() && state.tab() == Tab.OBSERVATIONS && state.message().contains("Recipients="));
+        check("manual cue fire requires an explicit confirmation", () -> require(ui(client).triggerForTest("Fire"), "manual Fire control unavailable after preview"));
+        uiPress(client, "Confirm: Fire", state -> state.success() && state.entries().stream().anyMatch(entry -> entry.id().equals("quiet_below:distant_stir")
+                && entry.reference().equals("DELIVERED")));
+        check("manual timer override records one private delivery", () -> require(observationDelivery("quiet_below:distant_stir").get("source").getAsString().equals("MANUAL"),
+                "manual observation fire did not persist its source"));
+        stableClockPolling(client);
+        check("close active M8 preview", () -> client.setScreen(null));
+        verifyEmptyParticipationClock(client);
+    }
+
+    private void verifyEmptyParticipationClock(MinecraftClient client) {
+        command(client, "make B temporarily spectator for empty-play clock", "gamemode spectator ChronicleFabricB", ".*");
+        command(client, "make author temporarily spectator for empty-play clock", "gamemode spectator @s", ".*");
+        final long[] emptyTicks = new long[1];
+        check("capture shared clock with no eligible participants", () -> emptyTicks[0] = playRuntime().get("elapsedTicks").getAsLong());
+        delay("empty participation does not advance shared clock", 1_100);
+        check("shared clock freezes with only spectators", () -> require(playRuntime().get("elapsedTicks").getAsLong() == emptyTicks[0],
+                "shared clock advanced while every participant was a spectator"));
+        command(client, "restore author after empty-play clock", "gamemode creative @s", ".*");
+        command(client, "restore B after empty-play clock", "gamemode creative ChronicleFabricB", ".*");
+    }
+
+    /** The active-play header changes every poll; its clock must not recreate focused controls. */
+    private void stableClockPolling(MinecraftClient client) {
+        final int[] identity = new int[1];
+        final int[] firstViews = new int[1];
+        final boolean[] pending = new boolean[1];
+        check("focus observation region picker before active clock polling", () -> ui(client).focusButtonForTest("Region: choose"));
+        task("first active-play clock refresh keeps focused observation control", () -> {
+            AuthoringScreen.ButtonProbe probe = ui(client).probeButtonForTest("Region: choose");
+            require(probe.active() && probe.focused(), "baseline observation picker is not focused and active");
+            identity[0] = probe.identity(); firstViews[0] = authoringViews;
+        }, () -> {
+            AuthoringScreen.ButtonProbe probe = ui(client).probeButtonForTest("Region: choose");
+            require(probe.identity() == identity[0] && probe.active() && probe.focused(), "active clock refresh rebuilt the observation picker");
+            pending[0] |= ui(client).pending();
+            return pending[0] && authoringViews > firstViews[0] && !ui(client).pending();
+        });
+        final int[] secondViews = new int[1];
+        task("second active-play clock refresh keeps focused observation control", () -> secondViews[0] = authoringViews, () -> {
+            AuthoringScreen.ButtonProbe probe = ui(client).probeButtonForTest("Region: choose");
+            require(probe.identity() == identity[0] && probe.active() && probe.focused(), "second active clock refresh rebuilt the observation picker");
+            return authoringViews > secondViews[0] && !ui(client).pending();
+        });
+    }
+
+    private void rearmTimerForResume(MinecraftClient client) {
+        command(client, "enable author mode to reset delivered M8 timer", "chronicle author mode on", ".*Author mode enabled.*");
+        openUi(client, "open paused M8 observation screen", Tab.OBSERVATIONS);
+        check("select manually delivered timer for reset", () -> ui(client).selectForTest("quiet_below:distant_stir"));
+        check("resetting a completed cue requires confirmation", () -> require(ui(client).triggerForTest("Reset"), "M8 Reset confirmation unavailable"));
+        uiPress(client, "Confirm: Reset", state -> state.success() && state.entries().stream().anyMatch(entry -> entry.id().equals("quiet_below:distant_stir")
+                && entry.reference().isBlank()));
+        check("set one-second timer for resumed automatic delivery", () -> ui(client).setObservationDelayForTest("1"));
+        check("replacing the timer requires confirmation", () -> require(ui(client).triggerForTest("Timer"), "M8 Timer replacement confirmation unavailable"));
+        uiPress(client, "Confirm: Timer", state -> state.success() && state.entries().stream().anyMatch(entry -> entry.id().equals("quiet_below:distant_stir")
+                && entry.revision() > 0 && entry.reference().isBlank()));
+        check("close paused M8 screen", () -> client.setScreen(null));
+        command(client, "disable author mode after M8 timer reset", "chronicle author mode off", ".*Author mode disabled.*");
+    }
+
+    private void awaitObservationDelivery(MinecraftClient client, String name, String id) {
+        task(name, 30_000_000_000L, () -> { }, () -> {
+            JsonObject delivery = observationDelivery(id);
+            require(delivery.get("status").getAsString().equals("DELIVERED"), "observation was not durably completed: " + id);
+            JsonArray recipients = delivery.getAsJsonArray("recipients");
+            require(recipients.size() == 2 && jsonArrayContains(recipients, FABRIC_A.toString()) && jsonArrayContains(recipients, FABRIC_B.toString()),
+                    "observation audience was not both enrolled participants: " + id);
+            if (id.equals("quiet_below:city_presence")) {
+                require(messages.stream().anyMatch(message -> !message.overlay
+                                && message.text.equals("The ancient stone carries a low vibration.")),
+                        "A did not receive the private city cue");
+            }
+            if (id.equals("quiet_below:distant_stir")) {
+                require(messages.stream().anyMatch(message -> !message.overlay
+                                && message.text.equals("A low, unfamiliar rumble breaks the quiet.")),
+                        "A did not receive the private distant cue");
+            }
+            return true;
+        });
+    }
+
+    private void awaitObservationMessage(String name, String expected) {
+        task(name, 30_000_000_000L, () -> { }, () -> messages.stream().anyMatch(message -> !message.overlay && message.text.equals(expected)));
+    }
+
     private void automaticDeathSpawns(MinecraftClient client) {
         command(client, "set distinct vanilla respawn", "spawnpoint @s 8 -60 8", ".*Set spawn point.*");
         final String[] vanilla = new String[1];
@@ -700,6 +909,19 @@ public final class FabricRegressionSmoke {
     private JsonObject automaticArrival(UUID player) throws IOException {
         for (var element : automaticState().getAsJsonArray("arrivals")) if (element.getAsJsonObject().get("player").getAsString().equals(player.toString())) return element.getAsJsonObject();
         throw new IllegalStateException("Missing automatic arrival receipt for " + player);
+    }
+    private JsonObject playRuntime() throws IOException {
+        require(Files.isRegularFile(playRuntimeFile), "M8 play runtime state file is missing: " + playRuntimeFile);
+        JsonElement parsed = JsonParser.parseString(Files.readString(playRuntimeFile, StandardCharsets.UTF_8));
+        require(parsed.isJsonObject(), "M8 play runtime state root is not an object");
+        return parsed.getAsJsonObject();
+    }
+    private JsonObject observationDelivery(String id) throws IOException {
+        for (JsonElement candidate : playRuntime().getAsJsonArray("deliveries")) {
+            JsonObject delivery = candidate.getAsJsonObject();
+            if (delivery.get("id").getAsString().equals(id)) return delivery;
+        }
+        throw new IllegalStateException("Missing M8 observation delivery: " + id);
     }
 
     private static AuthoringScreen ui(MinecraftClient client) { return (AuthoringScreen) client.currentScreen; }

@@ -21,11 +21,11 @@ public final class AuthoringUiPayloads {
     public record Request(Action action, String id, String argument, long token, Tab tab, int page) implements CustomPayload {
         public static final Id<Request> ID = new Id<>(Identifier.of("chronicle_core", "author_ui_request_v1"));
         public static final PacketCodec<RegistryByteBuf, Request> CODEC = PacketCodec.ofStatic((buf, value) -> {
-            buf.writeEnumConstant(value.action()); buf.writeString(value.id(), 160); buf.writeString(value.argument(), 160);
+            buf.writeEnumConstant(value.action()); buf.writeString(value.id(), 160); buf.writeString(value.argument(), 512);
             buf.writeLong(value.token()); buf.writeEnumConstant(value.tab()); buf.writeVarInt(value.page());
-        }, buf -> new Request(buf.readEnumConstant(Action.class), buf.readString(160), buf.readString(160), buf.readLong(), buf.readEnumConstant(Tab.class), buf.readVarInt()));
+        }, buf -> new Request(buf.readEnumConstant(Action.class), buf.readString(160), buf.readString(512), buf.readLong(), buf.readEnumConstant(Tab.class), buf.readVarInt()));
         public Request {
-            if (action == null || tab == null || id == null || argument == null || id.length() > 160 || argument.length() > 160
+            if (action == null || tab == null || id == null || argument == null || id.length() > 160 || argument.length() > 512
                     || token < 0 || page < 0 || page > 1024) throw new IllegalArgumentException("Invalid authoring request");
         }
         @Override public Id<Request> getId() { return ID; }
