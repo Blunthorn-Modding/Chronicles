@@ -2,6 +2,8 @@
 
 ## Engineering milestones and implementation authorization — 19 October 2026
 
+Follow-up answers confirm exposure-fed growth without oxygen depletion/suffocation. Grown shriekers support vanilla Warden summoning, vanilla warnings and vanilla despawning; do not add a custom warning/encounter system. M9's pinned-version trial must establish the correct generated-shrieker state and ownership/pause integration while preserving that vanilla behavior.
+
 The operator removes the event outline and rejects assigning developments to sessions. Remove that outline and its default first-session timer; shared timers/entry/manual observations remain opt-in tools, never required reveals or ecology unlocks. `DEVELOPMENT_MILESTONES.md` specifies M6–M13 as engineering deliveries with Core/campaign ownership, dependencies, tests and concrete review gates. Existing M0–M5 retain their historical meaning. The operator now authorizes implementation after planning, continuing until a necessary question or hands-on review; the earlier blanket implementation hold is superseded. Unanswered ecology choices do not block independent Core authoring work.
 
 ## Autonomous ecology and Relic Heart ending — 19 October 2026

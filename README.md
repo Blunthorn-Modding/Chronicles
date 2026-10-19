@@ -10,6 +10,8 @@ The revised draft proposes tangible crop-growth, local-healing and Ancient Forge
 
 The latest [Quiet Below revision](docs/THE_QUIET_BELOW.md) removes authored growth routes and scheduled benefit reveals: sculk follows actual caves/mines from the city, with catalysts/sensors and possible later shriekers. Builders register key sites; the ecology discovers its path. The Ancient Focus is dropped. Destroying a sufficiently weakened Relic Heart provides a full-network eradication ending alongside containment, coexistence and departure. These are design requirements, not installed gameplay.
 
+**M6 adds shared Core location authoring:** select two corners, save/replace regions, record precise locations/facing, target block anchors and inspect private outlines directly in-world. See [commands and the builder review checklist](docs/M6_IMPLEMENTATION.md). Chest/spawn actions and Quiet Below ecology follow later; M6 saves metadata without changing terrain or activating story progression.
+
 ## Workspace and setup
 
 ```text

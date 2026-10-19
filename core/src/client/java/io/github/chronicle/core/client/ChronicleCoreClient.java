@@ -22,6 +22,7 @@ public final class ChronicleCoreClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        AuthoringPreviewRenderer.register();
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.View.ID,
                 (payload, context) -> context.client().execute(() -> receiveView(context.client(), payload)));
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.Notice.ID,

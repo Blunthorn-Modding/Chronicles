@@ -9,7 +9,7 @@ The operator authorizes implementation after designing [M6–M13](DEVELOPMENT_MI
 | ID | Work item | Status | Depends on | Done when |
 | --- | --- | --- | --- | --- |
 | QB-01 | Capture the existing technical prototype in Git | Committed: `63c2e84` | — | `chore/prototype-baseline` preserves the previously uncommitted source, tools and evidence. |
-| QB-02 | Campaign premise, benefits/costs and event outline | Revised draft for operator review | — | [THE_QUIET_BELOW](THE_QUIET_BELOW.md) reflects autonomous terrain-led growth, discovery at any time and Heart eradication; settle remaining ecology/lore details. No code inferred as canon. |
+| QB-02 | Campaign premise, benefits/costs and emergent play | Revised draft for operator review | — | [THE_QUIET_BELOW](THE_QUIET_BELOW.md) reflects autonomous terrain-led growth, discovery at any time and Heart eradication; settle remaining ecology/lore details. No code inferred as canon. |
 | QB-03 | Quiet Below bindings on shared authoring tools | Key-location direction accepted; specification needed | QB-02, CF-05 | Map source city/Heart, discovery locations and optional ancient stations onto Core IDs; no authored growth paths, per-field registration or separate campaign editor. |
 | QB-04 | Bind Quiet Below's named sites in-world | Planned | QB-03, CF-06 | Operator selects/binds key sites in the existing world; geometry persists in Core without Java edits. No sculk painting or patch-graph setup. |
 | QB-05 | Campaign event delivery and observations | Planned | QB-02, QB-04 | Site-specific, readable cues with clear audience, prerequisites, manual preview/fire and persistent history; remove prototype lore from the production setup. |
@@ -35,7 +35,7 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 | CF-03 | Werewolf variant and private-state contract | Future design | Select rules/pacing/roles, privacy boundaries, absence/elimination behavior and win conditions before building role/vote systems. |
 | CF-04 | Survival scenario and threat contract | Future design | Define a concrete threat, escalation/counterplay and ending rules before building a general director. |
 | CF-05 | Shared in-world authoring specification | Direction accepted for now; implementation contract pending | [MAP_AUTHORING](MAP_AUTHORING.md) defines Core-owned two-corner regions, points/block anchors, chest/spawn bindings and campaign extension boundaries using the supplied Vampire SMP reference. Quiet Below setup requires key sites, not spread paths. |
-| CF-06 | Core selection, region/location/anchor registry | Planned after specification review | In the existing world, builders select corners/targets/current position, save/list/inspect/edit definitions and restart without source edits or consuming story triggers. |
+| CF-06 | Core selection, region/location/anchor registry | M6 implemented; builder acceptance pending | [M6](M6_IMPLEMENTATION.md) provides corner/target selection, regions, oriented points, block anchors, private previews and revisioned persistence. Automated evidence is in TEST_PLAN; operator reviews practical selection/preview before M7. |
 | CF-07 | Core chest profiles, spawn purposes and bindings | Planned after CF-05/CF-06 | Configure content templates and arrival/respawn points in-world; explicit activation and runtime actions preserve inventories, privacy and retry safety. |
 | CF-08 | Shared participation, active clock and opt-in conditions | M8 | Core supplies author exclusion, eligibility, persistent ACTIVE occupied time, entry/manual/condition cue delivery and completion/audience contracts. Quiet Below chooses observations without a mandatory schedule. |
 
@@ -43,7 +43,7 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 
 - [ ] Agree what changed shortly before the story and why growth now reaches the mine.
 - [ ] Balance crop growth, local regeneration and Ancient Forge capability thresholds/costs against actual ecology, without session/reveal gates.
-- [ ] Specify air/light feeding, substrates/protection, connection/vitality rules, catalysts/sensors and extensive-stage shriekers including Warden behavior.
+- [ ] Specify air/light feeding, substrates/protection, connection/vitality rules, catalysts/sensors and extensive-stage shriekers. Exposure feeding/no oxygen system and vanilla Warden behavior are confirmed.
 - [ ] Specify Heart weakness/destruction and full-network removal, including automatically adopted source sculk, detached branches and restart/conflict handling.
 - [ ] Agree how much truth about the phenomenon the GM knows and what stays ambiguous.
 - [ ] Decide whether the marker/lens have a justified production role or stay technical props.

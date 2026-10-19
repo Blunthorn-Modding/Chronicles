@@ -1,6 +1,6 @@
 # In-world authoring with Chronicle Core
 
-Revised design draft, 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. This is a specification proposal, not installed commands.
+Updated 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. M6 implements the first geometry/selection slice; chest/spawn execution and trigger bindings below remain later milestones. See [M6's exact commands and review checklist](M6_IMPLEMENTATION.md).
 
 The operator accepts this authoring direction for now. For [Quiet Below](THE_QUIET_BELOW.md), register key locations such as the source city, Relic Heart and ancient stations. Autonomous growth discovers cave/mine geometry itself; no painted sculk trail, patch graph, or region for every crop field/hazard is required. The generic selection/binding tools below remain useful without making all of them mandatory campaign setup.
 
@@ -8,7 +8,7 @@ The operator accepts this authoring direction for now. For [Quiet Below](THE_QUI
 
 - Run a normal Minecraft 1.21.10 world with the matching Fabric/Core/campaign mods; existing session controls, freeze/status and dossiers work independently of the prototype map.
 - A GM can define a cuboid of up to 64 loaded, supported natural blocks with `/quiet_below zone define <id> <from> <to>`, preview it and apply/undo the latest stage during ACTIVE. See [M4](M4_IMPLEMENTATION.md).
-- Chronicle Core does not yet have an in-world region/anchor editor, generic chest/spawn bindings or entry/timer configuration. The current campaign cuboid command is a narrow transformation prototype, not the shared authoring system.
+- Chronicle Core M6 adds per-player author mode, two-corner selection at feet/coordinates/targeted blocks, named regions, precise locations with facing, expected-type block anchors, list/show/validate/remove and explicit replace. Metadata persists with revisions and private previews. Chest/spawn execution and entry/timer configuration remain M7/M8; saving geometry alone activates nothing.
 - `pilot-prepare`, `pilot-smoke` and `pilot-promote` concern the generated technical fixture. They are not the production authoring workflow and must not rebuild or replace the operator's map.
 
 ## Reference and ownership
@@ -33,7 +33,7 @@ Core definitions must work for Journey worlds, Survival spawn areas, Werewolf lo
 6. **Inspect, validate and save.** List configured things, jump to/show one as a builder, check bounds/references/types and save the draft. A separate apply/arm step activates behavior. Configuration survives restart; it does not recreate buildings or overwrite inventories on every server start.
 7. **Test without consuming the story.** Builder walks do not fire discoveries. An explicit test mode can simulate cues and compare effects in bounded test areas. Moving/deleting a region or anchor invalidates affected armed bindings and pending approvals; do not silently retarget a queued effect.
 
-### Illustrative commands — proposed, not implemented
+### Implemented M6 commands
 
 ```text
 /chronicle author mode on
@@ -43,16 +43,24 @@ Core definitions must work for Journey worlds, Survival spawn areas, Werewolf lo
 /chronicle author location save arrivals here
 /chronicle author block bind archive_chest target
 /chronicle author block bind ancient_forge target
+/chronicle author list
+/chronicle author show ancient_city
+/chronicle author validate
+/chronicle author mode off
+```
+
+Save/replace/remove persist immediately; no separate save command is needed in M6. Author mode requires operator level 2 and a non-active session. `show` provides a five-second private outline; `select target1`/`target2` select a looked-at block within six blocks. A click wand is deferred to builder feedback.
+
+### Later milestones — proposed commands, not implemented
+
+```text
 /chronicle author chest profile capture archive_stock target
 /chronicle author chest assign archive_chest archive_stock
 /chronicle author spawn assign arrivals participants arrival
 /chronicle author trigger enter ancient_city quiet_below:city_discovery
-/chronicle author show ancient_city
-/chronicle author validate
-/chronicle author save
 ```
 
-The selection tool should offer the same functions without repeatedly typing coordinates. Detailed syntax, permission levels and edit/apply confirmation belong in the first implementation specification. The namespaces above illustrate ownership, not an existing event API.
+These later commands illustrate ownership, not an existing content/spawn/event API. M7/M8 specify their transactions and activation separately; selecting a location never implicitly fills or spawns anything.
 
 ### Chests and spawns must behave predictably
 
@@ -76,7 +84,7 @@ The selection tool should offer the same functions without repeatedly typing coo
 
 This is a proposed data contract, not a schema to implement without review. Core's current pure flag-event callbacks must not acquire hidden inventory/world side effects: generic delivery, chest/spawn actions and campaign effects need explicit services with their own persistence/validation contracts.
 
-## Acceptance criteria for the first authoring slice
+## Acceptance criteria across M6–M8
 
 - In one existing world, select two corners, save a named cuboid and see its outline without editing JSON, exporting a world or rebuilding the mod.
 - Save an exact location/facing and bind an existing chest/custom station by targeting it. List/show/remove definitions; round-trip them across restart.

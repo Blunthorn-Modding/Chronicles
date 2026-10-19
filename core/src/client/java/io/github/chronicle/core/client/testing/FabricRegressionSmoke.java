@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.client.DossierScreen;
+import io.github.chronicle.core.client.AuthoringPreviewRenderer;
 import io.github.chronicle.core.network.ProfilePayloads;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
@@ -16,6 +17,7 @@ import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.Vec3d;
 
@@ -197,6 +199,7 @@ public final class FabricRegressionSmoke {
 
     private void initialA(MinecraftClient client) {
         waitForMarker("wait for B unauthorized denial", marker("B", "initial", "denied"));
+        initialAuthoring(client);
         actionbar("inactive actionbar", "Chronicle | Session 0: Inactive | World frozen");
         timeQuery(client, "capture frozen time", value -> firstTime = value);
         movement(client, "player moves while inactive and frozen");
@@ -206,6 +209,11 @@ public final class FabricRegressionSmoke {
 
         mutation(client, "start session 1", "chronicle session start 1", "^Started Chronicle session 1\\.$", () -> assertCampaign("ACTIVE", 1));
         actionbar("active session 1 actionbar", "Chronicle | Session 1: Active");
+        Path authoring = serverRoot.resolve("world/chronicle/authoring.json");
+        capture("authoring before ACTIVE rejection", authoring);
+        command(client, "author mode rejected during ACTIVE", "chronicle author mode on", ".*Authoring edits require a non-active.*");
+        command(client, "site edits rejected during ACTIVE", "chronicle author remove smoke_city", ".*Authoring edits require a non-active.*");
+        unchanged("ACTIVE author rejection preserves registry", "authoring before ACTIVE rejection", authoring);
         timeQuery(client, "capture active time", value -> firstTime = value);
         delay("allow active world time to advance", 1_100);
         timeQuery(client, "capture active time after delay", value -> secondTime = value);
@@ -289,9 +297,20 @@ public final class FabricRegressionSmoke {
         unchanged("unauthorized start leaves campaign unchanged", "capture state before unauthorized start", campaignFile);
         command(client, "public status works for ordinary player", "chronicle status", "^Chronicle session status: inactive; number=0\\.$");
         unchanged("public status leaves campaign unchanged", "capture state before unauthorized start", campaignFile);
+        Path authoring = serverRoot.resolve("world/chronicle/authoring.json");
+        capture("authoring before unauthorized edits", authoring);
+        for (String command : List.of("chronicle author mode on", "chronicle author select pos1 0 -60 0",
+                "chronicle author region save forbidden", "chronicle author location save forbidden here",
+                "chronicle author block bind forbidden target", "chronicle author remove smoke_city",
+                "chronicle author show smoke_city", "chronicle author list")) {
+            command(client, "non-op denied: " + command, command, UNAUTHORIZED_REPLY, matcher -> { });
+        }
+        unchanged("non-op author commands preserve registry", "authoring before unauthorized edits", authoring);
         markerTask("publish B unauthorized denial", marker("B", "initial", "denied"));
 
         waitForMarker("wait for A profile save", marker("A", "initial", "profile-saved"));
+        check("ordinary player never receives the private authoring preview", () -> require(AuthoringPreviewRenderer.renderedFrames() == 0,
+                "private authoring geometry was broadcast to the ordinary player"));
         profileRequest("B views A read-only profile", FABRIC_A,
                 view -> assertView(view, FABRIC_A, "Fabric A", "they/them", "A public test card", 1, false, false));
         delay("respect profile read throttle", 250);
@@ -318,6 +337,10 @@ public final class FabricRegressionSmoke {
     }
 
     private void restartA(MinecraftClient client) {
+        check("authoring persists all three site types across restart", this::assertAuthoring);
+        command(client, "author mode is not restored on restart", "chronicle author remove smoke_city", ".*Enable author mode first.*");
+        command(client, "persisted region can be shown", "chronicle author show smoke_city", ".*region smoke_city.*volume=36.*validation=valid.*");
+        command(client, "persisted anchor validates", "chronicle author validate", ".*valid=3; invalid=0; unresolved=0.*");
         actionbar("restart paused actionbar", "Chronicle | Session 1: Paused | World frozen");
         check("A observes restart persistence", () -> {
             assertCampaignAndM1Persistence("PAUSED", 1);
@@ -375,6 +398,70 @@ public final class FabricRegressionSmoke {
             assertProfile(FABRIC_B, "Fabric B", "", "", 1);
             assertAudit(RESTART_AUDIT);
         });
+    }
+
+    private void initialAuthoring(MinecraftClient client) {
+        Path authoring = serverRoot.resolve("world/chronicle/authoring.json");
+        capture("campaign before metadata authoring", campaignFile);
+        command(client, "edits require author mode", "chronicle author remove smoke_city", ".*Enable author mode first.*");
+        command(client, "enable author mode", "chronicle author mode on", "^Author mode enabled.*");
+        command(client, "select reversed first corner", "chronicle author select pos1 18 -58 18", "^Selected corner 1.*");
+        command(client, "reject cross-dimension command context", "execute in minecraft:the_nether run chronicle author select pos2 0 80 0", ".*player's actual dimension.*");
+        command(client, "select second corner", "chronicle author select pos2 16 -60 16", "^Selected corner 2.*");
+        command(client, "save normalized region", "chronicle author region save smoke_city", ".*region smoke_city.*volume=27.*");
+        capture("registry before duplicate region", authoring);
+        command(client, "save cannot overwrite a site", "chronicle author region save smoke_city", ".*already exists.*");
+        unchanged("duplicate save leaves registry unchanged", "registry before duplicate region", authoring);
+        command(client, "change selected corner", "chronicle author select pos1 19 -58 18", "^Selected corner 1.*");
+        command(client, "explicitly replace region", "chronicle author region replace smoke_city", ".*region smoke_city.*revision=2.*volume=36.*");
+        command(client, "move to precise oriented test location", "tp @s 16.5 -58 16.5 90 0", ".*Teleported.*");
+        command(client, "save exact point with facing", "chronicle author location save smoke_arrival here", ".*location smoke_arrival.*yaw=90.00; pitch=0.00.*");
+        command(client, "place fixture chest", "setblock 16 -60 16 minecraft:chest", ".*Changed the block.*");
+        command(client, "put seven diamonds in fixture chest", "item replace block 16 -60 16 container.0 with minecraft:diamond 7", ".*Replaced.*");
+        command(client, "look down at fixture chest", "tp @s 16.5 -58 16.5 0 90", ".*Teleported.*");
+        command(client, "bind targeted chest metadata", "chronicle author block bind smoke_chest target", ".*block smoke_chest.*expected=minecraft:chest.*");
+        command(client, "binding preserves chest contents", "data get block 16 -60 16 Items", ".*minecraft:diamond.*");
+        command(client, "validate bound chest type", "chronicle author show smoke_chest", ".*expected=minecraft:chest.*validation=valid.*");
+        command(client, "replace fixture chest to check stale anchor", "setblock 16 -60 16 minecraft:stone", ".*Changed the block.*");
+        command(client, "stale anchor reports mismatched block", "chronicle author show smoke_chest", ".*validation=invalid: expected minecraft:chest, found minecraft:stone.*");
+        command(client, "restore fixture chest", "setblock 16 -60 16 minecraft:chest", ".*Changed the block.*");
+        command(client, "save disposable named region", "chronicle author region save smoke_delete", ".*region smoke_delete.*");
+        command(client, "remove disposable definition", "chronicle author remove smoke_delete", ".*Removed authoring site smoke_delete; revision=6.*");
+        command(client, "list all shared types", "chronicle author list", ".*sites=3: smoke_arrival, smoke_chest, smoke_city.*");
+        command(client, "validate all metadata", "chronicle author validate", ".*valid=3; invalid=0; unresolved=0.*");
+        check("independently inspect durable authoring metadata", this::assertAuthoring);
+        unchanged("metadata authoring preserves campaign progress", "campaign before metadata authoring", campaignFile);
+        command(client, "view region outline from outside", "tp @s 22 -56 22 135 30", ".*Teleported.*");
+        command(client, "show private outline", "chronicle author show smoke_city", ".*region smoke_city.*validation=valid.*");
+        check("hide HUD for outline inspection", () -> client.options.hudHidden = true);
+        delay("allow particle outline to render", 300);
+        check("private outline renders while world frozen", () -> require(AuthoringPreviewRenderer.renderedFrames() > 0,
+                "authoring outline skipped frozen world rendering"));
+        check("capture authoring outline", () -> ScreenshotRecorder.saveScreenshot(output.toFile(), "m6-outline.png", client.getFramebuffer(), 1, ignored -> { }));
+        delay("allow outline screenshot to complete", 300);
+        check("restore HUD after outline inspection", () -> client.options.hudHidden = false);
+        task("disconnect and reconnect same author", 45_000_000_000L, () -> {
+            client.disconnect(new TitleScreen(), false);
+            connecting = false;
+        }, () -> client.player != null && client.getOverlay() == null && client.currentScreen == null);
+        command(client, "disconnect clears author mode", "chronicle author remove smoke_city", ".*Enable author mode first.*");
+        command(client, "enable fresh author mode after reconnect", "chronicle author mode on", "^Author mode enabled.*");
+        command(client, "disconnect clears selection", "chronicle author region save stale_selection", ".*Select both corners first.*");
+        check("reconnect preserves only saved metadata", this::assertAuthoring);
+        // Leave author mode on: starting play must clear it, not let later pause resurrect it.
+    }
+
+    private void assertAuthoring() throws IOException {
+        JsonObject root = JsonParser.parseString(Files.readString(serverRoot.resolve("world/chronicle/authoring.json"))).getAsJsonObject();
+        require(root.get("schemaVersion").getAsInt() == 1 && root.get("revision").getAsLong() == 6, "authoring schema/revision mismatch");
+        JsonArray sites = root.getAsJsonArray("sites");
+        require(sites.size() == 3, "authoring lost or added definitions");
+        Map<String, JsonObject> byId = new HashMap<>();
+        for (JsonElement site : sites) byId.put(site.getAsJsonObject().get("id").getAsString(), site.getAsJsonObject());
+        require(byId.keySet().equals(java.util.Set.of("smoke_city", "smoke_arrival", "smoke_chest")), "unexpected durable site IDs");
+        require(byId.get("smoke_city").get("revision").getAsLong() == 2, "region replace revision missing");
+        require(byId.get("smoke_arrival").get("yaw").getAsFloat() == 90 && byId.get("smoke_arrival").get("x").getAsDouble() == 16.5, "precise location/facing lost");
+        require(byId.get("smoke_chest").get("expectedBlock").getAsString().equals("minecraft:chest"), "expected block binding lost");
     }
 
     private void command(MinecraftClient client, String name, String command, String expression) {

@@ -28,7 +28,7 @@ The inspirations named in conversation are tonal references, not lore to copy. S
 
 **Proposal, not settled canon:** recent mine work opened a passage into a long-isolated environment around the city and its Relic Heart. The sculk now has access to new air and, eventually, daylight. The campaign need not assign blame to a player. Its origin can remain uncertain without making its behavior arbitrary or establishing a speaking, morally judging villain.
 
-**Working interpretation of “consumes air/sunlight”:** growth feeds on exposure to open cave space and light, advancing over the surfaces around those spaces and eventually shading/occupying them. This is a supernatural ecology, not a new oxygen, breathing or structural-physics simulation. The exact effect of air access, skylight and artificial light on growth/power needs agreement and a technical trial; do not silently substitute sunlight killing the sculk. It must be capable of starting in the dark city.
+**Confirmed interpretation of “consumes air/sunlight”:** growth feeds on exposure to open cave space and light, advancing over the surfaces around those spaces and eventually shading/occupying them. No oxygen depletion or suffocation simulation. The exact growth rates/weights for air access, skylight and artificial light need a technical trial; do not silently substitute sunlight killing the sculk. It must be capable of starting in the dark city.
 
 | Rule | What players observe | Consequence |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ Growth, network updates and services run only during ACTIVE, occupied play; paus
 
 These labels describe ecological conditions, not sessions or GM unlocks. Catalysts and sensors can appear as growth develops; their density/timing and the extensive threshold for shriekers remain balance proposals. Growth itself is the evidence of power; there is no mandatory indicator block. Threshold transitions should follow measured conditions and recover/decline consistently, without flickering on every tiny change.
 
-Catalysts, sensors and shriekers must be functioning, tracked features, not decorative promises. Before implementation, inspect Minecraft 1.21.10 behavior and specify how catalyst-driven growth and player actions remain within ownership, pause and protection rules. Decide explicitly whether generated shriekers may summon a Warden. This draft permits shriekers, **not an unannounced Warden policy or required boss encounter**. Existing city hazards also need rehearsal and a viable retreat route.
+Catalysts, sensors and shriekers must be functioning, tracked features, not decorative promises. Before implementation, inspect Minecraft 1.21.10 behavior and specify how catalyst-driven growth and player actions remain within ownership, pause and protection rules. **Confirmed Warden policy:** grown shriekers may summon Wardens under standard vanilla conditions; use vanilla warnings and despawning, without a bespoke warning or encounter system. Set up generated shriekers to support that behavior, rather than assuming every placed shrieker can summon. This creates emergent hazards, not a compulsory boss encounter for discovery or Heart destruction. Existing city hazards also need rehearsal and a viable retreat route.
 
 ## Benefits and their discovery
 
@@ -142,7 +142,7 @@ The autonomous direction, removal of the Ancient Focus and the Heart eradication
 
 1. Cause of the current awakening and how much truth the GM knows; no sentient/corrupting entity is assumed.
 2. Concrete air/light feeding rules, growth substrate/protection policy, rates, capacity/vitality thresholds, detached-branch decline and natural-recovery rules.
-3. Crop/recovery/forge balance and costs; catalyst/sensor timing and generated-shrieker Warden policy.
+3. Crop/recovery/forge balance and costs; catalyst/sensor timing. Generated-shrieker Warden summoning, warnings and despawning follow vanilla mechanics as confirmed by the operator.
 4. Weakness feedback/window, Heart destruction handling, initial/encountered sculk ownership and conflict-safe total cleanup. Validate the technical feasibility against pinned Minecraft 1.21.10 before coding the ecology.
 
 See [implementation milestones](DEVELOPMENT_MILESTONES.md) and [tracked work](BACKLOG.md) for delivery order. Milestones describe engineering, not sessions or story beats. This revision changes design documents only; autonomous growth, Core authoring, crop/healing/forge services and the Heart ending are not installed features.
