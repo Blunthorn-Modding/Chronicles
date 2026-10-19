@@ -1,0 +1,52 @@
+base {
+    archivesName = 'quiet_below'
+}
+
+dependencies {
+    implementation project(path: ':core', configuration: 'namedElements')
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') { useJUnitPlatform() }
+
+loom {
+    runs {
+        client {
+            if (project.hasProperty('chronicleRunDir')) {
+                runDir = project.property('chronicleRunDir').toString()
+            }
+        }
+    }
+    mods {
+        'quiet_below' {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+        'chronicle_core' {
+            sourceSet project(':core').sourceSets.main
+            sourceSet project(':core').sourceSets.client
+        }
+    }
+}
+
+// Compile/configure once, then the local test harness launches independent Java
+// clients without holding competing Gradle project locks for each game process.
+tasks.register('writeSmokeClientLaunch') {
+    dependsOn tasks.named('configureClientLaunch'), tasks.named('clientClasses'), project(':core').tasks.named('clientClasses')
+    doLast {
+        def game = tasks.named('runClient').get()
+        def config = net.fabricmc.loom.configuration.ide.RunConfig.runConfig(project, loom.runs.getByName('client'))
+        def launch = [
+            jvmArgs: game.allJvmArgs + config.vmArgs,
+            classpath: game.classpath.files.collect { it.absolutePath },
+            mainClass: config.mainClass,
+            args: config.programArgs
+        ]
+        def target = layout.buildDirectory.file('smoke/client-launch.json').get().asFile
+        target.parentFile.mkdirs()
+        target.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(launch))
+        logger.lifecycle('Prepared local Fabric test client launch metadata.')
+    }
+}

@@ -1,0 +1,9 @@
+{
+  "item.quiet_below.echo_lens": "Echo Lens",
+  "block.quiet_below.resonance_marker": "Resonance Marker",
+  "message.quiet_below.marker_observation": "Fine grooves converge toward a dark seam in the stone.",
+  "message.quiet_below.marker_lens_clue": "The fracture is recent. Something below has shifted; no tool marks explain it.",
+  "message.quiet_below.session_dormant": "The session is dormant.",
+  "message.quiet_below.marker_revealed": "The new trace follows the supports rather than the ore. The survey notes show the same pattern.",
+  "message.quiet_below.marker_lens_revealed": "The vibration returns after pressure eases. Something below is responding; what it wants remains unclear."
+}

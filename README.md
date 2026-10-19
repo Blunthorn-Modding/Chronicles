@@ -1,2 +1,162 @@
-# Chronicles
-MC RP mod
+# Chronicle
+
+A Fabric roleplay campaign framework for Minecraft Java 1.21.10. **Chronicle Core** and **The Quiet Below** provide persistent sessions, simulation freezing, hotbar status, public character dossiers, custom investigative content and bounded environmental stages. The [pilot runbook](docs/PILOT_RUNBOOK.md) prepares the first group playtest.
+
+## Workspace and setup
+
+```text
+MC RP/
+  Chronicles/       Git repository: source, lockfile, scripts, docs
+  tools/           Portable Java 21 and Gradle
+  cache/           Verified downloads and Gradle caches
+  server/          Authenticated, whitelisted play server; persistent world
+  client/          Generated Modrinth client pack
+  test-runs/       Separate offline localhost worlds for automated tests
+  pilots/          Separate authenticated pilot worlds, loopback port 25585
+  Blockbench/      Operator's original designs; retained unchanged
+  backups/         Stopped-server backups
+  restores/        Separate recovered snapshots
+  reports/         Smoke logs and latest JSON result
+```
+
+On Windows x64, install Python 3.11+ and Node.js 22+ with npm, then run from `Chronicles`:
+
+```powershell
+python scripts/workspace.py setup
+python scripts/workspace.py build
+python scripts/workspace.py deploy
+python scripts/workspace.py verify
+python scripts/workspace.py doctor
+```
+
+Scripts install Java/Gradle/Fabric inside the parent workspace without admin access or permanent PATH changes. Initial setup/build need internet. Modrinth supplies Fabric API and Simple Voice Chat; official providers supply Java, Gradle, Fabric Loader, and Minecraft. Downloads use pinned hashes. Setup preserves existing server properties/EULA choices and requires a stopped server. It refuses to overwrite another Minecraft runtime or accept stale managed mod versions; deploy/pack also reject Chronicle jars built for another game version. Updates are explicit: review `scripts/resolve-bootstrap.ps1`, align `gradle.properties`, then migrate the stopped runtime deliberately.
+
+PowerShell wrapper (policy override applies only to this process):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/workspace.ps1 doctor
+```
+
+## Start and join
+
+Review the [Minecraft EULA](https://www.minecraft.net/eula). Only the operator can accept it:
+
+```powershell
+python scripts/workspace.py setup --accept-eula
+python scripts/workspace.py start
+```
+
+Use `stop` in the server console for a clean shutdown. The play server initially listens on **127.0.0.1:25565**, uses online account authentication, and requires a whitelist. In its console run `whitelist add YourMinecraftName`; optionally `op YourMinecraftName` for GM access. The server must be able to resolve that account through Mojang. `/chronicle status` itself needs no operator privilege.
+
+Import `../client/Chronicle-M4-1.21.10.mrpack` into Modrinth App or another `.mrpack` launcher. Authenticate your own licensed Minecraft account there; scripts never access tokens. The pack pins Minecraft/Fabric, Fabric API and voice chat, and includes both locally built Chronicle jars. In Minecraft Java, choose **Multiplayer → Direct Connection** and enter **`127.0.0.1:25565`**, or use **Add Server** to save that address. The dedicated server does not automatically appear in the server list. Use the explicit IPv4 address to match its loopback bind. Keep the server process running and whitelist your account before joining. No global launcher install or automatic account login is performed.
+
+For development, `python scripts/workspace.py client` starts Loom's Fabric client with both Chronicle modules. It uses a development identity: join an isolated offline test server, not the authenticated play server. Its run directory is `campaigns/quiet-below/run`. Simple Voice Chat is installed on the server and packaged launcher client; it is not a mod compile dependency or automatically included in Loom's client.
+
+Remote friends cannot join loopback defaults. Before hosting, deliberately configure bind addresses, invited-account whitelist, backups and firewall/VPN/router access. Voice chat uses UDP **24454**, separate from Minecraft TCP. This bootstrap opens no ports or always-on services.
+
+## Automated checks
+
+```powershell
+python -m unittest discover -s scripts -p "test_*.py" -v
+npm --prefix testing/minecraft-bot test
+python scripts/workspace.py build
+python scripts/workspace.py verify
+python scripts/workspace.py smoke
+python scripts/workspace.py stage-smoke
+python scripts/workspace.py deploy
+```
+
+Smoke needs prior EULA acceptance and a desktop/OpenGL context. It overlays built jars in a fresh test world, starts the dedicated Fabric server with all four mods, and connects a **matching Fabric test GM and ordinary player** in two graphical windows. It checks permissions, session/freeze behavior, flags/events/audit and actual dossier packets, then restarts and checks persistence. A third client checks survival placement/mining/loot, clues and rendered models. Results are in `../reports/smoke-latest.json`. `content-smoke` runs only that content check; `stage-smoke` separately rehearses preview/apply/pause/restart/conflict/undo and writes `stage-latest.json`. Test TCP 25575/UDP 24455 must be free, so run these suites sequentially. Worlds/logs/screenshots remain for diagnosis. The play server's authentication, operators and world are never test fixtures.
+
+The tests need no AI credentials or launcher tokens. Custom M3 registries require matching Fabric clients; historical `legacy-smoke` Mineflayer clients cannot join this build and fail explicitly. The Node parser tests remain useful historical checks. Use the [manual checklist](docs/TEST_PLAN.md) for licensed-launcher import, group play and microphone/audio. Jars are `core/build/libs/chronicle_core-0.1.0-dev.4.jar` and `campaigns/quiet-below/build/libs/quiet_below-0.1.0-dev.4.jar`. Players install both mods plus the pinned Fabric API and voice chat jars.
+
+## Campaign controls (M1)
+
+`/chronicle status` and `/chronicle session status` are public. Administration requires operator level 2; the server console can use the same commands without the leading slash. Grant GM access deliberately using `op <username>` in the console. Deployment does not grant players operator permissions.
+
+```text
+/chronicle session start [number]
+/chronicle session pause
+/chronicle session resume
+/chronicle session end
+/chronicle flag list
+/chronicle flag get quiet_below:example
+/chronicle flag set quiet_below:example true
+/chronicle event list
+/chronicle event preview quiet_below:readiness_check
+/chronicle event trigger quiet_below:readiness_check
+/chronicle event history [limit]
+/chronicle history [limit]
+```
+
+Start defaults to session 1. Explicit session 0 is supported for preparation. After ending, the next number must increase. Flags and events can change only during an active session. **World simulation freezes whenever a session is inactive, paused, ended or unavailable.** Players remain mobile and can chat, use commands, interact and edit cards. This uses vanilla tick-freeze semantics rather than build protection. Starting/resuming unfreezes simulation; session state owns the tick-freeze setting and leaves tick rate unchanged. Every player sees the current number/phase above the hotbar, refreshed every second and on changes/join; other actionbar messages may briefly share that space. The readiness event sets a saved flag without modifying blocks.
+
+State lives in `<world>/chronicle/campaign-state.json`. Each successful change saves before becoming visible and records the actor, UTC time and sequence. The previous valid file is retained as `.bak`; history retains 1,000 entries. Corrupt, unsupported or oversized data disables campaign commands rather than resetting the campaign. Stop the server, preserve the damaged file, inspect the `.bak` or a complete server backup, and restore a verified matching snapshot before restarting. Session state restores as saved, including active or paused.
+
+See [M1 architecture and acceptance criteria](docs/M1_IMPLEMENTATION.md).
+
+## Character dossiers (M2)
+
+Press **K** (rebindable in Controls) or use `/chronicle profile open` to edit your public card. `/chronicle profile open <online-player>` opens another player's read-only card. Fields are public name (48 characters), optional pronouns (32) and optional description (512), counted as Unicode codepoints. Text is plain, with surrounding whitespace removed. No secret fields are sent. Cards can be edited while simulation is frozen.
+
+The screen saves only after server acknowledgement; errors preserve your text. If another edit changed the card, reopen it to refresh the revision before retrying. Long public cards can be scrolled with the mouse or keyboard. Text commands provide a fallback:
+
+```text
+/chronicle profile show [online-player]
+/chronicle profile set name Rowan Vale
+/chronicle profile set pronouns they/them
+/chronicle profile set description A patient mason who knows the old roads.
+/chronicle profile clear pronouns
+/chronicle profile clear description
+```
+
+Only your own card can be edited, including through packets; operator privileges do not add another-player edit command. Saves are limited to once per second and view requests to five per second. Card files are `<world>/chronicle/profiles/<uuid>.json`, with schema/revision/owner checks and previous-file `.bak` recovery. A missing card displays the account name without creating data. Invalid files remain untouched; stop the server and restore that owner's verified file before retrying. Backups include these files. See [M2 specification and checks](docs/M2_IMPLEMENTATION.md).
+
+An opt-in development-client visual test uses `CHRONICLE_UI_SMOKE=<output-directory>` with `python scripts/workspace.py client`. It opens synthetic cards, checks resize draft retention, captures screenshots and exits without using an account. Check that `chronicle-ui-smoke.json` reports PASS; a normal game exit alone is not a test result. For the real save/acknowledgement test, additionally set `CHRONICLE_UI_SERVER=true` with a disposable offline server already running at 127.0.0.1:25575; this mode connects only to that test address. Unset both variables for normal development play. The graphical test is distinct from two-player packet/restart tests and human voice audio.
+
+## Investigative content and environmental stages (M3/M4)
+
+`quiet_below:resonance_marker` reuses the operator's ancient-symbol Blockbench relief. Place it on a floor or against a wall; mine it with a pickaxe to recover it. During an active session, right-click empty-handed for an observation or use `quiet_below:echo_lens` for more detail. The lens is not consumed. Both have survival recipes and creative entries; see [assets and recipes](docs/M3_IMPLEMENTATION.md).
+
+The once-only `/chronicle event trigger quiet_below:mine_whisper` reveals a new observation at every marker, accessible without a lens. It records a flag and audit entry without changing blocks. It leaves the meaning and response to the players.
+
+Environmental stages default to **no configured zones**. A level-2 GM explicitly approves exact natural-block coordinates, at most 64 loaded positions per zone. Back up first. For a selected small area:
+
+```text
+/quiet_below zone define <id> <from-x> <from-y> <from-z> <to-x> <to-y> <to-z>
+/quiet_below stage preview <id>
+/quiet_below stage apply <id> <token-from-preview>
+/quiet_below stage status
+/quiet_below stage undo
+/quiet_below stage resume
+```
+
+Only stone, deepslate, cobblestone, cobbled deepslate, tuff and calcite can be captured. Defining a zone is approval of those coordinates; the mod cannot infer who built a stone wall. Preview lists every original state and target. Apply requires ACTIVE and unchanged captured blocks, replacing at most eight positions per tick with passive sculk. Containers/block entities, unloaded chunks, height/border violations and changed states are rejected. No catalyst, sensor, shrieker, automatic spread or forced loading is added. Pause/end suspends work immediately.
+
+Only the latest operation is retained for undo; undo it before defining/applying another stage. Undo can cancel a partial apply, requires ACTIVE and preserves third-state player edits by refusing to proceed. Restore a conflicting position deliberately to its recorded original/sculk state before retrying. After a restart, an in-flight job is INTERRUPTED: inspect it, then explicitly resume or undo. Resume checks the entire template and reconciles from the beginning. Completed jobs are never silently reapplied. The strict journal is `<world>/quiet-below/stages.json` with `.bak`, up to 32 zones and 256 audit entries. Corrupt/future/inconsistent data disables stages without replacing it. Save failure after a world write halts with recovery required; preserve the journal/world and inspect a stopped backup. See [M4 guarantees and recovery](docs/M4_IMPLEMENTATION.md).
+
+## Separate pilot preparation (M5)
+
+```powershell
+python scripts/workspace.py pilot-prepare
+python scripts/workspace.py pilot-smoke
+python scripts/workspace.py pilot-promote
+python scripts/workspace.py pilot-start
+```
+
+Preparation creates a fresh runtime under `../pilots`, with the copied invited-account whitelist/operators, online authentication, loopback **127.0.0.1:25585** and voice UDP 24465. It never installs a map in the ordinary play world. The separate datapack has no auto-run hooks; its guarded `function chronicle_pilot:build` is only for first construction in a fresh pilot. `pilot-smoke` builds/checks a disposable offline copy using normal player chunk loading, sign-text checks, a survival stair walk and screenshots. `pilot-promote` copies the verified site into the still-virgin authenticated pilot, requiring stopped worlds, matching function/mods and a passing test; it refuses to replace an existing world and excludes test identities/cards. `pilot-start` runs only the latest validated pilot and retains its console for a saving `stop`. After stopping, `pilot-backup` creates a CRC-checked pilot snapshot. The ordinary `backup` command covers the play server only. `restore --archive <pilot-backup>` extracts into a separate inspection directory; never promote it into the ordinary play world by mistake.
+
+The [pilot runbook](docs/PILOT_RUNBOOK.md) contains Session 0, five flexible session pressures, three written clues and optional public character hooks. M5 still requires a group playtest; automated checks cannot establish roleplay feel or human voice audio.
+
+## Backup and recovery
+
+Stop the server, then:
+
+```powershell
+python scripts/workspace.py backup
+python scripts/workspace.py restore --archive "E:\Coding\MC RP\backups\server-<timestamp>.zip"
+```
+
+Backups include worlds, configuration, player/whitelist/operator data, mods, launcher jars and the dependency lockfile; caches/libraries/logs are excluded. CRC checks run after creation and before restore. Restore extracts to a fresh `../restores/<timestamp>` directory. To recover: stop the server; retain a backup of its current state; inspect the recovered world/config and matching mod versions; manually promote the corresponding files into the stopped server. Setup can reinstall missing libraries. Never merge two worlds' contents. For future version upgrades, take a stopped-server backup first and retain the original runtime until the upgrade is accepted; do not load an upgraded world with an older Minecraft version. The operator explicitly requested removal of the retired 1.21.1 installations and backups on 18 October 2026; those are no longer available. Current 1.21.10 backups remain. After a crash, inspect the child/controller PIDs in `.chronicle-process.json` and verify the world lock before removing that marker.
+
+See [decisions](docs/DECISIONS.md) and [test plan](docs/TEST_PLAN.md) for scope and outstanding checks.

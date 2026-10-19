@@ -1,0 +1,51 @@
+plugins {
+    id 'fabric-loom' version "${loom_version}" apply false
+}
+
+allprojects {
+    group = project_group
+    version = mod_version
+}
+
+configure([project(':core'), project(':campaigns:quiet-below')]) {
+    apply plugin: 'fabric-loom'
+
+    repositories {
+        mavenCentral()
+        maven { url = 'https://maven.fabricmc.net/' }
+    }
+
+    base {
+        archivesName = project.name
+    }
+
+    dependencies {
+        minecraft "com.mojang:minecraft:${minecraft_version}"
+        mappings "net.fabricmc:yarn:${yarn_mappings}:v2"
+        modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    }
+
+    loom {
+        splitEnvironmentSourceSets()
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+        withSourcesJar()
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.release = 21
+        options.encoding = 'UTF-8'
+    }
+
+    tasks.withType(ProcessResources).configureEach {
+        inputs.property 'version', project.version
+        filesMatching('fabric.mod.json') {
+            expand version: project.version
+        }
+    }
+}

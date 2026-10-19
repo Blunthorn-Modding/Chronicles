@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "quiet_below",
+  "version": "${version}",
+  "name": "The Quiet Below",
+  "description": "The first Chronicle roleplay campaign.",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "io.github.chronicle.quietbelow.QuietBelow"
+    ],
+    "client": [
+      "io.github.chronicle.quietbelow.client.QuietBelowClient"
+    ]
+  },
+  "depends": {
+    "chronicle_core": ">=0.1.0-dev.4",
+    "fabricloader": ">=0.19.5",
+    "fabric-api": "*",
+    "minecraft": "1.21.10",
+    "java": ">=21"
+  }
+}
