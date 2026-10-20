@@ -1,5 +1,11 @@
 # Bootstrap decisions — 18 October 2026
 
+## Hidden factions and actionable authoring mockup — 20 October 2026
+
+The operator clarifies that Werewolf is the family of hidden-faction games, including Vampire SMP, not an obligatory tabletop round/vote structure. Preserve private membership/knowledge/actions as the foundation; voting, phases, elimination and win rules are separate opt-in tools. [Campaign formats](CAMPAIGN_FORMATS.md), CF-03 and the UI future-reference copy now reflect this.
+
+Further CF-10 feedback adds searchable **Add item** with independent chance and count range, individual entry editing/removal and whole-table save; separate **Points / Block sites** selectors with kind-specific descriptions; and an active **Continue in world** transition that resumes this region draft, requests its private outline and closes after server acknowledgement. Keep unsaved corner edits and show existing bounds immediately; new drafts gain the box as positions are selected. Mockup simulation is not a real registry, Minecraft render or deployed command change.
+
 ## Core menu review corrections — 20 October 2026
 
 The operator requests updates to [CF-10](CORE_UI_REDESIGN.md), still as a mockup/design change. Rename Arrival to **Starting position**; split Advanced **Chests** (physical bindings) from **Loot Tables** (reusable distributions/refill settings). Region creation instructs two standing-position commands, `/chronicles author region pos1` and `pos2`, then saves in the UI. Existing-region editing loads both saved positions and can replace either alone, preserving ID and reviewing references. No looked-at region selection.

@@ -1,6 +1,6 @@
 # Chronicle campaign formats
 
-Design direction, 19 October 2026. The operator and co-organizer identified four formats for Chronicle. Two additional candidates are proposed below at the operator's invitation. This is a planning taxonomy, not six implemented game modes or a request to build six engines now.
+Design direction, updated 20 October 2026. The operator and co-organizer identified four formats for Chronicle. “Werewolf” means the wider family of hidden-faction games, including Vampire SMP-style experiences; voting and round structure are optional. Two additional candidates are proposed below at the operator's invitation. This is a planning taxonomy, not six implemented game modes or a request to build six engines now.
 
 Use **campaign format** for the structure of an organized experience. Use **session** for one play meeting and **event/action** for something within it, such as a sound, discovery, horde arrival or vote. This avoids confusing a Werewolf game with the small named actions already registered through Core's `CampaignEvent` API.
 
@@ -10,7 +10,7 @@ Use **campaign format** for the structure of an organized experience. Use **sess
 | --- | --- | --- | --- |
 | **Survival** | A group faces an external threat. | A threatened place or scenario; one or several sessions, as authored. | Preparation, cooperation, endurance, containment, defeating the threat or evacuation. |
 | **Journey** | A group travels towards a destination. | Each session has its own contained chapter world and two or three authored end states. | The chapter's confirmed end state selects or changes the next world; other character decisions can also persist. |
-| **Werewolf** | Hidden roles and conflicting objectives create social deduction. | A rules-defined game or longer themed scenario, potentially using discussion/action phases. | Information, accusations, deception and the variant's elimination/survival/win rules. |
+| **Werewolf / hidden factions** | Secret faction membership, asymmetric knowledge and conflicting objectives shape play. | A persistent SMP-style experience such as Vampire SMP, or a compact game if its rules choose that structure. No required votes, rounds or session resets. | Discovery, concealment, alliances and game-specific actions/objectives; elimination and win rules only where the variant uses them. |
 | **Situation** — proposed name for “Happening” | Characters share a place and respond when something changes there. | Usually a persistent setting; events develop it across sessions. | Character choices, relationships, investigation, interventions, accommodation or departure. |
 
 The four are distinct organizing patterns. They can share ingredients: a Journey chapter can contain a survival scene, and a Situation can contain a mystery. The primary format describes what organizes the experience; it does not need to change whenever a scene uses another ingredient.
@@ -43,11 +43,11 @@ Potential tools: chapter/world IDs, validated outcome-to-next-world bindings, a 
 
 ### Werewolf
 
-The experience is explicitly about hidden roles, uncertainty and conflicting objectives. Vampires are one possible theme; the theme alone does not define the rules. A longer SMP-style variant may need different pacing from a compact Werewolf round.
+The name covers **Werewolf-like hidden-faction games**, including Vampire SMP-style persistent worlds. Hidden membership, asymmetric information, uncertainty and conflicting objectives define the family. A tabletop-style day/night round, accusation vote or elimination loop is not required. A compact voting game is one possible variant; a long-running SMP with secret factions and in-world actions is another.
 
-Authors must choose the roles/teams, what each participant knows, permitted actions, discussion/voting procedures if any, elimination rules, reconnect/absence handling and victory conditions. Combat, conversion, spectators and dead-player communication are variant decisions, not defaults supplied by the word “Werewolf.” Provide worthwhile participation after elimination where the chosen format permits it.
+Authors choose factions/roles, what each participant knows and may do, how membership changes, and reconnect/absence rules. They explicitly decide whether discussion phases, voting, elimination or victory checks belong in that game; none is a prerequisite for registering a hidden-faction campaign. Combat, conversion, spectators and dead-player communication are also variant decisions. Provide worthwhile participation after elimination where a chosen variant uses it.
 
-Potential tools: private role assignment/messages, authorized actions, phase/vote handling and server-owned win checks. Secret roles must be stored/sent separately from public dossiers and public event history. A non-GM must not learn another role through a profile packet, public status or an administrative debug view. This is a new privacy boundary to design and test, not a reuse of public profile fields.
+Potential foundation: private faction/role assignment, controlled knowledge/messages and authorized game-specific actions. **Voting, phase timers, elimination and win checks are independently opt-in capabilities**, useful across formats when a game needs them. A hidden-faction game without voting must not load a vote engine, show a voting tab, or fail setup validation for missing voting rules. Secret membership must be stored/sent separately from public dossiers and public event history. A non-GM must not learn another faction/role through a profile packet, public status or an administrative debug view. This is a new privacy boundary to design and test, not a reuse of public profile fields.
 
 The Quiet Below's rejection of compulsory vampire/human-style teams applies to **that campaign**. It is not a framework-wide ban on hidden teams, deception or elimination in a Werewolf scenario.
 

@@ -34,7 +34,7 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 | --- | --- | --- | --- |
 | CF-01 | Define the four requested campaign formats | Documented; naming/additions for review | Survival, Journey, Werewolf and Situation/Happening have distinct drivers and session/world models; Quiet Below is classified as Situation. Operation/Intrigue remain optional candidates. |
 | CF-02 | Journey chapter/outcome contract | Future design | Specify 2–3 end states per chapter, next-world selection/variants, carry-over and restart-safe transitions before implementation. |
-| CF-03 | Werewolf variant and private-state contract | Future design | Select rules/pacing/roles, privacy boundaries, absence/elimination behavior and win conditions before building role/vote systems. |
+| CF-03 | Hidden-faction / Werewolf variant and private-state contract | Future design | Specify private membership/knowledge/actions and game-specific pacing, including Vampire SMP-style persistent play. Voting, phases, elimination and win checks are optional capabilities; choose only those the game needs. |
 | CF-04 | Survival scenario and threat contract | Future design | Define a concrete threat, escalation/counterplay and ending rules before building a general director. |
 | CF-05 | Shared in-world authoring specification | Direction accepted for now; implementation contract pending | [MAP_AUTHORING](MAP_AUTHORING.md) defines Core-owned two-corner regions, points/block anchors, chest/spawn bindings and campaign extension boundaries using the supplied Vampire SMP reference. Quiet Below setup requires key sites, not spread paths. |
 | CF-06 | Core selection, region/location/anchor registry | Operator accepted M6/M7 refinements | Persistent outline and mod-registered chat choices confirmed in operator testing. |
@@ -45,7 +45,7 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 
 ## Review decisions
 
-CF-10, revised after 20 October review: separate Chests/Loot Tables; rename Starting position; command-selected region creation and single-position updates; optional mod-block placement registration with block-owned functionality; no narrative session preview/recovery; one event preview including private playback. Quiet Below requirements are distinct from future-format references. Review the revised mockup before implementing the facade. Earlier screen-layout acceptance is superseded; service-level verification remains valid.
+CF-10, revised after 20 October review: separate Chests/Loot Tables with Add item, independent entry/count editing and removal; rename Starting position; command-selected region creation and single-position updates; Continue in world activates the draft/outline automatically; separate Points/Block sites views with distinct descriptions; optional mod-block placement registration with block-owned functionality; no narrative session preview/recovery; one event preview including private playback. Quiet Below requirements are distinct from future-format references; Werewolf means hidden-faction games, never compulsory votes/rounds. Review the revised mockup before implementation. Earlier screen-layout acceptance is superseded; service-level verification remains valid.
 
 - [ ] Agree what changed shortly before the story and why growth now reaches the mine.
 - [ ] Balance crop growth, local regeneration and Ancient Forge capability thresholds/costs against actual ecology, without session/reveal gates.

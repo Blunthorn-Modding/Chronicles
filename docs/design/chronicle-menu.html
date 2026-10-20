@@ -30,7 +30,7 @@
 #chronicle-menu-review .cm-list {padding:14px 10px;border-right:1px solid var(--cm-edge);min-width:0}
 #chronicle-menu-review .cm-row {width:100%;text-align:left;display:block;margin-bottom:7px;background:var(--cm-panel)}
 #chronicle-menu-review .cm-row span {display:block;color:var(--cm-dim);font-size:12px;margin-top:3px}
-#chronicle-menu-review .cm-detail {padding:var(--cm-review-spacing,14px) 16px;min-width:0;background:var(--cm-panel)}
+#chronicle-menu-review .cm-detail {padding:var(--cm-review-spacing,14px) 16px;min-width:0;max-height:660px;overflow-y:auto;background:var(--cm-panel)}
 #chronicle-menu-review .cm-kicker {color:var(--cm-dim);font-size:12px;margin-bottom:8px}
 #chronicle-menu-review .cm-subnav {display:flex;flex-wrap:wrap;gap:5px;margin:0 0 16px}
 #chronicle-menu-review .cm-subnav button {font-size:12px;padding:5px 7px}
@@ -53,11 +53,14 @@
 #chronicle-menu-review .cm-modal label {margin:9px 0}
 #chronicle-menu-review .cm-closed {min-height:570px;display:grid;place-content:center;text-align:center;gap:10px}
 #chronicle-menu-review .cm-planned {color:var(--cm-warning);font-size:12px}
-#chronicle-menu-review .cm-loot-row {display:grid;grid-template-columns:1.3fr .7fr .7fr;gap:6px;align-items:end}
+#chronicle-menu-review .cm-loot-row {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:end;margin-bottom:15px;padding-bottom:12px;border-bottom:1px solid var(--cm-edge)}
 #chronicle-menu-review .cm-loot-row label {font-size:12px}
+#chronicle-menu-review .cm-loot-name {grid-column:1/-1;display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+#chronicle-menu-review .cm-loot-entries {max-height:340px;overflow-y:auto;padding-right:5px;margin-bottom:12px}
 #chronicle-menu-review .cm-demo {padding:10px 0;color:light-dark(#575a50,#bfc3b6);font-size:12px}
 #chronicle-menu-review .cm-demo button {border-color:currentColor;background:light-dark(#f0f1e9,#30352b);color:inherit;margin:5px 5px 0 0}
 #chronicle-menu-review .cm-corner {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+#chronicle-menu-review .cm-outline {width:160px;height:90px;margin:20px auto;border:2px solid var(--cm-selected);outline:1px solid var(--cm-text);transform:skewY(-8deg);background:transparent}
 #chronicle-menu-review .cm-mount[data-layout="compact"] .cm-columns {grid-template-columns:130px minmax(0,1fr)}
 #chronicle-menu-review .cm-mount[data-layout="compact"] .cm-detail {display:none}
 #chronicle-menu-review .cm-mount[data-layout="compact"] .cm-app[data-view="detail"] .cm-list {display:none}
@@ -91,6 +94,7 @@
  const escape = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const nav = ['Session','Players','Events','Chests','Loot Tables','Regions','Locations','Game setup'];
  const tables = [{id:'mine',name:'Mine cache',key:'quiet_below:mine_cache'},{id:'settlement',name:'Settlement supplies',key:'quiet_below:settlement_supplies'},{id:'ancient',name:'Ancient cache',key:'quiet_below:ancient_cache'}];
+ const itemsCatalog = [{id:'minecraft:coal',name:'Coal',max:64},{id:'minecraft:bread',name:'Bread',max:64},{id:'minecraft:torch',name:'Torch',max:64},{id:'minecraft:raw_iron',name:'Raw iron',max:64},{id:'minecraft:iron_ingot',name:'Iron ingot',max:64},{id:'minecraft:gold_ingot',name:'Gold ingot',max:64},{id:'minecraft:iron_sword',name:'Iron sword',max:1}];
  const events = [
   {id:'city',name:'City vibration',key:'quiet_below:city_presence',type:'Message & sound',text:'The ancient stone carries a low vibration.',sound:'minecraft:ambient.cave',local:true},
   {id:'stir',name:'Distant stirring',key:'quiet_below:distant_stir',type:'Message & sound',text:'A low, unfamiliar rumble breaks the quiet.',sound:'minecraft:ambient.cave',local:false},
@@ -99,8 +103,8 @@
  const planned = [
   ['Encounters','Events → Encounters','Entity groups, safe spawn areas, counts, waves, start/stop and recovery. Separate effect service; not implemented.'],
   ['Player groups','Players → Groups','Review exact members before participation or destination changes. No implicit factions.'],
-  ['Private character roles','Players → Private game data','Werewolf roles, teams, elimination and private messages. Separate protected state, never the public card.'],
-  ['Phases & voting','Session / Events → registered game tools','Only a supporting game supplies phases, votes, win rules and permitted actions.'],
+  ['Hidden factions','Players → Private game data','Werewolf-type games include hidden-faction SMPs such as Vampire SMP. Secret membership, knowledge and actions are game-defined; no required round or vote loop. Protected state, never the public card.'],
+  ['Optional voting & phases','Session / Events → registered game tools','Reusable tools a game may opt into. Hidden-faction games can run without votes, discussion phases or a day/night round structure.'],
   ['Journey chapters','Session → Chapters & outcomes','Two or three chapter outcomes; review next world and character/inventory transfer. No transition engine exists yet.'],
   ['Chapter links','Game setup → Chapter links','Choose authored next worlds and validate each outcome without changing the current world.'],
   ['Objectives & threats','Session → Objectives; Events → Encounters','Survival objectives, escalation, respite, and explicit GM intervention. Scenario rules remain separate.'],
@@ -112,21 +116,24 @@
   let saved = window.openai?.widgetState?.privateContent?.menus?.[index];
   const s = {section:'Events',item:'city',page:'Overview',phase:'PAUSED',edit:false,view:'list',closed:false,feedback:'Example session. Changes here affect this preview only.',modal:null,
    region:null,trigger:'Manual',delay:'60',flag:'None',complete:false,participant:true,guestParticipant:true,arrival:false,respawn:false,assigned:false,first:true,
-   points:['Village square'],blocks:['Old shrine'],regions:['Mine entrance','Source city boundary'],chests:['Mine cache'],chestTables:['mine'],lootChance:'65',regionDraft:null,forgePlaced:false,forgeRegistered:false};
-  if (saved && nav.includes(saved.section)) { s.section=saved.section; s.item=saved.item || ''; s.page='Overview'; }
+   points:['Village square'],blocks:['Old shrine'],regions:['Mine entrance','Source city boundary'],chests:['Mine cache'],chestTables:['mine'],regionDraft:null,outline:false,locationKind:'Points',forgePlaced:false,forgeRegistered:false};
+  if (saved && nav.includes(saved.section)) { s.section=saved.section; s.item=saved.item || ''; s.page='Overview';s.locationKind=saved.locationKind==='Block sites'||s.item.startsWith('block')?'Block sites':'Points'; }
   const eventStates = Object.fromEntries(events.map(e=>[e.id,{region:null,trigger:'Manual',delay:'60',flag:'None',complete:false}]));
   const playerStates = {self:{arrival:false,respawn:false,arrivalPoint:'Village square',respawnPoint:'Village square'},guest:{arrival:false,respawn:false,arrivalPoint:'Village square',respawnPoint:'Village square'}};
-  const tableStates = {mine:{lootChance:'70'},settlement:{lootChance:'65'},ancient:{lootChance:'25'}};
+  let nextLootId=5;
+  const tableStates = {mine:{entries:[{uid:1,item:'minecraft:coal',chance:70,min:3,max:8},{uid:2,item:'minecraft:torch',chance:65,min:4,max:10}],refill:'session',minutes:'20'},settlement:{entries:[{uid:3,item:'minecraft:bread',chance:65,min:2,max:5}],refill:'session',minutes:'20'},ancient:{entries:[{uid:4,item:'minecraft:gold_ingot',chance:25,min:1,max:2}],refill:'session',minutes:'20'}};
+  const locationSelections={Points:'point0','Block sites':'block0'};
   const regionBoxes = [ [[12,50,20],[28,68,45]], [[-40,-55,-80],[90,-25,70]] ];
   const remembered = {};
   function saveContext() {
    if(s.section==='Events'&&eventStates[s.item]) for(const key of Object.keys(eventStates[s.item])) eventStates[s.item][key]=s[key];
    if(s.section==='Players'&&playerStates[s.item]) for(const key of Object.keys(playerStates[s.item])) playerStates[s.item][key]=s[key];
-   if(s.section==='Loot Tables'&&tableStates[s.item])tableStates[s.item].lootChance=s.lootChance;
+   if(s.section==='Locations')locationSelections[s.locationKind]=s.item;
   }
   function loadContext() {
-   const data=s.section==='Events'?eventStates[s.item]:s.section==='Players'?playerStates[s.item]:s.section==='Loot Tables'?tableStates[s.item]:null;
+   const data=s.section==='Events'?eventStates[s.item]:s.section==='Players'?playerStates[s.item]:null;
    if(data)Object.assign(s,data);
+   if(s.section==='Locations')s.locationKind=(s.item||'').startsWith('block')?'Block sites':'Points';
   }
   const participating = () => s.item==='guest'?s.guestParticipant:s.participant;
   const editAllowed = () => s.edit && s.phase !== 'ACTIVE';
@@ -139,7 +146,7 @@
   const event = () => events.find(e=>e.id===s.item) || events[0];
   const persist = () => {
    const old = window.openai?.widgetState?.privateContent?.menus || {};
-   if(window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{section:s.section,layout:mount.dataset.layout},privateContent:{menus:{...old,[index]:{section:s.section,item:s.item,page:s.page}}}}).catch(()=>{});
+   if(window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{section:s.section,layout:mount.dataset.layout},privateContent:{menus:{...old,[index]:{section:s.section,item:s.item,page:s.page,locationKind:s.locationKind}}}}).catch(()=>{});
   };
   function items() {
    if(s.section==='Session') return row('current','Play controls','Run or freeze the continuing world')+row('activity','Activity','Events, player moves and loot history');
@@ -148,7 +155,7 @@
    if(s.section==='Chests') return s.chests.map((c,i)=>row('chest'+i,c,'Bound container · '+tables.find(t=>t.id===s.chestTables[i]).name+' table')).join('')+button('Bind looked-at chest…','add-chest',false,!editAllowed());
    if(s.section==='Loot Tables') return row('mine','Mine cache','Independent item chances and refill settings')+row('settlement','Settlement supplies','Game defaults · server editable')+row('ancient','Ancient cache','Game defaults · server editable');
    if(s.section==='Regions') return s.regions.map((r,i)=>row('region'+i,r,'Saved area · view bounds and usage')).join('')+button('Create region…','add-region',false,!editAllowed());
-   if(s.section==='Locations') return `<div class="cm-kicker">Points · position and facing</div>`+s.points.map((p,i)=>row('point'+i,p,'Point · overworld')).join('')+`<div class="cm-kicker">Block sites · exact block</div>`+s.blocks.map((p,i)=>row('block'+i,p,'Block site · expected block type')).join('')+button('Save my position…','add-point',false,!editAllowed())+`<p></p>`+button('Bind looked-at block…','add-block',false,!editAllowed());
+   if(s.section==='Locations') {const points=s.locationKind==='Points';return `<div class="cm-subnav" role="group" aria-label="Location kind">${['Points','Block sites'].map(k=>`<button type="button" data-location-kind="${k}" aria-pressed="${s.locationKind===k}">${k}</button>`).join('')}</div><p class="cm-note">${points?'A saved position and facing for player destinations. No block is required.':'A reference to one exact block instance and its expected type. Used for stations, landmarks or interactions.'}</p>`+(points?s.points:s.blocks).map((p,i)=>row((points?'point':'block')+i,p,points?'Position + facing · overworld':'Exact block + expected type · overworld')).join('')+button(points?'Save my position…':'Bind looked-at block…',points?'add-point':'add-block',false,!editAllowed());}
    return row('requirements','The Quiet Below','Key sites and this game’s tools')+row('future','Other formats · design reference','Future library scope · not needed for this game');
   }
   function eventDetail() {
@@ -178,7 +185,8 @@
    }
    if(s.section==='Loot Tables') {
     const table=tables.find(t=>t.id===s.item)||tables[0];
-    return `<h2>${table.name}</h2><p class="cm-kicker">Loot table · proposed in-game editor</p><p class="cm-note">Each item rolls independently; chances do not need to total 100%.</p><div class="cm-loot-row"><label>Item<select ${!editAllowed()?'disabled':''}><option>Bread</option><option>Coal</option></select></label><label>Chance %<input data-field="lootChance" type="number" min="0" max="100" value="${s.lootChance}" ${!editAllowed()?'disabled':''}></label><label>Count<input type="text" value="2–5" aria-label="Loot count range" ${!editAllowed()?'disabled':''}></label></div><label>Refill<select ${!editAllowed()?'disabled':''}><option>At the start of each new session</option><option>Also every X active minutes</option></select></label><p class="cm-note">Bound chests: ${s.chestTables.filter(id=>id===table.id).length} · JSON configuration remains supported.</p><p class="cm-reason">Scheduled refills replace ALL contents of bound loot chests.</p><div class="cm-actions">${button('Save loot table…','save-loot',true,!editAllowed())}${button('Reload loot configuration','reload-loot',false,!editAllowed())}</div>${reason()}${command('/chronicles loot-tables inspect '+table.key)}`;
+    const draft=tableStates[table.id],disabled=!editAllowed()?'disabled':'';
+    return `<h2>${table.name}</h2><p class="cm-kicker">Loot table · proposed in-game editor</p><p class="cm-note">Each item rolls independently; chances do not need to total 100%.</p><div class="cm-loot-entries" role="region" aria-label="Loot item entries">${draft.entries.length?draft.entries.map(e=>`<div class="cm-loot-row" data-loot-row="${e.uid}"><div class="cm-loot-name"><strong>${escape(itemsCatalog.find(i=>i.id===e.item)?.name||e.item)}</strong>${button('Remove item','remove-loot:'+e.uid,false,!editAllowed())}</div><label>Chance %<input data-loot="${e.uid}" data-prop="chance" type="number" min="0" max="100" value="${e.chance}" ${disabled}></label><label>Min count<input data-loot="${e.uid}" data-prop="min" type="number" min="1" max="${itemsCatalog.find(i=>i.id===e.item).max}" value="${e.min}" ${disabled}></label><label>Max count<input data-loot="${e.uid}" data-prop="max" type="number" min="1" max="${itemsCatalog.find(i=>i.id===e.item).max}" value="${e.max}" ${disabled}></label></div>`).join(''):'<p>No items yet. Add an item to build this table.</p>'}</div>${button('Add item…','add-loot',true,!editAllowed())}<label>Refill<select data-loot-setting="refill" ${disabled}><option value="session"${draft.refill==='session'?' selected':''}>At the start of each new session</option><option value="interval"${draft.refill==='interval'?' selected':''}>Also every X active minutes</option></select></label>${draft.refill==='interval'?`<label>Active minutes<input data-loot-setting="minutes" type="number" min="1" max="10080" value="${escape(draft.minutes)}" ${disabled}></label>`:''}<p class="cm-note">Bound chests: ${s.chestTables.filter(id=>id===table.id).length} · JSON configuration remains supported.</p><p class="cm-reason">Scheduled refills replace ALL contents of bound loot chests.</p><div class="cm-actions">${button('Save loot table…','save-loot',false,!editAllowed())}${button('Reload loot configuration','reload-loot',false,!editAllowed())}</div>${reason()}${command('/chronicles loot-tables inspect '+table.key)}`;
    }
    if(s.section==='Chests') {const i=Number((s.item||'chest0').replace('chest',''))||0;return `<h2>${escape(s.chests[i]||'Mine cache')}</h2>${kv([['Loot table',tables.find(t=>t.id===s.chestTables[i]).name],['Container','Chest · overworld'],['Fill rule','New session; replace all contents'],['Contents now','Not changed by binding or inspection']])}<div class="cm-actions">${button('Show chest','show')}${button('Open loot table','open-loot')}${button('Change loot table…','change-loot',false,!editAllowed())}${button('Unbind chest…','unbind',false,!editAllowed())}</div>${reason()}<p class="cm-note">This page manages physical containers. Item chances and refill settings live in Loot Tables.</p>${command('/chronicles chests show mine_cache')}`;}
    if(s.section==='Regions') {
@@ -187,17 +195,17 @@
    }
    if(s.section==='Locations') {
     const block=(s.item||'point0').startsWith('block'); const label=(block?s.blocks:s.points)[Number((s.item||'point0').replace(/point|block/,''))]||'Saved location';
-    return `<h2>${escape(label)}</h2>${kv([['Type',block?'Block site · expected block type':'Point · position and facing'],['Dimension','Overworld'],['Used for',block?'Reference to an exact block instance':'Player moves, starting positions or respawn destinations']])}<div class="cm-actions">${button(block?'Show block site':'Show location','show')}${button(block?'Replace block site…':'Update to my position…','update-location',false,!editAllowed())}${button('Delete location…','delete',false,!editAllowed())}</div>${reason()}<p class="cm-note">Manual block sites are useful for vanilla blocks. Mod stations own their behavior and can offer registration when placed; registration is only a map reference.</p>${command('/chronicles locations inspect '+(block?'old_shrine':'village_square'))}`;
+    return `<h2>${escape(label)}</h2><p>${block?'This site identifies one exact block and its expected type. Register a vanilla landmark or a mod station instance for game tools.':'This point saves coordinates and the direction a player faces. Use it for manual moves, starting positions or after-death destinations; no physical block is required.'}</p>${kv([['Type',block?'Block site · expected block type':'Point · position and facing'],['Dimension','Overworld'],['Used for',block?'Reference to an exact block instance':'Player moves, starting positions or respawn destinations']])}<div class="cm-actions">${button(block?'Show block site':'Show location','show')}${button(block?'Replace block site…':'Update to my position…','update-location',false,!editAllowed())}${button('Delete location…','delete',false,!editAllowed())}</div>${reason()}<p class="cm-note">${block?'Mod stations own their behavior; registration is only a map reference.':'Saving or updating a point does not move players. Facing is saved with the position.'}</p>${command('/chronicles locations inspect '+(block?'old_shrine':'village_square'))}`;
    }
    if(s.item==='future') return `<h2>Other formats · design reference</h2><p class="cm-planned">Not required for The Quiet Below. These controls will appear only when a game actually supplies them.</p>${planned.filter(([name])=>!['Game extensions','Loot editor'].includes(name)).map(([name,home,description])=>`<details><summary>${name}</summary><p><strong>${home}</strong></p><p class="cm-note">${description}</p></details>`).join('')}`;
-   return `<h2>The Quiet Below · map setup</h2><p>Only the key sites and tools for this game.</p>${kv([['Source city · REGION',s.assigned||'Unassigned'],['Relic Heart · mod block','Place the block; its authoring prompt links the unique Heart'],['Ancient Forge · mod block',s.forgeRegistered?'Placed · registered as Ancient forge':s.forgePlaced?'Placed · works as a block; map reference optional':'Place a Forge; it offers optional map registration']])}<div class="cm-actions">${button('Assign source city…','assign',true,!editAllowed())}${button('Show assigned site','show',false,!s.assigned)}${s.forgePlaced&&!s.forgeRegistered?button('Register placed Forge…','register-forge',false,!editAllowed()):''}${button('Check setup','check-setup')}</div>${reason()}<p class="cm-note">Later Quiet Below tools: network status and controls (M9–M10), benefit/cost settings (M11), station/Heart checks (M12). These belong to this game and are not built yet.</p><p class="cm-note">Werewolf roles/votes, Journey chapters/world transfers and generic encounter waves are future-format references, not setup requirements here. Starting positions are optional under Players.</p>${command('/chronicles setup assign quiet_below:source_city source_city_boundary')}`;
+   return `<h2>The Quiet Below · map setup</h2><p>Only the key sites and tools for this game.</p>${kv([['Source city · REGION',s.assigned||'Unassigned'],['Relic Heart · mod block','Place the block; its authoring prompt links the unique Heart'],['Ancient Forge · mod block',s.forgeRegistered?'Placed · registered as Ancient forge':s.forgePlaced?'Placed · works as a block; map reference optional':'Place a Forge; it offers optional map registration']])}<div class="cm-actions">${button('Assign source city…','assign',true,!editAllowed())}${button('Show assigned site','show',false,!s.assigned)}${s.forgePlaced&&!s.forgeRegistered?button('Register placed Forge…','register-forge',false,!editAllowed()):''}${button('Check setup','check-setup')}</div>${reason()}<p class="cm-note">Later Quiet Below tools: network status and controls (M9–M10), benefit/cost settings (M11), station/Heart checks (M12). These belong to this game and are not built yet.</p><p class="cm-note">Hidden factions and optional voting, Journey chapters/world transfers and generic encounter waves are future-format references, not setup requirements here. Starting positions are optional under Players.</p>${command('/chronicles setup assign quiet_below:source_city source_city_boundary')}`;
   }
   function demoWorld() {
    const draft=s.regionDraft;
    return `<div class="cm-demo" aria-label="Mockup world simulator">Mockup only · simulate actions done in the Minecraft world<div>${button('/chronicles author region pos1','world-pos1',false,!s.closed||!draft||!editAllowed())}${button('/chronicles author region pos2','world-pos2',false,!s.closed||!draft||!editAllowed())}${button('Place Ancient Forge','place-forge',false,!editAllowed()||s.forgePlaced)}</div>${draft?`<p>Draft positions: ${draft.corners.map((p,i)=>(i+1)+': '+(p?p.join(', '):'not selected')).join(' · ')}</p>`:''}</div>`;
   }
   function render() {
-   if(s.closed) {mount.innerHTML=demoWorld()+`<div class="cm-app"><div class="cm-closed"><h2>In the world</h2><p>Run pos1 and pos2 at the positions you want, then reopen the menu. Your draft and outline stay available.</p>${button('Reopen menu','reopen')}</div></div>`; bind(); return;}
+   if(s.closed) {const draft=s.regionDraft;mount.innerHTML=demoWorld()+`<div class="cm-app"><div class="cm-closed"><h2>${s.outline&&draft?'Region editing active':'In the world'}</h2>${s.outline&&draft?`<p>Edit mode and your private outline are already on.</p><code>${escape(draft.editCommand)}</code>${draft.corners.every(Boolean)?'<div class="cm-outline" role="img" aria-label="Private bounding box · schematic"></div>':'<p>Select the first position to begin the outline, then the second to form the box.</p>'}<p>Stand at a corner and run pos1 or pos2.<br>Reopen the menu to review and save.</p>`:'<p>Your saved example state is retained.</p>'}${button('Reopen menu','reopen')}</div></div>`; bind(); return;}
    mount.innerHTML=demoWorld()+`<div class="cm-app" data-view="${s.view}"><header class="cm-header"><strong class="cm-brand">Chronicle</strong><span class="cm-state">Session 2 · ${s.phase.toLowerCase()}</span><span>Editing: ${s.edit?'on':'off'}</span>${button(s.edit?'Disable editing':'Enable editing','edit',false,s.phase==='ACTIVE')}</header><div class="cm-columns"><nav class="cm-nav" aria-label="Chronicle sections">${nav.map((n,i)=>(i===3?'<div class="cm-group">ADVANCED<br>CONFIGURATION</div>':'')+`<button type="button" data-nav="${n}" ${s.section===n?'aria-current="page"':''}>${n}</button>`).join('')}</nav><section class="cm-list" aria-label="${s.section} items"><h2>${s.section}</h2>${items()}</section><section class="cm-detail" aria-label="Selected ${s.section} details">${button('← Back to list','back').replace('<button','<button class="cm-back"')}${detail()}</section></div><footer class="cm-footer"><span class="cm-feedback" aria-live="polite">${escape(s.feedback)}</span>${button('Close menu','close')}</footer>${s.modal?`<div class="cm-modal-shade"><section class="cm-modal" role="dialog" aria-modal="true" aria-label="${escape(s.modal.title)}"><h2>${escape(s.modal.title)}</h2>${s.modal.body}<div class="cm-actions">${button('Cancel','cancel')}${s.modal.confirm?button(s.modal.confirm,'confirm',true,s.modal.ready===false):button('Done','cancel',true)}</div></section></div>`:''}</div>`;
    bind();
   }
@@ -207,7 +215,7 @@
   }
   function regionEditor() {
    const d=s.regionDraft, editing=d.target!==null;
-   modal(editing?'Edit region':'Create region',`<p>${editing?'Change either position; the other stays as saved.':'First select two positions in the world, then save this region here.'}</p>${d.corners.map((p,i)=>`<h3>Position ${i+1}</h3>${editing?`<div class="cm-corner">${['X','Y','Z'].map((axis,j)=>`<label>${axis}<input type="number" step="1" data-corner="${i}" data-axis="${j}" value="${p[j]}"></label>`).join('')}</div>`:`<p>${p?p.join(', '):'Not selected'}</p>`}<code>/chronicles author region pos${i+1}</code>`).join('')}<p class="cm-note">Run each command while standing at that position. No looked-at blocks. Editing loads the saved positions, so one command replaces just that position.</p>${button('Continue in world','region-world')}<label>Region name<input data-region-name value="${escape(d.name)}"></label><p class="cm-note">Same dimension required. Saving updates this region, never makes a duplicate. Bound events are checked before replacing existing geometry.</p>`,editing?'Review region changes':'Create region',()=>{
+   modal(editing?'Edit region':'Create region',`<p>${editing?'Adjust either saved position, then review the changes.':'Select two positions in the world, then return here to create your region.'}</p><h3>1. Select positions</h3><p class="cm-note">Continue in world automatically activates this region draft and its private bounding box. No edit command to type.</p>${button('Continue in world','region-world')}${d.corners.map((p,i)=>`<h3>Position ${i+1}</h3>${editing?`<div class="cm-corner">${['X','Y','Z'].map((axis,j)=>`<label>${axis}<input type="number" step="1" data-corner="${i}" data-axis="${j}" value="${p[j]}"></label>`).join('')}</div>`:`<p>${p?p.join(', '):'Not selected'}</p>`}<code>/chronicles author region pos${i+1}</code>`).join('')}<p class="cm-note">Stand at a corner and use its position command. To change only one corner, run only that command.</p><h3>2. Review and save</h3><label>Region name<input data-region-name value="${escape(d.name)}"></label><p class="cm-note">Same dimension required. Updating keeps this region’s ID and checks its bindings.</p>`,editing?'Review region changes':'Create region',()=>{
     if(!d.corners.every(p=>p&&p.every(Number.isInteger))){s.feedback='Both positions must contain integer coordinates.';return false;}
     if(editing){const next=d.corners.map(p=>[...p]);modal('Save region changes?',kv([['Region',s.regions[d.target]],['Position 1',next[0].join(', ')],['Position 2',next[1].join(', ')],['References','Existing bindings require validation against the new bounds']]),'Save changes',()=>{regionBoxes[d.target]=next;s.regions[d.target]=d.name;s.regionDraft=null;s.feedback='Existing example region updated. No duplicate was created; stale bindings need deliberate revalidation.';});}
     else {s.regions.push(d.name||'New region');regionBoxes.push(d.corners.map(p=>[...p]));s.item='region'+(s.regions.length-1);s.view='detail';s.regionDraft=null;s.feedback='Example region created from both command-selected positions. No blocks changed.';}
@@ -217,20 +225,39 @@
   function forgePrompt() {
    modal('Ancient Forge placed',`<p>This mod block owns its interactions and station behavior. A map reference is optional; registration does not switch the Forge on.</p><p>Register this exact instance for Game setup and GM tools? The block at this position is checked again before saving.</p><p class="cm-note">Cancel keeps the placed block. This mockup represents the future block and prompt; it does not run Forge recipes.</p>`,'Register this Forge',()=>{s.forgeRegistered=true;s.blocks.push('Ancient forge');s.feedback='Example Forge registered as a map reference. Its functionality belongs to the block, not this reference.';});
   }
+  function validLootEntry(entry) {
+   const item=itemsCatalog.find(i=>i.id===entry.item);
+   return item&&Number.isFinite(entry.chance)&&entry.chance>=0&&entry.chance<=100&&Number.isInteger(entry.min)&&Number.isInteger(entry.max)&&entry.min>=1&&entry.max>=entry.min&&entry.max<=item.max;
+  }
+  function addLootItem() {
+   modal('Add item to loot table',`<label>Find item<input data-item-search placeholder="Item name or registry ID"></label><label>Item<select data-modal="loot-item">${itemsCatalog.map(i=>`<option value="${i.id}">${i.name} · ${i.id}</option>`).join('')}</select></label><p class="cm-note">The game will search the server item registry, including installed mods. This mockup has seven sample items.</p><label>Chance %<input data-modal="loot-chance" type="number" min="0" max="100" value="25"></label><div class="cm-corner"><label>Min count<input data-modal="loot-min" type="number" min="1" max="64" value="1"></label><label>Max count<input data-modal="loot-max" type="number" min="1" max="64" value="3"></label></div><p class="cm-note">This item rolls independently of all other entries. Add it to this draft, then Save loot table to apply your configuration.</p><p role="alert" data-loot-error></p>`,'Add item',()=>{
+    const field=name=>mount.querySelector('[data-modal="loot-'+name+'"]');
+    const entry={uid:nextLootId,item:field('item').value,chance:field('chance').value.trim()===''?NaN:Number(field('chance').value),min:Number(field('min').value),max:Number(field('max').value)};
+    if(!validLootEntry(entry)){mount.querySelector('[data-loot-error]').textContent='Choose an item, chance from 0 to 100%, and a whole-number count range within its stack limit.';return false;}
+    nextLootId++;tableStates[s.item].entries.push(entry);s.feedback='Item added to this example table draft. Save loot table to apply it; chest contents are unchanged.';
+   });
+  }
   function action(a) {
    if(a==='cancel'){s.modal=null;render();return;}
-   if(a==='confirm'){const m=s.modal;const result=m.run();if(result!==false&&s.modal===m)s.modal=null;render();persist();return;}
+   if(a==='confirm'){const m=s.modal;const result=m.run();if(result===false)return;if(s.modal===m)s.modal=null;render();persist();return;}
    if(a==='close'){s.closed=true;render();return;}
    if(a==='reopen'){s.closed=false;if(s.regionDraft){regionEditor();return;}render();return;}
-   if(a==='region-world'){s.modal=null;s.closed=true;render();return;}
+   if(a==='region-world'){const d=s.regionDraft;d.editCommand='/chronicles author region edit'+(d.target!==null?' '+s.regions[d.target].toLowerCase().replaceAll(' ','_'):'');s.outline=true;s.modal=null;s.closed=true;s.feedback='Region edit activated and private outline shown automatically.';render();return;}
    if(a==='world-pos1'||a==='world-pos2'){if(s.regionDraft&&editAllowed()&&s.closed){s.regionDraft.corners[a==='world-pos1'?0:1]=a==='world-pos1'?[10,50,20]:[32,70,48];}render();return;}
    if(a==='place-forge'){s.forgePlaced=true;forgePrompt();return;}
    if(a==='register-forge'){forgePrompt();return;}
    if(a==='open-loot'){const id=s.chestTables[Number((s.item||'chest0').replace('chest',''))||0];saveContext();s.section='Loot Tables';s.item=id;loadContext();s.page='Overview';s.view='detail';render();persist();return;}
+   if(a==='add-loot'){addLootItem();return;}
+   if(a.startsWith('remove-loot:')){tableStates[s.item].entries=tableStates[s.item].entries.filter(e=>e.uid!==Number(a.split(':')[1]));s.feedback='Item removed from this draft. Save loot table to apply the change.';render();return;}
+   if(a==='save-loot'){
+    const draft=tableStates[s.item];
+    if(!draft.entries.every(validLootEntry)||(draft.refill==='interval'&&(!Number.isInteger(Number(draft.minutes))||Number(draft.minutes)<1||Number(draft.minutes)>10080))){s.feedback='Check item chances, whole-number count ranges/stack limits and refill minutes before saving.';render();return;}
+    modal('Save loot table?',`<p>${draft.entries.length} independent item entries in ${escape(tables.find(t=>t.id===s.item).name)}.</p><p>Applies this configuration to future fills. Existing chest contents and fill history are unchanged now.</p><p class="cm-reason">Scheduled fills replace all contents of bound loot chests.</p>`,'Save loot table',()=>{s.feedback='Example loot table saved. Added items and their chances/counts are retained; no chest filled now.';});return;
+   }
    if(a==='back'){s.view='list';render();return;}
-   if(a==='edit'){s.edit=!s.edit;s.feedback=s.edit?'Editing enabled for this connection. Starting play or disconnecting clears it.':'Editing disabled. Saved definitions remain unchanged.';}
+   if(a==='edit'){s.edit=!s.edit;if(!s.edit){s.regionDraft=null;s.outline=false;}s.feedback=s.edit?'Editing enabled for this connection. Starting play or disconnecting clears it.':'Editing disabled. Saved definitions remain unchanged.';}
    else if(a==='pause'){s.phase='PAUSED';s.feedback='Session paused. World simulation and the active-play clock are frozen.';}
-   else if(a==='resume'){s.phase='ACTIVE';s.edit=false;s.feedback='Session resumed. Editing was disabled by the server.';}
+   else if(a==='resume'){s.phase='ACTIVE';s.edit=false;s.regionDraft=null;s.outline=false;s.feedback='Session resumed. Editing was disabled by the server.';}
    else if(a==='start'||a==='end'){
     const start=a==='start';modal(start?'Start play?':'Finish for now?',`<p>${start?'Managed loot chests refill as configured and replace their contents.':'World simulation and automatic game activity stop. Players stay mobile.'}</p><p>The continuing world, growth, game conditions, event completion and starting-position history are retained.</p>`,start?'Start play':'Finish for now',()=>{s.phase=start?'ACTIVE':'ENDED';s.edit=false;s.feedback=start?'Play started. Editing is off; continuing game state is retained.':'Play finished for now. Continuing game state is retained.';});return;
    }
@@ -283,15 +310,15 @@
     regionEditor();return;
    }
    else if(a==='add-point'||a==='add-block'){
-    const point=a==='add-point';modal(point?'Save my position':'Bind looked-at block',`<p>${point?'Saves a precise point with facing. No player is moved.':'Saves this exact block site and expected type. It is not a spawn point.'}</p><label>Name<input data-modal="name" value="${point?'Town square':'Relic Heart site'}"></label>`,'Save location',()=>{(point?s.points:s.blocks).push(mount.querySelector('[data-modal="name"]').value||'New location');s.feedback='Example location saved. No behavior enabled.';});return;
+    const point=a==='add-point';modal(point?'Save my position':'Bind looked-at block',`<p>${point?'Saves a precise point with facing. No player is moved.':'Saves this exact block site and expected type. It is not a spawn point.'}</p><label>Name<input data-modal="name" value="${point?'Town square':'Old shrine extension'}"></label>`,'Save location',()=>{const list=point?s.points:s.blocks;list.push(mount.querySelector('[data-modal="name"]').value||'New location');s.locationKind=point?'Points':'Block sites';s.item=(point?'point':'block')+(list.length-1);locationSelections[s.locationKind]=s.item;s.view='detail';s.feedback='Example location saved. No behavior enabled.';});return;
    }
    else if(a==='add-chest'||a==='change-loot'){
     const i=Number((s.item||'chest0').replace('chest',''))||0;
     modal(a==='add-chest'?'Bind looked-at chest':'Change chest loot table',`<p>Target is locked to the looked-at container before confirming.</p><label>Loot table<select data-modal="loot-table">${tables.map(t=>`<option value="${t.id}"${a==='change-loot'&&s.chestTables[i]===t.id?' selected':''}>${t.name}</option>`).join('')}</select></label><p class="cm-reason">Scheduled fills replace all contents. Binding does not fill it now.</p>`,'Save chest binding',()=>{const id=mount.querySelector('[data-modal="loot-table"]').value;if(a==='add-chest'){s.chests.push('New bound chest');s.chestTables.push(id);}else s.chestTables[i]=id;s.feedback='Example chest binding saved. Contents and fill history were not changed.';});return;
    }
-   else if(['delete','unbind','update-location','save-loot'].includes(a)){
-    const label=a==='save-loot'?'Save loot table':a==='update-location'?'Update location':a==='unbind'?'Unbind chest':s.section==='Regions'?'Delete region':'Delete location';
-    modal(label+'?',`<p>${a==='save-loot'?'Entries roll independently. Future scheduled fills replace all managed contents.':'Inspect every referenced event, player destination and map requirement before confirming. Stale consumers will not silently follow moved geometry.'}</p>`,label,()=>{s.feedback='Reviewed example change acknowledged. This mockup does not modify a world.';});return;
+   else if(['delete','unbind','update-location'].includes(a)){
+    const label=a==='update-location'?'Update location':a==='unbind'?'Unbind chest':s.section==='Regions'?'Delete region':'Delete location';
+    modal(label+'?',`<p>Inspect every referenced event, player destination and map requirement before confirming. Stale consumers will not silently follow moved geometry.</p>`,label,()=>{s.feedback='Reviewed example change acknowledged. This mockup does not modify a world.';});return;
    }
    else if(a==='reload-loot'){s.feedback='Example candidate configuration validated and reloaded. No receipt reset or loot reroll.';}
    render();persist();
@@ -301,6 +328,11 @@
    mount.querySelectorAll('[data-nav]').forEach(el=>el.addEventListener('click',()=>{saveContext();remembered[s.section]={item:s.item,page:s.page};s.section=el.dataset.nav;const previous=remembered[s.section];s.item=previous?.item||{Session:'current',Players:'self',Events:'city',Chests:'chest0','Loot Tables':'mine',Regions:'region0',Locations:'point0','Game setup':'requirements'}[s.section];loadContext();s.page=previous?.page||'Overview';s.view='list';s.modal=null;render();persist();}));
    mount.querySelectorAll('[data-corner]').forEach(el=>el.addEventListener('input',()=>{s.regionDraft.corners[Number(el.dataset.corner)][Number(el.dataset.axis)]=el.value.trim()===''?NaN:Number(el.value);const valid=s.regionDraft.corners.every(p=>p&&p.every(Number.isInteger));s.modal.ready=valid;mount.querySelector('[data-act="confirm"]').disabled=!valid;}));
    mount.querySelectorAll('[data-region-name]').forEach(el=>el.addEventListener('input',()=>{s.regionDraft.name=el.value;}));
+   mount.querySelectorAll('[data-location-kind]').forEach(el=>el.addEventListener('click',()=>{saveContext();s.locationKind=el.dataset.locationKind;s.item=locationSelections[s.locationKind];s.view='list';s.page='Overview';render();persist();}));
+   mount.querySelectorAll('[data-loot]').forEach(el=>el.addEventListener('input',()=>{const entry=tableStates[s.item].entries.find(e=>e.uid===Number(el.dataset.loot));entry[el.dataset.prop]=el.value.trim()===''?NaN:Number(el.value);}));
+   mount.querySelectorAll('[data-loot-setting]').forEach(el=>el.addEventListener(el.tagName==='SELECT'?'change':'input',()=>{tableStates[s.item][el.dataset.lootSetting]=el.value;if(el.tagName==='SELECT')render();}));
+   mount.querySelectorAll('[data-item-search]').forEach(el=>el.addEventListener('input',()=>{const query=el.value.toLowerCase(),select=mount.querySelector('[data-modal="loot-item"]');select.innerHTML=itemsCatalog.filter(i=>(i.name+' '+i.id).toLowerCase().includes(query)).map(i=>`<option value="${i.id}">${i.name} · ${i.id}</option>`).join('');select.dispatchEvent(new Event('change'));}));
+   mount.querySelectorAll('[data-modal="loot-item"]').forEach(el=>el.addEventListener('change',()=>{const item=itemsCatalog.find(i=>i.id===el.value);if(item)for(const name of ['min','max']){const field=mount.querySelector('[data-modal="loot-'+name+'"]');field.max=item.max;if(Number(field.value)>item.max)field.value=item.max;}}));
    mount.querySelectorAll('[data-item]').forEach(el=>el.addEventListener('click',()=>{saveContext();s.item=el.dataset.item;loadContext();s.page='Overview';s.view='detail';render();persist();}));
    mount.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{s.page=el.dataset.page;render();persist();}));
    mount.querySelectorAll('[data-field]').forEach(el=>{
