@@ -85,6 +85,12 @@ public final class CampaignService {
         return eligibility(event);
     }
 
+    /** Save an administrative operation's evidence without changing progress or completion. */
+    public synchronized void recordOperation(Actor actor, String action, String target, Map<String, String> parameters) throws IOException {
+        requireActor(actor);
+        commit(current.phase(), current.sessionNumber(), current.flags(), current.completedEvents(), actor, action, target, parameters);
+    }
+
     public synchronized String trigger(Actor actor, String eventId) throws IOException {
         requireActor(actor);
         CampaignEvent event = event(eventId);

@@ -1,5 +1,7 @@
 # M8: shared participation, active time and observations
 
+> 20 October 2026: CF-10 moves participation to **Players** and cue configuration to **Events**, alongside separately typed game actions and conditions. Preview event/private playback works without an active session or region; Check live audience and Run retain the live guards below. Allow event again records the prior receipt in bounded campaign audit before resetting; a partial reset is explicitly an administrative request, never proof of delivery. Old Session > Observations instructions below are historical. See [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md).
+
 19 October 2026. Continue after the M7 player-policy slice. Entity encounter groups remain an independent M7 follow-up, not a prerequisite for M8 or Quiet Below ecology. This milestone delivers Core services and operator tools, not a story timetable or ecological simulation.
 
 ## Visible behavior

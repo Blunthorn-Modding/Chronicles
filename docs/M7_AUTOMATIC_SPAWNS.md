@@ -1,5 +1,7 @@
 # M7 follow-up: opt-in player spawn policies
 
+> 20 October 2026: CF-10 moves these controls to **Players**, on the selected account. Starting position replaces first-arrival wording; choose a saved point directly for independent starting/after-death settings, with private revision-pinned bindings per player. Live manual moves use a separate destination review/confirm. The commands and durability rules below remain supported; old Policies tab instructions are historical. See [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md).
+
 19 October 2026. The operator accepts the Core screen and requests continued implementation, with its periodic flicker fixed in the next review build. This slice adds automatic player arrival/respawn; entity encounter groups remain a separate M7 sub-slice. No campaign encounters, ecology, or scheduled narrative are introduced.
 
 ## Behavior and ownership

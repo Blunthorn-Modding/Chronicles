@@ -60,9 +60,9 @@ public final class FabricRegressionSmoke {
     private static final UUID FABRIC_A = offlineUuid("ChronicleFabricA");
     private static final UUID FABRIC_B = offlineUuid("ChronicleFabricB");
     private static final List<String> INITIAL_AUDIT = List.of(
-            "session.start", "flag.set", "flag.set", "event.trigger", "session.pause", "session.resume", "session.pause");
+            "session.start", "flag.set", "flag.set", "event.trigger", "session.pause", "observation.reset.requested", "session.resume", "session.pause");
     private static final List<String> RESTART_AUDIT = List.of(
-            "session.start", "flag.set", "flag.set", "event.trigger", "session.pause", "session.resume", "session.pause",
+            "session.start", "flag.set", "flag.set", "event.trigger", "session.pause", "observation.reset.requested", "session.resume", "session.pause",
             "session.resume", "session.end", "session.start", "session.end");
 
     private static FabricRegressionSmoke instance;
@@ -1221,6 +1221,12 @@ public final class FabricRegressionSmoke {
             JsonObject entry = history.get(index).getAsJsonObject();
             require(entry.get("sequence").getAsLong() == index, "audit sequence is not contiguous at index " + index);
             require(entry.get("action").getAsString().equals(expectedActions.get(index)), "unexpected audit action at index " + index + ": " + entry.get("action"));
+            if (expectedActions.get(index).equals("observation.reset.requested")) {
+                require(entry.get("target").getAsString().equals("quiet_below:distant_stir"), "reset audit lost the exact cue ID");
+                JsonObject evidence = entry.getAsJsonObject("parameters");
+                require(evidence.get("priorStatus").getAsString().equals("DELIVERED"), "reset audit lost the previous receipt status");
+                require(evidence.get("recipients.0").getAsString().contains(FABRIC_A.toString()) && evidence.get("recipients.0").getAsString().contains(FABRIC_B.toString()), "reset audit lost the prior recipients");
+            }
             JsonObject actor = entry.getAsJsonObject("actor");
             require(actor.get("name").getAsString().equals("ChronicleFabricA"), "campaign mutation actor was not ChronicleFabricA");
             require(actor.has("uuid") && actor.get("uuid").getAsString().equals(FABRIC_A.toString()), "campaign mutation actor UUID was not Fabric A");

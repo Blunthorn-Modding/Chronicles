@@ -111,6 +111,55 @@ public final class AuthoringCommands {
                         return persist(source, runtime, site, replace);
                     }))))));
         }
+        // CF-10 region draft grammar.  The legacy save/replace <id> commands above remain
+        // available; these commands make a named draft explicit so the menu can resume it.
+        var regions = literal("region")
+                .executes(context -> run(context.getSource(), runtime -> {
+                    var sites = runtime.service().state().sites().values().stream()
+                            .filter(site -> site instanceof AuthoringSite.Region).map(AuthoringSite::id).toList();
+                    return "Regions=" + sites.size() + (sites.isEmpty() ? ". Select pos1 and pos2, then use region create <id>."
+                            : ": " + String.join(", ", sites));
+                }))
+                .then(literal("list").executes(context -> run(context.getSource(), runtime -> {
+                    var sites = runtime.service().state().sites().values().stream()
+                            .filter(site -> site instanceof AuthoringSite.Region).map(AuthoringSite::id).toList();
+                    return "Regions=" + sites.size() + (sites.isEmpty() ? "." : ": " + String.join(", ", sites));
+                })))
+                .then(literal("pos1").executes(context -> regionCorner(context.getSource(), 1, player(context.getSource()).getBlockPos()))
+                        .then(argument("position", BlockPosArgumentType.blockPos()).executes(context -> regionCorner(context.getSource(), 1,
+                                BlockPosArgumentType.getBlockPos(context, "position")))))
+                .then(literal("pos2").executes(context -> regionCorner(context.getSource(), 2, player(context.getSource()).getBlockPos()))
+                        .then(argument("position", BlockPosArgumentType.blockPos()).executes(context -> regionCorner(context.getSource(), 2,
+                                BlockPosArgumentType.getBlockPos(context, "position")))))
+                .then(literal("create").then(argument("id", StringArgumentType.string())
+                        .executes(context -> edit(context.getSource(), runtime -> {
+                            var draft = runtime.beginRegionDraft(player(context.getSource()), id(context));
+                            return "Region draft " + draft.id() + " opened. Set pos1 and pos2, then use region save.";
+                        }))))
+                .then(literal("edit").executes(context -> edit(context.getSource(), runtime -> {
+                    var draft = runtime.resumeRegionDraft(player(context.getSource()));
+                    return "Resumed region draft " + draft.id() + "; its outline is visible.";
+                })).then(argument("id", StringArgumentType.string())
+                        .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, true, builder))
+                        .executes(context -> edit(context.getSource(), runtime -> {
+                            var draft = runtime.resumeRegionDraft(player(context.getSource()), id(context));
+                            return "Editing region " + draft.id() + "; both saved corners are loaded and its outline is visible.";
+                        }))))
+                .then(literal("save").executes(context -> edit(context.getSource(), runtime -> {
+                    var saved = runtime.saveRegionDraft(player(context.getSource()));
+                    log(context.getSource(), "save-region-draft", saved.id(), saved.revision());
+                    return "Saved " + describe(saved) + ".";
+                })))
+                .then(literal("selection").then(literal("show").executes(context -> run(context.getSource(), runtime -> {
+                    var selected = runtime.selection(player(context.getSource()).getUuid());
+                    return selected.dimension() == null ? "No region positions selected." : "Selected positions in " + selected.dimension()
+                            + ": pos1=" + selected.first() + "; pos2=" + selected.second() + ".";
+                }))).then(literal("clear").executes(context -> edit(context.getSource(), runtime -> {
+                    runtime.selection(player(context.getSource()).getUuid(), new AuthoringRuntime.Selection(null, null, null));
+                    AuthoringRuntime.clearPreview(player(context.getSource()));
+                    return "Region positions cleared.";
+                }))));
+        author.then(regions);
         author.then(literal("list").executes(context -> run(context.getSource(), runtime -> {
             var state = runtime.service().state();
             return "Authoring revision=" + state.revision() + "; sites=" + state.sites().size() + ": "
@@ -154,6 +203,17 @@ public final class AuthoringCommands {
 
     private static int corner(ServerCommandSource source, int which, BlockPos position) {
         return edit(source, runtime -> setCorner(source, runtime, which, position));
+    }
+
+    private static int regionCorner(ServerCommandSource source, int which, BlockPos position) {
+        return edit(source, runtime -> {
+            var player = player(source);
+            if (runtime.regionDraft(player.getUuid()).isPresent()) {
+                var draft = runtime.setRegionDraftCorner(player, which, position(position));
+                return "Set region draft " + draft.id() + " position " + which + " at " + coordinates(position(position)) + ".";
+            }
+            return setCorner(source, runtime, which, position);
+        });
     }
 
     private static String setCorner(ServerCommandSource source, AuthoringRuntime runtime, int which, BlockPos block) {

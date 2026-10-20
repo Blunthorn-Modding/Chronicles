@@ -40,6 +40,17 @@ public final class AuthoringUi {
     public static int open(ServerCommandSource source) { return open(source, Tab.CHESTS); }
     public static int open(ServerCommandSource source, Tab tab) {
         if (source.getPlayer() == null) { source.sendError(Text.literal("Authoring UI requires a player. Advanced commands remain available.")); return 0; }
+        if (ServerPlayNetworking.canSend(source.getPlayer(), io.github.chronicle.core.network.CoreMenuPayloads.Response.ID)) {
+            var page = switch (tab) {
+                case CHESTS -> io.github.chronicle.core.menu.CoreMenuModel.Page.CHESTS;
+                case ROLES -> io.github.chronicle.core.menu.CoreMenuModel.Page.SETUP;
+                case PLACES -> io.github.chronicle.core.menu.CoreMenuModel.Page.REGIONS;
+                case OBSERVATIONS, OBS_REGIONS, OBS_FLAGS -> io.github.chronicle.core.menu.CoreMenuModel.Page.EVENTS;
+                case SESSION -> io.github.chronicle.core.menu.CoreMenuModel.Page.SESSION;
+                default -> io.github.chronicle.core.menu.CoreMenuModel.Page.PLAYERS;
+            };
+            return CoreMenuServer.open(source, page);
+        }
         if (!ServerPlayNetworking.canSend(source.getPlayer(), View.ID)) { source.sendError(Text.literal("Install the matching Chronicle authoring UI client pack. Chat fallback: /chronicle author menu")); return 0; }
         handle(source.getPlayer(), new Request(Action.OPEN, "", "", 0, tab, 0));
         return 1;

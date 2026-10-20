@@ -16,7 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
+import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,6 +30,9 @@ public final class LootConfig {
     public static final long MAX_FILE_BYTES = 2L * 1024 * 1024;
     private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
     private final Path file;
+    /** The exact disk bytes and effective types accepted by the last successful load/save. */
+    private byte[] observedBytes;
+    private Map<String, LootType> observedTypes;
 
     public LootConfig(Path file) {
         if (file == null || file.getFileName() == null) throw new IllegalArgumentException("loot config file is required");
@@ -40,11 +43,11 @@ public final class LootConfig {
      * Creates the initial file from campaign defaults, or overlays complete configured types on
      * those defaults. Existing invalid files are never changed.
      */
-    public Map<String, LootType> loadOrCreate(Map<String, LootType> defaults) throws IOException {
+    public synchronized Map<String, LootType> loadOrCreate(Map<String, LootType> defaults) throws IOException {
         Map<String, LootType> validatedDefaults = defaults(defaults);
         if (!Files.exists(file)) {
-            writeInitial(validatedDefaults);
-            return validatedDefaults;
+            byte[] initial = writeInitial(validatedDefaults);
+            return observe(initial, validatedDefaults);
         }
         byte[] bytes = current();
         try {
@@ -52,10 +55,42 @@ public final class LootConfig {
             TreeMap<String, LootType> merged = new TreeMap<>(validatedDefaults);
             merged.putAll(configured);
             if (merged.size() > LootCatalog.MAX_TYPES) throw new IllegalArgumentException("merged loot types exceed " + LootCatalog.MAX_TYPES);
-            return immutable(merged);
+            return observe(bytes, merged);
         } catch (RuntimeException exception) {
             throw new IOException("loot config is invalid and was not replaced: " + file + " (" + exception.getMessage() + ")", exception);
         }
+    }
+
+    /**
+     * Replaces one complete effective type after an optimistic-concurrency check. The complete
+     * effective catalog is written so custom types and all unrelated configured definitions stay
+     * intact. Callers must perform Minecraft registry/component validation before this method.
+     */
+    public synchronized Map<String, LootType> replaceType(LootType replacement, LootType expected) throws IOException {
+        if (replacement == null || expected == null) throw new IllegalArgumentException("replacement and expected loot types are required");
+        if (!replacement.id().equals(expected.id())) throw new IllegalArgumentException("loot type id cannot change while editing");
+        if (observedTypes == null || observedBytes == null) throw new IllegalStateException("Loot configuration must be loaded before editing");
+        if (!expected.equals(observedTypes.get(expected.id()))) throw new IllegalStateException("Loot table changed since this editor opened; reopen it before saving");
+
+        byte[] current = current();
+        if (!MessageDigest.isEqual(observedBytes, current)) {
+            throw new IOException("loot config changed outside Chronicle; reload it before saving " + file);
+        }
+        try {
+            // Revalidate the exact old bytes before preserving them as the rollback copy.
+            decode(new String(current, StandardCharsets.UTF_8));
+        } catch (RuntimeException exception) {
+            throw new IOException("loot config is invalid and was not replaced: " + file, exception);
+        }
+
+        TreeMap<String, LootType> candidate = new TreeMap<>(observedTypes);
+        candidate.put(replacement.id(), replacement);
+        if (candidate.size() > LootCatalog.MAX_TYPES) throw new IllegalArgumentException("loot types exceed " + LootCatalog.MAX_TYPES);
+        Map<String, LootType> immutableCandidate = immutable(candidate);
+        byte[] encoded = PRETTY_GSON.toJson(encode(immutableCandidate)).getBytes(StandardCharsets.UTF_8);
+        if (encoded.length > MAX_FILE_BYTES) throw new IOException("loot config serialization exceeds 2 MiB limit: " + file);
+        replaceDurably(current, encoded);
+        return observe(encoded, immutableCandidate);
     }
 
     private Map<String, LootType> defaults(Map<String, LootType> defaults) {
@@ -77,11 +112,12 @@ public final class LootConfig {
         return Files.readAllBytes(file);
     }
 
-    private void writeInitial(Map<String, LootType> defaults) throws IOException {
-        Files.createDirectories(file.getParent());
+    private byte[] writeInitial(Map<String, LootType> defaults) throws IOException {
+        Path parent = parent();
+        Files.createDirectories(parent);
         byte[] content = PRETTY_GSON.toJson(encode(defaults)).getBytes(StandardCharsets.UTF_8);
         if (content.length > MAX_FILE_BYTES) throw new IOException("initial loot config exceeds 2 MiB limit: " + file);
-        Path temporary = Files.createTempFile(file.getParent(), file.getFileName().toString(), ".tmp");
+        Path temporary = Files.createTempFile(parent, file.getFileName().toString(), ".tmp");
         try {
             forceWrite(temporary, content);
             try {
@@ -94,6 +130,39 @@ public final class LootConfig {
         } finally {
             Files.deleteIfExists(temporary);
         }
+        return content;
+    }
+
+    private void replaceDurably(byte[] old, byte[] encoded) throws IOException {
+        Path parent = parent();
+        Path temporary = Files.createTempFile(parent, file.getFileName().toString(), ".tmp");
+        Path backupTemporary = null;
+        try {
+            forceWrite(temporary, encoded);
+            Path backup = file.resolveSibling(file.getFileName() + ".bak");
+            backupTemporary = Files.createTempFile(parent, backup.getFileName().toString(), ".tmp");
+            forceWrite(backupTemporary, old);
+            moveReplace(backupTemporary, backup);
+            backupTemporary = null;
+            moveReplace(temporary, file);
+        } catch (IOException exception) {
+            throw new IOException("unable to save loot config; published loot types were not changed", exception);
+        } finally {
+            Files.deleteIfExists(temporary);
+            if (backupTemporary != null) Files.deleteIfExists(backupTemporary);
+        }
+    }
+
+    private Map<String, LootType> observe(byte[] bytes, Map<String, LootType> types) {
+        observedBytes = bytes.clone();
+        observedTypes = immutable(types);
+        return observedTypes;
+    }
+
+    private Path parent() throws IOException {
+        Path parent = file.getParent();
+        if (parent == null) throw new IOException("loot config has no parent directory: " + file);
+        return parent;
     }
 
     private static void forceWrite(Path target, byte[] content) throws IOException {
@@ -101,6 +170,14 @@ public final class LootConfig {
             ByteBuffer buffer = ByteBuffer.wrap(content);
             while (buffer.hasRemaining()) channel.write(buffer);
             channel.force(true);
+        }
+    }
+
+    private static void moveReplace(Path source, Path target) throws IOException {
+        try {
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+        } catch (AtomicMoveNotSupportedException exception) {
+            throw new IOException("atomic replacement is not supported for loot config: " + target, exception);
         }
     }
 
@@ -119,24 +196,7 @@ public final class LootConfig {
     }
 
     private static LootType decodeType(JsonObject object, String field) {
-        exactFields(object, Set.of("id", "label", "description", "recommendedChests", "refillMinutes", "entries"), field);
-        JsonArray entries = array(required(object, "entries"), field + ".entries");
-        if (entries.size() > LootType.MAX_ENTRIES) throw new IllegalArgumentException(field + ".entries may contain at most " + LootType.MAX_ENTRIES + " entries");
-        List<LootEntry> decoded = new ArrayList<>();
-        for (int i = 0; i < entries.size(); i++) decoded.add(decodeEntry(object(entries.get(i), field + ".entries[" + i + "]"), field + ".entries[" + i + "]"));
-        return new LootType(string(required(object, "id"), field + ".id"), string(required(object, "label"), field + ".label"),
-                string(required(object, "description"), field + ".description"), integer(required(object, "recommendedChests"), field + ".recommendedChests"),
-                decimal(required(object, "refillMinutes"), field + ".refillMinutes"), decoded);
-    }
-
-    private static LootEntry decodeEntry(JsonObject object, String field) {
-        Set<String> allowed = Set.of("item", "chancePercent", "minCount", "maxCount", "components");
-        for (String name : object.keySet()) if (!allowed.contains(name)) throw new IllegalArgumentException(field + " has unknown field: " + name);
-        for (String required : Set.of("item", "chancePercent", "minCount", "maxCount")) required(object, required);
-        JsonElement components = object.has("components") ? object.get("components") : null;
-        if (components != null && (components.isJsonNull() || !components.isJsonObject())) throw new IllegalArgumentException(field + ".components must be a JSON object");
-        return new LootEntry(string(required(object, "item"), field + ".item"), decimal(required(object, "chancePercent"), field + ".chancePercent"),
-                integer(required(object, "minCount"), field + ".minCount"), integer(required(object, "maxCount"), field + ".maxCount"), components == null ? "{}" : components.toString());
+        return LootTableDraftJson.decodeObject(object, field);
     }
 
     private static JsonObject encode(Map<String, LootType> types) {
@@ -149,18 +209,7 @@ public final class LootConfig {
     }
 
     private static JsonObject encodeType(LootType type) {
-        JsonObject result = new JsonObject();
-        result.addProperty("id", type.id()); result.addProperty("label", type.label()); result.addProperty("description", type.description());
-        result.addProperty("recommendedChests", type.recommendedChests()); result.addProperty("refillMinutes", type.refillMinutes());
-        JsonArray entries = new JsonArray();
-        for (LootEntry entry : type.entries()) {
-            JsonObject value = new JsonObject();
-            value.addProperty("item", entry.item()); value.addProperty("chancePercent", entry.chancePercent());
-            value.addProperty("minCount", entry.minCount()); value.addProperty("maxCount", entry.maxCount());
-            value.add("components", LootJson.object(entry.componentsJson(), "loot components")); entries.add(value);
-        }
-        result.add("entries", entries);
-        return result;
+        return LootTableDraftJson.encodeObject(type);
     }
 
     private static Map<String, LootType> immutable(Map<String, LootType> types) { return Collections.unmodifiableMap(new TreeMap<>(types)); }
@@ -174,14 +223,8 @@ public final class LootConfig {
             throw new IllegalArgumentException(field + " fields do not match schema (unknown=" + unknown + ", missing=" + missing + ")");
         }
     }
-    private static String string(JsonElement value, String field) { if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) throw new IllegalArgumentException(field + " must be a string"); return value.getAsString(); }
     private static int integer(JsonElement value, String field) {
         if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber() || !value.getAsString().matches("-?(0|[1-9][0-9]*)")) throw new IllegalArgumentException(field + " must be an integer");
         try { return Math.toIntExact(Long.parseLong(value.getAsString())); } catch (NumberFormatException | ArithmeticException exception) { throw new IllegalArgumentException(field + " is outside integer range", exception); }
-    }
-    private static double decimal(JsonElement value, String field) {
-        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) throw new IllegalArgumentException(field + " must be a number");
-        try { double result = Double.parseDouble(value.getAsString()); if (!Double.isFinite(result)) throw new IllegalArgumentException(field + " must be finite"); return result; }
-        catch (NumberFormatException exception) { throw new IllegalArgumentException(field + " must be a finite number", exception); }
     }
 }

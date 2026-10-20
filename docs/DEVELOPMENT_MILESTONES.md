@@ -15,7 +15,7 @@ Do not turn Core's flag-only event callbacks into implicit inventory/world mutat
 
 ## Delivery sequence and review gates
 
-**Current priority: CF-10 design review.** The operator rejects the accumulated menu after M8 and requests a full UI/command mockup before continuing. [CORE_UI_REDESIGN](CORE_UI_REDESIGN.md) audits current controls and reserves future library features; its implementation slices follow review. M9 ecology is not started during this preparation pass.
+**Current priority: approved CF-10 implementation.** [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md) defines the native menu/service slice on `feat/cf10-core-menu`, following the approved [design](CORE_UI_REDESIGN.md). Complete its checks and operator usability review before M9 ecology. Future game-format engines and actual Quiet Below station blocks are separate milestones.
 
 | Milestone | Result / work IDs | Dependencies | Evidence and review boundary |
 | --- | --- | --- | --- |

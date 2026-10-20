@@ -1,6 +1,6 @@
 # Chronicle menu redesign — design review
 
-Updated 20 October 2026 after operator review. CF-10. **Proposal and interactive mockup, not a deployed UI change.** The operator rejects the accumulated menu structure and requests a full library UI/command design before more implementation. This supersedes earlier screen-layout acceptance; it does not undo tested services or authorize a world-data reset. Branch: `design/core-menu-rework`.
+Approved 20 October 2026. CF-10. The operator approved this design and requested implementation. Branch `feat/cf10-core-menu` follows the approved mockup commit `e10f9d3`. [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md) records the actual native slice and remaining campaign work; [TEST_PLAN](TEST_PLAN.md) records validation. This document remains the full design contract, including future capabilities that are not installed by this slice.
 
 ## The organizing rule
 

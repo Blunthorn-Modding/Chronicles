@@ -20,6 +20,11 @@ import io.github.chronicle.core.server.Profiles;
 import io.github.chronicle.core.server.SessionPresentation;
 import io.github.chronicle.core.network.ProfilePayloads;
 import io.github.chronicle.core.network.AuthoringPreviewPayload;
+import io.github.chronicle.core.network.CoreMenuPayloads;
+import io.github.chronicle.core.server.CoreMenuServer;
+import io.github.chronicle.core.server.CoreMenuCommands;
+import io.github.chronicle.core.server.MapSiteAssignments;
+import io.github.chronicle.core.server.MenuPlayerDestinations;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -48,7 +53,7 @@ public final class ChronicleCore implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        AUTHORING.register(new AuthoringCatalog.Role("chronicle_core:arrival", "Arrival point", "A default oriented arrival location; saving it moves no players.", AuthoringCatalog.Kind.LOCATION));
+        AUTHORING.register(new AuthoringCatalog.Role("chronicle_core:arrival", "Starting position", "An optional oriented starting point; saving it moves no players.", AuthoringCatalog.Kind.LOCATION));
         AUTHORING.register(new AuthoringCatalog.Role("chronicle_core:respawn", "Respawn point", "A default oriented respawn location; saving it changes no vanilla respawn rules.", AuthoringCatalog.Kind.LOCATION));
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> ChronicleCommands.register(dispatcher));
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> Profiles.registerCommands(dispatcher));
@@ -56,6 +61,10 @@ public final class ChronicleCore implements ModInitializer {
         ProfilePayloads.register();
         AuthoringUiPayloads.register();
         AuthoringUi.register();
+        CoreMenuPayloads.register();
+        CoreMenuServer.register();
+        CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> CoreMenuCommands.register(dispatcher));
+        MenuPlayerDestinations.register();
         AuthoringPreviewPayload.register();
         Profiles.registerNetworking();
         ServerLifecycleEvents.SERVER_STARTING.register(server -> EVENTS.freeze());
@@ -65,6 +74,7 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(ChronicleRuntime::start);
         ServerLifecycleEvents.SERVER_STARTED.register(Profiles::start);
         ServerLifecycleEvents.SERVER_STARTED.register(AuthoringRuntime::start);
+        ServerLifecycleEvents.SERVER_STARTED.register(MapSiteAssignments::start);
         ChestAuthoring.register();
         TypedChestLoot.register();
         SpawnAuthoring.register();
@@ -79,6 +89,7 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPED.register(ChronicleRuntime::stop);
         ServerLifecycleEvents.SERVER_STOPPED.register(Profiles::stop);
         ServerLifecycleEvents.SERVER_STOPPED.register(AuthoringRuntime::stop);
+        ServerLifecycleEvents.SERVER_STOPPED.register(MapSiteAssignments::stop);
         ServerLifecycleEvents.SERVER_STOPPED.register(RuntimeHolds::stop);
         LOGGER.info("Chronicle Core initialized");
     }

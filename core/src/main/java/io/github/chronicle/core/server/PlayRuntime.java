@@ -120,7 +120,23 @@ public final class PlayRuntime {
 
     public static void reset(ServerCommandSource source, String id) throws IOException {
         requireAuthor(source);
-        write(source.getServer(), () -> service(source.getServer()).reset(id));
+        var delivery = service(source.getServer()).state().deliveries().get(id);
+        if (delivery == null) throw new IllegalStateException("observation delivery does not exist: " + id);
+        // Retain the old receipt before clearing it. A crash/failure between stores records a
+        // reset request, never a false claim that the reset completed or the cue was delivered.
+        Map<String, String> evidence = new LinkedHashMap<>();
+        evidence.put("priorStatus", delivery.status().name());
+        evidence.put("source", delivery.source().name());
+        evidence.put("actor", delivery.actor() == null ? "automatic" : delivery.actor().toString());
+        evidence.put("session", Integer.toString(delivery.session()));
+        evidence.put("elapsedTicks", Long.toString(delivery.elapsedTicks()));
+        for (int offset = 0; offset < delivery.recipients().size(); offset += 24) {
+            evidence.put("recipients." + offset / 24, delivery.recipients().subList(offset, Math.min(offset + 24, delivery.recipients().size())).toString());
+        }
+        write(source.getServer(), () -> {
+            ChronicleRuntime.service(source.getServer()).recordOperation(new io.github.chronicle.core.campaign.Actor(source.getName(), source.getPlayer().getUuidAsString()), "observation.reset.requested", id, evidence);
+            service(source.getServer()).reset(id);
+        });
     }
 
     public static void setParticipant(ServerCommandSource source, UUID player, boolean participating) throws IOException {

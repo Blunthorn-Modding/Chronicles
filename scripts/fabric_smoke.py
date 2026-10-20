@@ -105,14 +105,18 @@ def _client(w, launch, root, reports, name, label, variables):
         'soundCategory_master:0.0', ''
     ]), encoding='utf-8')
     jvm = [arg for arg in launch['jvmArgs'] if not arg.startswith(('-Xmx', '-Xms'))]
+    width = int(variables.get('CHRONICLE_MENU_WIDTH', '640'))
+    height = int(variables.get('CHRONICLE_MENU_HEIGHT', '480'))
+    if not 320 <= width <= 2560 or not 240 <= height <= 1440:
+        raise ValueError('Invalid disposable smoke window size')
     arguments = jvm + ['-Xms256M', '-Xmx2G', '-cp', os.pathsep.join(launch['classpath']),
                        launch['mainClass']] + launch['args'] + [
-                           '--username', name, '--gameDir', str(directory), '--width', '640', '--height', '480']
+                           '--username', name, '--gameDir', str(directory), '--width', str(width), '--height', str(height)]
     argfile = directory / 'java-arguments.txt'
     argfile.write_text('\n'.join(map(_java_arg, arguments)), encoding='utf-8')
     environment = w.env()
     for key in list(environment):
-        if key.startswith(('CHRONICLE_UI_', 'CHRONICLE_FABRIC_', 'CHRONICLE_CONTENT_', 'CHRONICLE_STAGE_', 'CHRONICLE_PILOT_')):
+        if key.startswith(('CHRONICLE_UI_', 'CHRONICLE_FABRIC_', 'CHRONICLE_CONTENT_', 'CHRONICLE_STAGE_', 'CHRONICLE_PILOT_', 'CHRONICLE_MENU_')):
             environment.pop(key)
     environment.update(variables)
     logfile = (reports / (label + '.log')).open('w', encoding='utf-8')

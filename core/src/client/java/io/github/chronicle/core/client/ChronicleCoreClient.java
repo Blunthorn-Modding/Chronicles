@@ -25,6 +25,7 @@ public final class ChronicleCoreClient implements ClientModInitializer {
     public void onInitializeClient() {
         AuthoringPreviewRenderer.register();
         AuthoringUiClient.register();
+        CoreMenuClient.register();
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.View.ID,
                 (payload, context) -> context.client().execute(() -> receiveView(context.client(), payload)));
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.Notice.ID,
@@ -32,6 +33,7 @@ public final class ChronicleCoreClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(ChronicleCoreClient::openOwnDossierWhenRequested);
         DossierVisualSmoke.registerIfRequested();
         FabricRegressionSmoke.register();
+        io.github.chronicle.core.client.testing.CoreMenuSmoke.register();
         ChronicleCore.LOGGER.info("Chronicle Core client initialized");
     }
 

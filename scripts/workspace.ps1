@@ -1,6 +1,6 @@
 param(
     [Parameter(Position=0)]
-    [ValidateSet('setup','build','deploy','start','smoke','content-smoke','stage-smoke','legacy-smoke','backup','restore','pack','doctor','client','verify','pilot-prepare','pilot-start','pilot-smoke','pilot-promote','pilot-backup')]
+    [ValidateSet('setup','build','deploy','start','smoke','content-smoke','menu-smoke','stage-smoke','legacy-smoke','backup','restore','pack','doctor','client','verify','pilot-prepare','pilot-start','pilot-smoke','pilot-promote','pilot-backup')]
     [string]$Action = 'doctor',
     [switch]$AcceptEula,
     [string]$Archive

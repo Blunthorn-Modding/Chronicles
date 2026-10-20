@@ -24,6 +24,21 @@ class CampaignServiceTest {
     Path temporaryDirectory;
 
     @Test
+    void administrativeEvidencePersistsWithoutChangingProgress() throws IOException {
+        CampaignService service = service(new CampaignEvents());
+        service.start(GM, null);
+        service.setFlag(GM, "quiet:ready", true);
+        service.pause(GM);
+        var prior = service.state();
+        service.recordOperation(GM, "observation.reset.requested", "quiet:bell", Map.of("priorStatus", "DELIVERED", "recipients.0", "[123e4567-e89b-12d3-a456-426614174000]"));
+        assertEquals(prior.phase(), service.state().phase());
+        assertEquals(prior.flags(), service.state().flags());
+        assertEquals(prior.completedEvents(), service.state().completedEvents());
+        assertEquals("observation.reset.requested", service.state().history().getLast().action());
+        assertEquals(service.state(), service(new CampaignEvents()).state());
+    }
+
+    @Test
     void lifecycleAllowsOnlyExpectedTransitionsAndAuditsThem() throws IOException {
         CampaignService service = service(new CampaignEvents());
 

@@ -188,7 +188,8 @@ public final class SpawnAuthoring {
     private record Preview(String purpose, AuthoringSite.Location location, io.github.chronicle.core.spawn.SpawnBinding binding, int sessionNumber, long createdAt) { }
     private static final class Runtime { final SpawnService service; final Map<PreviewKey, Preview> previews = new HashMap<>(); Runtime(SpawnService service) { this.service = service; } }
     private static ServerWorld world(MinecraftServer server, String dimension) { try { return server.getWorld(RegistryKey.of(RegistryKeys.WORLD, Identifier.of(dimension))); } catch (IllegalArgumentException ignored) { return null; } }
-    private static final class MinecraftWorld implements SpawnDestinationValidator.World {
+    /** Package-visible adapter so menu actions use the same loaded-world safety checks as spawn commands. */
+    static final class MinecraftWorld implements SpawnDestinationValidator.World {
         private final MinecraftServer server; MinecraftWorld(MinecraftServer server) { this.server = server; }
         @Override public boolean hasDimension(String dimension) { return world(server, dimension) != null; }
         @Override public boolean isChunkLoaded(String dimension, int x, int z) { ServerWorld world = world(server, dimension); return world != null && world.getChunkManager().isChunkLoaded(x >> 4, z >> 4); }

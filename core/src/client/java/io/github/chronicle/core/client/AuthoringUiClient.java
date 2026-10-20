@@ -32,6 +32,12 @@ public final class AuthoringUiClient {
     private static void tick(MinecraftClient client) {
         while (OPEN_KEY.wasPressed()) {
             if (client.player == null) return;
+            if (ClientPlayNetworking.canSend(io.github.chronicle.core.network.CoreMenuPayloads.Request.ID)) {
+                ClientPlayNetworking.send(new io.github.chronicle.core.network.CoreMenuPayloads.Request(
+                        io.github.chronicle.core.menu.CoreMenuModel.Action.OPEN,
+                        io.github.chronicle.core.menu.CoreMenuModel.Page.SESSION, "", "", 0, 0, "", ""));
+                return;
+            }
             if (!ClientPlayNetworking.canSend(AuthoringUiPayloads.Request.ID)) {
                 chat(client, "Authoring UI is unavailable on this server.");
                 return;

@@ -1,5 +1,7 @@
 # M7 revision: typed loot chests
 
+> 20 October 2026: CF-10 adds the native **Loot Tables** editor: Add item searches the real registry, each entry has independent chance/min/max, and Save writes the complete table after review. **Chests** manages physical bindings separately. JSON remains supported, including custom types/components; stale/outside edits require reload. Saving never fills a chest. See [the current implementation](CF10_IMPLEMENTATION.md).
+
 Operator feedback, 19 October 2026: bounding outlines and registered chat choices are accepted. Capturing an inventory and separately binding an anchor/template is rejected as the main loot workflow. Core owns chest types and distributions; campaigns register default types, loot chances and recommended counts, with server JSON overrides.
 
 Confirmed choices: independent chance per entry; fill on each new session, with optional refill every X active minutes; **replace all contents of bound loot chests** at each scheduled fill. These are managed loot containers, not player storage. No mandatory event timetable or ecology is introduced.

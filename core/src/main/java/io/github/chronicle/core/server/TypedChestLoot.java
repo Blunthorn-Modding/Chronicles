@@ -94,20 +94,47 @@ public final class TypedChestLoot {
 
     private static Path configPath() { return FabricLoader.getInstance().getConfigDir().resolve("chronicle/chest-loot.json"); }
     private static void load(MinecraftServer server) throws IOException {
-        Map<String, LootType> candidate = new LootConfig(configPath()).loadOrCreate(ChronicleCore.chestTypes().types());
-        for (LootType type : candidate.values()) for (var entry : type.entries()) {
-            if (!Registries.ITEM.containsId(Identifier.of(entry.item()))) throw new IllegalArgumentException("Unknown loot item in " + type.id() + ": " + entry.item());
-            ItemStack stack = ChestAuthoring.decode(server, new InventorySnapshot(1, List.of(stackJson(entry.item(), entry.maxCount(), entry.componentsJson())))).getFirst();
-            if (stack.isEmpty() || stack.getCount() > stack.getMaxCount()) throw new IllegalArgumentException("Invalid loot count/components in " + type.id() + ": " + entry.item());
-        }
+        LootConfig config = new LootConfig(configPath());
+        Map<String, LootType> candidate = config.loadOrCreate(ChronicleCore.chestTypes().types());
+        validateTypes(server, candidate);
         Runtime previous = WORLDS.get(server);
-        Runtime runtime = new Runtime(candidate, previous == null ? ChestAuthoring.service(server).state().schedule() : previous.schedule);
+        Runtime runtime = new Runtime(config, candidate, previous == null ? ChestAuthoring.service(server).state().schedule() : previous.schedule);
         WORLDS.put(server, runtime);
         RuntimeHolds.release(server, HOLD);
         ChronicleCore.LOGGER.info("Chronicle loot types ready: {} types from {}", candidate.size(), configPath());
     }
 
+    private static void validateTypes(MinecraftServer server, Map<String, LootType> candidate) {
+        for (LootType type : candidate.values()) for (var entry : type.entries()) {
+            if (!Registries.ITEM.containsId(Identifier.of(entry.item()))) throw new IllegalArgumentException("Unknown loot item in " + type.id() + ": " + entry.item());
+            ItemStack stack = ChestAuthoring.decode(server, new InventorySnapshot(1, List.of(stackJson(entry.item(), entry.maxCount(), entry.componentsJson())))).getFirst();
+            if (stack.isEmpty() || stack.getCount() > stack.getMaxCount()) throw new IllegalArgumentException("Invalid loot count/components in " + type.id() + ": " + entry.item());
+        }
+    }
+
     public static Map<String, LootType> types(MinecraftServer server) { return runtime(server).types; }
+
+    /**
+     * Saves one full loot-table definition from the authoring UI. This leaves typed chest
+     * bindings, refill cycles and receipts alone; only the effective type catalog is published
+     * after the durable config replacement has succeeded.
+     */
+    public static void saveType(ServerCommandSource source, LootType replacement, LootType expected) throws IOException {
+        if (!source.hasPermissionLevel(2)) throw new IllegalStateException("Loot chest authoring requires operator permission level 2.");
+        requireAuthor(source);
+        if (replacement == null || expected == null) throw new IllegalArgumentException("replacement and expected loot tables are required");
+        if (!replacement.id().equals(expected.id())) throw new IllegalArgumentException("Loot table id cannot change while editing");
+        Runtime runtime = runtime(source.getServer());
+        if (!expected.equals(runtime.types.get(expected.id()))) {
+            throw new IllegalStateException("Loot table changed since this editor opened; reopen it before saving");
+        }
+        TreeMap<String, LootType> candidate = new TreeMap<>(runtime.types);
+        candidate.put(replacement.id(), replacement);
+        validateTypes(source.getServer(), candidate);
+        Map<String, LootType> saved = runtime.config.replaceType(replacement, expected);
+        // Do not publish a candidate before the config and its valid backup are durable.
+        runtime.types = saved;
+    }
 
     private static Runtime runtime(MinecraftServer server) {
         Runtime result = WORLDS.get(server);
@@ -299,12 +326,17 @@ public final class TypedChestLoot {
         return stack.toString();
     }
     private static final class Runtime {
-        final Map<String, LootType> types;
+        final LootConfig config;
+        Map<String, LootType> types;
         LootSchedule schedule;
         int cursor;
         long lastBatchTick = -20;
         final Map<String, String> problems = new HashMap<>();
-        Runtime(Map<String, LootType> types, LootSchedule schedule) { this.types = types; this.schedule = schedule; }
+        Runtime(LootConfig config, Map<String, LootType> types, LootSchedule schedule) {
+            this.config = config;
+            this.types = types;
+            this.schedule = schedule;
+        }
     }
     private record Prepared(PendingChestOperation operation, ChestAuthoring.ResolvedTarget target, List<ItemStack> stacks) { }
     @FunctionalInterface private interface Operation { String run() throws IOException; }
