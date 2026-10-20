@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Ecology protection policy - 20 October 2026
+
+The operator answered **"Nothing is protected."** Natural terrain, the handcrafted map and new player placements use the same material/surface rules. Do not add building immunity, placement tracking or protected-region requirements. Exposed native substrate can become sculk; other solid materials can support veins. An actual closed passage blocks new air-frontier discovery; an already living branch must also be physically severed. This confirms protection policy, not balance/vitality thresholds. [M9 implementation](M9_IMPLEMENTATION.md) defines the first review slice and remaining M9 work.
+
 ## Hidden factions and actionable authoring mockup — 20 October 2026
 
 The operator clarifies that Werewolf is the family of hidden-faction games, including Vampire SMP, not an obligatory tabletop round/vote structure. Preserve private membership/knowledge/actions as the foundation; voting, phases, elimination and win rules are separate opt-in tools. [Campaign formats](CAMPAIGN_FORMATS.md), CF-03 and the UI future-reference copy now reflect this.
