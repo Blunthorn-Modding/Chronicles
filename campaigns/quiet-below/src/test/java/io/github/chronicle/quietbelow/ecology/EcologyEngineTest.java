@@ -97,10 +97,53 @@ class EcologyEngineTest {
             ticks(e,w,true,1);assertFalse(e.owns(grown));assertEquals(STONE,w.get(grown));
         }
     }
-    @Test void replacementScuIkDoesNotRestorePrunedOwnership() throws Exception {
+    @Test void replacementSculkRestoresAPrunedPhysicalConnection() throws Exception {
         World w=new World();try(var j=new EcologyJournal(dir.resolve("placement.jsonl"))){
-            EcologyEngine e=ready(j,w);ticks(e,w,true,1);e.observed(SOURCE,AIR);w.blocks.put(SOURCE,SCULK);e.observed(SOURCE,SCULK);
-            ticks(e,w,true,100);assertFalse(e.owns(SOURCE));assertTrue(e.view().connected()==0);
+            EcologyEngine e=ready(j,w);ticks(e,w,true,300);
+            for(var c:e.cells())if(EcologyTerrain.connected(HEART,SCULK,c.position(),c.after())){w.blocks.put(c.position(),AIR);e.observed(c.position(),AIR);}
+            ticks(e,w,true,20);assertEquals(0,e.view().connected());
+            w.blocks.put(SOURCE,SCULK);e.observed(SOURCE,SCULK);
+            ticks(e,w,false,100);assertFalse(e.owns(SOURCE),"paused play cannot reconnect");
+            ticks(e,w,true,100);assertTrue(e.owns(SOURCE));assertTrue(e.rooted(SOURCE));
+            assertTrue(e.view().connected()>1,"restored bridge wakes the retained branch");
+            assertTrue(j.entries().stream().anyMatch(entry->entry.type().equals("CONNECT")));
+        }
+    }
+    @Test void joinsOnlyPhysicalContactAndPreservesItAcrossReplay() throws Exception {
+        World w=new World();Path file=dir.resolve("join-replay.jsonl");Pos bridge=new Pos(1,0,0),remote=new Pos(10,0,0),corner=new Pos(-2,1,1);
+        try(var j=new EcologyJournal(file)){
+            EcologyEngine e=ready(j,w);ticks(e,w,true,1);
+            w.blocks.put(bridge,SCULK);w.blocks.put(remote,SCULK);w.blocks.put(corner,SCULK);
+            e.mode(false);ticks(e,w,true,100);assertFalse(e.owns(bridge));
+            e.mode(true);ticks(e,w,true,2);
+            assertTrue(e.owns(bridge));assertFalse(e.owns(remote));assertFalse(e.owns(corner));
+            assertEquals(AIR,e.cells().stream().filter(c->c.position().equals(bridge)).findFirst().orElseThrow().before());
+        }
+        try(var j=new EcologyJournal(file)){
+            EcologyEngine e=new EcologyEngine(j);e.attach(PINS,AREA,HEART);ticks(e,w,true,2);
+            assertTrue(e.rooted(bridge));assertFalse(e.owns(remote));
+        }
+    }
+    @Test void reconnectionDoesNotReadUnloadedBlocksOrJoinDuringAnUnknownNetwork() throws Exception {
+        World w=new World();try(var j=new EcologyJournal(dir.resolve("join-unloaded.jsonl"))){
+            EcologyEngine e=ready(j,w);ticks(e,w,true,1);Pos bridge=new Pos(1,0,0);w.blocks.put(bridge,SCULK);
+            w.unloaded.add(0);ticks(e,w,true,20);assertFalse(e.owns(bridge));
+            w.unloaded.clear();ticks(e,w,true,10);assertTrue(e.rooted(bridge));
+        }
+    }
+    @Test void physicalJoinsShareTheNativeBudgetAndRebuildAfterRootAvailabilityChanges() throws Exception {
+        World w=new World();try(var j=new EcologyJournal(dir.resolve("join-budget.jsonl"))){
+            EcologyEngine e=ready(j,w);ticks(e,w,true,1);
+            for(int x=0;x<8;x++)for(int y=0;y<4;y++)for(int z=-2;z<3;z++)w.blocks.put(new Pos(x,y,z),SCULK);
+            long before=j.revision();e.beginTick();
+            for(int i=0;i<EcologyEngine.MAX_WRITES;i++)assertTrue(e.reserveNativeLoss());
+            e.tick(w,true);assertEquals(before,j.revision(),"joins cannot bypass a busy native mutation budget");
+            for(int i=0;i<30;i++){
+                before=j.revision();e.beginTick();w.reads=0;e.tick(w,true);
+                assertTrue(j.revision()-before<=EcologyEngine.MAX_WRITES);assertTrue(w.reads<=4096);
+            }
+            assertTrue(e.view().owned()>1);e.invalidateConnections();assertFalse(e.rooted(SOURCE));
+            ticks(e,w,true,20);assertTrue(e.rooted(SOURCE));assertNull(e.failure());
         }
     }
     @Test void journalFailurePreventsWorldWrites() throws Exception {

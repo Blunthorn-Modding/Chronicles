@@ -1,19 +1,27 @@
 # Surface ecology review
 
-Use **dev.14** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in your existing matching Fabric profile. This build adds a menu action, so update both client mods.
+Use **dev.15** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in your existing matching Fabric profile. The dev.15 pack contains the repaired reconnection behavior. The existing dev.14 client also supports these generic tool controls and private outlines.
 
 Join **`localhost:25585`** for the disposable ecology map. `localhost:25565` remains your usual map, with ecology unconfigured/disabled. Both servers keep authentication and the whitelist; SchinderRenge remains an operator.
 
 ## Start the experiment
 
-1. Enter the lit viewing gallery beside the glass. The copied test corridor already contains some living growth; the world starts paused.
+1. Enter the lit viewing gallery beside the glass. Your previous review geometry/history is preserved. In **Game setup > Sculk ecology**, choose **Show root**, then close the menu. The temporary Heart at **0, 64, 1** has a private outline; **Hide root** removes it.
 2. Press **O**, open **Players**, select your account and **Add participation**. `/chronicles join` is the shortcut.
 3. Open **Session**, select the play controls and **Resume play**.
-4. Open **Game setup > Sculk ecology** for status and **Refresh status**. The network is already indexed and enabled in this disposable copy. Session pause freezes it; **Disable growth** stops this campaign's ecology while retaining terrain/history.
+4. Open **Game setup > Sculk ecology** for status and **Refresh status**. The existing review network is indexed and enabled. Freshly prepared copies are indexed with growth disabled: while paused, enable editing and choose Enable growth, then resume play. Session pause freezes it; **Disable growth** stops this campaign's ecology while retaining terrain/history.
 
-The glass is a physical boundary, not a protected region. Open it or another passage to allow a real new route. Stone can become sculk; wood and other non-substrate solids can carry veins. Try pruning a branch and sealing its passage. Remove all living surface connections when cutting a branch; a wall does not erase a branch that is already connected beyond it. Keep the source connected if you want to observe continued expansion.
+The glass is a physical boundary, not a protected region. Open it or another passage to allow a real new route. Stone can become sculk; wood and other non-substrate solids can carry veins. Try pruning a branch and sealing its passage. Remove all living surface connections when cutting a branch; a wall does not erase a branch that is already connected beyond it. A detached branch stays dormant. Place sculk across the cut to reconnect it: it joins through physical contact with the Heart or living network during occupied active play. There is no catalyst range or expansion-node chain. Refresh status shows connected/detached counts and the current reason growth is waiting. Your previously replaced bridge is left intact and should reconnect naturally on resumed eligible play.
 
 Review whether the visible progression and effects of opening/sealing/pruning feel coherent. Rates and tier thresholds are technical defaults. The reinforced-deepslate source anchor is temporary: actual Heart/Forge/Altar blocks, crop benefits/costs and the Heart ending are following milestones. M9 still needs gradual vitality/decline, configuration, large-city balance/soak and a complete vanilla Warden rehearsal before production activation.
+
+## Ownership tools
+
+Campaign catalysts no longer use deaths/XP to spread or sustain growth. This applies throughout the configured Heart dimension, so an unowned catalyst cannot create a second growth source while waiting for adoption/cleanup.
+
+To preserve existing sculk elsewhere, pause play and enable editing. Create/select a saved region through Core's **Regions** page, assign it to **Game setup > Sculk takeover region**, then open **Sculk ownership > Take over region**. Keep its chunks normally loaded until status reports completion. Detached adopted patches stay dormant until physically linked. You can stop a takeover, retaining cells already adopted, or assign another region and repeat.
+
+**Delete non-campaign sculk** enables optional persistent cleanup throughout the Heart's dimension. Adopt sculk to preserve first. It deletes non-campaign sculk, veins, catalysts, sensors and shriekers during occupied active play, including later-loaded chunks/new stray placements. It is off in your review world. **Stop sculk cleanup** stops future deletions; it does not undo prior deletions. Other dimensions remain unchanged. Cleanup waits for unfinished takeover work and never force-loads chunks.
 
 ## Local operation
 

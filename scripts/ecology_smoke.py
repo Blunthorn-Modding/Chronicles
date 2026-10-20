@@ -60,7 +60,7 @@ def run():
             server = None
             server_log.close()
             server_log = None
-            if phase == 'initial':
+            if phase == 'restart':
                 shutil.copytree(root / 'world', root / 'review-world')
             report['checks'].append(phase + ': native client ecology fixture passed and server saved cleanly')
         report['result'] = 'PASS'

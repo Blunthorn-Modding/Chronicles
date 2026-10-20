@@ -42,7 +42,8 @@ abstract class SculkCatalystListenerMixin {
             return;
         }
         BlockPos pos = BlockPos.ofFloored(source.get());
-        if (handler.owns(world, pos) && !handler.active(world, pos)) {
+        // The campaign ecology is the only growth system; deaths/XP never feed its catalysts.
+        if (handler.managesCatalyst(world, pos)) {
             callback.setReturnValue(false);
         }
     }

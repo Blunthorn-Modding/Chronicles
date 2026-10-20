@@ -20,9 +20,9 @@ public final class EcologyEngine {
     public record Area(Pos min, Pos max) {
         public Area {
             if(min.x()>max.x() || min.y()>max.y() || min.z()>max.z() || volume(min,max)>MAX_SOURCE_VOLUME)
-                throw new IllegalArgumentException("Source region exceeds ecology indexing bounds");
+                throw new IllegalArgumentException("Sculk region exceeds ecology indexing bounds");
             long chunks=((long)(max.x()>>4)-(min.x()>>4)+1)*((long)(max.z()>>4)-(min.z()>>4)+1);
-            if(chunks>256) throw new IllegalArgumentException("Source city may span at most 256 chunks in this review build");
+            if(chunks>256) throw new IllegalArgumentException("Sculk region may span at most 256 chunks in this review build");
         }
         private static long volume(Pos a,Pos b) {
             try { return Math.multiplyExact(Math.multiplyExact((long)b.x()-a.x()+1,(long)b.y()-a.y()+1),(long)b.z()-a.z()+1); }
@@ -31,6 +31,9 @@ public final class EcologyEngine {
         boolean contains(Pos p) { return p.x()>=min.x()&&p.x()<=max.x()&&p.y()>=min.y()&&p.y()<=max.y()&&p.z()>=min.z()&&p.z()<=max.z(); }
     }
     public record Cell(Pos position, State before, State after, boolean adopted) { }
+    public record Claim(String site,long revision,Area area,boolean complete,Map<Long,Integer> cursors) {
+        public Claim { cursors=Map.copyOf(cursors); }
+    }
     public record View(boolean configured, boolean indexed, boolean enabled, String hold, int owned,
                        int connected, int frontier, int completedChunks, int totalChunks, boolean unresolved,
                        String extent, long revision, long journalBytes) { }
@@ -50,6 +53,10 @@ public final class EcologyEngine {
     private long generation;
     private long graphGeneration=-1;
     private Iterator<Pos> validation;
+    private Iterator<Pos> contactScan;
+    private final Set<Pos> pendingContacts=new LinkedHashSet<>();
+    private Claim claim;
+    private boolean cleanup;
     private ArrayDeque<Pos> graph;
     private Set<Pos> visiting=new HashSet<>(), connected=new HashSet<>();
     private boolean graphUnknown,unresolved=true,validationUnknown,validated,extending;
@@ -65,7 +72,54 @@ public final class EcologyEngine {
     public boolean rooted(Pos p) { return connected.contains(p) && !unresolved && (graph==null||extending) && graphGeneration==generation; }
     public boolean enabled() { return enabled && failure==null; }
     public String failure() { return failure; }
+    public Claim claim() { return claim; }
+    public boolean cleanup() { return cleanup; }
+    public int writeBudgetRemaining() { return MAX_WRITES-writes; }
+    public void noticeContact(Pos p) { if(pendingContacts.size()<MAX_CELLS)pendingContacts.add(p); }
+    public void cleanup(boolean on) throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing first");
+        JsonObject p=new JsonObject();p.addProperty("enabled",on);record("CLEANUP_MODE",p);
+    }
+    public void claim(String site,long revision,Area area) throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing first");
+        if(claim!=null&&!claim.complete)throw new IllegalStateException("Finish or cancel the current region takeover first");
+        JsonObject p=new JsonObject();p.addProperty("site",site);p.addProperty("revision",revision);p.add("min",pos(area.min));p.add("max",pos(area.max));record("CLAIM_START",p);
+    }
+    public void cancelClaim() throws IOException {healthy();if(claim!=null&&!claim.complete)record("CLAIM_DONE",new JsonObject());}
+    /** Explicit metadata preparation. Preserve already-owned cells and their original history. */
+    public void claimTick(EcologyTerrain w) throws IOException {
+        healthy();if(claim==null||claim.complete)return;
+        Area a=claim.area;
+        for(int cx=a.min.x()>>4;cx<=a.max.x()>>4;cx++)for(int cz=a.min.z()>>4;cz<=a.max.z()>>4;cz++) {
+            int size=chunkSize(a,cx,cz),cursor=claim.cursors.getOrDefault(chunk(cx,cz),0);
+            if(cursor==size||!w.loaded(at(a,cx,cz,cursor)))continue;
+            JsonArray adopted=new JsonArray(),fronts=new JsonArray();Set<Pos> addedAir=new HashSet<>();int reads=0;
+            while(cursor<size&&reads++<INDEX_READS&&adopted.size()<64) {
+                Pos p=at(a,cx,cz,cursor++);State s=w.get(p);if(!s.network()||owns(p))continue;
+                if(cells.size()+adopted.size()>=MAX_CELLS)throw capacity("Region takeover exceeds owned-cell capacity");
+                JsonObject c=new JsonObject();c.add("p",pos(p));c.add("after",state(s));c.add("cleanup",state(AIR));adopted.add(c);
+                for(int f=0;f<6;f++){Pos air=p.offset(f);if(w.loaded(air)&&w.get(air).air()&&!airSet.contains(air)&&addedAir.add(air))fronts.add(pos(air));}
+            }
+            JsonObject p=new JsonObject();p.addProperty("chunkX",cx);p.addProperty("chunkZ",cz);p.addProperty("cursor",cursor);p.add("cells",adopted);p.add("air",fronts);record("CLAIM_SCAN",p);return;
+        }
+        boolean done=true;
+        for(int cx=a.min.x()>>4;cx<=a.max.x()>>4;cx++)for(int cz=a.min.z()>>4;cz<=a.max.z()>>4;cz++)
+            done&=claim.cursors.getOrDefault(chunk(cx,cz),0)==chunkSize(a,cx,cz);
+        if(done)record("CLAIM_DONE",new JsonObject());
+    }
+    /** Never delete a contact waiting to join the living network. No distant patch is protected. */
+    public boolean purge(EcologyTerrain w,Pos p,boolean playing) throws IOException {
+        healthy();if(!cleanup||!playing||owns(p)||!w.loaded(p))return false;
+        State before=w.get(p);if(!before.network())return false;
+        if((heart!=null&&EcologyTerrain.connected(heart,SCULK,p,before))||touchesRooted(p,before)){noticeContact(p);return false;}
+        if(writes>=MAX_WRITES)return false;
+        JsonObject payload=new JsonObject();payload.add("p",pos(p));payload.add("before",state(before));record("PURGE",payload);writes++;
+        if(!w.set(p,AIR)) {cleanup(false);if(enabled)mode(false);fail("A journaled sculk cleanup write failed; cleanup disabled. Inspect the world before continuing.");throw new IOException(failure);}
+        return true;
+    }
     public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason); controlRevision++; } }
+    /** A reversible missing/unloaded Heart is not a journal failure. Recertify after it returns. */
+    public void invalidateConnections() { unresolved=true;generation++;controlRevision++;contactScan=null; }
 
     /** Geometry comes from Core's exact saved-site revisions, never a second editable geometry store. */
     public void attach(Setup pins, Area source, Pos heart) {
@@ -112,7 +166,7 @@ public final class EcologyEngine {
             total++; if(cursors.getOrDefault(chunk(cx,cz),0)==chunkSize(cx,cz)) done++;
         }
         boolean uncertain=unresolved||graph!=null||graphGeneration!=generation;
-        String extent=uncertain?"Unresolved":connected.size()>=2048?"Extensive":connected.size()>=256?"Established":"Rooted";
+        String extent=uncertain?"Unresolved":connected.isEmpty()?"Disconnected":connected.size()>=2048?"Extensive":connected.size()>=256?"Established":"Rooted";
         return new View(setup!=null,indexed,enabled,failure,cells.size(),connected.size(),air.size(),done,total,
                 uncertain,extent,controlRevision,journal.bytes());
     }
@@ -152,11 +206,49 @@ public final class EcologyEngine {
         if(!playing||!enabled()||!indexed||area==null) { clock=0;growthInterval=20;return; }
         reconcile(w);
         topology(w);
-        if(unresolved || graph!=null || connected.isEmpty()) return;
+        if(unresolved || graph!=null) return;
+        connectPlacedSculk(w);
+        if(graph!=null || connected.isEmpty()) return;
         if(writes>=MAX_WRITES)return; // A busy native tick waits; it is not a persistence/capacity fault.
         if(++clock<growthInterval) return;
         clock=0;
         grow(w);
+    }
+    /** Existing sculk joins only through real contact with the Heart/certified living network.
+     * Read at most 33 x 18 neighbour positions and append at most MAX_WRITES per tick.
+     * No terrain is changed; the explicit cleanup baseline does not invent prior terrain. */
+    private void connectPlacedSculk(EcologyTerrain w) throws IOException {
+        if(heart==null||!w.loaded(heart))return;
+        connectNeighbours(w,heart,SCULK);
+        for(int n=0;n<32&&!pendingContacts.isEmpty()&&writes<MAX_WRITES;n++) {
+            Pos p=pendingContacts.iterator().next();pendingContacts.remove(p);
+            if(owns(p)||!w.loaded(p))continue;State actual=w.get(p);
+            if(actual.network()&&((EcologyTerrain.connected(heart,SCULK,p,actual))||touchesRooted(p,actual)))connect(w,p,actual);
+        }
+        if(contactScan==null||!contactScan.hasNext())contactScan=new ArrayList<>(cells.keySet()).iterator();
+        for(int n=0;n<32&&contactScan.hasNext()&&writes<MAX_WRITES;n++) {
+            Pos p=contactScan.next();Cell c=cells.get(p);
+            if(c!=null&&rooted(p)&&w.loaded(p))connectNeighbours(w,p,c.after);
+        }
+    }
+    private void connectNeighbours(EcologyTerrain w,Pos origin,State originState) throws IOException {
+        for(int dx=-1;dx<=1&&writes<MAX_WRITES;dx++)for(int dy=-1;dy<=1&&writes<MAX_WRITES;dy++)for(int dz=-1;dz<=1&&writes<MAX_WRITES;dz++) {
+            int distance=Math.abs(dx)+Math.abs(dy)+Math.abs(dz);if(distance==0||distance>2)continue;
+            Pos p=origin.add(dx,dy,dz);
+            if(p.equals(heart)||cells.containsKey(p)||!w.loaded(p))continue;
+            State actual=w.get(p);
+            if(!actual.network()||!EcologyTerrain.connected(origin,originState,p,actual))continue;
+            connect(w,p,actual);
+        }
+    }
+    private void connect(EcologyTerrain w,Pos p,State actual) throws IOException {
+            if(cells.size()>=MAX_CELLS)throw capacity("Owned-cell capacity reached");
+            JsonArray fronts=new JsonArray();
+            for(int f=0;f<6;f++) {Pos a=p.offset(f);if(w.loaded(a)&&w.get(a).air())fronts.add(pos(a));}
+            if(air.size()+fronts.asList().stream().map(EcologyEngine::position).filter(a->!airSet.contains(a)).distinct().count()>MAX_AIR)
+                throw capacity("Surface frontier capacity reached");
+            JsonObject payload=new JsonObject();payload.add("p",pos(p));payload.add("after",state(actual));payload.add("cleanup",state(AIR));payload.add("air",fronts);
+            record("CONNECT",payload);writes++;
     }
     private void reconcile(EcologyTerrain w) throws IOException {
         if(validation==null) {
@@ -183,8 +275,9 @@ public final class EcologyEngine {
         if(graph==null || graphGeneration!=generation) {
             graphGeneration=generation; graph=new ArrayDeque<>(); visiting=new HashSet<>(); graphUnknown=false;extending=false;
             if(heart==null||!w.loaded(heart)) { graphUnknown=true; }
-            else for(int f=0;f<6;f++) {
-                Pos p=heart.offset(f); Cell c=cells.get(p);
+            else for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)for(int dz=-1;dz<=1;dz++) {
+                int distance=Math.abs(dx)+Math.abs(dy)+Math.abs(dz);if(distance==0||distance>2)continue;
+                Pos p=heart.add(dx,dy,dz); Cell c=cells.get(p);
                 if(c!=null && EcologyTerrain.connected(heart,SCULK,p,c.after) && visiting.add(p)) graph.add(p);
             }
         }
@@ -305,7 +398,7 @@ public final class EcologyEngine {
     }
     /** Native loss is an observation of already-journaled terrain, sharing the mutation budget. */
     public boolean reserveNativeLoss(){if(!enabled()||writes>=MAX_WRITES)return false;writes++;return true;}
-    /** Outside writes can prune ownership, but can never adopt placed sculk. */
+    /** Outside writes prune ownership immediately. Physical contact scans reconnect placed sculk. */
     public void observed(Pos p,State actual) throws IOException {
         Cell c=cells.get(p);
         if(c==null||c.after.sameOwnedShape(actual))return;
@@ -361,6 +454,30 @@ public final class EcologyEngine {
                 if(old!=null&&!old.after.sameOwnedShape(before))throw bad("Discontinuous owned-cell transition");
                 validateFronts(array(p,"air",12));
             }
+            case "CONNECT" -> {
+                requireSetup();if(!indexed||!enabled)throw bad("Connection before enable");keys(p,"p","after","cleanup","air");
+                Pos at=position(p.get("p"));
+                if(cells.containsKey(at)||cells.size()>=MAX_CELLS||!block(p.get("after")).network()||!block(p.get("cleanup")).equals(AIR))throw bad("Invalid connected cell");
+                validateFronts(array(p,"air",6));
+            }
+            case "CLEANUP_MODE" -> {requireSetup();keys(p,"enabled");bool(p,"enabled");if(!indexed)throw bad("Cleanup before indexing");}
+            case "PURGE" -> {requireSetup();keys(p,"p","before");if(!cleanup||owns(position(p.get("p")))||!block(p.get("before")).network())throw bad("Invalid cleanup intent");}
+            case "CLAIM_START" -> {
+                requireSetup();keys(p,"site","revision","min","max");
+                if(!indexed||(claim!=null&&!claim.complete)||!string(p,"site").matches("[a-z][a-z0-9_]{0,63}(?::[a-z][a-z0-9_]{0,63})?")||number(p,"revision")<1)throw bad("Invalid takeover start");
+                new Area(position(p.get("min")),position(p.get("max")));
+            }
+            case "CLAIM_SCAN" -> {
+                keys(p,"chunkX","chunkZ","cursor","cells","air");if(claim==null||claim.complete)throw bad("No running takeover");
+                int cx=integer(p,"chunkX"),cz=integer(p,"chunkZ"),end=integer(p,"cursor"),start=claim.cursors.getOrDefault(chunk(cx,cz),0);
+                Area a=claim.area;
+                if(cx<(a.min.x()>>4)||cx>(a.max.x()>>4)||cz<(a.min.z()>>4)||cz>(a.max.z()>>4)||end<=start||end-start>INDEX_READS||end>chunkSize(a,cx,cz))throw bad("Invalid takeover cursor");
+                Set<Pos> scanned=new HashSet<>(),seen=new HashSet<>();for(int n=start;n<end;n++)scanned.add(at(a,cx,cz,n));
+                JsonArray entries=array(p,"cells",64);if(cells.size()+entries.size()>MAX_CELLS)throw bad("Too many takeover cells");
+                for(JsonElement item:entries){JsonObject c=object(item);keys(c,"p","after","cleanup");Pos at=position(c.get("p"));if(!scanned.contains(at)||owns(at)||!seen.add(at)||!block(c.get("after")).network()||!block(c.get("cleanup")).equals(AIR))throw bad("Invalid takeover cell");}
+                validateFronts(array(p,"air",384));
+            }
+            case "CLAIM_DONE" -> {keys(p);if(claim==null||claim.complete)throw bad("No running takeover");}
             case "REMOVE" -> {requireSetup();keys(p,"p");if(!cells.containsKey(position(p.get("p"))))throw bad("Unknown removed cell");}
             case "OBSERVE" -> {
                 requireSetup();keys(p,"p","after");Cell c=cells.get(position(p.get("p")));State after=block(p.get("after"));
@@ -395,14 +512,24 @@ public final class EcologyEngine {
             }
             case "INDEX_COMPLETE" -> { requireSetup();keys(p);if(indexed) throw bad("Duplicate index completion");indexed=true;controlRevision++; }
             case "MODE" -> { requireSetup();keys(p,"enabled");boolean on=bool(p,"enabled");if(on&&(!indexed||cells.isEmpty())) throw bad("Enabled incomplete network");enabled=on;controlRevision++; }
-            case "GROW" -> {
-                requireSetup();if(!indexed||!enabled) throw bad("Growth before enable");keys(p,"p","before","after","air");
-                Pos at=position(p.get("p"));State before=block(p.get("before")),after=block(p.get("after"));
+            case "CLEANUP_MODE" -> {cleanup=bool(p,"enabled");controlRevision++;}
+            case "PURGE" -> { }
+            case "CLAIM_START" -> {claim=new Claim(string(p,"site"),number(p,"revision"),new Area(position(p.get("min")),position(p.get("max"))),false,Map.of());controlRevision++;}
+            case "CLAIM_SCAN" -> {
+                for(JsonElement item:array(p,"cells",64)){JsonObject c=object(item);Pos at=position(c.get("p"));cells.put(at,new Cell(at,AIR,block(c.get("after")),false));}
+                fronts(array(p,"air",384));Map<Long,Integer> next=new LinkedHashMap<>(claim.cursors);next.put(chunk(integer(p,"chunkX"),integer(p,"chunkZ")),integer(p,"cursor"));
+                claim=new Claim(claim.site,claim.revision,claim.area,false,next);generation++;
+            }
+            case "CLAIM_DONE" -> {claim=new Claim(claim.site,claim.revision,claim.area,true,claim.cursors);controlRevision++;}
+            case "GROW", "CONNECT" -> {
+                requireSetup();if(!indexed||!enabled) throw bad("Growth before enable");
+                Pos at=position(p.get("p"));State before=block(p.get(type.equals("CONNECT")?"cleanup":"before")),after=block(p.get("after"));
                 if(!after.network()||(!cells.containsKey(at)&&cells.size()>=MAX_CELLS)) throw bad("Invalid grown cell");
                 Cell old=cells.get(at);
-                boolean extend=(graph==null||extending)&&graphGeneration==generation&&!unresolved&&touchesRooted(at,after)&&addsOnly(old,after);
+                boolean touching=heart!=null&&EcologyTerrain.connected(heart,SCULK,at,after)||touchesRooted(at,after);
+                boolean extend=(graph==null||extending)&&graphGeneration==generation&&!unresolved&&touching&&addsOnly(old,after);
                 cells.put(at,new Cell(at,old==null?before:old.before,after,old!=null&&old.adopted));
-                fronts(array(p,"air",12));generation++;
+                fronts(array(p,"air",type.equals("CONNECT")?6:12));generation++;
                 // An added connected surface cannot disconnect existing nodes. Extend from it;
                 // cuts/observed losses still request a complete bounded rebuild. Replaying a
                 // journal never takes this shortcut because no graph is certified at startup.
@@ -423,9 +550,13 @@ public final class EcologyEngine {
         return true;
     }
     private void requireSetup() { if(setup==null) throw bad("Ecology record before configuration"); }
-    private int chunkSize(int cx,int cz) {return (Math.min(area.max.x(),(cx<<4)+15)-Math.max(area.min.x(),cx<<4)+1)*
+    private int chunkSize(int cx,int cz) {return chunkSize(area,cx,cz);}
+    private static int chunkSize(Area area,int cx,int cz) {return (Math.min(area.max.x(),(cx<<4)+15)-Math.max(area.min.x(),cx<<4)+1)*
             (Math.min(area.max.z(),(cz<<4)+15)-Math.max(area.min.z(),cz<<4)+1)*(area.max.y()-area.min.y()+1);}
     private Pos at(int cx,int cz,int cursor) {
+        return at(area,cx,cz,cursor);
+    }
+    private static Pos at(Area area,int cx,int cz,int cursor) {
         int minX=Math.max(area.min.x(),cx<<4),minZ=Math.max(area.min.z(),cz<<4),width=Math.min(area.max.x(),(cx<<4)+15)-minX+1;
         int depth=Math.min(area.max.z(),(cz<<4)+15)-minZ+1;
         return new Pos(minX+cursor%width,area.min.y()+cursor/(width*depth),minZ+(cursor/width)%depth);

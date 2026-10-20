@@ -44,7 +44,11 @@ abstract class WorldMixin {
             return false;
         }
         if (!ownedTarget && !ownedCatalystDescendant) {
-            return original.call(pos, proposed, flags, maxUpdateDepth);
+            boolean success=original.call(pos, proposed, flags, maxUpdateDepth);
+            if(success&&(proposed.isOf(net.minecraft.block.Blocks.SCULK)||proposed.isOf(net.minecraft.block.Blocks.SCULK_VEIN)
+                    ||proposed.isOf(net.minecraft.block.Blocks.SCULK_CATALYST)||proposed.isOf(net.minecraft.block.Blocks.SCULK_SENSOR)
+                    ||proposed.isOf(net.minecraft.block.Blocks.SCULK_SHRIEKER)))handler.unownedNetworkWrite(world,pos);
+            return success;
         }
 
         BlockState before = world.getBlockState(pos);

@@ -86,6 +86,10 @@ public final class EcologyHooks {
     }
 
     public interface Handler {
+        /** New unowned sculk can reconnect or require cleanup; never reads/loads terrain here. */
+        default void unownedNetworkWrite(ServerWorld world,BlockPos pos) { }
+        /** Suppress vanilla XP spread throughout a configured campaign dimension, including pending ownership. */
+        default boolean managesCatalyst(ServerWorld world,BlockPos pos) { return owns(world,pos); }
         boolean owns(ServerWorld world, BlockPos pos);
 
         boolean active(ServerWorld world, BlockPos pos);

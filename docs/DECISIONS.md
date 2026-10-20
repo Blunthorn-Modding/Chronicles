@@ -1,5 +1,13 @@
 # Bootstrap decisions — 18 October 2026
 
+## One growth system and explicit ownership maintenance - 20 October 2026
+
+The operator confirms ecology-only campaign growth: no death/XP fuel or native catalyst spread. Suppress native catalyst intake/ticks in the configured campaign dimension, including catalysts awaiting ownership/cleanup. Add explicit adoption of existing sculk through a saved region, with disconnected patches remaining dormant. The operator chooses optional persistent world-wide cleanup of non-campaign sculk as chunks normally load. Current ownership is pinned to the Heart/source dimension, so that is the cleanup scope; other dimensions are unchanged. Cleanup is off by default, follows occupied ACTIVE play, and requires a separate confirmed action after adopting regions to preserve. Core supplies saved regions/assignment and generic controls; the campaign owns scanning, ownership and deletion. [Contract](M9_ROOT_RECONNECTION.md).
+
+## Physical sculk reconnection - 20 October 2026
+
+The operator confirms that placed sculk joins the network when physically connected to the Heart or living sculk. A complete cut makes a detached branch dormant; restoring continuous contact wakes it. Retain one Heart and surface connectivity, without catalyst ranges, expansion nodes or node-regeneration chains. This supersedes dev.14's ownership exclusion for replaced sculk. Provide an operator root locator and explicit growth/connection status. See [review repair](M9_ROOT_RECONNECTION.md).
+
 ## Ecology protection policy - 20 October 2026
 
 The operator answered **"Nothing is protected."** Natural terrain, the handcrafted map and new player placements use the same material/surface rules. Do not add building immunity, placement tracking or protected-region requirements. Exposed native substrate can become sculk; other solid materials can support veins. An actual closed passage blocks new air-frontier discovery; an already living branch must also be physically severed. This confirms protection policy, not balance/vitality thresholds. [M9 implementation](M9_IMPLEMENTATION.md) defines the first review slice and remaining M9 work.

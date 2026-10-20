@@ -3,15 +3,8 @@ package io.github.chronicle.quietbelow.ecology;
 import com.mojang.brigadier.CommandDispatcher;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
-import io.github.chronicle.quietbelow.ecology.EcologyTerrain.Pos;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.SculkSensorBlock;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.SculkCatalystBlockEntity;
@@ -36,8 +29,6 @@ public final class EcologyNativeTrial {
     private static final BlockPos SENSOR = new BlockPos(1, 65, 1);
     private static final BlockPos CATALYST = new BlockPos(2, 65, 1);
     private static final BlockPos DEATH = new BlockPos(3, 65, 1);
-    private static final int MAX_TICKS = 120;
-    private static final Map<MinecraftServer, Pending> PENDING = new IdentityHashMap<>();
 
     private EcologyNativeTrial() {
     }
@@ -47,8 +38,6 @@ public final class EcologyNativeTrial {
             return;
         }
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> commands(dispatcher));
-        ServerTickEvents.START_SERVER_TICK.register(EcologyNativeTrial::tick);
-        ServerLifecycleEvents.SERVER_STOPPED.register(server -> PENDING.remove(server));
     }
 
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher) {
@@ -113,69 +102,30 @@ public final class EcologyNativeTrial {
     }
 
     private static int startActive(ServerCommandSource source, ServerWorld world, EcologyEngine engine) {
-        require(!PENDING.containsKey(source.getServer()), "an active native trial is already running");
         require(engine.rooted(QuietBelowEcology.pos(CATALYST)), "fixture catalyst is not rooted yet; retry after topology resolves");
         SculkCatalystBlockEntity catalyst = catalyst(world);
         int beforeCharge = charge(catalyst);
-        require(beforeCharge == 0 && catalyst.getEventListener().getSpreadManager().getCursors().isEmpty(),
-                "active native trial requires an empty catalyst queue");
+        int cursors = catalyst.getEventListener().getSpreadManager().getCursors().size();
         TrialZombie victim = new TrialZombie(world);
         boolean accepted = catalyst.getEventListener().listen(
                 world, GameEvent.ENTITY_DIE, GameEvent.Emitter.of(victim), Vec3d.ofBottomCenter(DEATH));
-        require(accepted, "active owned catalyst rejected ENTITY_DIE");
-        require(victim.isExperienceDroppingDisabled(), "active catalyst did not disable victim XP");
-        int queuedCharge = charge(catalyst) - beforeCharge;
-        require(queuedCharge > 0, "active catalyst did not queue deterministic positive XP");
-        PENDING.put(source.getServer(), new Pending(source, world, engine, engine.view().owned(), queuedCharge));
-        source.sendFeedback(() -> Text.literal("Native catalyst intake passed; checking bounded native spread ticks..."), false);
+        require(!accepted, "active campaign catalyst accepted ENTITY_DIE");
+        require(!victim.isExperienceDroppingDisabled(), "campaign catalyst consumed victim XP");
+        require(charge(catalyst) == beforeCharge && catalyst.getEventListener().getSpreadManager().getCursors().size() == cursors,
+                "campaign catalyst queued death/XP spread");
+        // A legacy queue is retained but cannot tick, even during occupied active play.
+        catalyst.getEventListener().getSpreadManager().spread(DEATH, 32);
+        int queued = charge(catalyst);
+        long revision = engine.view().journalBytes();
+        SculkCatalystBlockEntity.tick(world, CATALYST, world.getBlockState(CATALYST), catalyst);
+        require(charge(catalyst) == queued, "campaign catalyst advanced legacy queued charge");
+        require(engine.view().journalBytes() == revision, "campaign catalyst journaled native growth");
+        var unowned=new SculkCatalystBlockEntity(new BlockPos(12,65,1),net.minecraft.block.Blocks.SCULK_CATALYST.getDefaultState());
+        TrialZombie second=new TrialZombie(world);
+        require(!unowned.getEventListener().listen(world,GameEvent.ENTITY_DIE,GameEvent.Emitter.of(second),Vec3d.ofBottomCenter(DEATH)),"unowned catalyst bypassed the configured campaign growth policy");
+        require(!second.isExperienceDroppingDisabled(),"unowned catalyst consumed XP in the campaign dimension");
+        source.sendFeedback(() -> Text.literal("PASS native active hooks: deaths/XP ignored and legacy charge frozen; ecology is the only campaign growth system."), false);
         return 1;
-    }
-
-    private static void tick(MinecraftServer server) {
-        Pending pending = PENDING.get(server);
-        if (pending == null) {
-            return;
-        }
-        try {
-            require(QuietBelowEcology.playing(server), "occupied ACTIVE play ended during native spread trial");
-            if (pending.engine.view().unresolved()) {
-                pending.ticks++;
-                require(pending.ticks < MAX_TICKS,
-                        "ecology topology remained unresolved for " + MAX_TICKS + " ticks during native spread trial");
-                return;
-            }
-            require(pending.engine.rooted(QuietBelowEcology.pos(CATALYST)), "fixture catalyst became detached during trial");
-            Set<Pos> before = positions(pending.engine);
-            SculkCatalystBlockEntity catalyst = catalyst(pending.world);
-            SculkCatalystBlockEntity.tick(
-                    pending.world, CATALYST, pending.world.getBlockState(CATALYST), catalyst);
-            EcologyEngine.Cell descendant = pending.engine.cells().stream()
-                    .filter(cell -> !before.contains(cell.position()))
-                    .findFirst().orElse(null);
-            if (descendant != null) {
-                require(!descendant.adopted(), "native descendant was incorrectly marked adopted");
-                require(!descendant.before().network(), "native descendant lost its original non-network before-state");
-                require(descendant.after().sameOwnedShape(
-                                QuietBelowEcology.encode(pending.world.getBlockState(QuietBelowEcology.blockPos(descendant.position())))),
-                        "native descendant ownership does not match terrain");
-                PENDING.remove(server);
-                String result = "PASS native active hooks: ENTITY_DIE queued " + pending.queuedCharge
-                        + " charge; native tick journaled owned descendant " + descendant.position()
-                        + " from " + descendant.before().id() + " to " + descendant.after().id()
-                        + "; owned " + pending.ownedBefore + " -> " + pending.engine.view().owned() + ".";
-                pending.source.sendFeedback(() -> Text.literal(result), false);
-                return;
-            }
-            pending.ticks++;
-            if (pending.ticks >= MAX_TICKS) {
-                throw new IllegalStateException("no native owned descendant after " + MAX_TICKS
-                        + " ticks; cursors=" + catalyst.getEventListener().getSpreadManager().getCursors().size()
-                        + ", charge=" + charge(catalyst) + ", owned=" + pending.engine.view().owned());
-            }
-        } catch (Exception exception) {
-            PENDING.remove(server);
-            pending.source.sendError(Text.literal("FAIL native ecology trial: " + detail(exception)));
-        }
     }
 
     private static SculkCatalystBlockEntity catalyst(ServerWorld world) {
@@ -186,12 +136,6 @@ public final class EcologyNativeTrial {
     private static int charge(SculkCatalystBlockEntity catalyst) {
         return catalyst.getEventListener().getSpreadManager().getCursors().stream()
                 .mapToInt(cursor -> cursor.getCharge()).sum();
-    }
-
-    private static Set<Pos> positions(EcologyEngine engine) {
-        Set<Pos> result = new HashSet<>();
-        engine.cells().forEach(cell -> result.add(cell.position()));
-        return result;
     }
 
     private static void requireFixture(MinecraftServer server) throws IOException {
@@ -233,20 +177,4 @@ public final class EcologyNativeTrial {
         }
     }
 
-    private static final class Pending {
-        private final ServerCommandSource source;
-        private final ServerWorld world;
-        private final EcologyEngine engine;
-        private final int ownedBefore;
-        private final int queuedCharge;
-        private int ticks;
-
-        private Pending(ServerCommandSource source, ServerWorld world, EcologyEngine engine, int ownedBefore, int queuedCharge) {
-            this.source = source;
-            this.world = world;
-            this.engine = engine;
-            this.ownedBefore = ownedBefore;
-            this.queuedCharge = queuedCharge;
-        }
-    }
 }

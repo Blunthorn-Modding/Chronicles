@@ -64,7 +64,8 @@ public final class EcologyJournal implements AutoCloseable {
     private static final OpenOption WINDOWS_NO_SHARE_DELETE = windowsNoShareDelete();
     private static final String GENESIS_HASH = "0".repeat(HASH_TEXT_LENGTH);
     private static final Set<String> TYPES = Set.of(
-            "CONFIGURE", "INDEX", "INDEX_COMPLETE", "MODE", "GROW", "REMOVE", "OBSERVE");
+            "CONFIGURE", "INDEX", "INDEX_COMPLETE", "MODE", "GROW", "REMOVE", "OBSERVE", "CONNECT",
+            "CLEANUP_MODE", "PURGE", "CLAIM_START", "CLAIM_SCAN", "CLAIM_DONE");
     private static final Set<String> ENVELOPE_FIELDS = Set.of(
             "schema", "sequence", "type", "payload", "previousHash", "hash");
 

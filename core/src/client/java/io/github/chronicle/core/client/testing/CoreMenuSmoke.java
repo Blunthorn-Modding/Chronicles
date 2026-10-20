@@ -316,13 +316,23 @@ public final class CoreMenuSmoke {
             case 103 -> awaitView(()->screen(client).state().detail()!=null&&screen(client).state().detail().id().equals("tool:quiet_below:ecology"),"selected generic setup tool through native transport");
             case 104 -> {
                 var detail=screen(client).state().detail();
-                require(detail.controls().size()==4&&detail.controls().stream().allMatch(c->c.action()==Action.TOOL_ACTION&&c.input().startsWith("TOOL:")),"tool leaked non-finite controls");
+                require(detail.controls().size()==6&&detail.controls().stream().allMatch(c->c.action()==Action.TOOL_ACTION&&c.input().startsWith("TOOL:")),"tool leaked non-finite controls");
+                require(detail.controls().stream().anyMatch(c->c.label().equals("Show root")),"root locator missing from setup tool");
                 require(detail.controls().stream().filter(c->c.label().equals("Enable growth")).noneMatch(c->c.enabled()),"unindexed tool allowed growth");
                 snapshotSize("ecology before read-only refresh",serverRoot.resolve("world/quiet-below/ecology.jsonl"));
                 capture(client,"menu-ecology-tool.png");
                 require(press(screen(client),"Refresh status"),"registered refresh action unavailable");waitingFor=viewCount;step++;
             }
             case 105 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("Ecology status refreshed")&&sameSize("ecology before read-only refresh",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"finite tool action acknowledged without ecology mutation");
+            case 106 -> {screen(client).selectForTest("tool:quiet_below:ownership");waitingFor=viewCount;step++;}
+            case 107 -> awaitView(()->screen(client).state().detail()!=null&&screen(client).state().detail().id().equals("tool:quiet_below:ownership"),"ownership management has its own setup tool");
+            case 108 -> {
+                var d=screen(client).state().detail();
+                require(d.controls().size()==5,"ownership actions missing");
+                require(d.controls().stream().filter(c->c.label().equals("Delete non-campaign sculk")).allMatch(c->c.confirm()&&!c.enabled()),"unconfigured cleanup must require confirmation and remain disabled");
+                capture(client,"menu-sculk-ownership.png");require(press(screen(client),"Refresh status"),"ownership refresh unavailable");waitingFor=viewCount;step++;
+            }
+            case 109 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("Sculk ownership status refreshed")&&sameSize("ecology before read-only refresh",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"ownership read-only refresh leaves journal unchanged");
             default -> finish(client, true, "completed " + checks.size() + " native operator checks");
         }
     }
@@ -354,6 +364,8 @@ public final class CoreMenuSmoke {
                 ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.TOOL_ACTION,Page.SETUP,"tool:quiet_below:ecology","enable",screen(client).state().token(),0,"",""));step++;
             }
             case 6 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"forged non-operator campaign tool action denied without a journal write");
+            case 7 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.TOOL_ACTION,Page.SETUP,"tool:quiet_below:ownership","cleanup_on",screen(client).state().token(),0,"",""));step++;}
+            case 8 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"forged non-operator cleanup denied without a journal write");
             default -> finish(client, true, "completed " + checks.size() + " ordinary-player checks");
         }
     }

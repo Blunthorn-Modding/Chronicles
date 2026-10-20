@@ -34,7 +34,15 @@ def snapshot(report: dict) -> Path:
     w.check_stopped(root)
     source = root / 'review-world'
     if not (source / 'level.dat').is_file() or not (source / 'quiet-below/ecology.jsonl').is_file():
-        raise RuntimeError('Stopped initial-phase review snapshot is missing')
+        raise RuntimeError('Stopped review snapshot is missing')
+    campaign=json.loads((source / 'chronicle/campaign-state.json').read_text(encoding='utf-8'))
+    cleanup=False
+    for line in (source / 'quiet-below/ecology.jsonl').read_text(encoding='utf-8').splitlines():
+        entry=json.loads(line)
+        if entry['type']=='CLEANUP_MODE':
+            cleanup=entry['payload']['enabled']
+    if cleanup or campaign.get('phase')!='PAUSED':
+        raise RuntimeError('Human review snapshot must be paused with non-campaign cleanup disabled; rerun ecology-smoke')
     return source
 
 

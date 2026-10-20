@@ -7,6 +7,7 @@ import io.github.chronicle.core.server.*;
 import io.github.chronicle.quietbelow.QuietBelow;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.minecraft.block.*;
 import net.minecraft.registry.*;
 import net.minecraft.registry.tag.BlockTags;
@@ -14,6 +15,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Property;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.*;
@@ -25,22 +27,51 @@ import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 public final class QuietBelowEcology {
     public static final String TOOL="quiet_below:ecology";
     private static final Map<MinecraftServer,Runtime> WORLDS=new IdentityHashMap<>();
+    private static final Map<ServerWorld,Set<ChunkPos>> LOADED=new IdentityHashMap<>();
+    private static final Set<ServerWorld> LOAD_OVERFLOW=Collections.newSetFromMap(new IdentityHashMap<>());
     private QuietBelowEcology() { }
 
     public static void register() {
         GameSetupTools.register(new GameSetupTools.Tool(TOOL,"Sculk ecology",
                 "Quiet Below growth. Assign Source city and Relic Heart first, then index existing city sculk. " +
-                "Enable only after reviewing a disposable map. Growth follows exposed surfaces during occupied active play; buildings have no protection.",
+                "Growth follows exposed surfaces during occupied active play. Continuous sculk links to the Heart; a complete cut makes the detached branch dormant. " +
+                "Placed sculk reconnects through physical contact. Catalysts have no expansion range. Buildings have no protection.",
                 List.of(new GameSetupTools.Verb("index","Index source city",GameSetupTools.Guard.EDIT,true),
                         new GameSetupTools.Verb("enable","Enable growth",GameSetupTools.Guard.EDIT,true),
                         new GameSetupTools.Verb("disable","Disable growth",GameSetupTools.Guard.OPERATOR,true),
+                        new GameSetupTools.Verb("show_root","Show root",GameSetupTools.Guard.READ_ONLY,false),
+                        new GameSetupTools.Verb("hide_root","Hide root",GameSetupTools.Guard.READ_ONLY,false),
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::status,QuietBelowEcology::execute));
+        GameSetupTools.register(new GameSetupTools.Tool("quiet_below:ownership","Sculk ownership",
+                "Adopt existing sculk in a saved region before enabling optional world-wide cleanup. Cleanup permanently deletes non-campaign sculk in the Heart's dimension as chunks normally load; no terrain is force-loaded.",
+                List.of(new GameSetupTools.Verb("claim","Take over region",GameSetupTools.Guard.EDIT,true),
+                        new GameSetupTools.Verb("cancel","Stop region takeover",GameSetupTools.Guard.EDIT,true),
+                        new GameSetupTools.Verb("cleanup_on","Delete non-campaign sculk",GameSetupTools.Guard.EDIT,true),
+                        new GameSetupTools.Verb("cleanup_off","Stop sculk cleanup",GameSetupTools.Guard.OPERATOR,false),
+                        new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
+                QuietBelowEcology::ownershipStatus,QuietBelowEcology::ownershipAction));
+        ServerChunkEvents.CHUNK_LOAD.register((world,chunk)->{
+            Set<ChunkPos> loaded=LOADED.computeIfAbsent(world,k->new LinkedHashSet<>());
+            Runtime r=WORLDS.get(world.getServer());
+            if(loaded.size()>=EcologyCleanup.MAX_CHUNKS&&!loaded.contains(chunk.getPos())){
+                LOAD_OVERFLOW.add(world);
+                if(r!=null&&r.engine.cleanup())r.engine.fail("Cleanup loaded-chunk tracking capacity reached; no chunk was force-loaded.");return;
+            }
+            loaded.add(chunk.getPos());
+            if(cleanupWorld(world,r))try{r.cleanup.load(chunk.getPos().x,chunk.getPos().z);}catch(Exception e){hold(r,e);}
+        });
+        ServerChunkEvents.CHUNK_UNLOAD.register((world,chunk)->{
+            Set<ChunkPos> loaded=LOADED.get(world);if(loaded!=null)loaded.remove(chunk.getPos());
+            Runtime r=WORLDS.get(world.getServer());if(r!=null&&r.cleanup!=null&&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString()))r.cleanup.unload(chunk.getPos().x,chunk.getPos().z);
+        });
         ServerLifecycleEvents.SERVER_STARTED.register(QuietBelowEcology::start);
         ServerTickEvents.START_SERVER_TICK.register(server->{Runtime r=WORLDS.get(server);if(r!=null)r.engine.beginTick();});
         ServerTickEvents.END_SERVER_TICK.register(QuietBelowEcology::tick);
         ServerLifecycleEvents.SERVER_STOPPED.register(server->{
             Runtime r=WORLDS.remove(server);if(r!=null)try {r.journal.close();}catch(IOException e){QuietBelow.LOGGER.error("Ecology journal close failed",e);}
+            LOADED.keySet().removeIf(world->world.getServer()==server);
+            LOAD_OVERFLOW.removeIf(world->world.getServer()==server);
         });
         EcologyHooks.register(new NativeHooks());
         EcologyNativeTrial.register();
@@ -66,10 +97,15 @@ public final class QuietBelowEcology {
             Adapter world=adapter(server,r.engine.setup().dimension());
             // Indexing is explicit preparation, never starts from simply registering a role.
             if(!r.engine.view().indexed()) {
-                if(ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.index(world);
+                if(r.rootProblem==null&&ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.index(world);
                 return;
             }
-            r.engine.tick(world,playing(server));
+            if(r.engine.claim()!=null&&!r.engine.claim().complete()) {
+                r.claimProblem=claimProblem(server,r.engine.claim());
+                if(r.claimProblem==null&&ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.claimTick(world);
+            } else r.claimProblem=null;
+            if(r.rootProblem==null)r.engine.tick(world,playing(server));
+            if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
         } catch(Exception e) { hold(r,e); }
     }
     public static boolean playing(MinecraftServer server) {
@@ -80,35 +116,139 @@ public final class QuietBelowEcology {
     }
     private static GameSetupTools.Status status(ServerCommandSource source) {
         Runtime r=runtime(source.getServer());EcologyEngine.View v=r.engine.view();
-        List<Fact> facts=List.of(new Fact("Growth",v.hold()!=null?"HELD: "+v.hold():v.enabled()?"Enabled; "+(playing(source.getServer())?"occupied play":"waiting for occupied active play"):"Disabled"),
+        Pins root=null;String rootIssue=null;
+        try{root=visibleRoot(source.getServer(),r);}catch(Exception e){rootIssue=e.getMessage();}
+        List<Fact> facts=List.of(new Fact("Root (Relic Heart)",root==null?rootIssue:coordinates(root)),
+                new Fact("Growth",growthStatus(source.getServer(),r,v)),
+                new Fact("Living connection",!v.configured()?"No network indexed yet.":v.unresolved()?"Checking loaded sculk connections; expansion waits.":v.connected()==0?
+                        "None. Detached sculk is dormant. Restore continuous sculk contact with the Heart to reconnect it.":
+                        "Continuous sculk contact with the Heart; cutting every contact makes a branch dormant."),
                 new Fact("Source index",!v.configured()?"Not prepared":v.indexed()?"Complete":v.completedChunks()+" / "+v.totalChunks()+" chunks; visit remaining source chunks"),
-                new Fact("Network",v.owned()+" owned; "+v.connected()+" connected; "+v.extent()),
-                new Fact("Connectivity",v.unresolved()?"Unresolved / rebuilding; expansion waits":"Resolved"),
+                new Fact("Network",v.owned()+" tracked; "+v.connected()+" connected; "+Math.max(0,v.owned()-v.connected())+" detached; "+v.extent()+(v.unresolved()?" (counts pending check)":"")),
+                new Fact("How to test","Show root, then close this menu to see its private outline. Break every sculk connection to a branch; replace sculk to reconnect. Sensors are audible evidence, not a growth meter."),
                 new Fact("Surface frontier",v.frontier()+" discovered air cells"),
                 new Fact("Persistence",v.journalBytes()+" bytes; append-only history"),
                 new Fact("Review scope","Surface growth and physical containment. Crop benefits, stations and Heart ending follow later."));
         Map<String,String> disabled=new HashMap<>();
+        if(root==null)disabled.put("show_root",rootIssue);
+        else if(source.getPlayer()==null||!source.getPlayer().getEntityWorld().getRegistryKey().getValue().toString().equals(root.setup.dimension()))
+            disabled.put("show_root","Visit the root dimension: "+root.setup.dimension());
         if(v.configured())disabled.put("index","Already indexed or indexing; source ownership is not reset by this menu.");
         else try{pins(source.getServer());}catch(Exception e){disabled.put("index",e.getMessage());}
         if(!v.indexed())disabled.put("enable","Complete the loaded source index first.");
         if(v.enabled())disabled.put("enable","Growth is already enabled.");
         if(!v.configured()||!v.enabled())disabled.put("disable","Growth is already disabled.");
         if(v.hold()!=null){disabled.put("enable",v.hold());disabled.put("index",v.hold());}
+        if(r.rootProblem!=null)disabled.put("enable",r.rootProblem);
         return new GameSetupTools.Status(v.revision()+r.menuRevision,facts,disabled);
     }
-    private static String execute(ServerCommandSource source,String verb) throws IOException {
+    private static String growthStatus(MinecraftServer server,Runtime r,EcologyEngine.View v) {
+        if(v.hold()!=null)return "HELD: "+v.hold();
+        if(!v.configured())return "Not configured; assign the source city and Heart, then index.";
+        if(r.rootProblem!=null)return "Waiting: "+r.rootProblem;
+        if(!v.enabled())return "Disabled; existing sculk is retained.";
+        if(ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)return "Paused; resume Chronicle play to grow or reconnect sculk.";
+        String hold=RuntimeHolds.reason(server);if(hold!=null)return "Waiting for Chronicle operation: "+hold;
+        if(PlayRuntime.eligiblePlayers(server).isEmpty())return "Waiting for an online, alive, non-spectator participant.";
+        if(v.unresolved())return "Checking connections; keep the network chunks loaded.";
+        if(v.connected()==0)return "Dormant: no living sculk connection to the Heart.";
+        return "Active; spreading along reachable exposed surfaces.";
+    }
+    private static String coordinates(Pins p) {return p.heart.x()+", "+p.heart.y()+", "+p.heart.z()+" in "+p.setup.dimension();}
+    private static GameSetupTools.Status ownershipStatus(ServerCommandSource source) {
+        Runtime r=runtime(source.getServer());var e=r.engine;var c=e.claim();
+        String selected="Not assigned; choose Sculk takeover region in Game setup.";
+        try{var site=takeoverRegion(source.getServer(),r);selected=site.id()+" (revision "+site.revision()+")";}catch(Exception ignored){ }
+        String job="No takeover requested.";
+        if(c!=null){
+            long done=0,total=0;var a=c.area();
+            for(int x=a.min().x()>>4;x<=a.max().x()>>4;x++)for(int z=a.min().z()>>4;z<=a.max().z()>>4;z++){
+                total++;long key=((long)x<<32)|(z&0xffffffffL);
+                int size=(Math.min(a.max().x(),(x<<4)+15)-Math.max(a.min().x(),x<<4)+1)*(Math.min(a.max().z(),(z<<4)+15)-Math.max(a.min().z(),z<<4)+1)*(a.max().y()-a.min().y()+1);
+                if(c.cursors().getOrDefault(key,0)==size)done++;
+            }
+            job=c.site()+": "+done+" / "+total+" chunks; "+(c.complete()?done==total?"complete":"stopped; adopted cells retained":r.claimProblem!=null?r.claimProblem:AuthoringRuntime.editable(source.getServer())?"indexing normally loaded chunks; visit the region":"paused during active play");
+        }
+        Map<String,String> disabled=new HashMap<>();
+        if(e.failure()!=null)for(String verb:List.of("claim","cancel","cleanup_on","cleanup_off"))disabled.put(verb,e.failure());
+        if(!e.view().indexed()){disabled.put("claim","Complete source indexing first.");disabled.put("cleanup_on","Complete source indexing first.");}
+        if(c!=null&&!c.complete())disabled.put("claim","Finish or stop the running takeover first.");else disabled.put("cancel","No region takeover is running.");
+        try{takeoverRegion(source.getServer(),r);}catch(Exception ex){disabled.put("claim",ex.getMessage());}
+        if(e.cleanup())disabled.put("cleanup_on","Cleanup is already enabled.");else disabled.put("cleanup_off","Cleanup is already stopped.");
+        String dimension=e.setup()==null?"Not configured":e.setup().dimension();
+        return new GameSetupTools.Status(e.view().revision()+r.menuRevision,List.of(
+                new Fact("Takeover region",selected),new Fact("Region takeover",job),
+                new Fact("Ownership","Adoption claims existing sculk/veins/catalysts/sensors/shriekers, including detached patches. Only a physical Heart connection wakes them. Already-owned history is preserved."),
+                new Fact("Cleanup",e.cleanup()?"ENABLED; permanent deletion during occupied active play. "+(r.cleanup==null?"":r.cleanup.pending()+" loaded chunks pending; "+r.cleanup.removed()+" blocks deleted this run."):"Off; no non-campaign sculk is deleted."),
+                new Fact("Cleanup scope","All normally loaded chunks in "+dimension+", continuing as others load. Other dimensions are unchanged. Disabled/empty/paused play waits; a running takeover takes priority."),
+                new Fact("Before deleting","Take over every region whose sculk you want to keep first. This deletion includes non-campaign catalysts, sensors and shriekers. Stop sculk cleanup prevents future deletions; it does not restore deleted blocks."),
+                new Fact("Catalysts","Campaign-owned catalysts ignore deaths/XP and legacy queued charge. The connected ecology is the only campaign growth system.")),disabled);
+    }
+    private static AuthoringSite.Region takeoverRegion(MinecraftServer server,Runtime r) {
+        AuthoringSite site=MapSiteAssignments.resolve(server,"quiet_below:sculk_takeover").orElseThrow(()->new IllegalStateException("Assign a saved Sculk takeover region in Game setup first."));
+        if(!(site instanceof AuthoringSite.Region region))throw new IllegalStateException("Takeover requires a region.");
+        if(r.engine.setup()==null||!site.dimension().equals(r.engine.setup().dimension()))throw new IllegalStateException("Takeover region must be in the Heart's dimension.");
+        new EcologyEngine.Area(new Pos(region.min().x(),region.min().y(),region.min().z()),new Pos(region.max().x(),region.max().y(),region.max().z()));return region;
+    }
+    private static String claimProblem(MinecraftServer server,EcologyEngine.Claim c) {
+        AuthoringSite site=AuthoringRuntime.get(server).service().state().sites().get(c.site());
+        return !(site instanceof AuthoringSite.Region region)||site.revision()!=c.revision()
+                ||!new Pos(region.min().x(),region.min().y(),region.min().z()).equals(c.area().min())
+                ||!new Pos(region.max().x(),region.max().y(),region.max().z()).equals(c.area().max())
+                ||!site.dimension().equals(runtime(server).engine.setup().dimension())?
+                "saved region changed; restore its pinned revision or stop this takeover and select again":null;
+    }
+    private static String ownershipAction(ServerCommandSource source,String verb)throws Exception {
+        Runtime r=runtime(source.getServer());
+        switch(verb){
+            case "claim"->{var site=takeoverRegion(source.getServer(),r);r.engine.claim(site.id(),site.revision(),new EcologyEngine.Area(new Pos(site.min().x(),site.min().y(),site.min().z()),new Pos(site.max().x(),site.max().y(),site.max().z())));}
+            case "cancel"->r.engine.cancelClaim();
+            case "cleanup_on"->{attach(source.getServer(),r);seedCleanup(source.getServer(),r);r.engine.cleanup(true);}
+            case "cleanup_off"->r.engine.cleanup(false);
+            case "refresh"->r.menuRevision++;
+            default->throw new IllegalArgumentException("Unknown ownership action");
+        }
+        return switch(verb){case "claim"->"Region takeover started. It adopts existing sculk while play is non-active; keep its chunks loaded.";
+            case "cancel"->"Region takeover stopped; already adopted sculk remains owned.";
+            case "cleanup_on"->"Non-campaign sculk cleanup enabled for the Heart's dimension. Deletion runs only during occupied active play and continues as chunks load.";
+            case "cleanup_off"->"Non-campaign sculk cleanup stopped; future deletions prevented.";
+            default->"Sculk ownership status refreshed.";};
+    }
+    private static boolean cleanupWorld(ServerWorld world,Runtime r) {return r!=null&&r.cleanup!=null&&r.engine.cleanup()&&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString());}
+    private static void seedCleanup(MinecraftServer server,Runtime r) {
+        ServerWorld world=adapter(server,r.engine.setup().dimension()).world;
+        if(LOAD_OVERFLOW.contains(world))throw new IllegalStateException("Loaded-chunk tracking capacity was exceeded; reduce loaded chunks and restart before enabling cleanup.");
+        r.cleanup=new EcologyCleanup(world.getBottomY(),world.getHeight());
+        for(ChunkPos p:LOADED.getOrDefault(world,Set.of()))r.cleanup.load(p.x,p.z);
+    }
+    private static Pins visibleRoot(MinecraftServer server,Runtime r) {
+        Pins p=pins(server);
+        if(r.engine.setup()!=null&&!r.engine.setup().equals(p.setup))throw new IllegalStateException("Root assignment differs from the pinned ecology setup; inspect the setup hold.");
+        return p;
+    }
+    private static String execute(ServerCommandSource source,String verb) throws Exception {
         Runtime r=runtime(source.getServer());
         switch(verb) {
             case "index" -> { Pins p=pins(source.getServer());r.engine.configure(p.setup,p.area,p.heart); }
             case "enable" -> { attach(source.getServer(),r);r.engine.mode(true); }
             case "disable" -> r.engine.mode(false);
+            case "show_root" -> {
+                Pins p=visibleRoot(source.getServer(),r);
+                AuthoringSite site=MapSiteAssignments.resolve(source.getServer(),"quiet_below:relic_heart").orElseThrow();
+                AuthoringRuntime.get(source.getServer()).preview(source.getPlayerOrThrow(),site);
+                source.sendFeedback(()->Text.literal("Sculk root: "+coordinates(p)+". Close the menu to see its private outline; Hide root removes it."),false);
+            }
+            case "hide_root" -> AuthoringRuntime.clearPreview(source.getPlayerOrThrow());
             case "refresh" -> r.menuRevision++;
             default -> throw new IllegalArgumentException("Unknown ecology action");
         }
         QuietBelow.LOGGER.info("Ecology {} requested by {}",verb,source.getName());
         return switch(verb){case "index"->"Source indexing started. Keep source chunks loaded; it changes no terrain.";
             case "enable"->"Growth enabled. It advances only during occupied active play.";
-            case "disable"->"Growth disabled; owned terrain and history retained.";default->"Ecology status refreshed.";};
+            case "disable"->"Growth disabled; owned terrain and history retained.";
+            case "show_root"->"Root outlined privately. Close the menu to view it.";
+            case "hide_root"->"Root outline hidden.";
+            default->"Ecology status refreshed. "+growthStatus(source.getServer(),r,r.engine.view());};
     }
     private record Pins(EcologyEngine.Setup setup,EcologyEngine.Area area,Pos heart,String heartBlock) { }
     private static Pins pins(MinecraftServer server) {
@@ -123,7 +263,10 @@ public final class QuietBelowEcology {
     private static void attach(MinecraftServer server,Runtime r) {
         Pins p=pins(server);r.engine.attach(p.setup,p.area,p.heart);
         Adapter w=adapter(server,p.setup.dimension());
-        if(w.loaded(p.heart)&&!w.get(p.heart).id().equals(p.heartBlock))throw new IllegalStateException("Relic Heart anchor block changed; ending mechanics are not implemented yet.");
+        if(r.cleanup==null){r.cleanup=new EcologyCleanup(w.world.getBottomY(),w.world.getHeight());if(r.engine.cleanup())seedCleanup(server,r);}
+        String problem=!w.loaded(p.heart)?"Heart chunk is unloaded; visit "+coordinates(p):
+                !w.get(p.heart).id().equals(p.heartBlock)?"Heart block is missing or replaced at "+coordinates(p)+". Restore "+p.heartBlock+"; ending mechanics follow later.":null;
+        if(!Objects.equals(r.rootProblem,problem)){r.rootProblem=problem;r.engine.invalidateConnections();}
     }
     private static Runtime runtime(MinecraftServer server) {
         if(!server.isOnThread())throw new IllegalStateException("Ecology requires the server thread");
@@ -138,7 +281,7 @@ public final class QuietBelowEcology {
         if(r.engine.failure()==null){r.engine.fail(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry",e);}
     }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;long menuRevision;
+        final EcologyEngine engine;final EcologyJournal journal;long menuRevision;String rootProblem,claimProblem;EcologyCleanup cleanup;
         Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
@@ -147,7 +290,9 @@ public final class QuietBelowEcology {
             return r!=null&&r.engine.setup()!=null&&r.engine.setup().dimension().equals(w.getRegistryKey().getValue().toString())?r:null;
         }
         @Override public boolean owns(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.engine.owns(pos(p));}
-        @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.engine.enabled()&&r.engine.rooted(pos(p))&&playing(w.getServer());}
+        @Override public boolean managesCatalyst(ServerWorld w,BlockPos p){return find(w)!=null;}
+        @Override public void unownedNetworkWrite(ServerWorld w,BlockPos p){Runtime r=find(w);if(r==null)return;r.engine.noticeContact(pos(p));if(cleanupWorld(w,r))try{r.cleanup.changed(pos(p));}catch(Exception e){hold(r,e);}}
+        @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.rootProblem==null&&r.engine.enabled()&&r.engine.rooted(pos(p))&&playing(w.getServer());}
         @Override public BlockState beforeWrite(ServerWorld w,BlockPos p,BlockState before,BlockState proposed,int flags) {
             Runtime r=find(w);if(r==null)return proposed;
             var origin=EcologyHooks.catalystOrigin();

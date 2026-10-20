@@ -70,6 +70,8 @@ public final class QuietBelow implements ModInitializer {
                 "A low, unfamiliar rumble breaks the quiet.", "minecraft:ambient.cave", ObservationCatalog.Audience.PARTICIPANTS));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:source_city", "Source city",
                 "The source ancient city region; registers geometry without enabling growth.", AuthoringCatalog.Kind.REGION));
+        ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:sculk_takeover", "Sculk takeover region",
+                "Optional region to adopt existing sculk into campaign ownership. Run Take over region separately; disconnected sculk stays dormant.", AuthoringCatalog.Kind.REGION));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:relic_heart", "Relic Heart",
                 "The future unique network heart site; binding alone enables no behavior.", AuthoringCatalog.Kind.BLOCK));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_altar", "Ancient Altar",

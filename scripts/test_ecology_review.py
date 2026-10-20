@@ -19,6 +19,25 @@ class EcologyReviewTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     review.direct(candidate, parent)
 
+    def test_snapshot_refuses_live_or_cleanup_enabled_world(self):
+        import json
+        with TemporaryDirectory() as tmp:
+            work=Path(tmp)
+            root=work/'test-runs/20261020T103530363844Z'
+            source=root/'review-world'
+            (source/'quiet-below').mkdir(parents=True)
+            (source/'chronicle').mkdir()
+            (source/'level.dat').touch()
+            report={'result':'PASS','world':str(root)}
+            with patch.object(review.w,'WORK',work):
+                for phase,cleanup in (('ACTIVE',False),('PAUSED',True),('PAUSED',False)):
+                    (source/'chronicle/campaign-state.json').write_text(json.dumps({'phase':phase}))
+                    (source/'quiet-below/ecology.jsonl').write_text(json.dumps({'type':'CLEANUP_MODE','payload':{'enabled':cleanup}})+'\n')
+                    if phase=='PAUSED' and not cleanup:
+                        self.assertEqual(source,review.snapshot(report))
+                    else:
+                        with self.assertRaises(RuntimeError):review.snapshot(report)
+
     def test_unsafe_auth_or_bind_is_rejected_before_launch(self):
         import json
         with TemporaryDirectory() as tmp:
