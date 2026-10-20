@@ -34,6 +34,7 @@ public final class EcologyNativeTrial {
     }
 
     public static void register() {
+        EcologyWardenTrial.register();
         if (ENABLED == null || ENABLED.isBlank()) {
             return;
         }
@@ -44,7 +45,27 @@ public final class EcologyNativeTrial {
         dispatcher.register(literal("quiet_below_native_trial")
                 .requires(source -> source.hasPermissionLevel(2))
                 .then(literal("inactive").executes(context -> run(context.getSource(), false)))
-                .then(literal("active").executes(context -> run(context.getSource(), true))));
+                .then(literal("active").executes(context -> run(context.getSource(), true)))
+                .then(literal("vitality_zero").executes(context->vitality(context.getSource(),0)))
+                .then(literal("vitality_recovering").executes(context->vitality(context.getSource(),1)))
+                .then(literal("vitality_ready").executes(context->vitality(context.getSource(),2))));
+    }
+    private static int vitality(ServerCommandSource source,int stage){
+        try{
+            requireFixture(source.getServer());var e=QuietBelowEcology.engineForTest(source.getServer());var w=source.getWorld();
+            var end=new EcologyTerrain.Pos(4,64,0);var sensorPos=new BlockPos(4,65,0);var sensorCell=QuietBelowEcology.pos(sensorPos);
+            require(source.getPlayer()!=null&&e.setup()!=null&&e.setup().city().equals("vitality_source"),"wrong vitality fixture");
+            require(e.owns(end)&&e.owns(sensorCell)&&w.getBlockState(QuietBelowEcology.blockPos(end)).isOf(net.minecraft.block.Blocks.SCULK),"dormant terrain or ownership was lost");
+            require(QuietBelowEcology.playing(source.getServer()),"vitality probe requires occupied ACTIVE play");
+            if(stage==0){require(!e.rooted(end)&&e.vitality().value(end)==0,"detached branch has not reached zero vitality");}
+            else if(stage==1){require(e.rooted(end)&&!e.living(end),"reconnected branch should be recovering below 25 percent");}
+            else require(e.living(end)&&e.living(sensorCell),"reconnected branch has not recovered to 25 percent");
+            var sensor=w.getBlockEntity(sensorPos,BlockEntityType.SCULK_SENSOR).orElseThrow();
+            var before=w.getBlockState(sensorPos);sensor.getVibrationCallback().accept(w,new BlockPos(7,64,0),GameEvent.STEP,source.getPlayer(),source.getPlayer(),1.0F);
+            if(stage<2)require(w.getBlockState(sensorPos).equals(before),"low-vitality/detached sensor responded");
+            else require(!SculkSensorBlock.isInactive(w.getBlockState(sensorPos)),"recovered sensor did not respond");
+            source.sendFeedback(()->Text.literal("PASS vitality "+(stage==0?"zero":stage==1?"recovering":"ready")+": retained terrain and native sensor gate verified."),false);return 1;
+        }catch(Exception ex){source.sendError(Text.literal("FAIL vitality trial: "+detail(ex)));return 0;}
     }
 
     private static int run(ServerCommandSource source, boolean active) {

@@ -35,11 +35,12 @@ final class QuietBelowEcologySmoke {
     private final long overallDeadline = System.nanoTime() + 180_000_000_000L;
     private int index, baseline, sculkBefore, pausedSculk;
     private long deadline, until, rootFrames;
+    private String vitalityClock;
     private boolean started, connected, built, finished;
 
     static void register() {
         if (OUTPUT == null) return;
-        if (!List.of("initial","restart","surface","organic").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
+        if (!List.of("initial","restart","surface","organic","vitality").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();
         ClientReceiveMessageEvents.GAME.register((text, overlay) -> smoke.messages.add(text.getString()));
         ClientTickEvents.END_CLIENT_TICK.register(smoke::tick);
@@ -72,7 +73,74 @@ final class QuietBelowEcologySmoke {
     }
 
     private void build(MinecraftClient client) {
-        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else restart(client);
+        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else restart(client);
+    }
+    private void vitality(MinecraftClient client){
+        command(client,"place vitality Heart","setblock 0 64 0 reinforced_deepslate",".*Changed.*");
+        command(client,"place vitality branch","fill 1 64 0 4 64 0 sculk",".*filled.*");
+        command(client,"place vitality sensor","setblock 4 65 0 sculk_sensor",".*Changed.*");
+        command(client,"place isolated viewing platform","fill 6 63 -1 8 63 1 glass",".*filled.*");
+        command(client,"enable vitality authoring","chronicle author mode on","Author mode enabled.*");
+        command(client,"create vitality source","chronicle author region create vitality_source","Region draft vitality_source opened.*");
+        command(client,"vitality first corner","chronicle author region pos1 0 64 0","Set region draft vitality_source position 1.*");
+        command(client,"vitality second corner","chronicle author region pos2 4 65 0","Set region draft vitality_source position 2.*");
+        command(client,"save vitality source","chronicle author region save","Saved region vitality_source.*");
+        command(client,"look at vitality Heart","tp @s 0.5 65 0.5 0 90",".*Teleported.*");
+        command(client,"bind vitality Heart","chronicle author block bind vitality_heart target","Saved block vitality_heart.*");
+        command(client,"stand on isolated platform","tp @s 7.5 64 0.5 90 0",".*Teleported.*");
+        command(client,"assign vitality source","chronicles setup assign \"quiet_below:source_city\" vitality_source","Requirement assigned.*");
+        command(client,"assign vitality Heart","chronicles setup assign \"quiet_below:relic_heart\" vitality_heart","Requirement assigned.*");
+        command(client,"index vitality source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish vitality index",600);
+        command(client,"enable vitality ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        openVitalityMenu(client);
+        for(int i=0;i<3;i++)vitalityButton(client,"Faster vitality loss");
+        for(int i=0;i<2;i++)vitalityButton(client,"Faster recovery");
+        check("minimum vitality rates are disabled",()->{
+            var d=((CoreMenuScreen)client.currentScreen).state().detail();
+            require(d.controls().stream().filter(c->c.label().equals("Faster vitality loss")||c.label().equals("Faster recovery")).noneMatch(c->c.enabled()),"vitality rates underflow");
+            require(d.facts().stream().anyMatch(f->f.label().equals("Full vitality loss")&&f.value().startsWith("1 eligible")),"minimum full-loss setting missing");
+        });
+        vitalityButton(client,"Lower extent thresholds");vitalityButton(client,"Lower extent thresholds");
+        check("minimum extent thresholds are disabled",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Lower extent thresholds")).noneMatch(c->c.enabled()),"extent underflow"));
+        vitalityScreenshot(client,"ecology-vitality-settings.png");check("close vitality menu",()->client.currentScreen.close());
+        command(client,"start vitality play","chronicle session start","Started Chronicle session.*");
+        command(client,"join vitality play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        command(client,"cut vitality branch","setblock 1 64 0 air",".*Changed.*");
+        command(client,"active play rejects vitality edits","chronicles setup tool \"quiet_below:vitality\" loss_slower",".*requires operator editing mode.*");
+        delay("let detached vitality fall through a real eligible minute",70_000);
+        command(client,"zero vitality retains terrain and disables native response","quiet_below_native_trial vitality_zero","PASS vitality zero:.*");
+        command(client,"pause spent vitality time","chronicle session pause","Paused Chronicle session.*");
+        openVitalityMenu(client);check("capture paused vitality clock",()->vitalityClock=vitalityFact(client,"Clock"));
+        delay("wait with vitality paused",1_100);
+        step("refresh paused vitality status",()->require(press((CoreMenuScreen)client.currentScreen,"Refresh status"),"vitality refresh unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().message().contains("Vitality status refreshed"),10_000);
+        check("paused vitality does not advance",()->require(vitalityClock.equals(vitalityFact(client,"Clock")),"paused vitality clock advanced"));
+        vitalityScreenshot(client,"ecology-vitality-dormant.png");check("close dormant vitality menu",()->client.currentScreen.close());
+        command(client,"replace physical vitality bridge while paused","setblock 1 64 0 sculk",".*Changed.*");
+        command(client,"resume vitality recovery","chronicle session resume","Resumed Chronicle session.*");
+        delay("allow physical joining without immediate vitality refill",500);
+        command(client,"reconnected branch recovers gradually","quiet_below_native_trial vitality_recovering","PASS vitality recovering:.*");
+        delay("allow bright recovery through the ready threshold and shared checkpoint",22_000);
+        command(client,"recovered branch restores native response","quiet_below_native_trial vitality_ready","PASS vitality ready:.*");
+        command(client,"leave vitality trial paused","chronicle session pause","Paused Chronicle session.*");
+        openVitalityMenu(client);vitalityScreenshot(client,"ecology-vitality-recovered.png");
+    }
+    private void vitalityScreenshot(MinecraftClient client,String name){
+        check("show vitality readings for "+name,()->{var m=(CoreMenuScreen)client.currentScreen;for(int n=0;n<100;n++)m.scrollDetailForTest(1);});
+        screenshot(client,name);
+    }
+    private String vitalityFact(MinecraftClient client,String name){return ((CoreMenuScreen)client.currentScreen).state().detail().facts().stream().filter(f->f.label().equals(name)).findFirst().orElseThrow().value();}
+    private void openVitalityMenu(MinecraftClient client){
+        step("open native vitality menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open Game setup for vitality",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
+        step("select Sculk vitality",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:vitality"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:vitality"),10_000);
+    }
+    private void vitalityButton(MinecraftClient client,String label){
+        step("native vitality "+label,()->require(press((CoreMenuScreen)client.currentScreen,label),label+" unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().message().contains("Vitality tuning saved"),10_000);
     }
 
     private void initial(MinecraftClient client) {

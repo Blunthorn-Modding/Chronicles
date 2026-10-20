@@ -56,7 +56,7 @@ class EcologyPolicyTest {
         }
         try (Fixture fixture = ready("native-budget", 64, targets)) {
             fixture.engine.beginTick();
-            long before = fixture.journal.revision();
+            long before = mutationIntents(fixture.journal);
             for (int index = 0; index < EcologyEngine.MAX_WRITES; index++) {
                 EcologyTerrain.Pos target = targets.get(index);
                 EcologyTerrain.Pos origin = source(index + 1);
@@ -68,7 +68,7 @@ class EcologyPolicyTest {
             EcologyTerrain.Pos overBudget = targets.get(EcologyEngine.MAX_WRITES);
             assertFalse(fixture.engine.nativeChange(
                     fixture.terrain, source(EcologyEngine.MAX_WRITES + 1), overBudget, AIR, SENSOR));
-            assertEquals(before + EcologyEngine.MAX_WRITES, fixture.journal.revision());
+            assertEquals(before + EcologyEngine.MAX_WRITES, mutationIntents(fixture.journal));
             assertFalse(fixture.engine.owns(overBudget));
             assertFalse(fixture.engine.reserveNativeLoss(),"native cleanup shares the same per-tick mutation limit");
             for(int i=0;i<25;i++)fixture.engine.tick(fixture.terrain,true);
@@ -186,6 +186,7 @@ class EcologyPolicyTest {
         }
     }
 
+    private static long mutationIntents(EcologyJournal j){return j.entries().stream().filter(e->java.util.Set.of("GROW","CONNECT","PURGE").contains(e.type())).count();}
     private Fixture ready(String name, int ownedCells, List<EcologyTerrain.Pos> targets) throws Exception {
         return ready(temporaryDirectory.resolve(name + ".jsonl"), ownedCells, targets);
     }
@@ -202,7 +203,7 @@ class EcologyPolicyTest {
             assertTrue(engine.view().indexed());
             engine.mode(true);
             Fixture fixture = new Fixture(journal, engine, terrain);
-            for (int index = 0; index < 100 && fixture.engine.view().unresolved(); index++) {
+            for (int index = 0; index < 100 && (fixture.engine.view().unresolved()||fixture.engine.vitalityPending()); index++) {
                 tick(fixture.engine, fixture.terrain, true);
             }
             assertFalse(fixture.engine.view().unresolved());
@@ -274,6 +275,10 @@ class EcologyPolicyTest {
                 Pos position = source(y);
                 loaded.add(position);
                 blocks.put(position, SCULK);
+            }
+            // Known solid neighbors make exposure determinate; missing neighbors represent unloaded terrain.
+            for(int y=1;y<=ownedCells;y++)for(int f=0;f<6;f++){
+                Pos neighbor=source(y).offset(f);loaded.add(neighbor);blocks.putIfAbsent(neighbor,HEART_BLOCK);
             }
             for (Pos target : targets) {
                 loaded.add(target);

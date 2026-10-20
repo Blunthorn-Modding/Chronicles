@@ -41,6 +41,7 @@ public final class EcologyEngine {
 
     private final EcologyJournal journal;
     private final LinkedHashMap<Pos,Cell> cells=new LinkedHashMap<>();
+    private final Map<Long,Integer> ownedChunks=new HashMap<>();
     private final ArrayList<Pos> air=new ArrayList<>();
     private final Set<Pos> airSet=new HashSet<>();
     private final Map<Long,Integer> cursors=new LinkedHashMap<>();
@@ -52,6 +53,13 @@ public final class EcologyEngine {
     private long controlRevision;
     private int chunkTurn,clock,writes,growthInterval=20;
     private long growthTurn;
+    private final EcologyVitality vitality=new EcologyVitality();
+    private int vitalityTicks;
+    private Iterator<Pos> vitalityScan;
+    private boolean vitalityPending=true;
+    private EcologyVitality.Summary vitalitySummary=new EcologyVitality.Summary(0,0,0,0,0,0,0,0);
+    private int vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown;
+    private long vRootedHealth,vDetachedHealth;
     private int speedPercent=100;
     private long generation;
     private long graphGeneration=-1;
@@ -75,6 +83,21 @@ public final class EcologyEngine {
     public boolean owns(Pos p) { return cells.containsKey(p); }
     public boolean rooted(Pos p) { return connected.contains(p) && !unresolved && (graph==null||extending) && graphGeneration==generation; }
     public boolean enabled() { return enabled && failure==null; }
+    public boolean living(Pos p) { return rooted(p)&&vitality.ready(p); }
+    public EcologyVitality vitality(){return vitality;}
+    public EcologyVitality.Summary vitalitySummary(){return vitalitySummary;}
+    public boolean vitalityPending(){return vitalityPending;}
+    public void tuneVitality(EcologyVitality.Rules rules)throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing vitality");
+        Objects.requireNonNull(rules);if(rules.equals(vitality.rules()))return;
+        flushVitality();record("VITALITY_RULES",EcologyVitality.rulesPayload(rules));resetVitalityScan();
+    }
+    public void flushVitality()throws IOException {
+        if(vitalityTicks>0&&failure==null&&indexed){record("VITALITY",EcologyVitality.payload(vitalityTicks,new JsonArray(),-1));vitalityTicks=0;}
+    }
+    private void resetVitalityScan(){vitalityScan=null;vitalityPending=true;}
+    public void chunkUnloaded(int x,int z)throws IOException {if(ownedChunks.containsKey(chunk(x,z))){flushVitality();invalidateConnections();}}
+    private void putCell(Pos p,Cell cell){if(cells.put(p,cell)==null)ownedChunks.merge(chunk(p.x()>>4,p.z()>>4),1,Integer::sum);}
     public String failure() { return failure; }
     public Claim claim() { return claim; }
     public boolean cleanup() { return cleanup; }
@@ -131,7 +154,7 @@ public final class EcologyEngine {
     }
     public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason); controlRevision++; } }
     /** A reversible missing/unloaded Heart is not a journal failure. Recertify after it returns. */
-    public void invalidateConnections() { unresolved=true;generation++;controlRevision++;contactScan=null; }
+    public void invalidateConnections() { unresolved=true;generation++;controlRevision++;contactScan=null;resetVitalityScan(); }
 
     /** Geometry comes from Core's exact saved-site revisions, never a second editable geometry store. */
     public void attach(Setup pins, Area source, Pos heart) {
@@ -170,6 +193,7 @@ public final class EcologyEngine {
     public void mode(boolean on) throws IOException {
         healthy();requireSetup();
         if(on && (!indexed||area==null||cells.isEmpty())) throw new IllegalStateException("Finish indexing a non-empty source city first");
+        flushVitality();
         JsonObject p=new JsonObject(); p.addProperty("enabled",on); record("MODE",p); clock=0;
     }
     public View view() {
@@ -178,7 +202,7 @@ public final class EcologyEngine {
             total++; if(cursors.getOrDefault(chunk(cx,cz),0)==chunkSize(cx,cz)) done++;
         }
         boolean uncertain=unresolved||graph!=null||graphGeneration!=generation;
-        String extent=uncertain?"Unresolved":connected.isEmpty()?"Disconnected":connected.size()>=2048?"Extensive":connected.size()>=256?"Established":"Rooted";
+        String extent=uncertain?"Unresolved":connected.isEmpty()?"Disconnected":vitality.extent();
         return new View(setup!=null,indexed,enabled,failure,cells.size(),connected.size(),air.size(),done,total,
                 uncertain,extent,controlRevision,journal.bytes());
     }
@@ -215,10 +239,11 @@ public final class EcologyEngine {
     /** One occupied-play tick. Call beginTick before native world ticks for shared mutation limits. */
     public void beginTick() { writes=0; }
     public void tick(EcologyTerrain w,boolean playing) throws IOException {
-        if(!playing||!enabled()||!indexed||area==null) { clock=0;growthInterval=20;return; }
+        if(!playing||!enabled()||!indexed||area==null) { flushVitality();clock=0;growthInterval=20;return; }
         reconcile(w);
         topology(w);
-        if(unresolved || graph!=null) return;
+        if(unresolved || graph!=null) {flushVitality();resetVitalityScan();return;}
+        vitalityTick(w);
         discoverExposure(w);
         connectPlacedSculk(w);
         if(graph!=null || connected.isEmpty()) return;
@@ -226,6 +251,38 @@ public final class EcologyEngine {
         if(++clock<attemptTicks(growthInterval==10)) return;
         clock=0;
         grow(w);
+    }
+    private void vitalityTick(EcologyTerrain w)throws IOException {
+        vitalityTicks++;
+        if(vitalityScan==null){vitalityScan=new ArrayList<>(cells.keySet()).iterator();vRooted=vReady=vDetached=vFeeding=vSealed=vUnknown=0;vRootedHealth=vDetachedHealth=0;}
+        JsonArray changes=new JsonArray();List<Pos> checked=new ArrayList<>();
+        for(int n=0;n<EcologyVitality.WORK&&vitalityScan.hasNext();n++){
+            Pos p=vitalityScan.next();if(!owns(p))continue;EcologyVitality.Mode next=feedingMode(w,p);checked.add(p);
+            if(vitality.mode(p)!=next)changes.add(EcologyVitality.change(p,next));
+        }
+        if(!changes.isEmpty()||vitalityTicks>=EcologyVitality.CHECKPOINT){record("VITALITY",EcologyVitality.payload(vitalityTicks,changes,-1));vitalityTicks=0;}
+        for(Pos p:checked){var mode=vitality.mode(p);int value=vitality.value(p);
+            if(rooted(p)){vRooted++;vRootedHealth+=value;if(vitality.ready(p))vReady++;}else{vDetached++;vDetachedHealth+=value;}
+            if(mode==EcologyVitality.Mode.SHADED||mode==EcologyVitality.Mode.LIT)vFeeding++;
+            if(mode==EcologyVitality.Mode.SEALED)vSealed++;if(mode==EcologyVitality.Mode.UNKNOWN)vUnknown++;
+        }
+        if(!vitalityScan.hasNext()){
+            vitalitySummary=new EcologyVitality.Summary(vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown,vRootedHealth,vDetachedHealth);
+            vitalityPending=vUnknown>0;vitalityScan=null;
+            if(!vitalityPending&&!EcologyVitality.nextExtent(vitality.extent(),vReady,vitality.rules()).equals(vitality.extent())){
+                record("VITALITY",EcologyVitality.payload(vitalityTicks,new JsonArray(),vReady));vitalityTicks=0;
+            }
+        }
+    }
+    private EcologyVitality.Mode feedingMode(EcologyTerrain w,Pos p){
+        if(!rooted(p))return EcologyVitality.Mode.DORMANT;
+        boolean exposed=false,unknown=false;
+        for(int f=0;f<6;f++){
+            Pos a=localPosition(p,DIRECTIONS[f][0],DIRECTIONS[f][1],DIRECTIONS[f][2]);if(a==null){unknown=true;continue;}
+            if(!w.loaded(a)){unknown=true;continue;}State s=w.get(a);
+            if(s.air()||(owns(a)&&s.vein()&&!"true".equals(s.properties().get("waterlogged")))){exposed=true;if(w.light(a)>7)return EcologyVitality.Mode.LIT;}
+        }
+        return exposed?EcologyVitality.Mode.SHADED:unknown?EcologyVitality.Mode.UNKNOWN:EcologyVitality.Mode.SEALED;
     }
     /** Existing sculk joins only through real contact with the Heart/certified living network.
      * Read at most 33 x 18 neighbour positions and append at most MAX_WRITES per tick.
@@ -348,10 +405,10 @@ public final class EcologyEngine {
                     State original=w.get(backing);
                     if(original.network()) continue; // unrelated sculk is never silently adopted
                     if(w.substrate(backing)) {
-                        if(touchesRooted(backing,SCULK)) { change(w,backing,original,SCULK,List.of(a));growthInterval=w.light(a)>7?10:20;return; }
+                        if(touchesLiving(backing,SCULK)) { change(w,backing,original,SCULK,List.of(a));growthInterval=w.light(a)>7?10:20;return; }
                     } else if(airState.air() || (owns(a)&&airState.vein())) {
                         State next=airState.vein()?airState.with(FACES[face],"true"):EcologyTerrain.vein(face);
-                        if(!next.equals(airState)&&touchesRooted(a,next)) { change(w,a,airState,next,List.of(a));growthInterval=w.light(a)>7?10:20;return; }
+                        if(!next.equals(airState)&&touchesLiving(a,next)) { change(w,a,airState,next,List.of(a));growthInterval=w.light(a)>7?10:20;return; }
                     }
                 }
             }
@@ -362,14 +419,14 @@ public final class EcologyEngine {
     }
     private boolean feature(EcologyTerrain w,Pos a,State before) throws IOException {
         Pos below=a.offset(0);Cell support=cells.get(below);
-        if(support==null||!support.after.id().equals("minecraft:sculk")||!rooted(below))return false;
+        if(vitalityPending||support==null||!support.after.id().equals("minecraft:sculk")||!living(below))return false;
         // Finite spacing query; unrelated nearby features also occupy their physical space.
         for(int dx=-6;dx<=6;dx++)for(int dy=-3;dy<=3;dy++)for(int dz=-6;dz<=6;dz++) {
             Cell c=cells.get(a.add(dx,dy,dz));
             if(c!=null&&!c.after.vein()&&!c.after.id().equals("minecraft:sculk"))return false;
         }
-        String id=connected.size()>=2048&&cells.size()%128==0?"minecraft:sculk_shrieker":
-                connected.size()>=256&&cells.size()%96==0?"minecraft:sculk_catalyst":"minecraft:sculk_sensor";
+        String id=vitality.extent().equals("Extensive")&&cells.size()%128==0?"minecraft:sculk_shrieker":
+                !vitality.extent().equals("Rooted")&&cells.size()%96==0?"minecraft:sculk_catalyst":"minecraft:sculk_sensor";
         Map<String,String> properties=switch(id) {
             case "minecraft:sculk_shrieker" -> Map.of("can_summon","true","shrieking","false","waterlogged","false");
             case "minecraft:sculk_catalyst" -> Map.of("bloom","false");
@@ -379,15 +436,19 @@ public final class EcologyEngine {
         change(w,a,before,next,List.of(a));return true;
     }
     private boolean rootedExposure(Pos a) {
-        if(connected.contains(a)) return true;
-        for(int f=0;f<6;f++) if(connected.contains(a.offset(f))) return true;
+        if(living(a)) return true;
+        for(int f=0;f<6;f++) if(living(a.offset(f))) return true;
         return false;
     }
     private boolean touchesRooted(Pos p,State s) {
+        return touches(p,s,false);
+    }
+    private boolean touchesLiving(Pos p,State s) {return touches(p,s,true);}
+    private boolean touches(Pos p,State s,boolean requireVitality) {
         for(int dx=-1;dx<=1;dx++) for(int dy=-1;dy<=1;dy++) for(int dz=-1;dz<=1;dz++) {
             if(Math.abs(dx)+Math.abs(dy)+Math.abs(dz)>2) continue;
             Pos q=p.add(dx,dy,dz);Cell c=cells.get(q);
-            if(c!=null&&connected.contains(q)&&EcologyTerrain.connected(p,s,q,c.after)) return true;
+            if(c!=null&&connected.contains(q)&&(!requireVitality||vitality.ready(q))&&EcologyTerrain.connected(p,s,q,c.after)) return true;
         }
         return false;
     }
@@ -444,11 +505,12 @@ public final class EcologyEngine {
     }
     /** Catalyst hook: authorize and journal a descendant before the native mutation. */
     public boolean nativeChange(EcologyTerrain w,Pos origin,Pos p,State before,State after) throws IOException {
-        if(!enabled()||!rooted(origin)||writes>=MAX_WRITES||!after.network()||!w.loaded(origin)||!w.loaded(p)) return false;
+        if(!enabled()||!living(origin)||writes>=MAX_WRITES||!after.network()||!w.loaded(origin)||!w.loaded(p)) return false;
         Cell current=cells.get(p);
         if(current!=null && before.sameOwnedShape(after)) return true;
+        if(after.id().equals("minecraft:sculk_catalyst")&&(vitalityPending||vitality.extent().equals("Rooted")))return false;
         if(current==null&&!after.id().equals("minecraft:sculk")&&!before.air())return false;
-        if(after.id().equals("minecraft:sculk_shrieker")&&connected.size()<2048) return false;
+        if(after.id().equals("minecraft:sculk_shrieker")&&(vitalityPending||!vitality.extent().equals("Extensive"))) return false;
         // A descendant must occupy a discovered air surface, or its immediately exposed backing.
         boolean exposed=airSet.contains(p)&&passable(w,p)&&rootedExposure(p);
         List<Pos> fronts=new ArrayList<>();
@@ -457,7 +519,7 @@ public final class EcologyEngine {
             Pos a=p.offset(f);
             if(airSet.contains(a)&&passable(w,a)&&rootedExposure(a)) { exposed=true;fronts.add(a); }
         }
-        if(!exposed||(!cells.containsKey(p)&&before.network())||!touchesRooted(p,after)) return false;
+        if(!exposed||(!cells.containsKey(p)&&before.network())||!touchesLiving(p,after)) return false;
         if(after.id().equals("minecraft:sculk")&&!w.substrate(p)&&current==null) return false;
         intend(p,before,after,fronts);return true;
     }
@@ -526,6 +588,8 @@ public final class EcologyEngine {
                 validateFronts(array(p,"air",6));
             }
             case "SPEED" -> {requireSetup();keys(p,"percent");if(!indexed||!SPEEDS.contains(integer(p,"percent")))throw bad("Invalid spread speed");}
+            case "VITALITY_RULES" -> {requireSetup();if(!indexed)throw bad("Vitality tuning before indexing");EcologyVitality.parseRules(p);}
+            case "VITALITY" -> {requireSetup();if(!indexed||!enabled)throw bad("Vitality before enable");vitality.validate(p,cells::containsKey);}
             case "FRONTIER" -> {requireSetup();keys(p,"air");if(!indexed||!enabled)throw bad("Exposure discovery before enable");validateFronts(array(p,"air",64));}
             case "CLEANUP_MODE" -> {requireSetup();keys(p,"enabled");bool(p,"enabled");if(!indexed)throw bad("Cleanup before indexing");}
             case "PURGE" -> {requireSetup();keys(p,"p","before");if(!cleanup||owns(position(p.get("p")))||!block(p.get("before")).network())throw bad("Invalid cleanup intent");}
@@ -573,7 +637,7 @@ public final class EcologyEngine {
                 JsonArray entries=array(p,"cells",64);
                 for(JsonElement entry:entries) { JsonObject c=object(entry);keys(c,"p","after","cleanup");Pos at=position(c.get("p"));State after=block(c.get("after"));
                     if(!after.network()||cells.containsKey(at)||cells.size()>=MAX_CELLS||(at.x()>>4)!=cx||(at.z()>>4)!=cz) throw bad("Invalid adopted cell");
-                    cells.put(at,new Cell(at,block(c.get("cleanup")),after,true));
+                    putCell(at,new Cell(at,block(c.get("cleanup")),after,true));
                 }
                 fronts(array(p,"air",384));cursors.put(chunk(cx,cz),cursor);generation++;
             }
@@ -581,11 +645,13 @@ public final class EcologyEngine {
             case "MODE" -> { requireSetup();keys(p,"enabled");boolean on=bool(p,"enabled");if(on&&(!indexed||cells.isEmpty())) throw bad("Enabled incomplete network");enabled=on;controlRevision++; }
             case "CLEANUP_MODE" -> {cleanup=bool(p,"enabled");controlRevision++;}
             case "SPEED" -> {speedPercent=integer(p,"percent");controlRevision++;}
+            case "VITALITY_RULES" -> {vitality.applyRules(p);controlRevision++;}
+            case "VITALITY" -> {String prior=vitality.extent();vitality.apply(p);if(!prior.equals(vitality.extent()))controlRevision++;}
             case "FRONTIER" -> fronts(array(p,"air",64));
             case "PURGE" -> { }
             case "CLAIM_START" -> {claim=new Claim(string(p,"site"),number(p,"revision"),new Area(position(p.get("min")),position(p.get("max"))),false,Map.of());controlRevision++;}
             case "CLAIM_SCAN" -> {
-                for(JsonElement item:array(p,"cells",64)){JsonObject c=object(item);Pos at=position(c.get("p"));cells.put(at,new Cell(at,AIR,block(c.get("after")),false));}
+                for(JsonElement item:array(p,"cells",64)){JsonObject c=object(item);Pos at=position(c.get("p"));putCell(at,new Cell(at,AIR,block(c.get("after")),false));}
                 fronts(array(p,"air",384));Map<Long,Integer> next=new LinkedHashMap<>(claim.cursors);next.put(chunk(integer(p,"chunkX"),integer(p,"chunkZ")),integer(p,"cursor"));
                 claim=new Claim(claim.site,claim.revision,claim.area,false,next);generation++;
             }
@@ -597,15 +663,15 @@ public final class EcologyEngine {
                 Cell old=cells.get(at);
                 boolean touching=heart!=null&&EcologyTerrain.connected(heart,SCULK,at,after)||touchesRooted(at,after);
                 boolean extend=(graph==null||extending)&&graphGeneration==generation&&!unresolved&&touching&&addsOnly(old,after);
-                cells.put(at,new Cell(at,old==null?before:old.before,after,old!=null&&old.adopted));
+                putCell(at,new Cell(at,old==null?before:old.before,after,old!=null&&old.adopted));
                 fronts(array(p,"air",type.equals("CONNECT")?6:12));generation++;
                 // An added connected surface cannot disconnect existing nodes. Extend from it;
                 // cuts/observed losses still request a complete bounded rebuild. Replaying a
                 // journal never takes this shortcut because no graph is certified at startup.
                 if(extend){graphGeneration=generation;connected.add(at);visiting=connected;if(graph==null)graph=new ArrayDeque<>();graph.add(at);graphUnknown=false;extending=true;}
             }
-            case "REMOVE" -> { requireSetup();keys(p,"p");Pos at=position(p.get("p"));if(cells.remove(at)==null) throw bad("Unknown removed cell");generation++; }
-            case "OBSERVE" -> {Pos at=position(p.get("p"));Cell c=cells.get(at);cells.put(at,new Cell(at,c.before,block(p.get("after")),c.adopted));generation++;}
+            case "REMOVE" -> { requireSetup();keys(p,"p");Pos at=position(p.get("p"));if(cells.remove(at)==null) throw bad("Unknown removed cell");ownedChunks.compute(chunk(at.x()>>4,at.z()>>4),(k,n)->n==1?null:n-1);vitality.forget(at);resetVitalityScan();generation++; }
+            case "OBSERVE" -> {Pos at=position(p.get("p"));Cell c=cells.get(at);cells.put(at,new Cell(at,c.before,block(p.get("after")),c.adopted));resetVitalityScan();generation++;}
             default -> throw bad("Unsupported ecology payload type: "+type);
         }
     }

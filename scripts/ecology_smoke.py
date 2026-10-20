@@ -24,25 +24,32 @@ def _reserve_ports():
         probe.bind(('127.0.0.1', 24455))
 
 
-def run():
+def run(phases=None):
     import workspace as w
     import fabric_smoke as f
+    allowed = ('initial', 'restart', 'surface', 'organic', 'vitality')
+    phases = allowed if phases is None else tuple(phases)
+    if not phases or any(p not in allowed for p in phases) or len(set(phases)) != len(phases):
+        raise ValueError('Select distinct known ecology phases')
+    if 'restart' in phases and ('initial' not in phases or phases.index('initial') > phases.index('restart')):
+        raise ValueError('Restart requires an earlier initial phase in the same run')
     w.require_eula()
     w.validate_server_runtime()
     w.validate_managed_mod_names()
-    w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':campaigns:quiet-below:writeSmokeClientLaunch'])
+    w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':core:remapJar',
+           ':campaigns:quiet-below:remapJar', ':campaigns:quiet-below:writeSmokeClientLaunch'])
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text(encoding='utf-8'))
     root = f._stage(w)
     reports = w.REPORTS / ('ecology-smoke-' + root.name)
     reports.mkdir(parents=True)
-    report = {'result': 'FAIL', 'world': str(root), 'reports': str(reports), 'checks': []}
+    report = {'result': 'FAIL', 'world': str(root), 'reports': str(reports), 'phases': list(phases), 'checks': []}
     server = None
     server_log = None
     clients = []
     try:
-        for phase in ('initial', 'restart', 'surface', 'organic'):
-            phase_root = f._stage(w) if phase in ('surface', 'organic') else root
-            if phase in ('surface', 'organic'):
+        for phase in phases:
+            phase_root = f._stage(w) if phase in ('surface', 'organic', 'vitality') else root
+            if phase in ('surface', 'organic', 'vitality'):
                 report[phase + '_world'] = str(phase_root)
             _reserve_ports()
             logfile = reports / ('server-' + phase + '.log')

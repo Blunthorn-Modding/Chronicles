@@ -46,6 +46,17 @@ public final class QuietBelowEcology {
                         new GameSetupTools.Verb("speed_reset","Reset speed",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::status,QuietBelowEcology::execute));
+        GameSetupTools.register(new GameSetupTools.Tool("quiet_below:vitality","Sculk vitality",
+                "Vitality and extent tuning. Detached or sealed sculk loses vitality but keeps its blocks. Physical reconnection and air exposure permit recovery, even from zero. No XP upkeep or oxygen simulation.",
+                List.of(new GameSetupTools.Verb("loss_slower","Slower vitality loss",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("loss_faster","Faster vitality loss",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("recovery_slower","Slower recovery",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("recovery_faster","Faster recovery",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("extent_lower","Lower extent thresholds",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("extent_higher","Higher extent thresholds",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("reset","Reset vitality tuning",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
+                QuietBelowEcology::vitalityStatus,QuietBelowEcology::vitalityAction));
         GameSetupTools.register(new GameSetupTools.Tool("quiet_below:ownership","Sculk ownership",
                 "Adopt existing sculk in a saved region before enabling optional world-wide cleanup. Cleanup permanently deletes non-campaign sculk in the Heart's dimension as chunks normally load; no terrain is force-loaded.",
                 List.of(new GameSetupTools.Verb("claim","Take over region",GameSetupTools.Guard.EDIT,true),
@@ -67,12 +78,17 @@ public final class QuietBelowEcology {
         ServerChunkEvents.CHUNK_UNLOAD.register((world,chunk)->{
             Set<ChunkPos> loaded=LOADED.get(world);if(loaded!=null)loaded.remove(chunk.getPos());
             Runtime r=WORLDS.get(world.getServer());if(r!=null&&r.cleanup!=null&&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString()))r.cleanup.unload(chunk.getPos().x,chunk.getPos().z);
+            if(r!=null&&r.engine.setup()!=null&&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString()))
+                try{r.engine.chunkUnloaded(chunk.getPos().x,chunk.getPos().z);}catch(Exception e){hold(r,e);}
         });
         ServerLifecycleEvents.SERVER_STARTED.register(QuietBelowEcology::start);
         ServerTickEvents.START_SERVER_TICK.register(server->{Runtime r=WORLDS.get(server);if(r!=null)r.engine.beginTick();});
         ServerTickEvents.END_SERVER_TICK.register(QuietBelowEcology::tick);
         ServerLifecycleEvents.SERVER_STOPPED.register(server->{
-            Runtime r=WORLDS.remove(server);if(r!=null)try {r.journal.close();}catch(IOException e){QuietBelow.LOGGER.error("Ecology journal close failed",e);}
+            Runtime r=WORLDS.remove(server);if(r!=null){
+                try{r.engine.flushVitality();}catch(Exception e){QuietBelow.LOGGER.error("Ecology vitality shutdown checkpoint failed",e);}
+                try{r.journal.close();}catch(IOException e){QuietBelow.LOGGER.error("Ecology journal close failed",e);}
+            }
             LOADED.keySet().removeIf(world->world.getServer()==server);
             LOAD_OVERFLOW.removeIf(world->world.getServer()==server);
         });
@@ -107,7 +123,7 @@ public final class QuietBelowEcology {
                 r.claimProblem=claimProblem(server,r.engine.claim());
                 if(r.claimProblem==null&&ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.claimTick(world);
             } else r.claimProblem=null;
-            if(r.rootProblem==null)r.engine.tick(world,playing(server));
+            if(r.rootProblem==null)r.engine.tick(world,playing(server));else r.engine.flushVitality();
             if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
         } catch(Exception e) { hold(r,e); }
     }
@@ -124,6 +140,7 @@ public final class QuietBelowEcology {
         List<Fact> facts=List.of(new Fact("Root (Relic Heart)",root==null?rootIssue:coordinates(root)),
                 new Fact("Growth",growthStatus(source.getServer(),r,v)),
                 new Fact("Spread speed",speedLabel(r.engine)),
+                new Fact("Vitality",r.engine.vitalitySummary().rootedPercent()+"% rooted average; "+r.engine.vitalitySummary().ready()+" ready rooted cells. See Sculk vitality for recovery/tuning."),
                 new Fact("Speed controls","Slower / Faster: 0.25x to 16x; Reset speed: 1x. Pause play and enable editing to change. These are attempt intervals; blocked surfaces can advance more slowly."),
                 new Fact("Living connection",!v.configured()?"No network indexed yet.":v.unresolved()?"Checking loaded sculk connections; expansion waits.":v.connected()==0?
                         "None. Detached sculk is dormant. Restore continuous sculk contact with the Heart to reconnect it.":
@@ -133,7 +150,7 @@ public final class QuietBelowEcology {
                 new Fact("How to test","Show root, then close this menu to see its private outline. Break every sculk connection to a branch; replace sculk to reconnect. Sensors are audible evidence, not a growth meter."),
                 new Fact("Surface frontier",v.frontier()+" discovered air cells"),
                 new Fact("Persistence",v.journalBytes()+" bytes; append-only history"),
-                new Fact("Review scope","Surface growth and physical containment. Crop benefits, stations and Heart ending follow later."));
+                new Fact("Review scope","Surface growth, physical containment, vitality and recovery. Crop benefits, stations and Heart ending follow later."));
         Map<String,String> disabled=new HashMap<>();
         if(!v.indexed())for(String verb:List.of("slower","faster","speed_reset"))disabled.put(verb,"Complete source indexing before changing spread speed.");
         if(r.engine.speedPercent()==EcologyEngine.SPEEDS.getFirst())disabled.put("slower","Minimum speed: 0.25x.");
@@ -162,11 +179,48 @@ public final class QuietBelowEcology {
         if(PlayRuntime.eligiblePlayers(server).isEmpty())return "Waiting for an online, alive, non-spectator participant.";
         if(v.unresolved())return "Checking connections; keep the network chunks loaded.";
         if(v.connected()==0)return "Dormant: no living sculk connection to the Heart.";
+        if(!r.engine.vitalityPending()&&r.engine.vitalitySummary().ready()==0)return "Recovering: connected sculk needs 25% vitality for growth. Expose it to air; bright exposure recovers faster.";
         return "Active; spreading along reachable exposed surfaces.";
     }
     private static String coordinates(Pins p) {return p.heart.x()+", "+p.heart.y()+", "+p.heart.z()+" in "+p.setup.dimension();}
     private static String speedLabel(EcologyEngine e) {
         return String.format(Locale.ROOT,"%.2fx; attempts every %.2fs dark / %.2fs bright (at 20 TPS)",e.speedPercent()/100.0,e.attemptTicks(false)/20.0,e.attemptTicks(true)/20.0);
+    }
+    private static GameSetupTools.Status vitalityStatus(ServerCommandSource source){
+        Runtime r=runtime(source.getServer());var e=r.engine;var rules=e.vitality().rules();var s=e.vitalitySummary();Map<String,String> disabled=new HashMap<>();
+        for(String verb:List.of("loss_slower","loss_faster","recovery_slower","recovery_faster","extent_lower","extent_higher","reset")){
+            if(!e.view().indexed())disabled.put(verb,"Complete source indexing first.");if(e.failure()!=null)disabled.put(verb,e.failure());
+        }
+        if(rules.lossMinutes()==40)disabled.put("loss_slower","Maximum full-loss time: 40 eligible minutes.");
+        if(rules.lossMinutes()==1)disabled.put("loss_faster","Minimum full-loss time: 1 eligible minute.");
+        if(rules.recoveryMinutes()==40)disabled.put("recovery_slower","Maximum dark recovery time: 40 eligible minutes.");
+        if(rules.recoveryMinutes()==1)disabled.put("recovery_faster","Minimum dark recovery time: 1 eligible minute.");
+        if(rules.extentPreset()==0)disabled.put("extent_lower","Minimum thresholds: 64 / 512.");
+        if(rules.extentPreset()==4)disabled.put("extent_higher","Maximum thresholds: 1024 / 8192.");
+        if(rules.equals(EcologyVitality.DEFAULT))disabled.put("reset","Vitality tuning already uses defaults.");
+        return new GameSetupTools.Status(e.view().revision()+r.menuRevision,List.of(
+                new Fact("Assessment",e.vitalityPending()?"Checking connections/exposures; extent retains its last known value.":"Latest bounded assessment; "+e.vitality().extent()+" extent."),
+                new Fact("Rooted vitality",s.rootedPercent()+"% average; "+s.ready()+" ready / "+s.rooted()+" rooted cells"),
+                new Fact("Detached vitality",s.detachedPercent()+"% average across "+s.detached()+" detached cells; blocks stay in place"),
+                new Fact("Exposure",s.feeding()+" feeding; "+s.sealed()+" fully sealed; "+s.unknown()+" unresolved exposures"),
+                new Fact("Full vitality loss",rules.lossMinutes()+" eligible minutes from 100% to 0% while detached or sealed"),
+                new Fact("Full recovery",rules.recoveryMinutes()+" eligible minutes in dark exposure; "+String.format(Locale.ROOT,"%.1f",rules.recoveryMinutes()/2.0)+" in bright exposure"),
+                new Fact("Extent thresholds","Established "+rules.established()+" / Extensive "+rules.extensive()+" ready rooted cells; 12.5% exit buffer prevents rapid switching"),
+                new Fact("Living growth","Needs physical Heart connection and at least 25% vitality. A cut stops growth/native responses immediately. Reconnection can recover from zero; dormant blocks are retained."),
+                new Fact("Clock",e.vitality().ticks()/20+" saved eligible seconds; pause, empty play, holds and unresolved networks do not advance it. Bright means light above 7; no air depletion."),
+                new Fact("Tuning","Pause play and enable editing. Full-loss/recovery choices: 1 / 2 / 5 / 10 / 20 / 40 minutes. Speed controls remain in Sculk ecology.")),disabled);
+    }
+    private static String vitalityAction(ServerCommandSource source,String verb)throws Exception{
+        Runtime r=runtime(source.getServer());var old=r.engine.vitality().rules();int loss=old.lossMinutes(),recovery=old.recoveryMinutes(),extent=old.extentPreset();
+        switch(verb){
+            case "loss_slower","loss_faster"->loss=EcologyVitality.MINUTES.get(EcologyVitality.MINUTES.indexOf(loss)+(verb.equals("loss_slower")?1:-1));
+            case "recovery_slower","recovery_faster"->recovery=EcologyVitality.MINUTES.get(EcologyVitality.MINUTES.indexOf(recovery)+(verb.equals("recovery_slower")?1:-1));
+            case "extent_lower"->extent--;case "extent_higher"->extent++;
+            case "reset"->{loss=10;recovery=5;extent=2;}
+            case "refresh"->{r.menuRevision++;return "Vitality status refreshed.";}
+            default->throw new IllegalArgumentException("Unknown vitality action");
+        }
+        r.engine.tuneVitality(new EcologyVitality.Rules(loss,recovery,extent));return "Vitality tuning saved: loss "+loss+" min; dark recovery "+recovery+" min; extent preset "+(extent+1)+" / 5.";
     }
     private static GameSetupTools.Status ownershipStatus(ServerCommandSource source) {
         Runtime r=runtime(source.getServer());var e=r.engine;var c=e.claim();
@@ -308,7 +362,7 @@ public final class QuietBelowEcology {
         @Override public boolean owns(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.engine.owns(pos(p));}
         @Override public boolean managesCatalyst(ServerWorld w,BlockPos p){return find(w)!=null;}
         @Override public void unownedNetworkWrite(ServerWorld w,BlockPos p){Runtime r=find(w);if(r==null)return;r.engine.noticeContact(pos(p));if(cleanupWorld(w,r))try{r.cleanup.changed(pos(p));}catch(Exception e){hold(r,e);}}
-        @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.rootProblem==null&&r.engine.enabled()&&r.engine.rooted(pos(p))&&playing(w.getServer());}
+        @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.rootProblem==null&&r.engine.enabled()&&r.engine.living(pos(p))&&playing(w.getServer());}
         @Override public BlockState beforeWrite(ServerWorld w,BlockPos p,BlockState before,BlockState proposed,int flags) {
             Runtime r=find(w);if(r==null)return proposed;
             var origin=EcologyHooks.catalystOrigin();

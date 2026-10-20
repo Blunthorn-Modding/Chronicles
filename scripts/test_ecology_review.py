@@ -10,6 +10,12 @@ class EcologyReviewTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             review.snapshot({'result': 'FAIL', 'world': 'irrelevant'})
 
+    def test_focused_trial_cannot_replace_the_full_review_snapshot(self):
+        with patch.object(review.w, 'check_stopped') as stopped:
+            with self.assertRaisesRegex(RuntimeError, 'focused ecology trial'):
+                review.snapshot({'result': 'PASS', 'phases': ['vitality'], 'world': 'irrelevant'})
+            stopped.assert_not_called()
+
     def test_source_and_destination_must_be_direct_timestamped_children(self):
         with TemporaryDirectory() as tmp:
             parent = Path(tmp)

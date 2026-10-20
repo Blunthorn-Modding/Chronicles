@@ -9,6 +9,7 @@ import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EcologyEngineTest {
+    private static long mutationIntents(EcologyJournal j){return j.entries().stream().filter(e->Set.of("GROW","CONNECT","PURGE").contains(e.type())).count();}
     @TempDir Path dir;
     private static final State STONE=new State("minecraft:stone",Map.of());
     private static final State WOOD=new State("minecraft:oak_planks",Map.of());
@@ -135,12 +136,12 @@ class EcologyEngineTest {
         World w=new World();try(var j=new EcologyJournal(dir.resolve("join-budget.jsonl"))){
             EcologyEngine e=ready(j,w);ticks(e,w,true,1);
             for(int x=0;x<8;x++)for(int y=0;y<4;y++)for(int z=-2;z<3;z++)w.blocks.put(new Pos(x,y,z),SCULK);
-            long before=j.revision();e.beginTick();
+            long before=mutationIntents(j);e.beginTick();
             for(int i=0;i<EcologyEngine.MAX_WRITES;i++)assertTrue(e.reserveNativeLoss());
-            e.tick(w,true);assertEquals(before,j.revision(),"joins cannot bypass a busy native mutation budget");
+            e.tick(w,true);assertEquals(before,mutationIntents(j),"joins cannot bypass a busy native mutation budget");
             for(int i=0;i<30;i++){
-                before=j.revision();e.beginTick();w.reads=0;e.tick(w,true);
-                assertTrue(j.revision()-before<=EcologyEngine.MAX_WRITES);assertTrue(w.reads<=4096);
+                before=mutationIntents(j);e.beginTick();w.reads=0;e.tick(w,true);
+                assertTrue(mutationIntents(j)-before<=EcologyEngine.MAX_WRITES);assertTrue(w.reads<=4096);
             }
             assertTrue(e.view().owned()>1);e.invalidateConnections();assertFalse(e.rooted(SOURCE));
             ticks(e,w,true,20);assertTrue(e.rooted(SOURCE));assertNull(e.failure());

@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Dormant vitality and recovery - 20 October 2026
+
+The operator accepts organic spread and authorizes continued implementation. On the explicit decay choice, **lose vitality but keep dormant blocks** is confirmed. Physical disconnection stops growth/native responses immediately; the new [M9b slice](M9_VITALITY.md) retains every block and permits recovery from zero after reconnection/exposure. No terrain withering, catalyst upkeep, oxygen system or permanent-death deadline is introduced. Rates, extent thresholds and the fixed 25% ready threshold are technical review defaults. Loss/recovery rates and paired extent thresholds are configurable per world through the existing generic Game setup UI. Core remains free of campaign ecology state.
+
 ## Branching growth and initial client preferences - 20 October 2026
 
 The operator accepts corner traversal and speed controls, reporting that the new traversal paints straight rows. [Organic-growth repair](M9_ORGANIC_SPREAD.md) varies frontier and direction choices inside the existing work bounds; physical connection, sealed barriers and recorded ownership stay authoritative. Existing terrain is retained. Future client packs carry GUI scale 2, narrator off, accessibility onboarding off and multiplayer warning acknowledged as initial options. These are profile defaults, not enforced server/mod settings.

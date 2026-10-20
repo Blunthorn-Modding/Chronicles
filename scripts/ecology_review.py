@@ -30,6 +30,8 @@ def direct(path: Path, parent: Path) -> Path:
 def snapshot(report: dict) -> Path:
     if report.get('result') != 'PASS':
         raise RuntimeError('Run a successful ecology-smoke before preparing a review')
+    if 'phases' in report and not {'initial', 'restart'}.issubset(report['phases']):
+        raise RuntimeError('A focused ecology trial has no review snapshot; run the full ecology-smoke first')
     root = direct(Path(report['world']), w.WORK / 'test-runs')
     w.check_stopped(root)
     source = root / 'review-world'
