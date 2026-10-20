@@ -50,7 +50,8 @@ public final class EcologyEngine {
     private boolean indexed,enabled;
     private String failure;
     private long controlRevision;
-    private int chunkTurn,airTurn,clock,writes,growthInterval=20;
+    private int chunkTurn,clock,writes,growthInterval=20;
+    private long growthTurn;
     private int speedPercent=100;
     private long generation;
     private long graphGeneration=-1;
@@ -323,20 +324,26 @@ public final class EcologyEngine {
     private void grow(EcologyTerrain w) throws IOException {
         if(air.isEmpty()) return;
         // Fixed work: at most 8 air seeds, 7 target cells, 6 backing faces.
+        // Independent choices break the insertion-order/direction feedback that painted long rows.
+        // Persisted outcomes remain authoritative; future attempts need no new journal schema.
+        SplittableRandom random=new SplittableRandom(setup.hashCode()*0x9E3779B97F4A7C15L
+                ^journal.revision()^++growthTurn*0xD1B54A32D192ED03L);
+        int[] steps={-1,0,1,2,3,4,5},faces={0,1,2,3,4,5};
         int reads=0;
         for(int tries=0;tries<8;tries++) {
-            Pos from=air.get(Math.floorMod(airTurn++,air.size()));
+            Pos from=air.get(random.nextInt(air.size()));
             if(!passable(w,from)||!rootedExposure(from)) continue;
-            for(int step=-1;step<6;step++) {
+            shuffle(random,steps);
+            for(int step:steps) {
                 Pos a=step<0?from:from.offset(step);
                 if(!passable(w,a)) continue;
                 State airState=w.get(a);
                 if(airState.air()&&cells.size()>=64&&cells.size()%32==0&&feature(w,a,airState))return;
                 // Both darkness and light permit growth; lit exposure also shortens the next interval.
-                int start=Math.floorMod(airTurn+(w.light(a)>7?1:0),6);
-                for(int i=0;i<6;i++) {
+                shuffle(random,faces);
+                for(int face:faces) {
                     if(++reads>256) return;
-                    int face=(i+start)%6; Pos backing=a.offset(face);
+                    Pos backing=a.offset(face);
                     if(!w.loaded(backing)||cells.containsKey(backing)||!w.solidFace(backing,face^1)) continue;
                     State original=w.get(backing);
                     if(original.network()) continue; // unrelated sculk is never silently adopted
@@ -349,6 +356,9 @@ public final class EcologyEngine {
                 }
             }
         }
+    }
+    private static void shuffle(SplittableRandom random,int[] values) {
+        for(int i=values.length-1;i>0;i--){int j=random.nextInt(i+1),v=values[i];values[i]=values[j];values[j]=v;}
     }
     private boolean feature(EcologyTerrain w,Pos a,State before) throws IOException {
         Pos below=a.offset(0);Cell support=cells.get(below);

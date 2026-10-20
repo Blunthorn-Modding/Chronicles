@@ -1,6 +1,6 @@
 # Surface ecology review
 
-Use **dev.16** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in your existing matching Fabric profile. The dev.16 pack adds exposed-corner recovery and saved spread-speed controls. The existing dev.14 client also supports these generic tool controls and private outlines.
+Use **dev.17** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in your existing matching Fabric profile. The dev.17 pack adds branching surface growth and the requested initial client preferences: GUI scale 2, narrator off, no accessibility onboarding prompt, and multiplayer warning acknowledged. Existing profile preferences are not changed by the server. The existing dev.14 client also supports these generic tool controls and private outlines.
 
 Join **`localhost:25585`** for the disposable ecology map. `localhost:25565` remains your usual map, with ecology unconfigured/disabled. Both servers keep authentication and the whitelist; SchinderRenge remains an operator.
 
@@ -19,7 +19,7 @@ Review whether the visible progression and effects of opening/sealing/pruning fe
 
 In **Game setup > Sculk ecology**, pause play and enable editing to use **Slower**, **Faster** or **Reset speed**. The saved range is **0.25x to 16x**, with **1x** as default. The menu shows the dark/bright attempt intervals at 20 TPS. Pause/empty play does not build a backlog, and changing the pace does not remove the work/write limits. These are growth attempts; sealed or blocked surfaces may progress more slowly. Speed is retained after restart.
 
-Existing sculk discovers its missing exposed faces when eligible play resumes. Your current test structure and ownership remain intact; the corner fix needs no reset/reindex. Try the same outer edge, as well as top/underside surfaces. Sculk should wrap exposed surfaces without excavating enclosed stone. [Repair specification](M9_SURFACE_SPEED.md).
+Existing sculk discovers its missing exposed faces when eligible play resumes. Your current test structure and ownership remain intact; the corner fix needs no reset/reindex. Try the same outer edge, as well as top/underside surfaces. Sculk should wrap exposed surfaces without excavating enclosed stone. New growth should form uneven branching patches rather than painting one complete line at a time. Existing lines are preserved and can thicken naturally; the repair does not redraw your build. [Repair specification](M9_SURFACE_SPEED.md).
 
 ## Ownership tools
 

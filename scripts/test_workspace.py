@@ -13,6 +13,28 @@ spec.loader.exec_module(workspace)
 
 
 class WorkspaceTests(unittest.TestCase):
+    def test_client_pack_contains_requested_initial_preferences_only_on_client(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            built = []
+            for mod_id in ('chronicle_core', 'quiet_below'):
+                jar = root / (mod_id + '.jar')
+                with zipfile.ZipFile(jar, 'w') as zipped:
+                    zipped.writestr('fabric.mod.json', json.dumps({'id': mod_id, 'version': 'test',
+                        'depends': {'minecraft': workspace.LOCK['minecraft']}}))
+                built.append(jar)
+            with patch.object(workspace, 'WORK', root), patch.object(workspace, 'artifacts', return_value=built):
+                workspace.pack()
+            with zipfile.ZipFile(next((root / 'client').glob('*.mrpack'))) as zipped:
+                self.assertIsNone(zipped.testzip())
+                options = zipped.read('client-overrides/options.txt').decode('utf-8')
+                self.assertEqual(dict(line.split(':', 1) for line in options.splitlines()), {
+                    'guiScale': '2', 'narrator': '0', 'onboardAccessibility': 'false', 'skipMultiplayerWarning': 'true'})
+                self.assertNotIn('overrides/options.txt', zipped.namelist())
+                self.assertNotIn('server-overrides/options.txt', zipped.namelist())
+                for jar in built:
+                    self.assertEqual(zipped.read('overrides/mods/' + jar.name), jar.read_bytes())
+
     def test_deploy_archives_previous_custom_jars_and_preserves_unrelated_mods(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

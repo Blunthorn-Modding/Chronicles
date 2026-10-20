@@ -99,9 +99,9 @@ def _client(w, launch, root, reports, name, label, variables):
     directory = root / ('client-' + label)
     directory.mkdir()
     render_distance = 8 if variables.get('CHRONICLE_STAGE_PHASE') == 'pilot' else 3
-    (directory / 'options.txt').write_text('\n'.join([
+    (directory / 'options.txt').write_text(w.client_options() + '\n' + '\n'.join([
         f'renderDistance:{render_distance}', 'simulationDistance:3', 'maxFps:30', 'enableVsync:false',
-        'guiScale:2', 'tutorialStep:none', 'onboardAccessibility:false', 'lang:en_us', 'pauseOnLostFocus:false',
+        'tutorialStep:none', 'lang:en_us', 'pauseOnLostFocus:false',
         'soundCategory_master:0.0', ''
     ]), encoding='utf-8')
     jvm = [arg for arg in launch['jvmArgs'] if not arg.startswith(('-Xmx', '-Xms'))]

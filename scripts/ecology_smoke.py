@@ -40,10 +40,10 @@ def run():
     server_log = None
     clients = []
     try:
-        for phase in ('initial', 'restart', 'surface'):
-            phase_root = f._stage(w) if phase == 'surface' else root
-            if phase == 'surface':
-                report['surface_world'] = str(phase_root)
+        for phase in ('initial', 'restart', 'surface', 'organic'):
+            phase_root = f._stage(w) if phase in ('surface', 'organic') else root
+            if phase in ('surface', 'organic'):
+                report[phase + '_world'] = str(phase_root)
             _reserve_ports()
             logfile = reports / ('server-' + phase + '.log')
             server_log = logfile.open('w', encoding='utf-8')

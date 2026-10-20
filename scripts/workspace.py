@@ -365,6 +365,11 @@ def restore(archive):
     return destination
 
 
+def client_options():
+    """Initial preferences for new client profiles, also used by native rehearsals."""
+    return (REPO / 'config/client/options.txt').read_text(encoding='utf-8')
+
+
 def pack():
     jars = artifacts()
     versions = {validate_mod_target(jar)['version'] for jar in jars}
@@ -380,6 +385,7 @@ def pack():
     target.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as zipped:
         zipped.writestr('modrinth.index.json', json.dumps(index, indent=2))
+        zipped.writestr('client-overrides/options.txt', client_options())
         for jar in jars:
             zipped.write(jar, 'overrides/mods/' + jar.name)
     print(f'Modrinth client pack: {target}')

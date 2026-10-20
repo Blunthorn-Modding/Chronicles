@@ -13,6 +13,7 @@ import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.option.NarratorMode;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.util.math.BlockPos;
 
@@ -38,7 +39,7 @@ final class QuietBelowEcologySmoke {
 
     static void register() {
         if (OUTPUT == null) return;
-        if (!List.of("initial","restart","surface").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
+        if (!List.of("initial","restart","surface","organic").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();
         ClientReceiveMessageEvents.GAME.register((text, overlay) -> smoke.messages.add(text.getString()));
         ClientTickEvents.END_CLIENT_TICK.register(smoke::tick);
@@ -48,8 +49,13 @@ final class QuietBelowEcologySmoke {
         if (finished) return;
         try {
             require(System.nanoTime() < overallDeadline, "ecology smoke overall timeout");
-            if (client.player == null && client.getOverlay() == null && client.currentScreen instanceof AccessibilityOnboardingScreen) client.setScreen(new TitleScreen());
+            if (client.player == null && client.getOverlay() == null && client.currentScreen instanceof AccessibilityOnboardingScreen)
+                throw new IllegalStateException("Pack preferences failed to suppress accessibility onboarding");
             if (!connected && client.getOverlay() == null && client.currentScreen instanceof TitleScreen) {
+                require(client.options.getGuiScale().getValue()==2,"pack GUI scale not loaded");checks.add("new client loads GUI scale 2");
+                require(client.options.getNarrator().getValue()==NarratorMode.OFF,"pack narrator setting not loaded");checks.add("new client loads narrator off");
+                require(!client.options.onboardAccessibility,"pack onboarding preference not loaded");checks.add("new client skips accessibility onboarding without test bypass");
+                require(client.options.skipMultiplayerWarning,"pack multiplayer acknowledgement not loaded");checks.add("new client loads multiplayer acknowledgement");
                 connected = true;
                 ConnectScreen.connect(client.currentScreen, client, ServerAddress.parse(ADDRESS),
                         new ServerInfo("Chronicle ecology fixture", ADDRESS, ServerInfo.ServerType.OTHER), false, null);
@@ -66,7 +72,7 @@ final class QuietBelowEcologySmoke {
     }
 
     private void build(MinecraftClient client) {
-        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else restart(client);
+        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else restart(client);
     }
 
     private void initial(MinecraftClient client) {
@@ -180,6 +186,41 @@ final class QuietBelowEcologySmoke {
         screenshot(client, "ecology-disabled-after-prune.png");
     }
 
+    private void organic(MinecraftClient client) {
+        command(client,"build flat organic-growth surface","fill -12 60 -12 12 64 12 stone",".*filled.*");
+        command(client,"place patch Heart","setblock 0 64 -1 reinforced_deepslate",".*Changed.*");
+        command(client,"place patch source","setblock 0 64 0 sculk",".*Changed.*");
+        command(client,"enable patch editing","chronicle author mode on","Author mode enabled.*");
+        command(client,"create patch source region","chronicle author region create patch_source","Region draft patch_source opened.*");
+        command(client,"patch source first position","chronicle author region pos1 0 64 -1","Set region draft patch_source position 1.*");
+        command(client,"patch source second position","chronicle author region pos2 0 64 0","Set region draft patch_source position 2.*");
+        command(client,"save patch source","chronicle author region save","Saved region patch_source.*");
+        command(client,"look at patch Heart","tp @s 0.5 65 -0.5 0 90",".*Teleported.*");
+        command(client,"bind patch Heart","chronicle author block bind patch_heart target","Saved block patch_heart.*");
+        command(client,"stand on the patch surface","tp @s 0.5 65 6.5 180 30",".*Teleported.*");
+        command(client,"assign patch source","chronicles setup assign \"quiet_below:source_city\" patch_source","Requirement assigned.*");
+        command(client,"assign patch Heart","chronicles setup assign \"quiet_below:relic_heart\" patch_heart","Requirement assigned.*");
+        command(client,"index patch source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish patch source index",600);
+        command(client,"enable patch growth","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        for(int i=0;i<4;i++)command(client,"accelerate patch for visual check "+i,"chronicles setup tool \"quiet_below:ecology\" faster","Spread speed saved:.*");
+        command(client,"start patch play","chronicle session start","Started Chronicle session.*");
+        command(client,"join patch play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        step("grow an early connected patch",()->{},()->patch(client).size()>=49,30_000);
+        command(client,"pause partial patch","chronicle session pause","Paused Chronicle session.*");
+        check("early patch branches across both axes",()->{
+            var cells=patch(client);int x=cells.stream().mapToInt(p->Math.abs(p.getX())).max().orElseThrow(),z=cells.stream().mapToInt(p->Math.abs(p.getZ())).max().orElseThrow();
+            require(Math.max(x,z)<=10&&Math.min(x,z)>=3,"early patch still forms an axial line: "+x+","+z);
+        });
+        command(client,"hold patch viewing position","gamemode spectator @s",".*(Spectator|spectator).*");
+        command(client,"view partial patch from above","tp @s 0.5 80 0.5 0 90",".*Teleported.*");
+        screenshot(client,"ecology-organic-patch.png");
+    }
+    private List<BlockPos> patch(MinecraftClient client) {
+        List<BlockPos> cells=new ArrayList<>();
+        for(int x=-12;x<=12;x++)for(int z=-12;z<=12;z++)if(client.world.getBlockState(new BlockPos(x,64,z)).isOf(Blocks.SCULK))cells.add(new BlockPos(x,64,z));
+        return cells;
+    }
     private void surface(MinecraftClient client) {
         command(client,"build isolated stone cube","fill 0 64 0 4 68 4 stone",".*filled.*");
         command(client,"place cube Heart","setblock 0 65 2 reinforced_deepslate",".*Changed.*");

@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Branching growth and initial client preferences - 20 October 2026
+
+The operator accepts corner traversal and speed controls, reporting that the new traversal paints straight rows. [Organic-growth repair](M9_ORGANIC_SPREAD.md) varies frontier and direction choices inside the existing work bounds; physical connection, sealed barriers and recorded ownership stay authoritative. Existing terrain is retained. Future client packs carry GUI scale 2, narrator off, accessibility onboarding off and multiplayer warning acknowledged as initial options. These are profile defaults, not enforced server/mod settings.
+
 ## Exposed-corner review and adjustable spread speed - 20 October 2026
 
 The operator accepts identification and root disconnection/reconnection, reporting one remaining exposed-edge stall and requesting an in-game pace setting. [QB-08 surface/speed repair](M9_SURFACE_SPEED.md) preserves physical connections and sealed interiors while discovering locally reachable exposed sides of grown/existing blocks. Pace belongs to Quiet Below, using Core's existing generic tool UI: Slower / Faster / Reset speed, 0.25x to 16x, server-saved per world, default 1x. Values describe bounded growth-attempt intervals rather than guaranteed block throughput. This is a review repair and partial configuration delivery, not completion of M9 vitality/decline or later campaign mechanics.
