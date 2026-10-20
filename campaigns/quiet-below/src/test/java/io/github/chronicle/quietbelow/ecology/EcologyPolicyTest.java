@@ -70,6 +70,9 @@ class EcologyPolicyTest {
                     fixture.terrain, source(EcologyEngine.MAX_WRITES + 1), overBudget, AIR, SENSOR));
             assertEquals(before + EcologyEngine.MAX_WRITES, fixture.journal.revision());
             assertFalse(fixture.engine.owns(overBudget));
+            assertFalse(fixture.engine.reserveNativeLoss(),"native cleanup shares the same per-tick mutation limit");
+            for(int i=0;i<25;i++)fixture.engine.tick(fixture.terrain,true);
+            assertEquals(null,fixture.engine.failure(),"a temporarily exhausted native budget must not hold the network permanently");
 
             fixture.engine.beginTick();
             EcologyTerrain.Pos unrelated = targets.get(EcologyEngine.MAX_WRITES + 1);

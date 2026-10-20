@@ -52,8 +52,7 @@ public final class EcologyEngine {
     private Iterator<Pos> validation;
     private ArrayDeque<Pos> graph;
     private Set<Pos> visiting=new HashSet<>(), connected=new HashSet<>();
-    private boolean graphUnknown,unresolved=true,validationUnknown;
-    private int cycle;
+    private boolean graphUnknown,unresolved=true,validationUnknown,validated,extending;
 
     public EcologyEngine(EcologyJournal journal) {
         this.journal=Objects.requireNonNull(journal);
@@ -63,7 +62,7 @@ public final class EcologyEngine {
     public Setup setup() { return setup; }
     public List<Cell> cells() { return List.copyOf(cells.values()); }
     public boolean owns(Pos p) { return cells.containsKey(p); }
-    public boolean rooted(Pos p) { return connected.contains(p) && !unresolved && graph==null && graphGeneration==generation; }
+    public boolean rooted(Pos p) { return connected.contains(p) && !unresolved && (graph==null||extending) && graphGeneration==generation; }
     public boolean enabled() { return enabled && failure==null; }
     public String failure() { return failure; }
     public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason); controlRevision++; } }
@@ -154,6 +153,7 @@ public final class EcologyEngine {
         reconcile(w);
         topology(w);
         if(unresolved || graph!=null || connected.isEmpty()) return;
+        if(writes>=MAX_WRITES)return; // A busy native tick waits; it is not a persistence/capacity fault.
         if(++clock<growthInterval) return;
         clock=0;
         grow(w);
@@ -164,21 +164,24 @@ public final class EcologyEngine {
         }
         for(int n=0;n<GRAPH_WORK&&validation.hasNext();n++) {
             Pos p=validation.next(); Cell c=cells.get(p); if(c==null) continue;
-            if(!w.loaded(p)) { validationUnknown=true; continue; }
+            if(!w.loaded(p)) {
+                validationUnknown=true;
+                if(!unresolved){unresolved=true;generation++;controlRevision++;}
+                continue;
+            }
             State actual=w.get(p);
             observed(p,actual);
         }
         if(!validation.hasNext()) {
             validation=null;
-            if(unresolved!=validationUnknown) { unresolved=validationUnknown;controlRevision++; }
-            // Chunk loads/unloads may change resolution without a block write.
-            if(++cycle>=20 || validationUnknown) { generation++;cycle=0; }
+            if(!validated||unresolved!=validationUnknown){generation++;controlRevision++;}
+            validated=true;unresolved=validationUnknown;
         }
     }
     private void topology(EcologyTerrain w) {
         if(graph==null && graphGeneration==generation) return;
         if(graph==null || graphGeneration!=generation) {
-            graphGeneration=generation; graph=new ArrayDeque<>(); visiting=new HashSet<>(); graphUnknown=false;
+            graphGeneration=generation; graph=new ArrayDeque<>(); visiting=new HashSet<>(); graphUnknown=false;extending=false;
             if(heart==null||!w.loaded(heart)) { graphUnknown=true; }
             else for(int f=0;f<6;f++) {
                 Pos p=heart.offset(f); Cell c=cells.get(p);
@@ -187,7 +190,7 @@ public final class EcologyEngine {
         }
         for(int n=0;n<GRAPH_WORK&&!graph.isEmpty();n++) {
             Pos p=graph.removeFirst(); Cell c=cells.get(p); if(c==null) continue;
-            if(!w.loaded(p)) { graphUnknown=true;continue; }
+            if(!w.loaded(p)) { graphUnknown=true;if(!unresolved){unresolved=true;controlRevision++;}continue; }
             for(int dx=-1;dx<=1;dx++) for(int dy=-1;dy<=1;dy++) for(int dz=-1;dz<=1;dz++) {
                 int distance=Math.abs(dx)+Math.abs(dy)+Math.abs(dz); if(distance==0||distance>2) continue;
                 Pos q=p.add(dx,dy,dz); Cell other=cells.get(q);
@@ -195,9 +198,9 @@ public final class EcologyEngine {
             }
         }
         if(graph.isEmpty()) {
-            boolean unknown=graphUnknown||validationUnknown;
+            boolean unknown=graphUnknown||validationUnknown||!validated;
             if(!unknown)connected=visiting;
-            graph=null;
+            graph=null;extending=false;
             if(unresolved!=unknown) { unresolved=unknown;controlRevision++; }
         }
     }
@@ -300,6 +303,8 @@ public final class EcologyEngine {
         if(after.id().equals("minecraft:sculk")&&!w.substrate(p)&&current==null) return false;
         intend(p,before,after,fronts);return true;
     }
+    /** Native loss is an observation of already-journaled terrain, sharing the mutation budget. */
+    public boolean reserveNativeLoss(){if(!enabled()||writes>=MAX_WRITES)return false;writes++;return true;}
     /** Outside writes can prune ownership, but can never adopt placed sculk. */
     public void observed(Pos p,State actual) throws IOException {
         Cell c=cells.get(p);
@@ -394,13 +399,14 @@ public final class EcologyEngine {
                 requireSetup();if(!indexed||!enabled) throw bad("Growth before enable");keys(p,"p","before","after","air");
                 Pos at=position(p.get("p"));State before=block(p.get("before")),after=block(p.get("after"));
                 if(!after.network()||(!cells.containsKey(at)&&cells.size()>=MAX_CELLS)) throw bad("Invalid grown cell");
-                boolean extend=graph==null&&graphGeneration==generation&&!unresolved&&touchesRooted(at,after);
-                Cell old=cells.get(at);cells.put(at,new Cell(at,old==null?before:old.before,after,old!=null&&old.adopted));
+                Cell old=cells.get(at);
+                boolean extend=(graph==null||extending)&&graphGeneration==generation&&!unresolved&&touchesRooted(at,after)&&addsOnly(old,after);
+                cells.put(at,new Cell(at,old==null?before:old.before,after,old!=null&&old.adopted));
                 fronts(array(p,"air",12));generation++;
                 // An added connected surface cannot disconnect existing nodes. Extend from it;
                 // cuts/observed losses still request a complete bounded rebuild. Replaying a
                 // journal never takes this shortcut because no graph is certified at startup.
-                if(extend){graphGeneration=generation;connected.add(at);visiting=connected;graph=new ArrayDeque<>();graph.add(at);graphUnknown=false;}
+                if(extend){graphGeneration=generation;connected.add(at);visiting=connected;if(graph==null)graph=new ArrayDeque<>();graph.add(at);graphUnknown=false;extending=true;}
             }
             case "REMOVE" -> { requireSetup();keys(p,"p");Pos at=position(p.get("p"));if(cells.remove(at)==null) throw bad("Unknown removed cell");generation++; }
             case "OBSERVE" -> {Pos at=position(p.get("p"));Cell c=cells.get(at);cells.put(at,new Cell(at,c.before,block(p.get("after")),c.adopted));generation++;}
@@ -409,6 +415,12 @@ public final class EcologyEngine {
     }
     private void fronts(JsonArray fronts) {
         for(JsonElement e:fronts) { Pos a=position(e);if(airSet.add(a)) { if(air.size()>=MAX_AIR) throw bad("Too many surface cells");air.add(a); } }
+    }
+    private static boolean addsOnly(Cell old,State after){
+        if(old==null)return true;
+        if(!old.after.id().equals(after.id()))return false;
+        if(old.after.vein())for(int f=0;f<6;f++)if(old.after.face(f)&&!after.face(f))return false;
+        return true;
     }
     private void requireSetup() { if(setup==null) throw bad("Ecology record before configuration"); }
     private int chunkSize(int cx,int cz) {return (Math.min(area.max.x(),(cx<<4)+15)-Math.max(area.min.x(),cx<<4)+1)*

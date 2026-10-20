@@ -146,6 +146,24 @@ class EcologyEngineTest {
         assertTrue(EcologyTerrain.connected(new Pos(0,1,0),vein(0),new Pos(1,1,0),vein(0)));
         assertFalse(EcologyTerrain.connected(new Pos(0,1,0),vein(1),new Pos(1,0,0),vein(5)));
     }
+    @Test void addedGrowthKeepsCertifiedNativeFeaturesActiveButCutsInvalidateImmediately() throws Exception {
+        World w=new World();try(var j=new EcologyJournal(dir.resolve("stable-native.jsonl"))){
+            EcologyEngine e=ready(j,w);ticks(e,w,true,1);assertTrue(e.rooted(SOURCE));
+            Pos target=SOURCE.offset(1);State sensor=new State("minecraft:sculk_sensor",Map.of("power","0","sculk_sensor_phase","inactive","waterlogged","false"));
+            assertTrue(e.nativeChange(w,SOURCE,target,AIR,sensor));w.blocks.put(target,sensor);
+            assertTrue(e.rooted(SOURCE),"adding a surface must not drop an active vanilla warning/response");
+            e.observed(SOURCE,AIR);assertFalse(e.rooted(SOURCE),"a real cut invalidates certified connectivity immediately");
+        }
+    }
+    @Test void initialCertificationWaitsForTheEntireFirstValidationAndThenResolves() throws Exception {
+        World w=new World();for(int x=10;x<=29;x++)for(int y=0;y<=15;y++)w.blocks.put(new Pos(x,y,0),SCULK);
+        var area=new EcologyEngine.Area(new Pos(-1,0,0),new Pos(29,15,0));
+        try(var j=new EcologyJournal(dir.resolve("first-validation.jsonl"))){
+            EcologyEngine e=new EcologyEngine(j);e.configure(PINS,area,HEART);index(e,w);e.mode(true);
+            ticks(e,w,true,1);assertTrue(e.view().unresolved());assertFalse(e.rooted(SOURCE));
+            ticks(e,w,true,10);assertTrue(e.rooted(SOURCE),"completion must trigger certification rather than strand a small rooted component");
+        }
+    }
     private EcologyEngine ready(EcologyJournal j,World w) throws Exception {EcologyEngine e=new EcologyEngine(j);e.configure(PINS,AREA,HEART);index(e,w);e.mode(true);return e;}
     private void index(EcologyEngine e,World w) throws Exception {for(int i=0;i<200&&!e.view().indexed();i++)e.index(w);assertTrue(e.view().indexed());}
     private static void ticks(EcologyEngine e,World w,boolean active,int count)throws Exception {for(int i=0;i<count;i++){e.beginTick();e.tick(w,active);}}
