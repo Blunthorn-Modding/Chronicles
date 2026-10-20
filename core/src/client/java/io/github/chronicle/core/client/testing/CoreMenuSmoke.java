@@ -9,6 +9,7 @@ import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import io.github.chronicle.core.menu.CoreMenuModel.View;
 import io.github.chronicle.core.network.CoreMenuPayloads;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.AccessibilityOnboardingScreen;
@@ -45,6 +46,8 @@ public final class CoreMenuSmoke {
     private static final long DEADLINE_NANOS = 240_000_000_000L;
     private static final UUID GM = offlineUuid("ChronicleMenuA");
     private static final UUID PLAYER = offlineUuid("ChronicleMenuB");
+    private static final String CITY_MESSAGE = "The ancient stone carries a low vibration.";
+    private static final String DISTANT_MESSAGE = "A low, unfamiliar rumble breaks the quiet.";
     private static CoreMenuSmoke instance;
 
     private final String role;
@@ -56,6 +59,8 @@ public final class CoreMenuSmoke {
     private final Path assignmentsFile;
     private final long deadline = System.nanoTime() + DEADLINE_NANOS;
     private final List<String> checks = new ArrayList<>();
+    private final List<String> chatMessages = new ArrayList<>();
+    private long previewMessageCount;
     private final Map<String, String> snapshots = new HashMap<>();
     private View lastView;
     private boolean connecting;
@@ -87,6 +92,7 @@ public final class CoreMenuSmoke {
         try {
             if (ROLE_ENV == null || SERVER_ENV == null) throw new IllegalArgumentException("menu smoke role and staged server directory are required");
             instance = new CoreMenuSmoke(ROLE_ENV, Path.of(OUTPUT_ENV), Path.of(SERVER_ENV));
+            ClientReceiveMessageEvents.GAME.register((message, overlay) -> { if (!overlay && !instance.complete) instance.chatMessages.add(message.getString()); });
             ClientTickEvents.END_CLIENT_TICK.register(instance::tick);
         } catch (IOException | RuntimeException error) {
             ChronicleCore.LOGGER.error("Core menu smoke setup failed", error);
@@ -210,15 +216,16 @@ public final class CoreMenuSmoke {
             }
             case 32 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().detail().id().equals("cue:quiet_below:city_presence"),
                     "selected unconfigured cue");
-            case 33 -> { capture(client, "menu-event-detail-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); snapshot("unconfigured event before preview", playFile); require(press(screen(client), "Preview event"), "event preview unavailable"); waitingFor = viewCount; step++; }
-            case 34 -> awaitView(() -> sameSnapshot("unconfigured event before preview", playFile), "paused unconfigured preview leaves play ledger unchanged");
+            case 33 -> { capture(client, "menu-event-detail-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); snapshot("unconfigured event before preview", playFile); previewMessageCount = chatCount(CITY_MESSAGE); require(press(screen(client), "Preview event"), "event preview unavailable"); waitingFor = viewCount; step++; }
+            case 34 -> awaitView(() -> previewChatArrived(CITY_MESSAGE) && sameSnapshot("unconfigured event before preview", playFile), "paused unconfigured City preview sends private chat without changing play ledger");
             case 35 -> {
                 // This action uses the normal screen callback and server route;
                 // no public delivery or completion is asserted from a sample.
+                previewMessageCount = chatCount(CITY_MESSAGE);
                 if (press(screen(client), "Play preview — only me")) { waitingFor = viewCount; step++; }
                 else { checks.add("cue has no private audio in this fixture"); step = 37; }
             }
-            case 36 -> awaitView(() -> sameSnapshot("unconfigured event before preview", playFile), "private audio preview leaves play ledger unchanged");
+            case 36 -> awaitView(() -> previewChatArrived(CITY_MESSAGE) && sameSnapshot("unconfigured event before preview", playFile), "City playback includes private chat and leaves play ledger unchanged");
             case 37 -> {
                 require(press(screen(client), "Loot Tables"), "Loot Tables navigation unavailable"); waitingFor = viewCount; step++;
             }
@@ -294,6 +301,15 @@ public final class CoreMenuSmoke {
             }
             case 89 -> { require(press(screen(client), "Pause play"), "Pause play unavailable"); waitingFor = viewCount; step++; }
             case 90 -> awaitView(() -> "PAUSED".equals(screen(client).state().phase()), "paused play through native control");
+            case 91 -> { require(press(screen(client), "Events"), "Events unavailable"); waitingFor = viewCount; step++; }
+            case 92 -> awaitView(() -> screen(client).state().page() == Page.EVENTS, "opened Events for distant preview");
+            case 93 -> { screen(client).selectForTest("cue:quiet_below:distant_stir"); waitingFor = viewCount; step++; }
+            case 94 -> awaitView(() -> "cue:quiet_below:distant_stir".equals(screen(client).state().selected()), "selected unconfigured Distant stirring");
+            case 95 -> { snapshot("distant preview", playFile); previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview event"), "Distant preview unavailable"); waitingFor = viewCount; step++; }
+            case 96 -> awaitView(() -> previewChatArrived(DISTANT_MESSAGE) && sameSnapshot("distant preview", playFile), "paused Distant preview sends private chat without changing play ledger");
+            case 97 -> { previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Play preview — only me"), "Distant playback unavailable"); waitingFor = viewCount; step++; }
+            case 98 -> awaitView(() -> previewChatArrived(DISTANT_MESSAGE) && sameSnapshot("distant preview", playFile), "Distant playback includes private chat and leaves play ledger unchanged");
+            case 99 -> { try { Files.writeString(output.resolve("preview-chat-checked"), "done", StandardCharsets.UTF_8); } catch (IOException e) { throw new IllegalStateException(e); } advance("both preview actions checked for both cues"); }
             default -> finish(client, true, "completed " + checks.size() + " native operator checks");
         }
     }
@@ -314,6 +330,12 @@ public final class CoreMenuSmoke {
             }
             case 3 -> awaitView(() -> !screen(client).state().success() && !screen(client).state().operator()
                     && sameSnapshot("non-operator before forged mutation", authoringFile), "forged operator mutation denied without authoring change");
+            case 4 -> {
+                if (!Files.isRegularFile(output.resolve("preview-chat-checked"))) return;
+                if (++stableTicks < 20) return;
+                require(chatCount(CITY_MESSAGE) == 0 && chatCount(DISTANT_MESSAGE) == 0, "private preview leaked to another player");
+                advance("another online player receives neither cue preview message");
+            }
             default -> finish(client, true, "completed " + checks.size() + " ordinary-player checks");
         }
     }
@@ -383,6 +405,8 @@ public final class CoreMenuSmoke {
     }
 
     private void advance(String check) { checks.add(check); step++; }
+    private long chatCount(String text) { return chatMessages.stream().filter(text::equals).count(); }
+    private boolean previewChatArrived(String text) { require(chatCount(text) > previewMessageCount, "preview did not send the cue text to chat: " + text); return true; }
 
     private void requireFixture(MinecraftClient client) {
         ServerInfo server = client.getCurrentServerEntry();

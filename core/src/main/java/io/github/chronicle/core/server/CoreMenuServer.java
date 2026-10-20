@@ -137,13 +137,12 @@ public final class CoreMenuServer {
             case PLAYER_MOVE_REVIEW -> {String result=MenuPlayerDestinations.review(source,UUID.fromString(id),arg);c.reviewId=id;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();return result;}
             case PLAYER_MOVE -> {requireReview(player,c,id);c.reviewId="";return MenuPlayerDestinations.move(source,UUID.fromString(id));}
             case EVENT_PREVIEW -> {
-                if(id.startsWith("cue:")){var d=cue(id);return d.text()+"\nSound: "+(d.sound().isBlank()?"none":d.sound())+"\nPrivate content preview only. No event is delivered or completed.";}
+                if(id.startsWith("cue:")){var d=cue(id);previewCue(player,d);return d.text()+"\nSound: "+(d.sound().isBlank()?"none":d.sound())+"\nPreview sent only to you. No event completion or trigger changed.";}
                 var event=gameEvent(id);return event.description()+"\nState action only. Required conditions: "+event.requiredFlags()+". This preview does not invoke its handler.";
             }
             case EVENT_AUDIO -> {
                 var d=cue(id);if(d.sound().isBlank())throw new IllegalStateException("This event has no sound.");
-                var sound=Registries.SOUND_EVENT.getOptionalValue(Identifier.of(d.sound())).orElseThrow(()->new IllegalStateException("Sound is unavailable: "+d.sound()));
-                player.playSoundToPlayer(sound,SoundCategory.AMBIENT,1F,1F);return "Preview played only to you. No event completion, timer or world state changed.";
+                previewCue(player,d);return "Message and sound previewed only to you. No event completion, timer or world state changed.";
             }
             case EVENT_CHECK,EVENT_REVIEW -> {
                 String result;
@@ -195,6 +194,13 @@ public final class CoreMenuServer {
             }
             default -> throw new IllegalArgumentException("Unsupported menu action.");
         }
+    }
+
+    /** Samples the registered media directly to the caller, without entering live delivery/claims. */
+    private static void previewCue(ServerPlayerEntity player,ObservationCatalog.Definition definition) {
+        var sound=definition.sound().isBlank()?null:Registries.SOUND_EVENT.getOptionalValue(Identifier.of(definition.sound())).orElseThrow(()->new IllegalStateException("Sound is unavailable: "+definition.sound()));
+        player.sendMessage(Text.literal(definition.text()),false);
+        if(sound!=null)player.playSoundToPlayer(sound,SoundCategory.AMBIENT,1F,1F);
     }
 
     private static void requireReview(ServerPlayerEntity player,Context c,String id){if(!c.reviewId.equals(id)||!Objects.equals(c.reviewFrame,frame(player))||System.nanoTime()-c.reviewTime>30_000_000_000L)throw new IllegalStateException("Review this exact action and its current targets first; reviews expire after 30 seconds.");}

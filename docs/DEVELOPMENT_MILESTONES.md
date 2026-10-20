@@ -15,7 +15,7 @@ Do not turn Core's flag-only event callbacks into implicit inventory/world mutat
 
 ## Delivery sequence and review gates
 
-**Current priority: CF-10 operator review.** [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md) defines the native menu/service slice on `feat/cf10-core-menu`, following the approved [design](CORE_UI_REDESIGN.md). Its build, 132 Java/17 scripting checks, native menu and full Fabric regression pass; dev.12 is deployed. Complete operator usability review before M9 ecology. Future game-format engines and actual Quiet Below station blocks are separate milestones.
+**Current checkpoint: CF-10 menu accepted; preview-chat fix deployed.** [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md) defines the native menu/service slice on `feat/cf10-core-menu`, following the approved [design](CORE_UI_REDESIGN.md). The operator accepts the menu. Dev.13 fixes the private preview-chat omission, with 132 Java tests and 84 native checks passing; the initial dev.12 full Fabric and scripting evidence remains in TEST_PLAN. The next gameplay work is M9 feasibility and ecology. Future game-format engines and actual Quiet Below station blocks are separate milestones.
 
 | Milestone | Result / work IDs | Dependencies | Evidence and review boundary |
 | --- | --- | --- | --- |

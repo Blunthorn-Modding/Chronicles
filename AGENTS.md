@@ -1,6 +1,6 @@
 # Chronicle workspace
 
-- **CF-10 review checkpoint:** dev.12 is verified and deployed to authenticated localhost, session PAUSED; native menu and full Fabric regressions pass. Read `docs/CF10_IMPLEMENTATION.md` and the newest TEST_PLAN entry. Await operator menu usability/audio review before starting M9 ecology. Matching pack: `../client/Chronicle-CF10-1.21.10.mrpack`.
+- **CF-10 review checkpoint:** the operator accepts the native menu structure. Follow-up dev.13 fixes missing private preview chat for both Quiet Below cues; 132 Java tests and 84 native checks pass, including a second client's privacy check. Deployed to authenticated localhost, session PAUSED; branch `fix/cf10-preview-chat`. Existing dev.12 clients receive this server-side fix; the generated pack contains dev.13. See the newest TEST_PLAN entry and `docs/CF10_IMPLEMENTATION.md`. Actual station/ecology mechanics remain M9-M12.
 
 - **Current authorization, 20 October:** the operator approved CF-10 and said “Let's implement this then.” The design-only hold below is superseded. Follow `docs/CF10_IMPLEMENTATION.md`; branch `feat/cf10-core-menu`. Implement and verify the real generic menu/services, retaining compatibility/data. Future game-format engines and actual Quiet Below station/ecology mechanics remain their own milestones. A matching review build/deployment follows tests and stopped backup; do not merge main automatically.
 

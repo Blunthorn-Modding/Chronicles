@@ -1,5 +1,20 @@
 # Bootstrap validation
 
+## CF-10 private preview chat fix - 20 October 2026
+
+Operator review accepts the native menu structure and reports missing City vibration / Distant stirring chat during preview. Root cause: EVENT_PREVIEW returned text only inside the menu; EVENT_AUDIO sent sound only. The old smoke asserted menu feedback and unchanged persistence, without listening for actual chat.
+
+Branch `fix/cf10-preview-chat`, build **0.1.0-dev.13**. Both cue preview actions now privately send the registered text and optional sound directly to the caller. They do not enter the live audience/claim service, require a region/ACTIVE or complete/rearm events. State-action previews remain descriptive. The menu protocol and production client code are unchanged, so the existing dev.12 client receives this server-side fix; the generated pack also contains dev.13.
+
+Regression first: strengthened `CoreMenuSmoke` listens to real incoming non-overlay chat. Against the old implementation, `python scripts/workspace.py menu-smoke` fails exactly at step 34: `preview did not send the cue text to chat: The ancient stone carries a low vibration.` Evidence: `../reports/core-menu-smoke-20261020T094118941979Z`.
+
+After repair, `python scripts/workspace.py build` passes **132 Java tests** (118 Core / 14 Quiet Below, zero failures/errors/skips). `python scripts/workspace.py menu-smoke` passes **84 checks**: 56 operator, 4 ordinary-player and 24 layout checks, fresh `../test-runs/20261020T094324884399Z`, evidence `../reports/core-menu-smoke-20261020T094324884399Z`. Both Preview event and Play preview send each cue's exact message to the operator while unconfigured/non-active, leave the play ledger byte-identical, and send neither cue to the second online client. Existing navigation, authoring, player settings, live-clock stability and three GUI layouts also pass. Audio uses the existing caller-only sound path; audible quality is not measured by the muted clients. Full legacy gameplay and scripting suites were not repeated for this bounded media fix; their earlier CF-10 evidence remains below.
+
+Saving console shutdown completes normally. CRC-verified backup `../backups/server-20261020T094501988790Z.zip`; old mods `../backups/mods-20261020T094515397192Z.zip`. `deploy`, `verify`, working/staged `git diff --check` pass. Deployed jars match the tested artifacts, hashes in `../reports/cf10-preview-artifacts.json`. All 19 protected data/config/auth files remain byte-identical after deployment; startup changes only the server.properties comment header, preserving every value. The operator's newly edited ancient-city assignment remains intact. Evidence: `../reports/cf10-preview-protected-before.json`, `../reports/cf10-preview-ready.json`.
+
+Ready log and loopback status confirm Minecraft 1.21.10/protocol 773 at 127.0.0.1:25565, both dev.13 mods, online-mode/whitelist retained, session PAUSED, loopback voice port 24454. The saving restart is complete; server console remains available. Overall menu approval is recorded; no separate full redesign review is required for this fix.
+
+
 ## CF-10 native implementation and review build - 20 October 2026
 
 Approved design `e10f9d3`, implementation `4baaf5f` on `feat/cf10-core-menu`. Matching Core/Quiet Below **0.1.0-dev.12**, Minecraft 1.21.10. The redesigned menu is deployed for operator review; M9 ecology and actual ancient station blocks are not part of this change.
