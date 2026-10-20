@@ -120,6 +120,9 @@ public final class CoreMenuCommands {
                                 .executes(context -> execute(context.getSource(), Action.SETUP_ASSIGN, Page.SETUP, string(context, "requirement"), string(context, "site"))))))
                 .then(literal("clear").then(argument("requirement", StringArgumentType.string()).suggests((c, b) -> requirements(b))
                         .executes(context -> execute(context.getSource(), Action.SETUP_CLEAR, Page.SETUP, string(context, "requirement"), ""))))
+                .then(literal("tool").then(argument("id", StringArgumentType.string()).suggests((c, b) -> gameTools(b))
+                        .then(argument("verb", StringArgumentType.string()).suggests((c, b) -> gameToolVerbs(string(c, "id"), b))
+                                .executes(context -> execute(context.getSource(), Action.TOOL_ACTION, Page.SETUP, "tool:" + string(context, "id"), string(context, "verb"))))))
                 .then(literal("check").executes(context -> checkSetup(context.getSource())));
     }
 
@@ -185,6 +188,10 @@ public final class CoreMenuCommands {
         catch (IllegalStateException exception) { return builder.buildFuture(); }
     }
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> requirements(SuggestionsBuilder builder) { return CommandSource.suggestMatching(ChronicleCore.authoring().roles().stream().map(r -> r.id()), builder); }
+    private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> gameTools(SuggestionsBuilder builder) { return CommandSource.suggestMatching(GameSetupTools.tools().stream().map(GameSetupTools.Tool::id), builder); }
+    private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> gameToolVerbs(String toolId, SuggestionsBuilder builder) {
+        return CommandSource.suggestMatching(GameSetupTools.get(toolId).map(GameSetupTools.Tool::verbs).orElse(List.of()).stream().map(GameSetupTools.Verb::id), builder);
+    }
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> cues(SuggestionsBuilder builder) { return CommandSource.suggestMatching(ChronicleCore.observations().definitions().stream().map(d -> d.id()), builder); }
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> stateActions(SuggestionsBuilder builder) { return CommandSource.suggestMatching(ChronicleCore.events().events().stream().map(e -> e.id()), builder); }
 }

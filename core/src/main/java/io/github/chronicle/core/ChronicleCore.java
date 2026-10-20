@@ -25,6 +25,7 @@ import io.github.chronicle.core.server.CoreMenuServer;
 import io.github.chronicle.core.server.CoreMenuCommands;
 import io.github.chronicle.core.server.MapSiteAssignments;
 import io.github.chronicle.core.server.MenuPlayerDestinations;
+import io.github.chronicle.core.server.GameSetupTools;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -71,6 +72,7 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTING.register(server -> AUTHORING.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> CHEST_TYPES.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> OBSERVATIONS.freeze());
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> GameSetupTools.freeze());
         ServerLifecycleEvents.SERVER_STARTED.register(ChronicleRuntime::start);
         ServerLifecycleEvents.SERVER_STARTED.register(Profiles::start);
         ServerLifecycleEvents.SERVER_STARTED.register(AuthoringRuntime::start);

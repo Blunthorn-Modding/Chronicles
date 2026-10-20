@@ -364,6 +364,7 @@ public final class CoreMenuScreen extends Screen {
         if (!control.enabled()) return;
         String input = control.input();
         if (input.isBlank()) { applyControl(control, detailId(), ""); return; }
+        if (input.startsWith("TOOL:")) { applyControl(control, detailId(), ""); return; }
         if (input.equals("LOOT_DRAFT")) { saveLoot(); return; }
         if (input.equals("EVENT_DRAFT")) { saveEvent(); return; }
         if (input.equals("POSITION1")) { prompt(control.action(), detailId(), "1:"); return; }
@@ -491,6 +492,16 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void applyControl(Control control, String id, String argument) {
+        if (control.input().startsWith("TOOL:")) {
+            String verb = control.input().substring("TOOL:".length());
+            if (verb.isBlank()) { notice = "Game setup tool action is unavailable."; return; }
+            Page page = state.page(); int index = state.index(); String filter = state.filter();
+            Runnable send = () -> request(Action.TOOL_ACTION, page, id, verb, index, filter, "", false);
+            if (!control.confirm()) { send.run(); return; }
+            confirmation = new Confirmation(control.label(), "Target: " + blank(state.detail().title(), id) + "\nApply this game setup tool action.", state.token(), send);
+            clearAndInit();
+            return;
+        }
         Page page = state.page(); int index = state.index(); String filter = state.filter();
         Runnable send = () -> request(control.action(), page, id, argument, index, filter, "", false);
         if (!control.confirm()) { send.run(); return; }

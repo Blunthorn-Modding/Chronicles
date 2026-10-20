@@ -187,6 +187,7 @@ public final class CoreMenuServer {
             case SITE_DELETE -> {return command(source,"chronicle author remove "+quote(id));}
             case SETUP_ASSIGN -> {MapSiteAssignments.assign(source,id,arg);return "Requirement assigned to the existing saved site. No coordinates copied, growth enabled or player moved.";}
             case SETUP_CLEAR -> {MapSiteAssignments.clear(source,id);return "Assignment cleared; the saved site itself is retained.";}
+            case TOOL_ACTION -> {return GameSetupTools.execute(source, toolId(id), arg);}
             case SHOW -> {
                 if(c.page==Page.CHESTS){var t=chest(server,id).directTarget();AuthoringRuntime.get(server).preview(player,new AuthoringSite.Anchor("preview",t.dimension(),1,new BlockPosition(t.x(),t.y(),t.z()),t.expectedBlock()));return "Private chest outline shown.";}
                 if(c.page==Page.SETUP){var site=MapSiteAssignments.resolve(server,id).orElseThrow(()->new IllegalStateException("Choose a saved site first."));AuthoringRuntime.get(server).preview(player,site);return "Private assigned-site outline shown.";}
@@ -247,7 +248,12 @@ public final class CoreMenuServer {
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
             case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
             case LOCATIONS -> sites(server).values().stream().filter(s->"BLOCK".equals(filter)?s instanceof AuthoringSite.Anchor:s instanceof AuthoringSite.Location).map(CoreMenuServer::siteEntry).toList();
-            case SETUP -> ChronicleCore.authoring().roles().stream().filter(r->!r.id().startsWith("chronicle_core:")).map(r->entry(r.id(),r.label(),r.description(),r.kind().name(),r.id(),0)).toList();
+            case SETUP -> {
+                var result=new ArrayList<Entry>();
+                ChronicleCore.authoring().roles().stream().filter(r->!r.id().startsWith("chronicle_core:")).forEach(r->result.add(entry(r.id(),r.label(),r.description(),r.kind().name(),r.id(),0)));
+                GameSetupTools.tools().forEach(tool->result.add(entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)));
+                yield result;
+            }
         };
     }
 
@@ -384,10 +390,28 @@ public final class CoreMenuServer {
             }
             case SETUP -> {
                 title="Game setup";description="Assign this game's key requirements to existing saved geometry. This registers references; it enables no ecology, event or player move.";
-                var role=ChronicleCore.authoring().get(id).orElse(null);
-                if(role!=null){title=role.label();facts.add(new Fact("Purpose",role.description()));facts.add(new Fact("Geometry",role.kind().name()));var binding=MapSiteAssignments.bindings(server).get(id);facts.add(new Fact("Assigned site",binding==null?"Unassigned":binding.siteId()+" · revision "+binding.siteRevision()));if(binding!=null){try{MapSiteAssignments.resolve(server,id);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
-                    String kind=switch(role.kind()){case REGION->"REGION";case LOCATION->"POINT";case BLOCK->"BLOCK";};controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,kind));}
-                facts.add(new Fact("Scope","Only installed game requirements appear. Hidden-faction voting, Journey chapters and future campaign tools are not required here."));
+                if(id.startsWith("tool:")) {
+                    var tool=GameSetupTools.get(toolId(id)).orElse(null);
+                    if(tool!=null) {
+                        title=tool.label();description=tool.description();
+                        try {
+                            var status=GameSetupTools.status(source,tool.id());facts.addAll(status.facts());
+                            for(var verb:tool.verbs()) {
+                                String denied=GameSetupTools.guardReason(source,verb.guard());
+                                String unavailable=status.disabledReasons().get(verb.id());
+                                String reason=denied!=null?denied:unavailable;
+                                controls.add(control(Action.TOOL_ACTION,verb.label(),reason==null||reason.isBlank(),reason==null?"":reason,verb.confirm(),"TOOL:"+verb.id()));
+                            }
+                        } catch(RuntimeException exception) {
+                            facts.add(new Fact("Service","Unavailable: "+shortText(exception.getMessage(),512)));
+                        }
+                    }
+                } else {
+                    var role=ChronicleCore.authoring().get(id).orElse(null);
+                    if(role!=null){title=role.label();facts.add(new Fact("Purpose",role.description()));facts.add(new Fact("Geometry",role.kind().name()));var binding=MapSiteAssignments.bindings(server).get(id);facts.add(new Fact("Assigned site",binding==null?"Unassigned":binding.siteId()+" · revision "+binding.siteRevision()));if(binding!=null){try{MapSiteAssignments.resolve(server,id);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
+                        String kind=switch(role.kind()){case REGION->"REGION";case LOCATION->"POINT";case BLOCK->"BLOCK";};controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,kind));}
+                    facts.add(new Fact("Scope","Only installed game requirements appear. Hidden-faction voting, Journey chapters and future campaign tools are not required here."));
+                }
             }
         }
         return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region);
@@ -410,9 +434,21 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
         var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries());
-        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),player.getEntityWorld().getRegistryKey().getValue().toString(),author,Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
+        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
+    private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
+        var revisions=new TreeMap<String,Object>();var source=player.getCommandSource();
+        for(var tool:GameSetupTools.tools()) {
+            try {revisions.put(tool.id(),GameSetupTools.status(source,tool.id()).controlRevision());}
+            catch(RuntimeException exception) {revisions.put(tool.id(),"unavailable:"+shortText(exception.getMessage(),512));}
+        }
+        return revisions;
+    }
+    private static String toolId(String selected) {
+        if(!selected.startsWith("tool:")) throw new IllegalArgumentException("Choose a registered game setup tool.");
+        return selected.substring("tool:".length());
+    }
     private static String targetKey(ServerPlayerEntity player) {
         try{var pos=ChestAuthoring.target(player.getCommandSource());return pos.toShortString()+":"+player.getEntityWorld().getBlockState(pos);}
         catch(IllegalArgumentException|IllegalStateException exception){return "";}
@@ -448,7 +484,7 @@ public final class CoreMenuServer {
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
     private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries) { }
-    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object automatic,Object play,Object assignmentRevision,String dimension,boolean editing,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
+    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object automatic,Object play,Object assignmentRevision,Object toolRevisions,String dimension,boolean editing,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private static final class Context {
         long token,window,reviewTime;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="";Frame frame,reviewFrame;
         PlayRuntime.Preview observation;LootType expectedLoot;Picker picker;
