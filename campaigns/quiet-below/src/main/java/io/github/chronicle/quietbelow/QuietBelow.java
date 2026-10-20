@@ -63,6 +63,7 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        io.github.chronicle.quietbelow.content.SculkAppearanceHandshake.register();
         // Optional public cues. Registering definitions arms no triggers or story timetable.
         ChronicleCore.observations().register(new ObservationCatalog.Definition("quiet_below:city_presence", "City vibration",
                 "The ancient stone carries a low vibration.", "minecraft:ambient.cave", ObservationCatalog.Audience.REGION));

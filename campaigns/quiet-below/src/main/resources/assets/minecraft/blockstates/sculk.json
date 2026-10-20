@@ -1,0 +1,68 @@
+{
+  "variants": {
+    "quiet_below_vitality=0": [
+      {
+        "model": "minecraft:block/sculk"
+      },
+      {
+        "model": "minecraft:block/sculk_mirrored"
+      },
+      {
+        "model": "minecraft:block/sculk",
+        "y": 180
+      },
+      {
+        "model": "minecraft:block/sculk_mirrored",
+        "y": 180
+      }
+    ],
+    "quiet_below_vitality=1": [
+      {
+        "model": "quiet_below:block/vitality/stage_1/sculk"
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_1/sculk_mirrored"
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_1/sculk",
+        "y": 180
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_1/sculk_mirrored",
+        "y": 180
+      }
+    ],
+    "quiet_below_vitality=2": [
+      {
+        "model": "quiet_below:block/vitality/stage_2/sculk"
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_2/sculk_mirrored"
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_2/sculk",
+        "y": 180
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_2/sculk_mirrored",
+        "y": 180
+      }
+    ],
+    "quiet_below_vitality=3": [
+      {
+        "model": "quiet_below:block/vitality/stage_3/sculk"
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_3/sculk_mirrored"
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_3/sculk",
+        "y": 180
+      },
+      {
+        "model": "quiet_below:block/vitality/stage_3/sculk_mirrored",
+        "y": 180
+      }
+    ]
+  }
+}

@@ -11,6 +11,9 @@ public interface EcologyTerrain {
     int light(Pos p);
     boolean set(Pos p, State state);
 
+    /** Derived, listener-only appearance. Return true only when a visual state changed. */
+    default boolean appearance(Pos p,State expected,int stage) { return false; }
+
     record Pos(int x, int y, int z) {
         public Pos {
             if (Math.abs((long) x) > 30_000_000 || Math.abs((long) z) > 30_000_000 || Math.abs((long) y) > 4096)

@@ -1,5 +1,11 @@
 # Bootstrap decisions — 18 October 2026
 
+## Visible sculk vitality - 20 October 2026
+
+The operator requests readable world feedback using the original texture patterns with dull blue, faded blue/brown and fully brown variants beside healthy sculk. [Dev.19 contract](M9_VITALITY_VISUALS.md) uses a four-value property on the five native sculk block types, preserving geometry, native properties and existing block entities. No new entities/block entities or per-block ticking renderer. Color is a bounded projection of durable vitality/connectivity/exposure, excluded from logical ownership/journal encoding. Old worlds/journals default the omitted cosmetic property to healthy, then reconcile during eligible play. Unknown evidence retains the last appearance. Default bands are healthy feeding roots at 75%+, dull at 25%+ or freshly dormant, faded below 25%, brown at zero; recovery reverses them. These are review choices, not settled balance.
+
+Adding native states changes numeric network palettes, so both peers acknowledge the campaign appearance layout during configuration, before PLAY. The dev.19 review requires its matching client; keep the older profile for unchanged production dev.14. Pinned 1.21.10 disk serialization repacks runtime palettes into local semantic entries, so it does not persist global raw state IDs. Rollback still restores the stopped world and jars together. Assets are deterministic palette derivatives of pinned native pixels; regeneration/provenance is in `testing/assets/README.md`.
+
 ## Dormant vitality and recovery - 20 October 2026
 
 The operator accepts organic spread and authorizes continued implementation. On the explicit decay choice, **lose vitality but keep dormant blocks** is confirmed. Physical disconnection stops growth/native responses immediately; the new [M9b slice](M9_VITALITY.md) retains every block and permits recovery from zero after reconnection/exposure. No terrain withering, catalyst upkeep, oxygen system or permanent-death deadline is introduced. Rates, extent thresholds and the fixed 25% ready threshold are technical review defaults. Loss/recovery rates and paired extent thresholds are configurable per world through the existing generic Game setup UI. Core remains free of campaign ecology state.

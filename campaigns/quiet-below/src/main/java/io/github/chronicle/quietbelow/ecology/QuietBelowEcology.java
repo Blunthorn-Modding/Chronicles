@@ -17,6 +17,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.state.property.Property;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import io.github.chronicle.quietbelow.content.SculkAppearance;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.*;
 import java.io.IOException;
@@ -207,6 +208,7 @@ public final class QuietBelowEcology {
                 new Fact("Full recovery",rules.recoveryMinutes()+" eligible minutes in dark exposure; "+String.format(Locale.ROOT,"%.1f",rules.recoveryMinutes()/2.0)+" in bright exposure"),
                 new Fact("Extent thresholds","Established "+rules.established()+" / Extensive "+rules.extensive()+" ready rooted cells; 12.5% exit buffer prevents rapid switching"),
                 new Fact("Living growth","Needs physical Heart connection and at least 25% vitality. A cut stops growth/native responses immediately. Reconnection can recover from zero; dormant blocks are retained."),
+                new Fact("Visible vitality","Glistening blue: healthy, feeding roots (75%+). Dull blue: reduced vitality or dormant connection (25%+). Faded brown/blue: below 25%. Fully brown: zero. Colors recover too; large patches update gradually."),
                 new Fact("Clock",e.vitality().ticks()/20+" saved eligible seconds; pause, empty play, holds and unresolved networks do not advance it. Bright means light above 7; no air depletion."),
                 new Fact("Tuning","Pause play and enable editing. Full-loss/recovery choices: 1 / 2 / 5 / 10 / 20 / 40 minutes. Speed controls remain in Sculk ecology.")),disabled);
     }
@@ -365,6 +367,8 @@ public final class QuietBelowEcology {
         @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.rootProblem==null&&r.engine.enabled()&&r.engine.living(pos(p))&&playing(w.getServer());}
         @Override public BlockState beforeWrite(ServerWorld w,BlockPos p,BlockState before,BlockState proposed,int flags) {
             Runtime r=find(w);if(r==null)return proposed;
+            if(r.engine.owns(pos(p))&&before.getBlock()==proposed.getBlock()&&before.contains(SculkAppearance.VITALITY))
+                proposed=proposed.with(SculkAppearance.VITALITY,before.get(SculkAppearance.VITALITY));
             var origin=EcologyHooks.catalystOrigin();
             if(origin==null||origin.world()!=w||!r.engine.owns(pos(origin.pos())))return proposed;
             // Native transient changes remain native; only descendants/static shape changes need ownership intents.
@@ -389,7 +393,7 @@ public final class QuietBelowEcology {
     }
     public static Pos pos(BlockPos p){return new Pos(p.getX(),p.getY(),p.getZ());}
     public static BlockPos blockPos(Pos p){return new BlockPos(p.x(),p.y(),p.z());}
-    public static State encode(BlockState state){Map<String,String> properties=new TreeMap<>();state.getEntries().forEach((p,v)->properties.put(p.getName(),propertyName(p,v)));return new State(Registries.BLOCK.getId(state.getBlock()).toString(),properties);}
+    public static State encode(BlockState state){Map<String,String> properties=new TreeMap<>();state.getEntries().forEach((p,v)->{if(!p.equals(SculkAppearance.VITALITY))properties.put(p.getName(),propertyName(p,v));});return new State(Registries.BLOCK.getId(state.getBlock()).toString(),properties);}
     @SuppressWarnings({"rawtypes","unchecked"}) private static String propertyName(Property p,Comparable v){return p.name(v);}
     public static BlockState decode(State encoded){
         Block block=Registries.BLOCK.getOptionalValue(Identifier.of(encoded.id())).orElseThrow(()->new IllegalStateException("Unknown recorded block: "+encoded.id()));
@@ -397,7 +401,8 @@ public final class QuietBelowEcology {
         for(var e:encoded.properties().entrySet()){
             Property<?> p=block.getStateManager().getProperty(e.getKey());if(p==null)throw new IllegalStateException("Unknown recorded property");state=with(state,p,e.getValue());
         }
-        if(state.getProperties().size()!=encoded.properties().size())throw new IllegalStateException("Recorded state omits block properties: "+encoded.id());
+        int cosmetic=state.contains(SculkAppearance.VITALITY)&&!encoded.properties().containsKey(EcologyAppearance.PROPERTY)?1:0;
+        if(state.getProperties().size()-cosmetic!=encoded.properties().size())throw new IllegalStateException("Recorded state omits block properties: "+encoded.id());
         return state;
     }
     private static <T extends Comparable<T>> BlockState with(BlockState s,Property<T> p,String v){return s.with(p,p.parse(v).orElseThrow(()->new IllegalStateException("Invalid recorded property")));}
@@ -413,6 +418,17 @@ public final class QuietBelowEcology {
         @Override public boolean set(Pos p,State state){
             checked(p);
             try(var ignored=EcologyHooks.ownWrite()){return world.setBlockState(blockPos(p),decode(state),Block.NOTIFY_ALL);}
+        }
+        @Override public boolean appearance(Pos p,State expected,int stage){
+            if(stage<0||stage>3)throw new IllegalArgumentException("Invalid sculk appearance");
+            BlockState actual=checked(p);
+            if(!actual.contains(SculkAppearance.VITALITY)||actual.get(SculkAppearance.VITALITY)==stage
+                    ||!encode(actual).sameOwnedShape(expected))return false;
+            try(var ignored=EcologyHooks.ownWrite()){
+                if(!world.setBlockState(blockPos(p),actual.with(SculkAppearance.VITALITY,stage),Block.NOTIFY_LISTENERS))
+                    throw new IllegalStateException("Sculk appearance update failed; existing vitality retained");
+            }
+            return true;
         }
     }
 }

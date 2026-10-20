@@ -65,6 +65,7 @@ public final class EcologyEngine {
     private long graphGeneration=-1;
     private Iterator<Pos> validation;
     private Iterator<Pos> exposureScan;
+    private Iterator<Pos> appearanceScan;
     private Iterator<Pos> contactScan;
     private final Set<Pos> pendingContacts=new LinkedHashSet<>();
     private Claim claim;
@@ -244,6 +245,7 @@ public final class EcologyEngine {
         topology(w);
         if(unresolved || graph!=null) {flushVitality();resetVitalityScan();return;}
         vitalityTick(w);
+        projectAppearance(w);
         discoverExposure(w);
         connectPlacedSculk(w);
         if(graph!=null || connected.isEmpty()) return;
@@ -251,6 +253,15 @@ public final class EcologyEngine {
         if(++clock<attemptTicks(growthInterval==10)) return;
         clock=0;
         grow(w);
+    }
+    private void projectAppearance(EcologyTerrain w) {
+        if(appearanceScan==null||!appearanceScan.hasNext())appearanceScan=new ArrayList<>(cells.keySet()).iterator();
+        int changed=0;
+        for(int n=0;n<EcologyAppearance.READS&&appearanceScan.hasNext()&&changed<EcologyAppearance.WRITES;n++) {
+            Pos p=appearanceScan.next();Cell c=cells.get(p);if(c==null||!w.loaded(p))continue;
+            int stage=EcologyAppearance.stage(vitality.value(p),rooted(p),vitality.mode(p));
+            if(stage>=0&&w.appearance(p,c.after,stage))changed++;
+        }
     }
     private void vitalityTick(EcologyTerrain w)throws IOException {
         vitalityTicks++;

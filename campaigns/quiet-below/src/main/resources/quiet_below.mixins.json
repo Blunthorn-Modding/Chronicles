@@ -4,6 +4,9 @@
   "package": "io.github.chronicle.quietbelow.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "SculkVisualPropertyMixin",
+    "SculkVeinVisualPropertyMixin",
+    "SculkFeatureVisualPropertyMixin",
     "SculkCatalystBlockEntityMixin",
     "SculkCatalystListenerMixin",
     "SculkSensorVibrationCallbackMixin",

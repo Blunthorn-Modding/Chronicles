@@ -1,6 +1,6 @@
 # Surface ecology review
 
-Use **dev.18** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in your existing matching Fabric profile. The dev.18 pack adds vitality/recovery and extent tuning after the accepted organic growth repair. It retains the requested initial client preferences: GUI scale 2, narrator off, no accessibility onboarding prompt, and multiplayer warning acknowledged. Existing profile preferences are not changed by the server. The existing dev.14 client also supports these generic tool controls and private outlines.
+Use **dev.19** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in a matching Fabric profile. This pack adds visible vitality after dev.18's loss/recovery and extent tuning. It retains GUI scale 2, narrator off, no accessibility onboarding prompt and multiplayer warning acknowledged for new profiles. Existing profile preferences are not changed by the server. **The review now requires the matching dev.19 client:** its sculk block-state layout differs, and older clients are rejected before joining. Keep your earlier profile for the unchanged dev.14 server on port25565; the new client also refuses that older server.
 
 Join **`localhost:25585`** for the disposable ecology map. `localhost:25565` remains your usual map, with ecology unconfigured/disabled. Both servers keep authentication and the whitelist; SchinderRenge remains an operator.
 
@@ -30,6 +30,15 @@ Local growth and native sensor/shrieker responses require a physical Heart conne
 Lower/higher extent thresholds select paired Established/Extensive counts, default **256 / 2048 ready rooted cells**. A 12.5% exit buffer keeps tiny changes from repeatedly switching extent. Unknown assessments retain the last known extent and hold advanced feature generation. Reset vitality tuning restores 10-minute loss / 5-minute dark recovery / default thresholds, without changing spread speed. No Heart vulnerability or benefit effects are claimed yet.
 
 Try a clean cut, let the detached vitality fall, then replace the physical bridge and watch recovery/native responses return. Existing sculk is retained throughout. Return review tuning to your preferred settings afterward; the server preserves them.
+
+### Read vitality in the world
+
+- **Glistening blue:** feeding, Heart-connected sculk at least 75% vital. Uses the original animated textures.
+- **Dull blue:** static, reduced vitality or a dormant/sealed connection, with at least 25% remaining. A fresh cut becomes dull while still retaining high vitality.
+- **Faded blue/brown:** positive vitality below 25%; local growth/native responses are disabled.
+- **Fully brown:** zero vitality. Blocks remain and can recover after physical reconnection and exposure.
+
+The same colors apply to full sculk, veins, catalysts, sensors and shriekers. Native geometry/properties remain intact; the variants add no entities or block entities. Recovery moves back through the colors. Only occupied ACTIVE enabled/resolved play updates them, in bounded batches; a paused map retains its last appearance. Allow the vitality checkpoint interval (up to 10 seconds) and a short scan delay. Large patches can take several passes. Unknown/unloaded evidence keeps the previous color rather than claiming death. The Sculk vitality menu also explains the legend.
 
 ## Ownership tools
 

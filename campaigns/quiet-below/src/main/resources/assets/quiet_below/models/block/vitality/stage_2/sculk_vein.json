@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/sculk_vein",
+  "textures": {
+    "particle": "quiet_below:block/vitality/stage_2/sculk_vein",
+    "sculk_vein": "quiet_below:block/vitality/stage_2/sculk_vein"
+  }
+}

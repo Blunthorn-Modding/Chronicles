@@ -40,7 +40,7 @@ final class QuietBelowEcologySmoke {
 
     static void register() {
         if (OUTPUT == null) return;
-        if (!List.of("initial","restart","surface","organic","vitality").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
+        if (!List.of("initial","restart","surface","organic","vitality","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();
         ClientReceiveMessageEvents.GAME.register((text, overlay) -> smoke.messages.add(text.getString()));
         ClientTickEvents.END_CLIENT_TICK.register(smoke::tick);
@@ -73,7 +73,38 @@ final class QuietBelowEcologySmoke {
     }
 
     private void build(MinecraftClient client) {
-        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else restart(client);
+        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else if("appearance".equals(PHASE)) appearance(client); else if("appearance_legacy".equals(PHASE)) appearanceLegacy(client); else restart(client);
+    }
+    private void appearance(MinecraftClient client){
+        command(client,"verify native state and block entity preservation","quiet_below_appearance_trial native","PASS sculk appearance native:.*");
+        command(client,"set daylight for palette comparison","time set noon",".*time.*");
+        command(client,"disable gallery weather changes","gamerule doWeatherCycle false",".*false.*");
+        command(client,"clear gallery weather","weather clear",".*(clear|Clear).*");
+        command(client,"build palette viewing floor","fill -2 63 -3 26 63 6 polished_deepslate",".*filled.*");
+        for(int stage=0;stage<4;stage++){
+            int x=stage*6;
+            String visual="quiet_below_vitality="+stage;
+            command(client,"palette "+stage+" sculk floor","fill "+x+" 64 0 "+(x+3)+" 64 3 sculk["+visual+"]",".*filled.*");
+            command(client,"palette "+stage+" vein support","fill "+x+" 65 4 "+(x+3)+" 67 4 stone",".*filled.*");
+            command(client,"palette "+stage+" vein faces","fill "+x+" 65 3 "+(x+3)+" 67 3 sculk_vein[south=true,"+visual+"]",".*filled.*");
+            command(client,"palette "+stage+" catalyst","setblock "+x+" 65 1 sculk_catalyst["+visual+"]",".*Changed.*");
+            command(client,"palette "+stage+" sensor","setblock "+(x+1)+" 65 1 sculk_sensor["+visual+"]",".*Changed.*");
+            command(client,"palette "+stage+" shrieker","setblock "+(x+2)+" 65 1 sculk_shrieker[can_summon=true,"+visual+"]",".*Changed.*");
+        }
+        command(client,"hold gallery viewpoint","gamemode spectator @s",".*(Spectator|spectator).*");
+        command(client,"compare four vitality stages","tp @s 10.5 72 -10.5 0 27",".*Teleported.*");
+        screenshot(client,"ecology-vitality-four-stages.png");
+        command(client,"inspect exhausted pattern close up","tp @s 19.5 68 -2.5 0 28",".*Teleported.*");
+        screenshot(client,"ecology-vitality-brown-detail.png");
+    }
+    private void appearanceLegacy(MinecraftClient client){
+        command(client,"verify old journal and world decode","quiet_below_appearance_trial legacy","PASS sculk appearance legacy:.*");
+        command(client,"resume copied legacy vitality world","chronicle session resume","Resumed Chronicle session.*");
+        command(client,"join legacy vitality world","chronicles join",".*(joined.*Chronicle participation|already a Chronicle participant).*");
+        delay("reconcile legacy colors from saved vitality",3_000);
+        command(client,"legacy colors preserve living ownership","quiet_below_appearance_trial legacy_live","PASS sculk appearance legacy live:.*");
+        command(client,"leave copied legacy world paused","chronicle session pause","Paused Chronicle session.*");
+        screenshot(client,"ecology-vitality-legacy-restored.png");
     }
     private void vitality(MinecraftClient client){
         command(client,"place vitality Heart","setblock 0 64 0 reinforced_deepslate",".*Changed.*");
@@ -123,6 +154,8 @@ final class QuietBelowEcologySmoke {
         command(client,"reconnected branch recovers gradually","quiet_below_native_trial vitality_recovering","PASS vitality recovering:.*");
         delay("allow bright recovery through the ready threshold and shared checkpoint",22_000);
         command(client,"recovered branch restores native response","quiet_below_native_trial vitality_ready","PASS vitality ready:.*");
+        delay("recover healthy color through the final shared checkpoint",20_000);
+        command(client,"healthy color and native identity return","quiet_below_appearance_trial healthy","PASS sculk appearance healthy:.*");
         command(client,"leave vitality trial paused","chronicle session pause","Paused Chronicle session.*");
         openVitalityMenu(client);vitalityScreenshot(client,"ecology-vitality-recovered.png");
     }

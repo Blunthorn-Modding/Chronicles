@@ -18,6 +18,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.minecraft.world.event.GameEvent;
+import io.github.chronicle.quietbelow.content.SculkAppearance;
 
 import static net.minecraft.server.command.CommandManager.literal;
 
@@ -35,6 +36,7 @@ public final class EcologyNativeTrial {
 
     public static void register() {
         EcologyWardenTrial.register();
+        EcologyAppearanceTrial.register();
         if (ENABLED == null || ENABLED.isBlank()) {
             return;
         }
@@ -60,6 +62,10 @@ public final class EcologyNativeTrial {
             if(stage==0){require(!e.rooted(end)&&e.vitality().value(end)==0,"detached branch has not reached zero vitality");}
             else if(stage==1){require(e.rooted(end)&&!e.living(end),"reconnected branch should be recovering below 25 percent");}
             else require(e.living(end)&&e.living(sensorCell),"reconnected branch has not recovered to 25 percent");
+            require(w.getBlockState(QuietBelowEcology.blockPos(end)).get(SculkAppearance.VITALITY)
+                    ==EcologyAppearance.stage(e.vitality().value(end),e.rooted(end),e.vitality().mode(end)),"sculk color disagrees with durable vitality");
+            require(w.getBlockState(sensorPos).get(SculkAppearance.VITALITY)
+                    ==EcologyAppearance.stage(e.vitality().value(sensorCell),e.rooted(sensorCell),e.vitality().mode(sensorCell)),"sensor color disagrees with durable vitality");
             var sensor=w.getBlockEntity(sensorPos,BlockEntityType.SCULK_SENSOR).orElseThrow();
             var before=w.getBlockState(sensorPos);sensor.getVibrationCallback().accept(w,new BlockPos(7,64,0),GameEvent.STEP,source.getPlayer(),source.getPlayer(),1.0F);
             if(stage<2)require(w.getBlockState(sensorPos).equals(before),"low-vitality/detached sensor responded");

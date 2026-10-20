@@ -7,6 +7,8 @@ import net.fabricmc.api.ClientModInitializer;
 public final class QuietBelowClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        SculkAppearanceHandshakeClient.register();
+        QuietBelowCompatibilitySmoke.register();
         QuietBelowContentSmoke.registerIfRequested();
         QuietBelowEcologySmoke.register();
         QuietBelowWardenSmoke.register();

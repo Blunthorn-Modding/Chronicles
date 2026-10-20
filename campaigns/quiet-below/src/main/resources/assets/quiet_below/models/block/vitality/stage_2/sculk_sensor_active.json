@@ -1,0 +1,10 @@
+{
+  "parent": "minecraft:block/sculk_sensor_active",
+  "textures": {
+    "bottom": "quiet_below:block/vitality/stage_2/sculk_sensor_bottom",
+    "side": "quiet_below:block/vitality/stage_2/sculk_sensor_side",
+    "tendrils": "quiet_below:block/vitality/stage_2/sculk_sensor_tendril_active",
+    "top": "quiet_below:block/vitality/stage_2/sculk_sensor_top",
+    "particle": "quiet_below:block/vitality/stage_2/sculk_sensor_bottom"
+  }
+}

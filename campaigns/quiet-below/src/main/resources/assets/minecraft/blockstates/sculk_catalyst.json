@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "bloom=false,quiet_below_vitality=0": {
+      "model": "minecraft:block/sculk_catalyst"
+    },
+    "bloom=false,quiet_below_vitality=1": {
+      "model": "quiet_below:block/vitality/stage_1/sculk_catalyst"
+    },
+    "bloom=false,quiet_below_vitality=2": {
+      "model": "quiet_below:block/vitality/stage_2/sculk_catalyst"
+    },
+    "bloom=false,quiet_below_vitality=3": {
+      "model": "quiet_below:block/vitality/stage_3/sculk_catalyst"
+    },
+    "bloom=true,quiet_below_vitality=0": {
+      "model": "minecraft:block/sculk_catalyst_bloom"
+    },
+    "bloom=true,quiet_below_vitality=1": {
+      "model": "quiet_below:block/vitality/stage_1/sculk_catalyst_bloom"
+    },
+    "bloom=true,quiet_below_vitality=2": {
+      "model": "quiet_below:block/vitality/stage_2/sculk_catalyst_bloom"
+    },
+    "bloom=true,quiet_below_vitality=3": {
+      "model": "quiet_below:block/vitality/stage_3/sculk_catalyst_bloom"
+    }
+  }
+}
