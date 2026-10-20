@@ -1,5 +1,7 @@
 # In-world authoring with Chronicle Core
 
+> 20 October design review: [CF-10](CORE_UI_REDESIGN.md) supersedes the menu workflow below **as a proposal**. Regions use standing-position `pos1`/`pos2` commands then UI save; editing loads saved bounds so either position can change independently. Chests and Loot Tables are separate pages. Mod stations own their behavior and may offer a registration prompt on authoring placement; manual block references remain for vanilla/other blocks. Starting position replaces Arrival wording. The following CF-09 instructions still describe the deployed UI until the redesign is implemented.
+
 Updated 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. M6 implements geometry/selection, M7 adds typed loot and manual player moves, and CF-09 adds their shared screen. Trigger bindings remain later work. See [M6's exact commands and review checklist](M6_IMPLEMENTATION.md).
 
 The operator accepts this authoring direction for now. For [Quiet Below](THE_QUIET_BELOW.md), register key locations such as the source city, Relic Heart and ancient stations. Autonomous growth discovers cave/mine geometry itself; no painted sculk trail, patch graph, or region for every crop field/hazard is required. The generic selection/binding tools below remain useful without making all of them mandatory campaign setup.

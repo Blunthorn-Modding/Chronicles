@@ -1,5 +1,13 @@
 # Bootstrap decisions — 18 October 2026
 
+## Core menu review corrections — 20 October 2026
+
+The operator requests updates to [CF-10](CORE_UI_REDESIGN.md), still as a mockup/design change. Rename Arrival to **Starting position**; split Advanced **Chests** (physical bindings) from **Loot Tables** (reusable distributions/refill settings). Region creation instructs two standing-position commands, `/chronicles author region pos1` and `pos2`, then saves in the UI. Existing-region editing loads both saved positions and can replace either alone, preserving ID and reviewing references. No looked-at region selection.
+
+Actual mod blocks own their station interactions and state. Placing a supporting block in operator authoring may prompt to register/link that instance; station references are optional unless a specific campaign genuinely requires a unique link (Heart). Keep manual looked-block binding for vanilla/other sites. These blocks/hooks are future work, not current deployed functionality. Quiet Below's source/Heart/station/network/benefit tools belong to its setup; Werewolf/Journey/encounter features remain explicitly separate future references.
+
+Sessions are windows of active play, not narrative chapter/reset boundaries except when a future format explicitly chooses that model. Remove session preview/recovery from the proposed normal UI/commands. Technical recovery remains an interrupted-operation concern in existing service-specific tools. Event text and optional private sound playback are one Preview workflow, with no separate Sample command. Keep live audience/readiness checks and confirmed execution distinct. Preserve current services, persisted IDs and legacy commands; no implementation/deployment is requested by this review update.
+
 ## Full Core menu redesign requested - 19 October 2026
 
 After M8 testing, the operator rejects the accumulated menu as disconnected and asks for a design pass/mockup and clearer commands before more implementation. Left tabs should run vertically: Session, Players, Events, then Advanced Chests, Regions and Locations (old “Roles” is unclear). [CF-10](CORE_UI_REDESIGN.md) proposes contextual lists/actions and a distinct Game setup assignment page, consolidates movement settings under Players, unifies event presentation through typed adapters, separates content preview from live execution and covers future library tools. Game setup and the new preview/menu/command facade are proposals, not deployed capabilities. Code tracing confirms author mode is server-owned/transient with up to two-second display lag, not a proven client-side persistence defect. Human review of this design replaces the previous “continue to M9 after M8” UI checkpoint.

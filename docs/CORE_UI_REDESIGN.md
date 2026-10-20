@@ -1,6 +1,6 @@
 # Chronicle menu redesign — design review
 
-19 October 2026. CF-10. **Proposal and interactive mockup, not a deployed UI change.** The operator rejects the accumulated menu structure and requests a full library UI/command design before more implementation. This supersedes earlier screen-layout acceptance; it does not undo tested services or authorize a world-data reset. Branch: `design/core-menu-rework`.
+Updated 20 October 2026 after operator review. CF-10. **Proposal and interactive mockup, not a deployed UI change.** The operator rejects the accumulated menu structure and requests a full library UI/command design before more implementation. This supersedes earlier screen-layout acceptance; it does not undo tested services or authorize a world-data reset. Branch: `design/core-menu-rework`.
 
 ## The organizing rule
 
@@ -15,6 +15,7 @@ Events           |                                  |
                  |                                  |
 ADVANCED         |                                  |
 Chests           |                                  |
+Loot Tables      |                                  |
 Regions          |                                  |
 Locations        |                                  |
 Game setup       |                                  |
@@ -22,7 +23,13 @@ Game setup       |                                  |
 Server connection / result of last action                         Close menu
 ```
 
-There is no Roles, Spawns, Policies or Observations top-level tab. `Locations` contains oriented points and exact block sites, clearly distinguished. `Game setup` maps the active game's registered requirements to those saved regions/locations. It is not another geometry list. The menu remains a Minecraft screen: native font, rectangular controls, short forms, keyboard support and game-visible outlines. The browser mockup demonstrates structure and interaction, not final Minecraft pixel rendering.
+There is no Roles, Spawns, Policies or Observations top-level tab. **Chests** manages physical containers and their bindings; **Loot Tables** manages reusable item distributions, counts and refill settings. A chest links to its selected table without embedding the table editor. `Locations` contains oriented points and exact block sites, clearly distinguished. `Game setup` contains only the active game's key-site assignments and supported tools. It is not another geometry list or a catalogue of unbuilt formats. The menu remains a Minecraft screen: native font, rectangular controls, short forms, keyboard support and game-visible outlines. The browser mockup demonstrates structure and interaction, not final Minecraft pixel rendering.
+
+## Sessions are play windows, not story boundaries
+
+For Quiet Below and the general library, a session means a scheduled window in which simulation and automation may run. Pause/finalize freezes that activity, while the same world and campaign continue next time. It must not reset ecology, flags, event completion, starting-position claims or continuing active-time triggers. Existing M8 cue completion and its clock already live across session numbers; preserve that behavior. The previously requested start-of-session loot refill is an explicit configurable exception. Repeating a cue or resetting campaign state remains a separate deliberate action.
+
+Remove **session preview** and **session recovery** from the proposed normal UI/commands. The earlier “preview” meant reviewing the effects of Start/End, not simulating the next session; use ordinary **Start play** / **Finish for now** with a concise effects confirmation where appropriate. Technical recovery means reconciling an interrupted chest/terrain operation after a write failure or crash, not restoring a narrative session. Existing service-specific recovery commands and journals stay available to operators; surface a contextual fault only when one exists. Do not make it a permanent Session tab. Journey may later explicitly opt into chapter/world boundaries and outcomes; other formats do not inherit them.
 
 ## What the old words actually mean
 
@@ -45,34 +52,44 @@ The tables below are the button contract, including submenus. Labels are verbs p
 
 | Section / middle list | Right-hand content and controls | Meaning and guard |
 | --- | --- | --- |
-| **Session → Current session** | State, active play time, eligible player count, why the world is frozen; **Start session**, **Pause session**, **Resume session**, **End session** as applicable | Start reviews session number and automatic chest refills; end reviews stopping game activity. Pause/resume are immediate acknowledged commands. No silent pause to enable edits |
+| **Session → Play controls** | State, active play time, eligible player count, why the world is frozen; **Start play**, **Pause play**, **Resume play**, **Finish for now** as applicable | Start explains configured chest refills; finish stops simulation/automation without a story reset. No session preview, chapter boundary or implicit replay. Pause/resume are acknowledged actions. No silent pause to enable edits |
 | Session → Activity | **Session**, **Events**, **Player moves**, **Loot fills** filters; selected record shows result, actor, session and time | GM-only audit. Existing ledgers remain distinct sources; an aggregate view must not invent a global ordering for tick-only records |
-| Session → Checks & recovery | Saved-reference validation, unloaded targets, incomplete inventory/terrain work; **Check again**, **Inspect operation**, **Recover selected operation** when a handler supports it | Recovery describes the handler's before/after/conflict result. Never a general “retry everything” or “clear error” button. Existing server backup commands are an operations task, not a pretend live backup button |
+| Contextual service fault, only when present | Explain an interrupted chest/terrain action and link to its existing service-specific inspection/reconciliation tools | This is technical operation recovery, not session recovery. No permanent recovery menu, blind retry, narrative rewind or automatic overwrite. Backups remain workspace operations |
 | **Players → selected player → Participation** | Online/participating/eligible shown separately; **Add to session**, **Remove from session** | Removing participation alone does not silently change spawn settings. Own **Leave Chronicle** removes participation and automatic moves; confirmation explains this. No op/whitelist editing in this menu |
 | Players → Character card | **Read character card**, own **Edit my card** | Only existing public card fields. GM cannot edit someone else's card through a convenience UI without a separately approved capability |
-| Players → Movement & respawn | **Move player…**, **First arrival**, **After death**, **Arrival history…** | Move chooses an existing location then shows a read-only safety/audience preview and a **Move [name]** review. Arrival/death are independent explicit switches with destination pickers, off by default; keep vanilla respawn settings. Reset under history becomes **Allow another arrival attempt…**, explaining the next join/session may move them |
+| Players → Movement & respawn | **Move player…**, **Starting position**, **After death**, **Starting position history…** | Move chooses a location and reviews safety before **Move [name]**. Starting position means “Place this player here when they first enter play”; one attempt across the campaign, not each session/reconnect. Starting/death settings are independent, default off; preserve vanilla respawn. History may offer deliberate **Allow another placement attempt…**, never an implicit repeat |
 | Players → Group selection (later) | Select players, **Apply participation…**, **Set destination…**, **Review affected players** | Show exact membership and per-player failures; no implicit all-player policy. Group/private-team source must be permission-filtered |
 | **Events → selected event → Overview** | Type, purpose, registered game, public text/sound or effect description, setup status; **Preview event** | Read-only content/effect summary works before configuring a region, starting a session or enrolling anyone. It does not evaluate or execute a mutating callback |
-| Events → Preview sheet | Text/effect summary; **Hear sample — only me** if audio exists; **Check live audience** | Sample requires an op player, sends privately to that player, works paused/unconfigured and records no completion. No global broadcast, timer reset or game-state changes. Live audience is a separate read-only calculation, showing missing setup, phase, flags, hold, exact recipients and safety checks |
+| Events → Preview sheet | Text/effect summary and **Play preview — only me** if audio exists | One preview workflow: inspect the content and optionally hear it privately. No separate Sample action/command. Works paused/unconfigured; records no completion, changes no flags/timers, broadcasts nothing. Previewing a game-state/world action describes its effects without invoking its callback. Live audience checking remains a separate read-only readiness calculation |
 | Events → Run | **Run event…** → exact effect/audience review → **Run [event name]** | ACTIVE only, no unresolved hold, valid saved references, satisfied prerequisites, live eligible audience where applicable. Shared manual/automatic completion. Expired/changed previews require review again. A game-state-only action needs no fake participant audience |
 | Events → Automatic trigger | **Edit trigger…** form: Manually / On entering a region / After active play time / When a condition is true; **Save trigger** or **Replace trigger…** | These are radio choices, not four unexplained save buttons. Only Entry requires a trigger region. Timer has a visible “seconds of active play” label and scope; condition has a condition selector. Saved once-only history is never implicitly cleared by replacement |
 | Events → Audience & requirements | All active participants / Participants in region when the handler supports that audience; **Choose region…**, **Add prerequisite…**, **Save configuration** | An audience region and an entry-trigger region are distinct concepts. Regions are shown only when needed. Current M8 uses one region for both: the first adapter must visibly label that constraint, not pretend two independent regions are supported |
 | Events → Delivery history | Attempt status and recipients; **Allow event again…**; **Disable automatic trigger…** under trigger settings | Reset explicitly clears current completion and restarts timer delay; preserves audit of the reset in the proposed facade. CLAIMED is “Delivery uncertain — not retried”, never “not run”. Disabling automation must be distinguished from manually running the event |
 | Events → Advanced configuration | **Remove event configuration…** | Preserves the registered definition and delivery history, removes the binding and prevents real execution until configured again. This is today's `OBS_OFF` behavior; it is not merely switching an automatic trigger to Manual |
 | Events → Conditions | Registered/current true/false conditions, their meaning and references; **Set true…**, **Set false…**, **Create condition…** in advanced details | Use existing campaign-state permission/phase rules first. A future non-active configuration-time definition is separate from mutating a live flag; do not silently weaken the current ACTIVE-only flag rule |
-| **Chests → Bound chests** | Selected container type, coordinates, refill schedule and history; **Show chest**, **Change loot type…**, **Unbind chest…** | Outlining changes no contents. Retype/unbind names the exact container and retains fill history |
+| **Chests → Bound chests** | Selected table, coordinates, read-only refill summary and history; **Show chest**, **Open loot table**, **Change loot table…**, **Unbind chest…** | Outlining changes no contents. Retype/unbind names the exact container and retains fill history. Open loot table navigates to its distinct Advanced page |
 | Chests → Add chest | **Bind looked-at chest…** → locked target summary + type selector → **Bind [type] chest** | One flow; no named block-anchor prerequisite or capture-first template. If the target moves/changes, refuse and ask to target it again |
-| Chests → Loot types | Recommended/bound count, independent item percentages and counts, refill settings; **Reload loot configuration** now; **Edit loot type…**, **Add loot entry**, **Save loot type…** later | Every scheduled fill replaces all contents; warning next to schedule/save. Probability editor keeps independent rolls and full item components. Reload/save validates a candidate atomically; no reroll/reset of receipts. JSON remains supported |
-| **Regions → saved regions** | Name, dimension, corners, size and “Used by”; **Show region**, **Edit bounds…**, **Delete region…** | Explicit reference-impact review on replacement/deletion. A moved region never silently relocates event or campaign behavior |
-| Regions → Create region | **First corner: my feet / looked block**, **Second corner: my feet / looked block**, **Name**, **Save region**, **Clear selection**, **Hide outline** | Selection belongs to the server/current connection; clear only this draft, not saved regions. `Continue in world` closes the menu and leaves the private outline/selection available |
+| **Loot Tables → selected table** | Recommended/bound count, independent item percentages and counts, refill settings; **Reload loot configuration** now; **Edit loot table…**, **Add loot entry**, **Save loot table…** later | Reusable definitions, separate from containers. Every scheduled fill replaces all contents; show that next to schedule/save. Preserve independent rolls and full item components. Atomic candidate validation; no reroll/reset of receipts. JSON remains supported; internal loot-type IDs/schema need no rename |
+| **Regions → saved regions** | Name, dimension, both positions, size and “Used by”; **Show region**, **Edit region…**, **Delete region…** | Edit loads a server-owned draft from saved bounds. Update just Position 1 or Position 2, using coordinates in the editor or its command in-world. Keep the other unchanged. Review references, replace the same ID and increment revision; no duplicate region or silent consumer rebind |
+| Regions → Create region | Instructions for `/chronicles author region pos1` and `pos2`, selected positions, **Continue in world**, **Name**, **Create region** | Stand at each desired position and run its command, then return to save in the UI. No raycast/look targeting for region selection. Both positions and same dimension required. Draft/outline survive closing the menu; clear only this connection's draft. Commands may accept explicit integer coordinates as an advanced alternative |
 | **Locations → Points** | Oriented saved positions; **Save my position…**, **Show location**, **Update to my position…**, **Delete location…** | Position includes dimension, precise coordinates and facing. Saving a location never teleports players or enables automatic arrival |
-| Locations → Block sites | Expected-type block positions; **Bind looked-at block…**, **Show block site**, **Replace block site…**, **Delete block site…** | Separate exact block primitive for Heart/Forge etc.; not a player spawn. Chests retain their simpler direct workflow |
-| **Game setup → selected game's requirements** | Registered Source city, Relic Heart, Arrival point etc.; each row says **Region / Point / Block site**, saved assignment and consumers; **Choose existing…**, **Create & assign…**, **Show assigned site**, **Change assignment…**, **Check setup** | Core supplies the forms and typed selectors; game defines meaning. Required/advisory counts must be explicitly registered; today's catalog does not know “required”. Saving assignments enables no ecology, events or teleporting by itself |
+| Locations → Block sites | Expected-type block positions; **Bind looked-at block…**, **Show block site**, **Replace block site…**, **Delete location…** | Manual fallback for vanilla/other blocks or existing instances. A mod block owns its behavior; a site records a reference, not the implementation. Authoring placement can offer registration automatically (contract below). Chests keep their direct flow |
+| **Game setup → selected game's requirements** | Quiet Below source city, unique Heart and registered stations; typed assignments, actual placed instances and consumers; **Choose existing…**, **Show assigned site**, **Change assignment…**, **Check setup** | Core supplies selectors; campaign declares which sites are mandatory, optional or multi-instance. Starting positions are optional under Players, not a required Quiet Below site. Registration alone does not arm ecology or create block functionality |
 | Game setup → Game tools (later) | Registered extension panels for game state/validation and permitted actions, plus navigation to relevant generic editors | No sculk topology, crop or Heart logic in Core. Quiet Below can add its ecology panel here without introducing a library Ecology tab |
 
 “Show” always means a private in-world outline or read-only information; **Move player** means teleport. Avoid “Preview player”, which sounds like inspecting a character card. `Replace`, `Reset`, `Bind`, `Off` and `Purpose` are replaced with the labels above unless a detailed inspector is being used.
 
-These tables specify the **proposed** facade. Definition-only previews, caller-only audio samples, the combined activity view and generic recovery inspectors are new work, not existing M8 buttons. Eligible participants means enrolled, online, alive, non-spectator and outside editing mode. Core arrival/respawn purposes remain reusable library concepts; a game's additional required/advisory and consumer metadata must be explicitly registered, not inferred from today's catalog.
+These tables specify the **proposed** facade. Definition-only/private playback previews and the combined activity view are new work, not existing M8 buttons. Eligible participants means enrolled, online, alive, non-spectator and outside editing mode. Existing internal arrival/respawn purposes remain reusable library concepts; “Starting position” is the new display name, not a persisted-ID migration. Required/advisory/consumer metadata must be explicitly registered, not inferred from today's catalog.
+
+## Region editing and block-owned functionality
+
+**Region flow:** Create region opens a draft and explains pos1/pos2. Continue in world closes the UI; stand at Position 1, run `/chronicles author region pos1`, stand at Position 2, run `pos2`, and reopen Regions to name/save. A command issued before opening Create can seed the same new draft. Selection is server-owned and private per connection; each command replaces its own slot. Reject a second position from another dimension. Create stays disabled until both positions are valid. The private outline remains while walking. The mockup's separate “simulate actions” controls are test scenery, not proposed Minecraft menu buttons.
+
+**Edit flow:** Edit region (or `/chronicles author region edit <id>`) loads its two saved positions and revision. The current store keeps normalized min/max, not original click order: label these loaded bounds Position 1 and Position 2 without claiming to recover old selection order. Edit either coordinate triple in the UI or return to the world and run only the relevant pos command. Keep the other triple. Normalize for validation/persistence, preserve the stable ID, review old/new bounds and consumers, and reject concurrent changes rather than overwriting. Bound consumers pin revisions today: explicitly revalidate/rebind affected consumers, never silently follow moved geometry. Source-city changes must respect future ecology ownership/cleanup constraints; a geometry edit must not relocate an active network. Cancelling changes no saved geometry; disconnect/ACTIVE invalidates editing authority and unsaved drafts rather than leaking them to another player.
+
+**Mod-block flow:** The campaign supplies an actual Forge/Altar/Heart block and its interactions, recipes, power checks and local state. Merely placing a reference must never be how a generic Core editor creates that functionality. Core can provide an optional placement-registration hook: during non-active operator authoring, the server recognizes a participating block type, records its exact placed instance and offers **Register this Forge?** / **Link this Heart?**, with expected type and intended use. Cancel leaves the block placed. Repeat ordinary station placements may be discovered automatically without mandatory registration; only a genuinely named/unique campaign link needs selection. Existing worlds can be scanned/inspected locally or registered manually; do not force-load every chunk or require re-placing blocks. Outside authoring there is no registration popup on normal player placement, no implicit activation of campaign progression and no operator snapshot sent to players.
+
+Registration rechecks permissions, dimension, loaded position, type, instance identity and current assignment revision. Multiple stations are allowed when the game supports them. A unique Heart conflict must offer an explicit reviewed replacement, never steal the link. Breaking/replacing/moving a registered instance invalidates or updates its reference through campaign-owned lifecycle handling; same-type replacement must not inherit unique Heart identity/history accidentally. Changing the Heart must not bypass weakness/destruction rules. Core owns generic prompts/references; Quiet Below owns station behavior, Heart uniqueness, network attachment and validation. The current mod only registers *site requirements* for Forge/Altar/Heart; the actual blocks and placement hooks remain M12/CF-10 implementation work, not installed mechanics.
 
 ## Editing state and trustworthy feedback
 
@@ -86,7 +103,7 @@ During ACTIVE, replace a disabled mode toggle with visible “Pause the session 
 
 The current cue Preview calls `PlayRuntime.preview`, which requires ACTIVE, a saved binding, a satisfied prerequisite and eligible recipients. Region-audience definitions also need a region. That is a **live execution preview**, not a content preview; the old label is wrong. The new Preview event works on a definition, even when its setup is incomplete. The live check explains “Choose an audience region” or “No participating players inside Mine entrance”, not a generic invalid-configuration error.
 
-Unify the **presentation**, not the unsafe side effects. Core event adapters advertise: stable qualified ID, game/label/description, type, supported audience/trigger options, declared required inputs, read-only preview, optional private sample, validation and execution/ledger handler. Existing `CampaignEvents` and `ObservationCatalog` remain distinct typed services behind adapters; state flags must not gain implicit inventory/world effects. Persist old IDs and source ledger identity; same-label actions do not share completion unless a deliberate mapping is reviewed. Existing M8 region coupling must remain explicit until a schema migration supports independent trigger/audience regions.
+Unify the **presentation**, not the unsafe side effects. Core event adapters advertise: stable qualified ID, game/label/description, type, supported audience/trigger options, declared required inputs, read-only preview with optional private media playback, validation and execution/ledger handler. **Preview** is one user-facing operation; sound playback is an opt-in inside it, not a separate Sample command or a real event execution. Existing `CampaignEvents` and `ObservationCatalog` remain distinct typed services behind adapters; state flags must not gain implicit inventory/world effects. Persist old IDs and source ledger identity; same-label actions do not share completion unless a deliberate mapping is reviewed. Existing M8 region coupling must remain explicit until a schema migration supports independent trigger/audience regions.
 
 New **Disable automatic trigger** keeps a valid Manual binding and its audience/prerequisites; old `PlayService.off` instead removes that binding entirely. Implement these as distinct actions. Likewise direct point selection in Players must not silently rebind a shared spawn purpose for other players: retain existing purpose IDs/pins in Details, validate affected references, and use the existing purpose mapping or a new private binding deliberately. The main editor hides jargon, not dependencies or migration effects.
 
@@ -95,11 +112,11 @@ New **Disable automatic trigger** keeps a valid Manual binding and its audience/
 | Planned capability | Home | Scope/status |
 | --- | --- | --- |
 | Entity groups, waves, safe entity spawn areas, counts, manual/condition start, cleanup/history | Events → Encounters / encounter configuration | Pending M7 follow-up; region/point selectors reused, effect handler/journal explicitly required |
-| Native loot probability/count/component editor and per-type refill schedule | Chests → Loot types | Proposed UI over existing JSON contract; not implemented |
+| Native loot probability/count/component editor and per-table refill schedule | Loot Tables | Proposed UI over existing loot-type JSON contract; useful to Quiet Below, not implemented |
 | Custom saved IDs, friendly names, duplicate/reference checks | Regions / Locations / Chests as appropriate | New editor support; immutable stable IDs, display names separate, no silent ID rename |
 | Registered station/Heart/source requirements and campaign settings | Game setup; links into Regions/Locations | Current requirements exist; richer assignments/extension panels are proposed |
 | Clock, reusable conditions/triggers, audience selection, manual/automatic once history | Events; clock shown in Session | Existing M8 foundation; expose capabilities per event type, no mandatory schedule |
-| Operation recovery and validation, audit, unavailable services | Session → Checks & recovery / Activity | Existing partial command services; unified readable inspection is new |
+| Operation reconciliation, validation, audit, unavailable services | Contextual affected-service fault; existing advanced service commands; Activity | Technical failures only, unrelated to narrative sessions. No generic Session recovery page or rewind |
 | Player groups and bulk assignments | Players → Groups / review selected players | Future generic selection, not automatic factions or enrollment |
 | Secret character roles/teams, elimination and private messages | Players → Private game data | CF-03 Werewolf direction only; own protected payloads/store; hidden even from public dossier serializers |
 | Discussion phases, voting, win checks | Events → game-specific round actions; Session → game phase if supported | CF-03 scenario rules unsettled. Capability extension, no empty always-visible controls |
@@ -107,122 +124,122 @@ New **Disable automatic trigger** keeps a valid Manual binding and its audience/
 | Survival objectives, threat escalation and respite | Events → encounter actions; Session → registered objectives | CF-04 future design, scenario supplies rules, Core does not invent a horde director |
 | Operation objectives/extraction or Intrigue proposals/decisions | Registered Session / Events panels, only if an approved game needs them | Optional format candidates, not committed engines or immediate new tabs |
 | Quiet Below growth, benefits/costs, stations, Heart eradication | Quiet Below Game tools registered into Game setup; human play effects remain in-world | M9–M12 campaign-owned. No authored routes or per-field growth-region editor in Core |
-| Existing prototype staged terrain preview/apply/undo and operation journal | Quiet Below Game tools, with its unresolved operations linked from Session → Checks & recovery | Existing M4 bounded tool; keep its journal/recovery intact. It is not the autonomous M9 ecology solution |
+| Existing prototype staged terrain preview/apply/undo and operation journal | Explicit Quiet Below legacy tools; contextual fault links to their handler | Existing M4 bounded tool; retain journal/recovery. It is not the autonomous M9 ecology solution or a narrative session rewind |
 | Backups/server lifecycle/authentication | Operator workspace scripts/runbook | Keep outside normal player/game UI; no fake “safe live backup”, op promotion or firewall controls |
 
-Future capabilities appear as a separate **Planned tools** reference in the mockup; they are not dead buttons in the final running game. A real game only registers available panels. This covers current roadmap placement without promising that all formats already work or starting their implementation.
+For **Quiet Below**, the relevant setup is source-city geometry, the unique Heart and actual station instances, plus optional loot, player starting/respawn points and event triggers. Its later game tools concern network status/controls (M9–M10), benefits/costs (M11) and station/Heart checks (M12). None imposes authored spread routes, scheduled discoveries or a session outline. The native loot editor and selection/registration improvements are useful library work for this event.
+
+Werewolf roles/voting, Journey chapters/world transfers, Survival objectives/directors and generic encounter waves are **future format references**, not dependencies for Quiet Below. The mockup labels that separate design-only list **Other formats · design reference**; it is omitted from a shipped menu. A real game registers only its available panels. The placement matrix above preserves future scope without presenting those tools as current game setup requirements.
 
 ## Command proposal
 
-**Proposed, not installed.** `/chronicle` or `/chronicle menu` opens the right screen for the caller. Operators get management; ordinary players get their own participation/card and public status only. O does the same. Names mirror left navigation. Bare category names open its page; explicit verbs perform actions. Every selector completes known IDs/players, and errors give an exact next command. Commands and widgets call the same typed service actions, not one another's output text. Console receives textual results; self-only sampling needs a player. Live mutations use a short-lived per-actor confirmation token returned by preview; a confirm token is single-use and binds source action/target/config/session/audience. Merely opening a menu never returns a mutating token.
+**Proposed, not installed.** `/chronicles` or `/chronicles menu` opens the appropriate screen. Use the plural root consistently, including the operator-requested `/chronicles author region pos1` / `pos2`. Existing `/chronicle` commands remain compatible. Operators get management; ordinary players get their own participation/card and public status only. O does the same. Bare category names open the page; explicit verbs perform actions. Selectors complete known IDs/players and errors give the exact next step. Commands and widgets call the same typed services. Console receives text; private playback requires a player. Reviewed mutations return a short-lived single-use per-actor token bound to action/target/config/current authority/audience. Opening a menu or content preview performs no mutation. Use **review** for an effects confirmation and **preview** only for event content; there is no session preview/recovery command.
 
 ```text
-/chronicle [menu]                              # open appropriate screen
-/chronicle status
-/chronicle edit on|off                         # temporary server editing permission
-/chronicle join
-/chronicle leave                               # self: participation + automatic moves
+/chronicles [menu]                              # open appropriate screen
+/chronicles status
+/chronicles edit on|off                         # temporary server editing permission
+/chronicles join
+/chronicles leave                               # self: participation + automatic moves
 
-/chronicle session [status]
-/chronicle session start preview [number]      # returns start/refill review token
-/chronicle session confirm <token>             # explicit reviewed action
-/chronicle session pause|resume
-/chronicle session end preview                 # returns end-session review token
-/chronicle session history [limit]
-/chronicle session check
-/chronicle session recovery list|inspect <id>
-/chronicle session recovery preview <id>
-/chronicle session recovery confirm <token>    # only handler-supported reconciliation
+/chronicles session [status]
+/chronicles session start [number]              # begin play; report configured refill effects
+/chronicles session pause|resume
+/chronicles session end                         # finish for now, retain continuing game state
+/chronicles session history [limit]
 
-/chronicle players [list]
-/chronicle players inspect <player>
-/chronicle players add|remove <player>          # participation only, non-active editing
-/chronicle players card <player>               # public fields
-/chronicle players move preview <player> <point>
-/chronicle players move confirm <token>
-/chronicle players arrival set <player> <point>
-/chronicle players arrival disable <player>
-/chronicle players arrival history <player>
-/chronicle players arrival reset preview <player>
-/chronicle players arrival reset confirm <token>
-/chronicle players respawn set <player> <point>
-/chronicle players respawn disable <player>
+/chronicles players [list]
+/chronicles players inspect <player>
+/chronicles players add|remove <player>          # participation only, non-active editing
+/chronicles players card <player>               # public fields
+/chronicles players move review <player> <point>
+/chronicles players move confirm <token>
+/chronicles players starting-position set <player> <point>
+/chronicles players starting-position disable <player>
+/chronicles players starting-position history <player>
+/chronicles players starting-position reset review <player>
+/chronicles players starting-position reset confirm <token>
+/chronicles players respawn set <player> <point>
+/chronicles players respawn disable <player>
 
-/chronicle events [list]
-/chronicle events inspect <event>
-/chronicle events preview <event>               # content/effects, no setup required
-/chronicle events sample <event>                # supported audio/text, only the caller
-/chronicle events check <event>                 # live readiness/audience, read-only
-/chronicle events run preview <event>           # live review token
-/chronicle events run confirm <token>
-/chronicle events trigger manual <event>
-/chronicle events trigger entry <event> <region>
-/chronicle events trigger timer <event> <seconds>
-/chronicle events trigger condition <event> <flag>
-/chronicle events trigger disable <event>
-/chronicle events audience all <event>
-/chronicle events audience region <event> <region>
-/chronicle events require set <event> <flag>
-/chronicle events require clear <event>
-/chronicle events config preview <event>        # review complete draft + current revision
-/chronicle events config confirm <token>        # save one atomic configuration
-/chronicle events config discard <event>        # discard only this caller's draft
-/chronicle events config remove preview <event> # remove binding, retain definition/history
-/chronicle events history <event>
-/chronicle events reset preview <event>
-/chronicle events reset confirm <token>
-/chronicle events conditions list|get <flag>
-/chronicle events conditions set <flag> true|false
+/chronicles events [list]
+/chronicles events inspect <event>
+/chronicles events preview <event>               # content + optional private playback, no setup
+/chronicles events check <event>                 # live readiness/audience, read-only
+/chronicles events run review <event>            # live review token; not content preview
+/chronicles events run confirm <token>
+/chronicles events trigger manual <event>
+/chronicles events trigger entry <event> <region>
+/chronicles events trigger timer <event> <seconds>
+/chronicles events trigger condition <event> <flag>
+/chronicles events trigger disable <event>
+/chronicles events audience all <event>
+/chronicles events audience region <event> <region>
+/chronicles events require set <event> <flag>
+/chronicles events require clear <event>
+/chronicles events config review <event>         # review complete draft + current revision
+/chronicles events config confirm <token>        # save one atomic configuration
+/chronicles events config discard <event>        # discard only this caller's draft
+/chronicles events config remove review <event>  # remove binding, retain definition/history
+/chronicles events history <event>
+/chronicles events reset review <event>
+/chronicles events reset confirm <token>
+/chronicles events conditions list|get <flag>
+/chronicles events conditions set <flag> true|false
 
-/chronicle chests [list]
-/chronicle chests bind <type>                   # looked container, preview locked target
-/chronicle chests inspect|show <chest>
-/chronicle chests change-type <chest> <type>    # returns target/effect review token
-/chronicle chests unbind <chest>                # returns review token
-/chronicle chests confirm <token>
-/chronicle chests loot list|inspect <type>
-/chronicle chests loot reload
+/chronicles chests [list]
+/chronicles chests bind <type>                   # looked container, preview locked target
+/chronicles chests inspect|show <chest>
+/chronicles chests change-type <chest> <type>    # returns target/effect review token
+/chronicles chests unbind <chest>                # returns review token
+/chronicles chests confirm <token>
+/chronicles loot-tables [list]
+/chronicles loot-tables inspect <table>
+/chronicles loot-tables reload
+/chronicles loot-tables edit <table>              # proposed native editor; JSON remains supported
 
-/chronicle regions [list]
-/chronicle regions corner 1|2 feet|target
-/chronicle regions selection show|clear
-/chronicle regions create <id>
-/chronicle regions show|inspect <id>
-/chronicle regions update <id>                  # returns reference-impact review token
-/chronicle regions delete <id>                  # returns reference-impact review token
-/chronicle regions confirm <token>
+/chronicles author region [list]                # Regions menu
+/chronicles author region pos1 [<x> <y> <z>]     # own feet by default; replace only slot 1
+/chronicles author region pos2 [<x> <y> <z>]     # own feet by default; replace only slot 2
+/chronicles author region selection show|clear
+/chronicles author region create <id>            # save selected positions; UI is primary flow
+/chronicles author region edit <id>              # load saved bounds + revision into draft
+/chronicles author region show|inspect <id>
+/chronicles author region save review            # same ID; review bounds + dependent references
+/chronicles author region delete <id>            # reference-impact review token
+/chronicles author region confirm <token>
 
-/chronicle locations [list]
-/chronicle locations point create <id> here
-/chronicle locations block create <id> target
-/chronicle locations show|inspect <id>
-/chronicle locations update <id> here|target    # kind-preserving reviewed replacement
-/chronicle locations delete <id>                # reviewed reference impact
-/chronicle locations confirm <token>
+/chronicles locations [list]
+/chronicles locations point create <id> here
+/chronicles locations block create <id> target
+/chronicles locations show|inspect <id>
+/chronicles locations update <id> here|target    # kind-preserving reviewed replacement
+/chronicles locations delete <id>                # reviewed reference impact
+/chronicles locations confirm <token>
 
-/chronicle setup [list]
-/chronicle setup inspect <requirement>
-/chronicle setup assign <requirement> <saved-site>  # validates required geometry
-/chronicle setup clear <requirement>            # reviews dependent consumers
-/chronicle setup confirm <token>               # required when replacing/clearing
-/chronicle setup check
+/chronicles setup [list]
+/chronicles setup inspect <requirement>
+/chronicles setup assign <requirement> <saved-site>  # validates required geometry
+/chronicles setup clear <requirement>            # reviews dependent consumers
+/chronicles setup confirm <token>               # required when replacing/clearing
+/chronicles setup check
 ```
 
-New creation is explicit; changing existing configuration uses reviewed replacement. Editing settings requires non-active server editing permission; execution requires the appropriate live phase. `/chronicle events trigger ...`, `audience ...` and `require ...` update the caller's draft; `config preview` then `config confirm` saves the entire configuration atomically against the pinned revision. Report coupling conflicts; never silently replace a required audience region. Handler support is checked for every command; a state-only event must reject unsupported sound/audience/trigger operations clearly. Plural category names distinguish the new surface from legacy singular commands.
+New creation is explicit; changing existing configuration uses reviewed replacement. Editing requires non-active server permission; execution requires the appropriate live phase. `/chronicles events trigger ...`, `audience ...` and `require ...` update the caller's draft; `config review` / `config confirm` atomically save against the pinned revision. Report coupling conflicts; never silently replace an audience region. Unsupported operations fail clearly. `events preview` opens one content/private-playback flow in a client; console receives the description and cannot play sound. No separate `events sample` command. Region editing is kind-preserving, command-selected and revision-checked, with no raycast selection.
 
-Existing singular `/chronicle event`, `/chronicle spawn`, `/chronicle author ...`, `/chronicle flag ...` and `/chronicle profile ...` remain documented compatibility routes during migration. Existing immediate `/chronicle session start [number]` and `/chronicle session end` keep their meaning; the new explicit `start preview` / `end preview` branches provide the reviewed path without reinterpreting them. Until the implementation slices land, O and `/chronicle author` retain their current operator-only behavior; the ordinary-player menu is proposed. New screen entry aliases may redirect; legacy chest capture/recovery remains under its explicit legacy path. Typed loot distributions continue to use JSON until the editor exists. Advanced console automation keeps explicit old APIs; deprecation/removal needs a later reviewed change. Future group/encounter/chapter/role command branches must follow this grammar but are not specified as callable now while their rules remain unsettled.
+Existing `/chronicle event`, `/chronicle spawn`, `/chronicle author ...`, `/chronicle flag ...`, `/chronicle profile ...` and immediate session start/end keep their current meaning. The proposed plural root is an alias/new facade, not a forced rename or a claim it is installed. Until implementation, O and `/chronicle author` remain operator-only. Legacy chest/terrain operation recovery stays at its explicit service path; there is no narrative recovery or session reset facade. Typed loot distributions keep JSON support and persisted loot-type IDs. Future group/encounter/chapter/role branches follow the grammar only after their rules are defined.
 
 ## Migration and implementation slices
 
 1. **Approve vocabulary/layout and workflows.** This deliverable; no Java, packet or world changes. Review Events Preview versus Run and Locations versus Game setup in the mockup.
 2. **Server view/action contract and sync.** Replace overloaded Entry/Snapshot strings with typed page detail/capabilities/reasons; stable object selection and confirmation handles, server mode push, stale/disconnected states. Existing services/schemas remain authoritative. Tests cover two GMs, command-driven mode changes, stale responses, reconnect and no preview mutation.
 3. **Navigation and context editors.** Vertical Session/Players/Events/Advanced shell, persistent selection, contextual pickers/forms and reference impact; small-screen drilldown. Move player policies into the player detail. Do not ship a new frame around the old unlabeled button grid.
-4. **Events facade and real previews.** Integrate cue/state-action read adapters without merging ledgers; definition-only preview and private sample, explained readiness and reviewed run; conditional region fields and units. Add persistent reset audit rather than silently destroying operator history. New service endpoints need permissions/rate limits and no public secret leakage.
-5. **Map setup and commands.** New typed assignment index references existing saved geometry. Today's registered role IDs ARE site IDs: adopt those saved sites as initial assignments without renaming/copying coordinates, preserving old spawn/observation references. Preview migration, back up stopped world, refuse ambiguous collisions and retain legacy read/commands. Add new plural command aliases and deliberate confirmation flows; do not force a token retrofit onto legacy automation in the same step.
+4. **Events facade and real previews.** Integrate cue/state-action adapters without merging ledgers; one content/private-playback preview, readiness and reviewed run, conditional fields/units. Preserve completion and active time across play windows. Add reset audit rather than silently destroying history. New endpoints need permissions/rate limits and no public secret leakage.
+5. **Map setup and commands.** Add command-selected region drafts and single-position updates, separate Loot Tables, the plural command alias and a typed assignment index. Today's registered role IDs ARE site IDs: adopt those saved sites without renaming/copying geometry, preserving spawn/observation references. Review migration, back up stopped world, refuse collisions and retain legacy commands. Core placement-registration hooks are generic; actual Forge/Altar/Heart blocks and lifecycle identity arrive with M12. No menu-only substitute for block functionality.
 6. **Future capabilities as needed.** Native loot editor, encounters, groups and game extensions each deliver their own service/persistence tests; design placement is not implementation. Journey/private roles still require their own product contracts.
 
-Verification: inspect each proposed action for one obvious purpose, consistent name, context and visible reason when unavailable. Mockup must navigate all seven destinations, keep selections, open/cancel contextual forms, preview a region cue with no region, reject its actual run until configured, keep live gates, demonstrate confirmation and compact drilldown, and show the future placement reference without pretending to execute unbuilt features. Later Java implementation must add real-client tests at 320×240, 480×270 and 640×360 logical sizes, keyboard-only navigation, no hover-only instructions, real mode changes from direct legacy commands/other GMs/reconnect, race/stale/IO failures, role-site migration collisions/refusal, privacy and prior M1–M8 regressions. Inspecting/definition-previewing, choosing a trigger, assigning/showing a site and viewing Game setup must never move players, change flags, refill chests, fire a cue, arm ecology or mutate terrain. Browser layout tests do not prove native Minecraft rendering or service synchronization.
+Verification: inspect every action for one obvious purpose, consistent name/context and visible disabled reason. Navigate all eight destinations; distinguish containers/tables; create a region from pos1/pos2 through a close/reopen draft; edit one position without changing the other or duplicating the region; cancel/accept a placed-mod-block prompt; preview a cue with no region; keep actual live gates and independent player/event state. Demonstrate confirmations and compact drilldown. Future references must be separate from this game's needs. Later native-client tests at 320×240, 480×270 and 640×360 logical sizes must cover keyboard navigation, sync/races/reconnect, draft authority/dimensions/bounds, stable IDs/stale consumers, block identity/removal/duplicate Heart/permissions, privacy and prior M1–M8 regressions. Inspecting, previewing or assigning sites never moves players, refills chests, fires events or arms ecology. Browser tests prove mock interaction/layout only.
 
-## Review focus for tomorrow
+## Review focus after 20 October feedback
 
-Does the left → middle → right structure fit your workflow? Are **Locations** and **Game setup** a clear separation? Can you find a player's spawn settings without knowing “policy”? Can you preview a message/sound before defining its trigger? Is the distinction between **Preview**, **Check live audience** and **Run event** clear? These are the remaining design review questions, not requests to repeat the old menu test.
+Review the revised region create/edit workflow, separate Chests/Loot Tables and optional block-registration prompt. Starting position is renamed; event preview includes private playback. Session controls govern a continuing world, and the design reference for other formats is explicitly outside Quiet Below's requirements. This remains a mockup review, not a request to repeat the old running-menu test.

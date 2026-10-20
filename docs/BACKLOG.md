@@ -45,7 +45,7 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 
 ## Review decisions
 
-CF-10: review the navigation, Locations versus Game setup, Players movement settings and Events preview/check/run separation before implementing the new facade. Earlier screen-layout acceptance is superseded; service-level verification remains valid.
+CF-10, revised after 20 October review: separate Chests/Loot Tables; rename Starting position; command-selected region creation and single-position updates; optional mod-block placement registration with block-owned functionality; no narrative session preview/recovery; one event preview including private playback. Quiet Below requirements are distinct from future-format references. Review the revised mockup before implementing the facade. Earlier screen-layout acceptance is superseded; service-level verification remains valid.
 
 - [ ] Agree what changed shortly before the story and why growth now reaches the mine.
 - [ ] Balance crop growth, local regeneration and Ancient Forge capability thresholds/costs against actual ecology, without session/reveal gates.
