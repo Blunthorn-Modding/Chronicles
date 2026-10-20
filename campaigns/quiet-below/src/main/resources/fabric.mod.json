@@ -13,6 +13,9 @@
       "io.github.chronicle.quietbelow.client.QuietBelowClient"
     ]
   },
+  "mixins": [
+    "quiet_below.mixins.json"
+  ],
   "depends": {
     "chronicle_core": ">=0.1.0-dev.4",
     "fabricloader": ">=0.19.5",

@@ -8,6 +8,7 @@ public final class QuietBelowClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         QuietBelowContentSmoke.registerIfRequested();
+        QuietBelowEcologySmoke.register();
         QuietBelowStageSmoke.register();
         QuietBelow.LOGGER.info("The Quiet Below client initialized");
     }

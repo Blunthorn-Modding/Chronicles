@@ -93,6 +93,7 @@ public final class QuietBelow implements ModInitializer {
                 new LootEntry("minecraft:book", 35, 1, 2, "{}"),
                 new LootEntry("minecraft:echo_shard", 10, 1, 1, "{}"))));
         QuietBelowStages.register();
+        io.github.chronicle.quietbelow.ecology.QuietBelowEcology.register();
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ECHO_LENS));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RESONANCE_MARKER));
         ChronicleCore.events().register(new CampaignEvent("quiet_below:readiness_check",

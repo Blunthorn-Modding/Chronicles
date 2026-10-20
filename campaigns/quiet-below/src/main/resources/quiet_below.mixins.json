@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8.7",
+  "package": "io.github.chronicle.quietbelow.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "SculkCatalystBlockEntityMixin",
+    "SculkCatalystListenerMixin",
+    "SculkSensorVibrationCallbackMixin",
+    "SculkShriekerBlockEntityMixin",
+    "SculkShriekerVibrationCallbackMixin",
+    "WorldMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

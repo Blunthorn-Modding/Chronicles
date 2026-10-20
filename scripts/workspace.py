@@ -28,7 +28,7 @@ LOCK = json.loads((REPO / 'bootstrap.lock.json').read_text(encoding='utf-8'))
 JAVA = TOOLS / 'java' / 'current' / 'bin' / 'java.exe'
 GRADLE = TOOLS / f"gradle-{LOCK['gradle']['version']}" / 'bin' / 'gradle.bat'
 BOT = REPO / 'testing' / 'minecraft-bot'
-MILESTONE = 'CF10'
+MILESTONE = 'M9'
 ALLOWED = {'api.modrinth.com', 'cdn.modrinth.com', 'maven.fabricmc.net',
            'services.gradle.org', 'downloads.gradle.org', 'github.com',
            'release-assets.githubusercontent.com', 'objects.githubusercontent.com'}
@@ -558,7 +558,7 @@ def doctor():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['setup','build','deploy','start','smoke','content-smoke','menu-smoke','stage-smoke','legacy-smoke','backup','restore','pack','doctor','client','verify','pilot-prepare','pilot-start','pilot-smoke','pilot-promote','pilot-backup'])
+    parser.add_argument('action', choices=['setup','build','deploy','start','smoke','content-smoke','menu-smoke','stage-smoke','ecology-smoke','legacy-smoke','backup','restore','pack','doctor','client','verify','pilot-prepare','pilot-start','pilot-smoke','pilot-promote','pilot-backup'])
     parser.add_argument('--accept-eula', action='store_true', help='Explicitly accept the Minecraft EULA (setup only)')
     parser.add_argument('--archive', help='Backup zip inside the workspace backups directory (restore only)')
     args = parser.parse_args()
@@ -569,6 +569,7 @@ def main():
                'content-smoke': lambda: __import__('fabric_smoke').run(regression=False),
                'menu-smoke': lambda: __import__('menu_smoke').run(),
                'stage-smoke': lambda: __import__('stage_smoke').run(),
+               'ecology-smoke': lambda: __import__('ecology_smoke').run(),
                'pilot-smoke': lambda: __import__('stage_smoke').run(pilot=True),
                'pilot-prepare': lambda: __import__('pilot').prepare(),
                'pilot-start': lambda: __import__('pilot').start(),

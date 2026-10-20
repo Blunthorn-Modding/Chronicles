@@ -310,6 +310,19 @@ public final class CoreMenuSmoke {
             case 97 -> { previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Play preview — only me"), "Distant playback unavailable"); waitingFor = viewCount; step++; }
             case 98 -> awaitView(() -> previewChatArrived(DISTANT_MESSAGE) && sameSnapshot("distant preview", playFile), "Distant playback includes private chat and leaves play ledger unchanged");
             case 99 -> { try { Files.writeString(output.resolve("preview-chat-checked"), "done", StandardCharsets.UTF_8); } catch (IOException e) { throw new IllegalStateException(e); } advance("both preview actions checked for both cues"); }
+            case 100 -> {require(press(screen(client),"Game setup"),"Game setup unavailable");waitingFor=viewCount;step++;}
+            case 101 -> awaitView(()->screen(client).state().page()==Page.SETUP,"opened registered campaign tools");
+            case 102 -> {screen(client).selectForTest("tool:quiet_below:ecology");waitingFor=viewCount;step++;}
+            case 103 -> awaitView(()->screen(client).state().detail()!=null&&screen(client).state().detail().id().equals("tool:quiet_below:ecology"),"selected generic setup tool through native transport");
+            case 104 -> {
+                var detail=screen(client).state().detail();
+                require(detail.controls().size()==4&&detail.controls().stream().allMatch(c->c.action()==Action.TOOL_ACTION&&c.input().startsWith("TOOL:")),"tool leaked non-finite controls");
+                require(detail.controls().stream().filter(c->c.label().equals("Enable growth")).noneMatch(c->c.enabled()),"unindexed tool allowed growth");
+                snapshotSize("ecology before read-only refresh",serverRoot.resolve("world/quiet-below/ecology.jsonl"));
+                capture(client,"menu-ecology-tool.png");
+                require(press(screen(client),"Refresh status"),"registered refresh action unavailable");waitingFor=viewCount;step++;
+            }
+            case 105 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("Ecology status refreshed")&&sameSize("ecology before read-only refresh",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"finite tool action acknowledged without ecology mutation");
             default -> finish(client, true, "completed " + checks.size() + " native operator checks");
         }
     }
@@ -336,6 +349,11 @@ public final class CoreMenuSmoke {
                 require(chatCount(CITY_MESSAGE) == 0 && chatCount(DISTANT_MESSAGE) == 0, "private preview leaked to another player");
                 advance("another online player receives neither cue preview message");
             }
+            case 5 -> {
+                snapshotSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl"));waitingFor=viewCount;
+                ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.TOOL_ACTION,Page.SETUP,"tool:quiet_below:ecology","enable",screen(client).state().token(),0,"",""));step++;
+            }
+            case 6 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"forged non-operator campaign tool action denied without a journal write");
             default -> finish(client, true, "completed " + checks.size() + " ordinary-player checks");
         }
     }
@@ -421,6 +439,16 @@ public final class CoreMenuSmoke {
     private void snapshot(String key, Path path) {
         try { snapshots.put(key, Files.isRegularFile(path) ? Files.readString(path, StandardCharsets.UTF_8) : "<absent>"); }
         catch (IOException error) { throw new IllegalStateException("could not snapshot " + path, error); }
+    }
+    // The live append log is exclusively locked on Windows. An empty, monotonic
+    // append-only file staying at zero bytes proves these actions append nothing.
+    private void snapshotSize(String key,Path path) {
+        try {long size=Files.size(path);require(size==0,"fixture ecology should be unconfigured");snapshots.put(key,Long.toString(size));}
+        catch(IOException e){throw new IllegalStateException("Could not stat ecology journal",e);}
+    }
+    private boolean sameSize(String key,Path path) {
+        try{return snapshots.get(key).equals(Long.toString(Files.size(path)));}
+        catch(IOException e){throw new IllegalStateException("Could not stat ecology journal",e);}
     }
     private boolean sameSnapshot(String key, Path path) {
         try { return snapshots.get(key).equals(Files.isRegularFile(path) ? Files.readString(path, StandardCharsets.UTF_8) : "<absent>"); }
