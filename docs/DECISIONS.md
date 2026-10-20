@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Exposed-corner review and adjustable spread speed - 20 October 2026
+
+The operator accepts identification and root disconnection/reconnection, reporting one remaining exposed-edge stall and requesting an in-game pace setting. [QB-08 surface/speed repair](M9_SURFACE_SPEED.md) preserves physical connections and sealed interiors while discovering locally reachable exposed sides of grown/existing blocks. Pace belongs to Quiet Below, using Core's existing generic tool UI: Slower / Faster / Reset speed, 0.25x to 16x, server-saved per world, default 1x. Values describe bounded growth-attempt intervals rather than guaranteed block throughput. This is a review repair and partial configuration delivery, not completion of M9 vitality/decline or later campaign mechanics.
+
 ## One growth system and explicit ownership maintenance - 20 October 2026
 
 The operator confirms ecology-only campaign growth: no death/XP fuel or native catalyst spread. Suppress native catalyst intake/ticks in the configured campaign dimension, including catalysts awaiting ownership/cleanup. Add explicit adoption of existing sculk through a saved region, with disconnected patches remaining dormant. The operator chooses optional persistent world-wide cleanup of non-campaign sculk as chunks normally load. Current ownership is pinned to the Heart/source dimension, so that is the cleanup scope; other dimensions are unchanged. Cleanup is off by default, follows occupied ACTIVE play, and requires a separate confirmed action after adopting regions to preserve. Core supplies saved regions/assignment and generic controls; the campaign owns scanning, ownership and deletion. [Contract](M9_ROOT_RECONNECTION.md).

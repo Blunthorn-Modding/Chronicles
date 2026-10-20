@@ -40,16 +40,19 @@ def run():
     server_log = None
     clients = []
     try:
-        for phase in ('initial', 'restart'):
+        for phase in ('initial', 'restart', 'surface'):
+            phase_root = f._stage(w) if phase == 'surface' else root
+            if phase == 'surface':
+                report['surface_world'] = str(phase_root)
             _reserve_ports()
             logfile = reports / ('server-' + phase + '.log')
             server_log = logfile.open('w', encoding='utf-8')
             trial_env=w.env()
             trial_env['CHRONICLE_ECOLOGY_NATIVE_TRIAL']='1'
-            server = subprocess.Popen(w.server_command(), cwd=root, env=trial_env, stdin=subprocess.PIPE,
+            server = subprocess.Popen(w.server_command(), cwd=phase_root, env=trial_env, stdin=subprocess.PIPE,
                                       stdout=server_log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             _wait_ready(server, logfile)
-            clients = [f._client(w, launch, root, reports, 'ChronicleFabricA', 'ecology-' + phase, {
+            clients = [f._client(w, launch, phase_root, reports, 'ChronicleFabricA', 'ecology-' + phase, {
                 'CHRONICLE_ECOLOGY_SMOKE': str(reports), 'CHRONICLE_ECOLOGY_PHASE': phase
             })]
             f._await_clients(clients, [reports / ('ecology-' + phase + '.json')], timeout=300)

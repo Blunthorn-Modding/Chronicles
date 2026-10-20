@@ -2,6 +2,8 @@ package io.github.chronicle.quietbelow.client;
 
 import com.google.gson.Gson;
 import io.github.chronicle.core.client.AuthoringPreviewRenderer;
+import io.github.chronicle.core.client.CoreMenuScreen;
+import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.block.Blocks;
@@ -36,7 +38,7 @@ final class QuietBelowEcologySmoke {
 
     static void register() {
         if (OUTPUT == null) return;
-        if (!"initial".equals(PHASE) && !"restart".equals(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
+        if (!List.of("initial","restart","surface").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();
         ClientReceiveMessageEvents.GAME.register((text, overlay) -> smoke.messages.add(text.getString()));
         ClientTickEvents.END_CLIENT_TICK.register(smoke::tick);
@@ -52,7 +54,7 @@ final class QuietBelowEcologySmoke {
                 ConnectScreen.connect(client.currentScreen, client, ServerAddress.parse(ADDRESS),
                         new ServerInfo("Chronicle ecology fixture", ADDRESS, ServerInfo.ServerType.OTHER), false, null);
             }
-            if (client.player == null || client.world == null || client.currentScreen != null) return;
+            if (client.player == null || client.world == null || (client.currentScreen != null && !(client.currentScreen instanceof CoreMenuScreen))) return;
             require(client.getCurrentServerEntry() != null && ADDRESS.equals(client.getCurrentServerEntry().address), "ecology fixture address mismatch");
             if (!built) { build(client); built = true; }
             if (index >= steps.size()) { finish(client, true, "ecology rehearsal complete"); return; }
@@ -64,7 +66,7 @@ final class QuietBelowEcologySmoke {
     }
 
     private void build(MinecraftClient client) {
-        if ("initial".equals(PHASE)) initial(client); else restart(client);
+        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else restart(client);
     }
 
     private void initial(MinecraftClient client) {
@@ -88,6 +90,7 @@ final class QuietBelowEcologySmoke {
         command(client, "start explicit source indexing", "chronicles setup tool \"quiet_below:ecology\" index", "Source indexing started.*");
         delay("allow small loaded source index", 1_000);
         command(client, "enable indexed ecology", "chronicles setup tool \"quiet_below:ecology\" enable", "Growth enabled.*");
+        command(client,"save non-default speed before restart","chronicles setup tool \"quiet_below:ecology\" faster","Spread speed saved: 2.00x.*");
         command(client, "clear previous region outline before root test", "chronicles setup tool \"quiet_below:ecology\" hide_root", "Root outline hidden.*");
         delay("settle cleared outline",200);
         check("record private root renderer",()->rootFrames=AuthoringPreviewRenderer.renderedFrames());
@@ -139,6 +142,9 @@ final class QuietBelowEcologySmoke {
     }
 
     private void restart(MinecraftClient client) {
+        openSpeedMenu(client);
+        check("speed persists in actual menu after saving restart",()->require(menuSpeed(client,"2.00x"),"saved speed was not restored"));
+        check("close persisted speed menu",()->client.currentScreen.close());
         check("restart begins paused without catch-up", () -> sculkBefore = sculk(client));
         delay("wait paused after saving restart", 1_100);
         check("restart pause preserves terrain", () -> require(sculk(client) == sculkBefore, "ecology caught up while paused after restart"));
@@ -169,7 +175,70 @@ final class QuietBelowEcologySmoke {
         delay("disabled ecology remains inert", 1_100);
         check("disable preserves existing terrain", () -> require(sculk(client) == sculkBefore, "disable changed terrain"));
         command(client,"leave safe paused snapshot for human review","chronicle session pause","Paused Chronicle session.*");
+        command(client,"enable editing for review speed default","chronicle author mode on","Author mode enabled.*");
+        command(client,"reset review snapshot to default speed","chronicles setup tool \"quiet_below:ecology\" speed_reset","Spread speed saved: 1.00x.*");
         screenshot(client, "ecology-disabled-after-prune.png");
+    }
+
+    private void surface(MinecraftClient client) {
+        command(client,"build isolated stone cube","fill 0 64 0 4 68 4 stone",".*filled.*");
+        command(client,"place cube Heart","setblock 0 65 2 reinforced_deepslate",".*Changed.*");
+        command(client,"open temporary anchor sightline","fill 0 66 2 0 67 2 air",".*filled.*");
+        command(client,"author cube source","chronicle author mode on","Author mode enabled.*");
+        command(client,"create cube source region","chronicle author region create cube_source","Region draft cube_source opened.*");
+        command(client,"cube source first corner","chronicle author region pos1 0 65 2","Set region draft cube_source position 1.*");
+        command(client,"cube source second corner","chronicle author region pos2 0 66 2","Set region draft cube_source position 2.*");
+        command(client,"save cube source region","chronicle author region save","Saved region cube_source.*");
+        command(client,"look at cube Heart","tp @s 0.5 66 2.5 0 90",".*Teleported.*");
+        command(client,"bind cube Heart","chronicle author block bind cube_heart target","Saved block cube_heart.*");
+        command(client,"restore cube sightline stone","setblock 0 67 2 stone",".*Changed.*");
+        command(client,"place cube source sculk","setblock 0 66 2 sculk",".*Changed.*");
+        command(client,"view cube from outside","tp @s -3 67 2.5 -90 20",".*Teleported.*");
+        command(client,"assign cube source","chronicles setup assign \"quiet_below:source_city\" cube_source","Requirement assigned.*");
+        command(client,"assign cube Heart","chronicles setup assign \"quiet_below:relic_heart\" cube_heart","Requirement assigned.*");
+        command(client,"index cube source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish cube source index",600);
+        command(client,"enable cube ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        openSpeedMenu(client);
+        menuSpeedButton(client,"Slower","0.50x");
+        menuSpeedButton(client,"Slower","0.25x");
+        check("minimum speed disables slower",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Slower")).noneMatch(c->c.enabled()),"minimum speed can underflow"));
+        menuSpeedButton(client,"Reset speed","1.00x");
+        for(String value:List.of("2.00x","4.00x","8.00x","16.00x"))menuSpeedButton(client,"Faster",value);
+        check("maximum speed disables faster",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Faster")).noneMatch(c->c.enabled()),"maximum speed can overflow"));
+        screenshot(client,"ecology-speed-menu.png");
+        check("close speed menu",()->client.currentScreen.close());
+        command(client,"start cube play","chronicle session start","Started Chronicle session.*");
+        command(client,"join cube play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        command(client,"active play rejects speed edits","chronicles setup tool \"quiet_below:ecology\" slower",".*requires operator editing mode.*");
+        step("cube growth turns adjacent opposite top and bottom exposed faces",()->{},()->
+                client.world.getBlockState(new BlockPos(2,66,0)).isOf(Blocks.SCULK)
+                &&client.world.getBlockState(new BlockPos(4,66,2)).isOf(Blocks.SCULK)
+                &&client.world.getBlockState(new BlockPos(2,68,2)).isOf(Blocks.SCULK)
+                &&client.world.getBlockState(new BlockPos(2,64,2)).isOf(Blocks.SCULK),60_000);
+        check("cube interior remains intact",()->require(client.world.getBlockState(new BlockPos(2,66,2)).isOf(Blocks.STONE),"growth excavated a closed cube"));
+        command(client,"pause cube after wrapping","chronicle session pause","Paused Chronicle session.*");
+        command(client,"hold an unobstructed cube viewing position","gamemode spectator @s",".*(Spectator|spectator).*");
+        command(client,"look at the wrapped cube","tp @s -5 71 -5 -45 30",".*Teleported.*");
+        screenshot(client,"ecology-wrapped-cube.png");
+    }
+    private void openSpeedMenu(MinecraftClient client) {
+        step("open native ecology speed menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open Game setup for speed",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
+        step("select Sculk ecology speed controls",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:ecology"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:ecology"),10_000);
+    }
+    private boolean menuSpeed(MinecraftClient client,String value) {
+        return client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().facts().stream().anyMatch(f->f.label().equals("Spread speed")&&f.value().startsWith(value));
+    }
+    private void menuSpeedButton(MinecraftClient client,String button,String expected) {
+        step("native "+button+" saves "+expected,()->require(press((CoreMenuScreen)client.currentScreen,button),button+" unavailable"),
+                ()->menuSpeed(client,expected)&&((CoreMenuScreen)client.currentScreen).state().message().contains("Spread speed saved"),10_000);
+    }
+    private boolean press(CoreMenuScreen m,String label) {
+        for(int n=0;n<60;n++)m.scrollDetailForTest(1);
+        for(int n=0;n<120;n++){if(m.triggerForTest(label))return true;m.scrollDetailForTest(-1);}return false;
     }
 
     private int sculk(MinecraftClient client) {

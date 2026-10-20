@@ -41,6 +41,9 @@ public final class QuietBelowEcology {
                         new GameSetupTools.Verb("disable","Disable growth",GameSetupTools.Guard.OPERATOR,true),
                         new GameSetupTools.Verb("show_root","Show root",GameSetupTools.Guard.READ_ONLY,false),
                         new GameSetupTools.Verb("hide_root","Hide root",GameSetupTools.Guard.READ_ONLY,false),
+                        new GameSetupTools.Verb("slower","Slower",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("faster","Faster",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("speed_reset","Reset speed",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::status,QuietBelowEcology::execute));
         GameSetupTools.register(new GameSetupTools.Tool("quiet_below:ownership","Sculk ownership",
@@ -120,6 +123,8 @@ public final class QuietBelowEcology {
         try{root=visibleRoot(source.getServer(),r);}catch(Exception e){rootIssue=e.getMessage();}
         List<Fact> facts=List.of(new Fact("Root (Relic Heart)",root==null?rootIssue:coordinates(root)),
                 new Fact("Growth",growthStatus(source.getServer(),r,v)),
+                new Fact("Spread speed",speedLabel(r.engine)),
+                new Fact("Speed controls","Slower / Faster: 0.25x to 16x; Reset speed: 1x. Pause play and enable editing to change. These are attempt intervals; blocked surfaces can advance more slowly."),
                 new Fact("Living connection",!v.configured()?"No network indexed yet.":v.unresolved()?"Checking loaded sculk connections; expansion waits.":v.connected()==0?
                         "None. Detached sculk is dormant. Restore continuous sculk contact with the Heart to reconnect it.":
                         "Continuous sculk contact with the Heart; cutting every contact makes a branch dormant."),
@@ -130,6 +135,11 @@ public final class QuietBelowEcology {
                 new Fact("Persistence",v.journalBytes()+" bytes; append-only history"),
                 new Fact("Review scope","Surface growth and physical containment. Crop benefits, stations and Heart ending follow later."));
         Map<String,String> disabled=new HashMap<>();
+        if(!v.indexed())for(String verb:List.of("slower","faster","speed_reset"))disabled.put(verb,"Complete source indexing before changing spread speed.");
+        if(r.engine.speedPercent()==EcologyEngine.SPEEDS.getFirst())disabled.put("slower","Minimum speed: 0.25x.");
+        if(r.engine.speedPercent()==EcologyEngine.SPEEDS.getLast())disabled.put("faster","Maximum speed: 16x; at most one attempt per game tick.");
+        if(r.engine.speedPercent()==100)disabled.put("speed_reset","Spread speed is already 1x.");
+        if(v.hold()!=null)for(String verb:List.of("slower","faster","speed_reset"))disabled.put(verb,v.hold());
         if(root==null)disabled.put("show_root",rootIssue);
         else if(source.getPlayer()==null||!source.getPlayer().getEntityWorld().getRegistryKey().getValue().toString().equals(root.setup.dimension()))
             disabled.put("show_root","Visit the root dimension: "+root.setup.dimension());
@@ -155,6 +165,9 @@ public final class QuietBelowEcology {
         return "Active; spreading along reachable exposed surfaces.";
     }
     private static String coordinates(Pins p) {return p.heart.x()+", "+p.heart.y()+", "+p.heart.z()+" in "+p.setup.dimension();}
+    private static String speedLabel(EcologyEngine e) {
+        return String.format(Locale.ROOT,"%.2fx; attempts every %.2fs dark / %.2fs bright (at 20 TPS)",e.speedPercent()/100.0,e.attemptTicks(false)/20.0,e.attemptTicks(true)/20.0);
+    }
     private static GameSetupTools.Status ownershipStatus(ServerCommandSource source) {
         Runtime r=runtime(source.getServer());var e=r.engine;var c=e.claim();
         String selected="Not assigned; choose Sculk takeover region in Game setup.";
@@ -239,6 +252,8 @@ public final class QuietBelowEcology {
                 source.sendFeedback(()->Text.literal("Sculk root: "+coordinates(p)+". Close the menu to see its private outline; Hide root removes it."),false);
             }
             case "hide_root" -> AuthoringRuntime.clearPreview(source.getPlayerOrThrow());
+            case "slower", "faster" -> r.engine.speed(EcologyEngine.SPEEDS.get(EcologyEngine.SPEEDS.indexOf(r.engine.speedPercent())+(verb.equals("faster")?1:-1)));
+            case "speed_reset" -> r.engine.speed(100);
             case "refresh" -> r.menuRevision++;
             default -> throw new IllegalArgumentException("Unknown ecology action");
         }
@@ -248,6 +263,7 @@ public final class QuietBelowEcology {
             case "disable"->"Growth disabled; owned terrain and history retained.";
             case "show_root"->"Root outlined privately. Close the menu to view it.";
             case "hide_root"->"Root outline hidden.";
+            case "slower", "faster", "speed_reset"->"Spread speed saved: "+speedLabel(r.engine);
             default->"Ecology status refreshed. "+growthStatus(source.getServer(),r,r.engine.view());};
     }
     private record Pins(EcologyEngine.Setup setup,EcologyEngine.Area area,Pos heart,String heartBlock) { }

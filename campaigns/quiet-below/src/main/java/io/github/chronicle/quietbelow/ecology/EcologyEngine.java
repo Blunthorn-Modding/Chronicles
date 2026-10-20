@@ -9,6 +9,7 @@ import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 public final class EcologyEngine {
     public static final int MAX_CELLS=32768, MAX_AIR=131072, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
+    public static final List<Integer> SPEEDS=List.of(25,50,100,200,400,800,1600);
     public record Setup(String city, long cityRevision, String heart, long heartRevision, String dimension) {
         public Setup {
             if(city==null || !city.matches("[a-z][a-z0-9_]{0,63}(?::[a-z][a-z0-9_]{0,63})?") ||
@@ -50,9 +51,11 @@ public final class EcologyEngine {
     private String failure;
     private long controlRevision;
     private int chunkTurn,airTurn,clock,writes,growthInterval=20;
+    private int speedPercent=100;
     private long generation;
     private long graphGeneration=-1;
     private Iterator<Pos> validation;
+    private Iterator<Pos> exposureScan;
     private Iterator<Pos> contactScan;
     private final Set<Pos> pendingContacts=new LinkedHashSet<>();
     private Claim claim;
@@ -75,6 +78,14 @@ public final class EcologyEngine {
     public Claim claim() { return claim; }
     public boolean cleanup() { return cleanup; }
     public int writeBudgetRemaining() { return MAX_WRITES-writes; }
+    public int speedPercent() { return speedPercent; }
+    public int attemptTicks(boolean bright) { return Math.max(1,Math.round((bright?10:20)*100f/speedPercent)); }
+    public void speed(int percent)throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing spread speed");
+        if(!SPEEDS.contains(percent))throw new IllegalArgumentException("Choose a supported spread-speed multiplier");
+        if(percent==speedPercent)return;
+        JsonObject p=new JsonObject();p.addProperty("percent",percent);record("SPEED",p);clock=0;growthInterval=20;
+    }
     public void noticeContact(Pos p) { if(pendingContacts.size()<MAX_CELLS)pendingContacts.add(p); }
     public void cleanup(boolean on) throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing first");
@@ -207,10 +218,11 @@ public final class EcologyEngine {
         reconcile(w);
         topology(w);
         if(unresolved || graph!=null) return;
+        discoverExposure(w);
         connectPlacedSculk(w);
         if(graph!=null || connected.isEmpty()) return;
         if(writes>=MAX_WRITES)return; // A busy native tick waits; it is not a persistence/capacity fault.
-        if(++clock<growthInterval) return;
+        if(++clock<attemptTicks(growthInterval==10)) return;
         clock=0;
         grow(w);
     }
@@ -269,6 +281,17 @@ public final class EcologyEngine {
             if(!validated||unresolved!=validationUnknown){generation++;controlRevision++;}
             validated=true;unresolved=validationUnknown;
         }
+    }
+    private void discoverExposure(EcologyTerrain w)throws IOException {
+        if(exposureScan==null||!exposureScan.hasNext())exposureScan=new ArrayList<>(cells.keySet()).iterator();
+        Set<Pos> fresh=new LinkedHashSet<>();
+        for(int n=0;n<32&&exposureScan.hasNext()&&fresh.size()<64;n++) {
+            Pos p=exposureScan.next();if(!rooted(p)||!w.loaded(p))continue;
+            for(Pos a:surfaceNeighbours(w,p,List.of()))if(fresh.size()<64&&!airSet.contains(a))fresh.add(a);
+        }
+        if(fresh.isEmpty())return;
+        if(air.size()+fresh.size()>MAX_AIR)throw capacity("Surface frontier capacity reached");
+        JsonObject payload=new JsonObject();JsonArray discovered=new JsonArray();fresh.forEach(p->discovered.add(pos(p)));payload.add("air",discovered);record("FRONTIER",payload);
     }
     private void topology(EcologyTerrain w) {
         if(graph==null && graphGeneration==generation) return;
@@ -363,10 +386,42 @@ public final class EcologyEngine {
         State s=w.get(p);return s.air() || (s.vein()&&owns(p)&&!"true".equals(s.properties().get("waterlogged")));
     }
     private void change(EcologyTerrain w,Pos p,State before,State after,List<Pos> frontier) throws IOException {
-        intend(p,before,after,frontier);
+        Set<Pos> exposed=new LinkedHashSet<>(frontier);exposed.addAll(surfaceNeighbours(w,p,frontier));
+        intend(p,before,after,List.copyOf(exposed));
         if(!w.set(p,after)) {
             mode(false);fail("A journaled ecology world write failed; growth was disabled, inspect before continuing");throw new IOException(failure);
         }
+    }
+    /** A local air path may turn a convex corner, never pass through a sealed wall.
+     * At most 27 cached loaded-only reads; discovery checks at most 32 owned cells/tick. */
+    private List<Pos> surfaceNeighbours(EcologyTerrain w,Pos p,List<Pos> seeds) {
+        Map<Pos,Boolean> open=new HashMap<>();Set<Pos> candidates=new HashSet<>();
+        for(int face=-1;face<6;face++) {
+            int[] d=face<0?new int[]{0,0,0}:DIRECTIONS[face];Pos a=localPosition(p,d[0],d[1],d[2]);
+            if(a!=null&&!airSet.contains(a)&&localOpen(w,a,open))candidates.add(a);
+        }
+        if(candidates.isEmpty())return List.of();
+        ArrayDeque<Pos> queue=new ArrayDeque<>();Set<Pos> visited=new HashSet<>();
+        for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)for(int dz=-1;dz<=1;dz++) {
+            Pos a=localPosition(p,dx,dy,dz);if(a==null)continue;
+            if((seeds.contains(a)||(airSet.contains(a)&&rootedExposure(a)))&&localOpen(w,a,open)&&visited.add(a))queue.add(a);
+        }
+        while(!queue.isEmpty()) {
+            Pos a=queue.removeFirst();
+            for(int[] d:DIRECTIONS) {
+                int dx=a.x()-p.x()+d[0],dy=a.y()-p.y()+d[1],dz=a.z()-p.z()+d[2];
+                if(Math.abs(dx)>1||Math.abs(dy)>1||Math.abs(dz)>1)continue;
+                Pos b=localPosition(p,dx,dy,dz);if(b!=null&&!visited.contains(b)&&localOpen(w,b,open)){visited.add(b);queue.add(b);}
+            }
+        }
+        return candidates.stream().filter(visited::contains).sorted(Comparator.comparingInt(Pos::x).thenComparingInt(Pos::y).thenComparingInt(Pos::z)).toList();
+    }
+    private static Pos localPosition(Pos p,int dx,int dy,int dz) {
+        long x=(long)p.x()+dx,y=(long)p.y()+dy,z=(long)p.z()+dz;
+        return Math.abs(x)>30_000_000||Math.abs(z)>30_000_000||Math.abs(y)>4096?null:new Pos((int)x,(int)y,(int)z);
+    }
+    private boolean localOpen(EcologyTerrain w,Pos p,Map<Pos,Boolean> cache) {
+        return cache.computeIfAbsent(p,a->{if(!w.loaded(a))return false;State s=w.get(a);return s.air()||(owns(a)&&s.vein()&&!"true".equals(s.properties().get("waterlogged")));});
     }
     private void intend(Pos p,State before,State after,List<Pos> frontier) throws IOException {
         healthy();
@@ -460,6 +515,8 @@ public final class EcologyEngine {
                 if(cells.containsKey(at)||cells.size()>=MAX_CELLS||!block(p.get("after")).network()||!block(p.get("cleanup")).equals(AIR))throw bad("Invalid connected cell");
                 validateFronts(array(p,"air",6));
             }
+            case "SPEED" -> {requireSetup();keys(p,"percent");if(!indexed||!SPEEDS.contains(integer(p,"percent")))throw bad("Invalid spread speed");}
+            case "FRONTIER" -> {requireSetup();keys(p,"air");if(!indexed||!enabled)throw bad("Exposure discovery before enable");validateFronts(array(p,"air",64));}
             case "CLEANUP_MODE" -> {requireSetup();keys(p,"enabled");bool(p,"enabled");if(!indexed)throw bad("Cleanup before indexing");}
             case "PURGE" -> {requireSetup();keys(p,"p","before");if(!cleanup||owns(position(p.get("p")))||!block(p.get("before")).network())throw bad("Invalid cleanup intent");}
             case "CLAIM_START" -> {
@@ -513,6 +570,8 @@ public final class EcologyEngine {
             case "INDEX_COMPLETE" -> { requireSetup();keys(p);if(indexed) throw bad("Duplicate index completion");indexed=true;controlRevision++; }
             case "MODE" -> { requireSetup();keys(p,"enabled");boolean on=bool(p,"enabled");if(on&&(!indexed||cells.isEmpty())) throw bad("Enabled incomplete network");enabled=on;controlRevision++; }
             case "CLEANUP_MODE" -> {cleanup=bool(p,"enabled");controlRevision++;}
+            case "SPEED" -> {speedPercent=integer(p,"percent");controlRevision++;}
+            case "FRONTIER" -> fronts(array(p,"air",64));
             case "PURGE" -> { }
             case "CLAIM_START" -> {claim=new Claim(string(p,"site"),number(p,"revision"),new Area(position(p.get("min")),position(p.get("max"))),false,Map.of());controlRevision++;}
             case "CLAIM_SCAN" -> {

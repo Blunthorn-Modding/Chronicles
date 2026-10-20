@@ -64,7 +64,7 @@ class EcologyJournalTest {
     void acceptsEveryFiniteEventType() throws IOException {
         Path file = temporaryDirectory.resolve("types.jsonl");
         List<String> types = List.of("CONFIGURE", "INDEX", "INDEX_COMPLETE", "MODE", "GROW", "REMOVE", "OBSERVE", "CONNECT",
-                "CLAIM_START", "CLAIM_SCAN", "CLAIM_DONE", "CLEANUP_MODE", "PURGE");
+                "CLAIM_START", "CLAIM_SCAN", "CLAIM_DONE", "CLEANUP_MODE", "PURGE", "SPEED", "FRONTIER");
         try (EcologyJournal journal = new EcologyJournal(file)) {
             for (String type : types) journal.append(type, payload("type", type));
             assertEquals(types, journal.entries().stream().map(EcologyJournal.Entry::type).toList());

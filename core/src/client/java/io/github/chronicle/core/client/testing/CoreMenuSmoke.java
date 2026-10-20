@@ -316,7 +316,7 @@ public final class CoreMenuSmoke {
             case 103 -> awaitView(()->screen(client).state().detail()!=null&&screen(client).state().detail().id().equals("tool:quiet_below:ecology"),"selected generic setup tool through native transport");
             case 104 -> {
                 var detail=screen(client).state().detail();
-                require(detail.controls().size()==6&&detail.controls().stream().allMatch(c->c.action()==Action.TOOL_ACTION&&c.input().startsWith("TOOL:")),"tool leaked non-finite controls");
+                require(detail.controls().size()==9&&detail.controls().stream().allMatch(c->c.action()==Action.TOOL_ACTION&&c.input().startsWith("TOOL:")),"tool leaked non-finite controls");
                 require(detail.controls().stream().anyMatch(c->c.label().equals("Show root")),"root locator missing from setup tool");
                 require(detail.controls().stream().filter(c->c.label().equals("Enable growth")).noneMatch(c->c.enabled()),"unindexed tool allowed growth");
                 snapshotSize("ecology before read-only refresh",serverRoot.resolve("world/quiet-below/ecology.jsonl"));
