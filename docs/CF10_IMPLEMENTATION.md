@@ -17,3 +17,15 @@ Build `0.1.0-dev.12`, Minecraft 1.21.10. Both mods and the matching client pack 
 A loot type with an unusually large component payload (over 48,000 encoded characters) remains JSON-edited rather than being truncated into a network form. The editor preserves existing components; constructing arbitrary components and creating custom table IDs remain JSON workflows. Setup requirements reference saved site revisions; editing a region makes consumers deliberately stale until rebound. Event reset preserves the previous receipt in the existing bounded administrative audit before clearing the delivery claim.
 
 Human review covers navigation/discoverability, normal GUI scale, real account import and audible quality. Automated offline clients cannot establish those preferences. See TEST_PLAN for exact tests, artifact hashes, backup and deployment evidence. Future station placement prompts, ecology and format engines are not represented by nonfunctional controls.
+
+## Operator review
+
+The review pack is `../client/Chronicle-CF10-1.21.10.mrpack`; import it through your launcher, then join `localhost`. Both mods must be dev.12. The server remains PAUSED. O or `/chronicles` opens the menu.
+
+1. Check navigation, item selection, scrolling, enabled/disabled reasons and Confirm/Cancel at your normal GUI scale. Enable editing and verify its server acknowledgement.
+2. Create a region, enter its ID, Continue in world, stand at each corner and run `/chronicles author region pos1` / `pos2`. Reopen Regions and save. Edit one position of an existing region while keeping the other; inspect the persistent private box.
+3. Look at a supported chest and bind its table in one workflow. Check that the confirmation names the looked-at container. In Loot Tables, Add item/search, edit independent chance/counts, remove/cancel or save the whole table. Saving changes future fills, not current contents; configured fills replace contents.
+4. Preview an event before binding any region, including private audio while paused. Content preview and Check live audience/Run are separate; previews must not mark completion.
+5. Inspect Players: own card/participation, independent starting/after-death points and explicit live Move review. Assigning a point moves nobody immediately. In Locations, switch Points/Block sites and return through navigation. Game setup assigns an existing site without making duplicate geometry.
+
+Please review that workflow before further ecology implementation. Actual Forge/Altar/Heart blocks, their placement registration prompts, ecology and future-format engines remain the later milestones described in DEVELOPMENT_MILESTONES; this menu does not invent working controls for them.

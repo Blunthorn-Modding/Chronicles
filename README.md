@@ -1,6 +1,6 @@
 # Chronicle
 
-**Current work: Core menu redesign (CF-10).** The approved design is being implemented on `feat/cf10-core-menu`. See [implementation and review scope](docs/CF10_IMPLEMENTATION.md), [button/command design](docs/CORE_UI_REDESIGN.md) and [verification evidence](docs/TEST_PLAN.md). The new menu separates Session, Players and Events from advanced Chests, Loot Tables, Regions, Locations and Game setup. Build dev.12 requires matching client and server mods.
+**Review build: Core menu redesign (CF-10), dev.12.** The approved native implementation is deployed on localhost and tracked on `feat/cf10-core-menu`. See [implementation and review scope](docs/CF10_IMPLEMENTATION.md), [button/command design](docs/CORE_UI_REDESIGN.md) and [verification evidence](docs/TEST_PLAN.md). The new menu separates Session, Players and Events from advanced Chests, Loot Tables, Regions, Locations and Game setup. Build dev.12 requires matching client and server mods.
 
 Chronicle's planned campaign formats are **Survival, Journey, Werewolf and Situation** (working name for “Happening”). [The format guide](docs/CAMPAIGN_FORMATS.md) defines their session/world structures and proposes Operation and Intrigue as optional additions. The Quiet Below is the first Situation campaign; the four formats are design direction, not four installed modes.
 
