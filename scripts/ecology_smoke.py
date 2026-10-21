@@ -27,12 +27,14 @@ def _reserve_ports():
 def run(phases=None):
     import workspace as w
     import fabric_smoke as f
-    allowed = ('initial', 'restart', 'surface', 'organic', 'vitality', 'items')
+    allowed = ('initial', 'restart', 'surface', 'organic', 'vitality', 'items', 'crops', 'crops_restart')
     phases = allowed if phases is None else tuple(phases)
     if not phases or any(p not in allowed for p in phases) or len(set(phases)) != len(phases):
         raise ValueError('Select distinct known ecology phases')
     if 'restart' in phases and ('initial' not in phases or phases.index('initial') > phases.index('restart')):
         raise ValueError('Restart requires an earlier initial phase in the same run')
+    if 'crops_restart' in phases and ('crops' not in phases or phases.index('crops') > phases.index('crops_restart')):
+        raise ValueError('Crop restart requires an earlier crop phase in the same run')
     w.require_eula()
     w.validate_server_runtime()
     w.validate_managed_mod_names()
@@ -46,9 +48,15 @@ def run(phases=None):
     server = None
     server_log = None
     clients = []
+    crop_root = None
     try:
         for phase in phases:
+            if phase == 'crops':
+                crop_root = f._stage(w)
             phase_root = f._stage(w) if phase in ('surface', 'organic', 'vitality', 'items') else root
+            if phase in ('crops', 'crops_restart'):
+                phase_root = crop_root
+                report['crops_world'] = str(crop_root)
             if phase in ('surface', 'organic', 'vitality', 'items'):
                 report[phase + '_world'] = str(phase_root)
             _reserve_ports()
@@ -72,6 +80,8 @@ def run(phases=None):
             server_log = None
             if phase == 'restart':
                 shutil.copytree(root / 'world', root / 'review-world')
+            if phase == 'crops_restart':
+                shutil.copytree(crop_root / 'world', crop_root / 'review-world')
             report['checks'].append(phase + ': native client ecology fixture passed and server saved cleanly')
         report['result'] = 'PASS'
         print('PASS: retained ecology fixture; evidence:', reports, flush=True)

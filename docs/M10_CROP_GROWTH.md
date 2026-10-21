@@ -1,0 +1,22 @@
+# M10a: crop growth near living sculk
+
+The operator accepts dev.21 and authorizes continued implementation until a necessary review. This is the first QB-09 benefit, not completion of M9 reliability work or all of M10. Quiet Below owns the effect; Core only hosts the existing generic Game setup tool.
+
+## Review contract
+
+- Wheat, carrots, potatoes and beetroot receive one additional ordinary age increment when within four blocks (Euclidean distance, including vertical distance) of a campaign-owned, rooted sculk cell with at least 25% vitality. No farm binding, reveal flag, session-number gate, global random-tick change, auto planting/harvesting, loot modification or arbitrary block acceleration.
+- Require the native crop's valid farmland/placement and normal growth light threshold. Cap ages at the native maximum. Nearby sculk counts do not multiply the bonus. Native random growth continues independently.
+- Default minimum bonus interval is ten eligible seconds per crop. In Game setup > Crop growth, non-active authoring can enable/disable the effect or choose 2, 5, 10, 20 or 40 seconds. The effect defaults on with an enabled ecology; it is not a narrative unlock. Range/crop set stay fixed for this slice. Numbers are review defaults.
+- Only occupied ACTIVE, unheld, enabled and resolved ecology advances work. Detached/weak/unowned sculk gives no benefit. Pause, missing Heart, disable, unresolved/unloaded topology and empty play prevent bonuses; no downtime catch-up. Restart/discovery starts a fresh minimum interval, preventing restart-driven instant bonuses. Already grown crops remain grown after disconnection.
+- Discover existing crops through a bounded scan of normally loaded sections near owned sculk, skipping section palettes without supported crops. Notice new plantings through native block writes. Cache each crop once; recheck actual terrain and network at application time. No new block/entity/BE registrations, per-crop ticking objects in the world, forced chunks or whole-world traversal. Hard scan/cache/write budgets are reported and tested. Large farms may receive bonuses less often than the minimum interval.
+- Keep saved rules in the campaign journal (`CROP_RULES`); no Core schema or network layout change. Dev.22 is required after writing these records; roll back with the stopped backup and jars together. Runtime discovery/cooldowns/statistics are derived, not a new persistent farm registry.
+
+The first benefit's cost is accepting the living foothold and actual terrain occupation already implemented. Local regeneration/Hunger/Darkness and station benefits remain later M10/M11 slices; do not silently settle their ranges/balance here. M9's larger native city/load-order soak and journal compaction remain required before prolonged production use.
+
+Verify pure work/rate/gating/capacity tests, saved-rule replay/rejection, real native crop conditions and growth, detached/reconnected/pause/restart behavior and private generic controls. Build/script/diff checks and disposable native trials precede protected review deployment. Preserve the operator's existing map/settings; supply a separate reversible comparison fixture and leave paused for crop/rate review. Do not mutate the production map or claim M9/M10 complete.
+
+## Delivered review slice
+
+Dev.22 supplies the crop benefit and saved controls. Work is limited to 32 source positions, 16 section-palette checks, 128 discovery samples, 16 planting notices, 16 cached crop checks and two guarded bonus-write attempts per eligible tick. Exact reach uses bounded metadata lookups; native crop/light/farmland validity is sampled and rechecked on writing. Runtime limits are 8,192 cached crops and 262,144 derived sections; capacity or world failures hold only this benefit visibly rather than growing unbounded. Reset tuning restarts derived discovery/cooldowns. No per-crop Minecraft entity or block entity is registered.
+
+206 Java /31 scripting /229 full native plus79 final crop/fixture checks pass. The separate signed authenticated comparison is PAUSED at localhost:25586 with normal vanilla random growth and default ten-second bonuses; the existing ecology review at25585 is preserved/upgraded/PAUSED with its operator tuning. Production is unchanged. See TEST_PLAN for backup/preservation evidence, retained failed fixture attempts and verification limits. The next gate is crop/rate/reach review, not completion of M9 or all M10.

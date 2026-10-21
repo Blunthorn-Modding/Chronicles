@@ -38,6 +38,7 @@ public final class EcologyNativeTrial {
         EcologyWardenTrial.register();
         EcologyAppearanceTrial.register();
         EcologyItemTrial.register();
+        EcologyCropTrial.register();
         if (ENABLED == null || ENABLED.isBlank()) {
             return;
         }

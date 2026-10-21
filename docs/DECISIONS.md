@@ -1,5 +1,12 @@
 # Bootstrap decisions — 18 October 2026
 
+## First autonomous crop benefit - 21 October 2026
+
+The operator accepts dev.21 and requests continued implementation. The next visible slice is [M10a](M10_CROP_GROWTH.md): wheat, carrots, potatoes and beetroot near owned/rooted sculk at 25%+ vitality receive extra ordinary age increments under native farmland/light conditions. Four-block Euclidean reach and a default ten-eligible-second minimum interval are review defaults; saved controls offer 2/5/10/20/40 seconds and enable/disable. More nearby sculk does not multiply the bonus. There is no farm binding, discovery flag, story/session gate, global tick-speed change or auto harvesting. Runtime discovery/cooldowns are bounded and derived; saved rules are campaign journal records requiring dev.22. No Core service/schema, registry or appearance-layout change; dev.21 clients remain compatible.
+
+The cost of this first benefit remains accepting the living foothold/terrain occupation already implemented. Local recovery/Hunger/Darkness and stations still need their own review slices. Larger real-city/load-order soak and journal compaction remain M9 requirements before prolonged production use; the first crop review does not declare them complete. The new comparison world is separate from the operator's existing ecology map and production map.
+
+
 ## Dormant harvested sculk - 21 October 2026
 
 The operator accepts dev.20 and reports that harvested items and disconnected replacements look healthy. [Dev.21](M9_DORMANT_ITEMS.md) uses dormant inventory models for all five supported native items, retaining ordinary loot, Silk Touch, identity, components and stacking. Inventory has no network state. Campaign-dimension item placements start brown; existing bounded physical adoption/vitality projection restores their appropriate appearance. A placed block does not carry ownership, vitality or summon capability from its previous location. Owned vein extensions keep their current band; unowned veins become dormant. Native waterlogging/shape remain intact. No change to recovery rates, journal schema, layout version or active-network vanilla Warden rules; outside-campaign world placement stays vanilla. Clients need refreshed assets.

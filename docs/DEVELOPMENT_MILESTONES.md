@@ -34,6 +34,8 @@ The operator accepts dev.20's inactive-feature/readability repair. [Dev.21 dorma
 
 Current delivery: the operator tested M6 and accepted its geometry approach, requesting persistent outlines and registered menu choices. Those refinements are accepted. The operator requests a [typed loot revision](M7_LOOT_TYPES.md) to replace the first M7 capture-first chest UX; manual player moves remain from [the original slice](M7_IMPLEMENTATION.md). Automatic player arrival/death policies are accepted in operator testing. [M8 participation and observations](M8_IMPLEMENTATION.md) and CF-10 are delivered. M9a implements physical growth; M9b adds vitality/decline, recovery and extent configuration. Larger real-city/load-order soak, journal compaction and balance review remain M9 follow-up. Entity encounter groups remain an independent M7 follow-up; M10-M13 remain future implementation. Evidence and remaining human checks are in [TEST_PLAN](TEST_PLAN.md).
 
+M10a now implements the [first crop benefit](M10_CROP_GROWTH.md) over the accepted ecology foundation, with [its own comparison/rate review](M10_REVIEW.md). This is a review fixture, not production activation or completion of M9 reliability/M10 local effects. Crop discovery is automatic near live terrain; the builder does not bind farms or schedule benefit reveals.
+
 ## M6 implementation contract
 
 Authoring UX checkpoint: [CF-09](CF09_AUTHORING_UI.md) adds the requested proper Core screen before further M7/M8 authoring expansion. It consumes the existing catalogs and services, with no campaign-specific editor or new ecology. The operator accepted the screen and requested the flicker fix with the next feature review. JSON distributions and advanced custom IDs remain supported separately.

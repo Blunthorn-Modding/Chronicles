@@ -45,6 +45,7 @@ abstract class WorldMixin {
         }
         if (!ownedTarget && !ownedCatalystDescendant) {
             boolean success=original.call(pos, proposed, flags, maxUpdateDepth);
+            if(success&&proposed.getBlock() instanceof net.minecraft.block.CropBlock)handler.cropWrite(world,pos,proposed);
             if(success&&(proposed.isOf(net.minecraft.block.Blocks.SCULK)||proposed.isOf(net.minecraft.block.Blocks.SCULK_VEIN)
                     ||proposed.isOf(net.minecraft.block.Blocks.SCULK_CATALYST)||proposed.isOf(net.minecraft.block.Blocks.SCULK_SENSOR)
                     ||proposed.isOf(net.minecraft.block.Blocks.SCULK_SHRIEKER)))handler.unownedNetworkWrite(world,pos);
@@ -73,6 +74,7 @@ abstract class WorldMixin {
         } finally {
             try {
                 handler.afterWrite(world, pos, before, effective, success);
+                if(success&&effective.getBlock() instanceof net.minecraft.block.CropBlock)handler.cropWrite(world,pos,effective);
             } catch (RuntimeException | Error afterFailure) {
                 if (runtimeFailure != null) {
                     runtimeFailure.addSuppressed(afterFailure);

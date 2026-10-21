@@ -40,7 +40,7 @@ final class QuietBelowEcologySmoke {
 
     static void register() {
         if (OUTPUT == null) return;
-        if (!List.of("initial","restart","surface","organic","vitality","items","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
+        if (!List.of("initial","restart","surface","organic","vitality","items","crops","crops_restart","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();
         ClientReceiveMessageEvents.GAME.register((text, overlay) -> smoke.messages.add(text.getString()));
         ClientTickEvents.END_CLIENT_TICK.register(smoke::tick);
@@ -73,7 +73,79 @@ final class QuietBelowEcologySmoke {
     }
 
     private void build(MinecraftClient client) {
-        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else if("items".equals(PHASE)) items(client); else if("appearance".equals(PHASE)) appearance(client); else if("appearance_legacy".equals(PHASE)) appearanceLegacy(client); else restart(client);
+        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else if("items".equals(PHASE)) items(client); else if("crops".equals(PHASE)) crops(client); else if("crops_restart".equals(PHASE)) cropsRestart(client); else if("appearance".equals(PHASE)) appearance(client); else if("appearance_legacy".equals(PHASE)) appearanceLegacy(client); else restart(client);
+    }
+    private void crops(MinecraftClient client){
+        command(client,"isolate native crop bonus from ordinary random growth","gamerule randomTickSpeed 0",".*0.*");
+        command(client,"daylight for crop comparison","time set noon",".*time.*");
+        command(client,"prepare native crop field and ordinary controls","quiet_below_crop_trial prepare","PASS crop prepare:.*");
+        command(client,"enable crop authoring","chronicle author mode on","Author mode enabled.*");
+        command(client,"create crop source","chronicle author region create crops_source","Region draft crops_source opened.*");
+        command(client,"crop source first corner","chronicle author region pos1 -4 64 0","Set region draft crops_source position 1.*");
+        command(client,"crop source second corner","chronicle author region pos2 -1 64 0","Set region draft crops_source position 2.*");
+        command(client,"save crop source","chronicle author region save","Saved region crops_source.*");
+        command(client,"look at crop Heart","tp @s -3.5 65 0.5 0 90",".*Teleported.*");
+        command(client,"bind crop Heart","chronicle author block bind crops_heart target","Saved block crops_heart.*");
+        command(client,"assign crop source","chronicles setup assign \"quiet_below:source_city\" crops_source","Requirement assigned.*");
+        command(client,"assign crop Heart","chronicles setup assign \"quiet_below:relic_heart\" crops_heart","Requirement assigned.*");
+        command(client,"index crop source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish crop source index",600);
+        command(client,"enable crop ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        openCropMenu(client);cropButton(client,"Faster crop growth");cropButton(client,"Faster crop growth");
+        check("native crop controls stop at minimum interval",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Faster crop growth")).noneMatch(c->c.enabled()),"crop interval underflow"));
+        screenshot(client,"crop-growth-settings.png");check("close crop menu",()->client.currentScreen.close());
+        command(client,"start crop play","chronicle session start","Started Chronicle session.*");
+        command(client,"join crop play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        command(client,"crop tuning rejects active author edits","chronicles setup tool \"quiet_below:crops\" slower",".*requires operator editing mode.*");
+        delay("real eligible crop growth",4_000);
+        command(client,"four native crops benefit while controls do not","quiet_below_crop_trial grown","PASS crop grown:.*");
+        command(client,"pause crop play","chronicle session pause","Paused Chronicle session.*");
+        command(client,"remember paused crop ages","quiet_below_crop_trial remember","PASS crop remember:.*");
+        delay("crop effect stays frozen during pause",3_000);
+        command(client,"paused native ages stay unchanged","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        command(client,"view crop comparison","tp @s 6.5 70 8.5 180 30",".*Teleported.*");
+        screenshot(client,"crop-growth-comparison.png");
+        command(client,"resume crop play","chronicle session resume","Resumed Chronicle session.*");
+        command(client,"cut every root contact","quiet_below_crop_trial cut","PASS crop cut:.*");
+        delay("severed field loses its bonus",3_000);
+        command(client,"detached field receives no bonus","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        command(client,"restore physical crop root contact","setblock -3 64 0 sculk",".*Changed.*");
+        delay("reconnected field waits and resumes",4_000);
+        command(client,"crop bonus follows physical reconnection","quiet_below_crop_trial recovered","PASS crop recovered:.*");
+        command(client,"disable crop boost during active play","chronicles setup tool \"quiet_below:crops\" disable","Crop boost disabled.*");
+        command(client,"remember disabled crop ages","quiet_below_crop_trial remember","PASS crop remember:.*");
+        delay("disabled crop bonus does not accrue",3_000);
+        command(client,"disabled field receives no bonus","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        command(client,"pause for restoring crop setting","chronicle session pause","Paused Chronicle session.*");
+        command(client,"enable editing for crop reset","chronicle author mode on","Author mode enabled.*");
+        command(client,"re-enable saved fast crop tuning","chronicles setup tool \"quiet_below:crops\" enable","Crop boost enabled.*");
+        command(client,"save native crop ages for restart","quiet_below_crop_trial save","PASS crop save:.*");
+    }
+    private void cropsRestart(MinecraftClient client){
+        command(client,"native crop ages and rules survive restart","quiet_below_crop_trial restart","PASS crop restart:.*");
+        command(client,"resume restarted crop play","chronicle session resume","Resumed Chronicle session.*");
+        command(client,"join restarted crop play","chronicles join",".*(joined.*Chronicle participation|already a Chronicle participant).*");
+        delay("restart does not give an instant crop bonus",800);
+        command(client,"crop restart waits for a fresh interval","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        delay("restart crop bonus resumes normally",3_500);
+        command(client,"restart crop field grows","quiet_below_crop_trial recovered","PASS crop recovered:.*");
+        command(client,"pause crop review snapshot","chronicle session pause","Paused Chronicle session.*");
+        command(client,"enable crop review authoring","chronicle author mode on","Author mode enabled.*");
+        command(client,"restore default crop interval for review","chronicles setup tool \"quiet_below:crops\" reset","Crop boost enabled.*");
+        command(client,"reset comparison crops for review","quiet_below_crop_trial review","PASS crop review:.*");
+        command(client,"restore ordinary random growth for review","gamerule randomTickSpeed 3",".*3.*");
+        command(client,"set crop review starting point","setworldspawn 6 64 6 180 0",".*spawn.*");
+        command(client,"keep review arrival on the viewing platform","gamerule spawnRadius 0",".*0.*");
+        command(client,"show prepared crop comparison","tp @s 7 72 15 180 28",".*Teleported.*");
+        screenshot(client,"crop-review-ready.png");
+    }
+    private void openCropMenu(MinecraftClient client){
+        step("open native crop menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open Game setup for crops",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
+        step("select Crop growth",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:crops"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:crops"),10_000);
+    }
+    private void cropButton(MinecraftClient client,String label){
+        step("native crop "+label,()->require(press((CoreMenuScreen)client.currentScreen,label),label+" unavailable"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().message().contains("Crop boost enabled"),10_000);
     }
     private void items(MinecraftClient client){
         command(client,"vanilla item placement outside campaign","quiet_below_item_trial vanilla","PASS sculk items vanilla:.*");
@@ -456,7 +528,11 @@ final class QuietBelowEcologySmoke {
     private void check(String name, Runnable assertion) { step(name, assertion, () -> true, 1_000); }
     private void step(String name, Runnable start, BooleanSupplier done, long timeoutMillis) { steps.add(new Step(name, start, done, timeoutMillis)); }
     private void send(MinecraftClient client, String command) { client.player.networkHandler.sendChatCommand(command); }
-    private boolean received(String expression) { Pattern pattern = Pattern.compile(expression, Pattern.CASE_INSENSITIVE); return messages.subList(baseline, messages.size()).stream().anyMatch(message -> pattern.matcher(message).matches()); }
+    private boolean received(String expression) {
+        var fresh=messages.subList(baseline,messages.size());
+        for(String message:fresh)if(message.startsWith("FAIL crop "))throw new IllegalStateException(message);
+        Pattern pattern=Pattern.compile(expression,Pattern.CASE_INSENSITIVE);return fresh.stream().anyMatch(message->pattern.matcher(message).matches());
+    }
 
     private void finish(MinecraftClient client, boolean pass, String detail) {
         if (finished) return;

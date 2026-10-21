@@ -6,7 +6,7 @@ import java.util.*;
 import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 
 /** Bounded, durable campaign ecology. No clocks, players, chunk loads or Minecraft classes. */
-public final class EcologyEngine {
+public final class EcologyEngine implements EcologyCrops.Network {
     public static final int MAX_CELLS=32768, MAX_AIR=131072, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
     public static final List<Integer> SPEEDS=List.of(25,50,100,200,400,800,1600);
@@ -54,6 +54,7 @@ public final class EcologyEngine {
     private int chunkTurn,clock,writes,growthInterval=20;
     private long growthTurn;
     private final EcologyVitality vitality=new EcologyVitality();
+    private EcologyCrops.Rules cropRules=EcologyCrops.DEFAULT;
     private int vitalityTicks;
     private Iterator<Pos> vitalityScan;
     private boolean vitalityPending=true;
@@ -88,6 +89,15 @@ public final class EcologyEngine {
     public EcologyVitality vitality(){return vitality;}
     public EcologyVitality.Summary vitalitySummary(){return vitalitySummary;}
     public boolean vitalityPending(){return vitalityPending;}
+    public EcologyCrops.Rules cropRules(){return cropRules;}
+    @Override public List<Pos> cropSources(){return List.copyOf(cells.keySet());}
+    @Override public boolean cropsAvailable(){return failure==null&&enabled&&indexed&&!unresolved
+            &&(graph==null||extending)&&graphGeneration==generation;}
+    public void tuneCrops(EcologyCrops.Rules rules)throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing crop growth");
+        Objects.requireNonNull(rules);if(rules.equals(cropRules))return;
+        JsonObject p=new JsonObject();p.addProperty("enabled",rules.enabled());p.addProperty("seconds",rules.seconds());record("CROP_RULES",p);
+    }
     public void tuneVitality(EcologyVitality.Rules rules)throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing vitality");
         Objects.requireNonNull(rules);if(rules.equals(vitality.rules()))return;
@@ -600,6 +610,7 @@ public final class EcologyEngine {
             }
             case "SPEED" -> {requireSetup();keys(p,"percent");if(!indexed||!SPEEDS.contains(integer(p,"percent")))throw bad("Invalid spread speed");}
             case "VITALITY_RULES" -> {requireSetup();if(!indexed)throw bad("Vitality tuning before indexing");EcologyVitality.parseRules(p);}
+            case "CROP_RULES" -> {requireSetup();if(!indexed)throw bad("Crop tuning before indexing");keys(p,"enabled","seconds");new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));}
             case "VITALITY" -> {requireSetup();if(!indexed||!enabled)throw bad("Vitality before enable");vitality.validate(p,cells::containsKey);}
             case "FRONTIER" -> {requireSetup();keys(p,"air");if(!indexed||!enabled)throw bad("Exposure discovery before enable");validateFronts(array(p,"air",64));}
             case "CLEANUP_MODE" -> {requireSetup();keys(p,"enabled");bool(p,"enabled");if(!indexed)throw bad("Cleanup before indexing");}
@@ -657,6 +668,7 @@ public final class EcologyEngine {
             case "CLEANUP_MODE" -> {cleanup=bool(p,"enabled");controlRevision++;}
             case "SPEED" -> {speedPercent=integer(p,"percent");controlRevision++;}
             case "VITALITY_RULES" -> {vitality.applyRules(p);controlRevision++;}
+            case "CROP_RULES" -> {cropRules=new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}
             case "VITALITY" -> {String prior=vitality.extent();vitality.apply(p);if(!prior.equals(vitality.extent()))controlRevision++;}
             case "FRONTIER" -> fronts(array(p,"air",64));
             case "PURGE" -> { }

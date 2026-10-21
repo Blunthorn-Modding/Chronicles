@@ -66,6 +66,15 @@ public final class QuietBelowEcology {
                         new GameSetupTools.Verb("cleanup_off","Stop sculk cleanup",GameSetupTools.Guard.OPERATOR,false),
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::ownershipStatus,QuietBelowEcology::ownershipAction));
+        GameSetupTools.register(new GameSetupTools.Tool("quiet_below:crops","Crop growth",
+                "Living sculk helps nearby wheat, carrots, potatoes and beetroot grow. No farm binding or discovery event is required. Normal farmland/light conditions apply; crops remain after the network is cut.",
+                List.of(new GameSetupTools.Verb("enable","Enable crop boost",GameSetupTools.Guard.EDIT,true),
+                        new GameSetupTools.Verb("disable","Disable crop boost",GameSetupTools.Guard.OPERATOR,true),
+                        new GameSetupTools.Verb("faster","Faster crop growth",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("slower","Slower crop growth",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("reset","Reset crop tuning",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
+                QuietBelowEcology::cropStatus,QuietBelowEcology::cropAction));
         ServerChunkEvents.CHUNK_LOAD.register((world,chunk)->{
             Set<ChunkPos> loaded=LOADED.computeIfAbsent(world,k->new LinkedHashSet<>());
             Runtime r=WORLDS.get(world.getServer());
@@ -125,6 +134,9 @@ public final class QuietBelowEcology {
                 if(r.claimProblem==null&&ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.claimTick(world);
             } else r.claimProblem=null;
             if(r.rootProblem==null)r.engine.tick(world,playing(server));else r.engine.flushVitality();
+            if(!r.crops.rules().equals(r.engine.cropRules()))r.crops=new EcologyCrops(r.engine.cropRules());
+            try{r.crops.tick(new EcologyCropWorld(world.world),r.engine,r.rootProblem==null&&playing(server));}
+            catch(Exception e){r.crops.fail("Crop boost held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below crop boost held; ecology retained",e);}
             if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
         } catch(Exception e) { hold(r,e); }
     }
@@ -151,7 +163,7 @@ public final class QuietBelowEcology {
                 new Fact("How to test","Show root, then close this menu to see its private outline. Break every sculk connection to a branch; replace sculk to reconnect. Sensors are audible evidence, not a growth meter."),
                 new Fact("Surface frontier",v.frontier()+" discovered air cells"),
                 new Fact("Persistence",v.journalBytes()+" bytes; append-only history"),
-                new Fact("Review scope","Surface growth, physical containment, vitality and recovery. Crop benefits, stations and Heart ending follow later."));
+                new Fact("Review scope","Surface growth, containment, vitality/recovery and nearby crop growth. Stations, later local effects and Heart ending follow later."));
         Map<String,String> disabled=new HashMap<>();
         if(!v.indexed())for(String verb:List.of("slower","faster","speed_reset"))disabled.put(verb,"Complete source indexing before changing spread speed.");
         if(r.engine.speedPercent()==EcologyEngine.SPEEDS.getFirst())disabled.put("slower","Minimum speed: 0.25x.");
@@ -169,6 +181,41 @@ public final class QuietBelowEcology {
         if(v.hold()!=null){disabled.put("enable",v.hold());disabled.put("index",v.hold());}
         if(r.rootProblem!=null)disabled.put("enable",r.rootProblem);
         return new GameSetupTools.Status(v.revision()+r.menuRevision,facts,disabled);
+    }
+    private static GameSetupTools.Status cropStatus(ServerCommandSource source){
+        Runtime r=runtime(source.getServer());var e=r.engine;var v=e.view();var rules=e.cropRules();
+        List<Fact> facts=List.of(new Fact("Crop boost",r.crops.failure()!=null?"HELD: "+r.crops.failure():
+                        !rules.enabled()?"Disabled":!e.cropsAvailable()?"Waiting for an enabled, resolved network":
+                        !playing(source.getServer())?"Paused; requires occupied active play":"Running near living sculk"),
+                new Fact("Crops and reach","Wheat, carrots, potatoes and beetroot within 4 blocks of rooted sculk with at least 25% vitality. No farm binding."),
+                new Fact("Bonus interval","At least "+rules.seconds()+" eligible seconds per crop; one extra normal age, independent of nearby sculk count."),
+                new Fact("Conditions","Valid farmland and native growth light (9+). No planting, harvesting or random-tick changes. Mature/unsupported crops are untouched."),
+                new Fact("Discovery",r.crops.cached()+" cached crops; "+r.crops.sections()+" nearby sections. Existing farms are found in bounded passes; new plantings are noticed."),
+                new Fact("Since last reset",r.crops.bonuses()+" bonus age increments; "+r.crops.ticks()+" eligible crop ticks. Discovery/cooldowns restart with a full interval."),
+                new Fact("Work bounds","128 discovery reads + 16 planting notices + 16 crop checks, at most 2 bonus writes per eligible tick; no forced chunks."),
+                new Fact("Review scope","First crop benefit only. Living sculk still occupies terrain; regeneration, Hunger, Darkness and stations follow later."));
+        Map<String,String> disabled=new HashMap<>();
+        if(rules.enabled())disabled.put("enable","Crop boost is already enabled.");else disabled.put("disable","Crop boost is already disabled.");
+        if(rules.seconds()==EcologyCrops.SECONDS.getFirst())disabled.put("faster","Minimum interval: 2 eligible seconds.");
+        if(rules.seconds()==EcologyCrops.SECONDS.getLast())disabled.put("slower","Maximum interval: 40 eligible seconds.");
+        if(rules.equals(EcologyCrops.DEFAULT)&&r.crops.failure()==null)disabled.put("reset","Crop tuning is already at its defaults.");
+        String issue=!v.indexed()?"Complete source indexing before tuning crop growth.":e.failure();
+        if(issue!=null)for(String id:List.of("enable","disable","faster","slower","reset"))disabled.put(id,issue);
+        return new GameSetupTools.Status(v.revision()+r.menuRevision,facts,disabled);
+    }
+    private static String cropAction(ServerCommandSource source,String verb)throws Exception {
+        Runtime r=runtime(source.getServer());var old=r.engine.cropRules();var next=old;
+        switch(verb){
+            case "enable" -> next=new EcologyCrops.Rules(true,old.seconds());
+            case "disable" -> next=new EcologyCrops.Rules(false,old.seconds());
+            case "faster","slower" -> next=new EcologyCrops.Rules(old.enabled(),EcologyCrops.SECONDS.get(EcologyCrops.SECONDS.indexOf(old.seconds())+(verb.equals("faster")?-1:1)));
+            case "reset" -> next=EcologyCrops.DEFAULT;
+            case "refresh" -> {r.menuRevision++;return "Crop growth status refreshed.";}
+            default -> throw new IllegalArgumentException("Unknown crop growth action");
+        }
+        r.engine.tuneCrops(next);r.crops=new EcologyCrops(next);r.menuRevision++;
+        QuietBelow.LOGGER.info("Quiet Below crop tuning {} by {}",verb,source.getName());
+        return "Crop boost "+(next.enabled()?"enabled":"disabled")+"; minimum bonus interval "+next.seconds()+" eligible seconds. Discovery/cooldowns restarted; existing crops retained.";
     }
     private static String growthStatus(MinecraftServer server,Runtime r,EcologyEngine.View v) {
         if(v.hold()!=null)return "HELD: "+v.hold();
@@ -376,8 +423,8 @@ public final class QuietBelowEcology {
         if(r.engine.failure()==null){r.engine.fail(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry",e);}
     }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision;String rootProblem,claimProblem;EcologyCleanup cleanup;
-        Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;}
+        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;
+        Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;crops=new EcologyCrops(e.cropRules());}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
         private Runtime find(ServerWorld w) {
@@ -385,6 +432,11 @@ public final class QuietBelowEcology {
             return r!=null&&r.engine.setup()!=null&&r.engine.setup().dimension().equals(w.getRegistryKey().getValue().toString())?r:null;
         }
         @Override public boolean owns(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.engine.owns(pos(p));}
+        @Override public void cropWrite(ServerWorld w,BlockPos p,BlockState state){
+            Runtime r=find(w);if(r!=null&&EcologyCropWorld.supported(state)){
+                if(((CropBlock)state.getBlock()).getAge(state)==0)r.crops.planted(pos(p));else r.crops.notice(pos(p));
+            }
+        }
         @Override public boolean managesCatalyst(ServerWorld w,BlockPos p){return find(w)!=null;}
         @Override public boolean managesFeature(ServerWorld w,BlockPos p){return find(w)!=null;}
         @Override public void settleInactive(ServerWorld w,BlockPos p,BlockState state){
@@ -455,7 +507,12 @@ public final class QuietBelowEcology {
         @Override public int light(Pos p){checked(p);return world.getLightLevel(blockPos(p));}
         @Override public boolean set(Pos p,State state){
             checked(p);
-            try(var ignored=EcologyHooks.ownWrite()){return world.setBlockState(blockPos(p),decode(state),Block.NOTIFY_ALL);}
+            boolean changed;
+            try(var ignored=EcologyHooks.ownWrite()){changed=world.setBlockState(blockPos(p),decode(state),Block.NOTIFY_ALL);}
+            Runtime runtime=WORLDS.get(world.getServer());
+            if(changed&&state.network()&&runtime!=null&&runtime.engine.setup()!=null
+                    &&runtime.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString())&&runtime.engine.owns(p))runtime.crops.source(p);
+            return changed;
         }
         @Override public boolean appearance(Pos p,State expected,int stage){
             if(stage<0||stage>3)throw new IllegalArgumentException("Invalid sculk appearance");

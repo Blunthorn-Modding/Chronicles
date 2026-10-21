@@ -79,3 +79,7 @@ After a newly prepared review starts, its console can run `function chronicle_ec
 Stop through the server console's `stop` command before backing up or replacing jars. A new review uses a new directory; it does not reset either existing world.
 
 Vitality values and readiness advance at shared checkpoints (at most 10 eligible seconds apart); the displayed averages also wait for a bounded assessment. Physical cuts still stop activity immediately. At the fastest review rates, allow that checkpoint interval when timing recovery.
+
+## Next crop review
+
+The operator accepts the dev.21 pickup/placement repair. Dev.22 adds [automatic crop growth](M10_REVIEW.md), with a separate signed comparison bench at localhost:25586. The existing ecology map on 25585 is retained. Dev.21 clients remain compatible because assets/registry/network layout are unchanged; the refreshed pack is available at the existing filename. Larger M9 city/load-order soak and compaction remain tracked before prolonged production use.

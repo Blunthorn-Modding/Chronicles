@@ -6,7 +6,7 @@ Status: implementation in progress, M9b vitality/recovery review. QB-08/QB-09; t
 
 The operator confirmed that **nothing is protected**: natural terrain, handcrafted buildings and new player placements follow the same physical spread rules. There are no protected-build flags or authored routes. Exposure feeds growth; there is no oxygen system. Native shrieker warnings, Warden summoning and despawning remain vanilla.
 
-The first review delivers source indexing, durable ownership, connected surface growth, pruning/sealing and explicit controls in Game setup. Test it in a disposable cave before enabling any production network. Crop benefits/costs (M10), actual Heart/Altar/Forge blocks (M11), and Heart vulnerability/complete eradication (M12) remain separate. Growth, vitality and extent rates are review defaults. [M9b vitality contract](M9_VITALITY.md) follows the accepted physical/organic growth review.
+The first review delivers source indexing, durable ownership, connected surface growth, pruning/sealing and explicit controls in Game setup. Test it in a disposable cave before enabling any production network. [The first crop benefit (M10a)](M10_CROP_GROWTH.md) is implemented as a separate review slice; later local effects/costs, actual Heart/Altar/Forge blocks (M11), and Heart vulnerability/complete eradication (M12) remain separate. Growth, vitality and extent rates are review defaults. [M9b vitality contract](M9_VITALITY.md) follows the accepted physical/organic growth review.
 
 ## Ownership
 

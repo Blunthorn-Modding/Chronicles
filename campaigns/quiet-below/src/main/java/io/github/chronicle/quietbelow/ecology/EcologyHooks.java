@@ -86,6 +86,8 @@ public final class EcologyHooks {
     }
 
     public interface Handler {
+        /** New/changed native crops are discovered without a farm binding or terrain read here. */
+        default void cropWrite(ServerWorld world,BlockPos pos,BlockState state) { }
         /** New unowned sculk can reconnect or require cleanup; never reads/loads terrain here. */
         default void unownedNetworkWrite(ServerWorld world,BlockPos pos) { }
         /** Suppress vanilla XP spread throughout a configured campaign dimension, including pending ownership. */
