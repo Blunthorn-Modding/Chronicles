@@ -1,5 +1,7 @@
 # M11 station implementation preparation
 
+**Current checkpoint:** intrinsic Forge and shared ingredient enchanting are implemented, verified and live in dev.29; [contract](M11_FORGE.md), [review](M11_REVIEW.md). The preparation language below is historical for Forge. Altar is next: THREE of each lasting bargain per character, independent counts, surviving death/reconnect without reversal; eradication removes bonus and sacrifice together. Its durable transactions, stat projection and truthful expanded-food HUD still require implementation and native verification.
+
 21 October 2026. M10 healing and sustained contact costs precede this slice. The operator specifies item-to-enchantment mappings (e.g.echo shard -> Sharpness), with level I defaults and configurable maxima owned by Core. They explicitly require caps everywhere, including vanilla enchanting/anvils/loot. [Permanent Core caps](CF11_ENCHANTMENT_CAPS.md) are implemented and natively verified in dev.28; reusable mappings and physical Forge gameplay follow. The Altar should offer voluntary sacrifices for bonuses; the [offering options](M11_ALTAR_OPTIONS.md) are accepted as the direction, with numerical balance/stacking still to specify; lasting bargains survive death/reconnect, have no player reversal, and lose both bonus/cost after Heart eradication. Altar gameplay is not implemented yet. Selected SpiffyHUD/FancyMenu HUD integration does not block independent Core enchanting work; [licensing/prototype contract](THIRD_PARTY_HUD.md).
 
 ## Asset readiness

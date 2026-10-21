@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## Dev.29 preserved review deployment -21 October2026
+
+Saving stop with zero players preceded CRC/per-file-hash verified `../backups/costs-pre-dev29-20261021T202433874451Z.zip`. All55 protected world/config/auth files matched during jar replacement. Startup reached ready on authenticated127.0.0.1:25588/voice24468, PAUSED; both modsdev29, capsI and five ingredient recipes. Seven startup-critical hashes and canonical properties hash match afterward; native journal writer lock prevents a live journal hash, so only stopped preservation is asserted. Actual status handshake returns1.21.10/protocol773. Classic pack CRC/embedded hashes/options pass; SHA256 `35b79698e9eb04e258b5f4e852462fbb790ee53f689bc708c45247dced4aa212`. Report `../reports/qb12-forge-upgrade.json`; console47923. No review terrain, tuning or source bindings were recreated. [Instructions](M11_REVIEW.md). The deployment-pending statements in the dated development record below are historical.
+
 ## QB-12 intrinsic Ancient Forge and Core ingredient enchanting - in progress,21 October2026
 
 Dev.29 on `feat/qb12-ancient-forge`, based on pushed permanent-cap commit6d1ae66. [Contract](M11_FORGE.md). Native station/workshop verification remains pending; existing authenticated25588 and client pack remain dev27 untouched. Three original user Forge exports/textures imported without recoloring; JSON references are namespaced and images remain exact copies. Initial shared/client compile passes.64 Python tests pass including four new Forge harness cleanup/environment/phase-order cases; mock output labelled PASS is not real native evidence.

@@ -1,5 +1,7 @@
 # Combined benefits, contact costs and growth modes (dev.27)
 
+These contact/growth mechanics remain installed in the current **dev.29** review on the same preserved25588 map. Import the matching refreshed pack: Forge adds a new block registry. [Current review/backup](M11_REVIEW.md). The unchanged-registry statement below describes the original dev.27 delivery only.
+
 Use Minecraft Java **1.21.10** and the refreshed `../client/Chronicle-M9-1.21.10.mrpack`. The existing authenticated and whitelisted bench is **localhost:25588**, at `../reviews/costs/20261021T131343506328Z`; SchinderRenge remains operator. Upgrade preserves the map and saved tuning. The previous ecology/crop/healing and production worlds are separate. Registry, appearance assets and wire layout remain unchanged; the new client also contains current menu wording.
 
 1. In Survival, join through **Players** or `/chronicles join`, disable editing, then resume under **Session**. Stand on living sculk around **2,65,2**. After the configured initial exposure delay (default40 eligible seconds), Hunger I persists at Established/Extensive growth and Darkness also persists at Extensive growth. No repeat pulse follows. This bench has lowered extent thresholds64/512 and643 initial source cells; production defaults are unchanged.

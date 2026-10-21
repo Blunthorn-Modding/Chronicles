@@ -26,7 +26,7 @@ Table offers and anvil candidate levels must honor caps before charging/consumpt
 4. Disposable native tests: actual component values through give/loot/table/anvil/creative/crafting/trades/nesting; player/container/equipment/projectile load and save/restart; cap increase proves levels stay lowered. Verify unaffected clients and absence of client-side mutation. Full build/tests/diff and rendered operator controls.
 5. Save-stop/verified backup before any review-world upgrade. Do not mix unverified dev.28 artifacts into the current dev.27 review pack/server. Record limitations, exact evidence and failed attempts in TEST_PLAN.
 
-No universal enforcement or completed station behavior is claimed until the relevant native routes pass. The current review remains dev.27 on localhost25588 with its map/tuning preserved.
+The native routes below passed. Caps are now deployed with the dev.29 Forge bundle on localhost25588 after saving stop and a verified full backup; map/tuning are preserved. [Current review](M11_REVIEW.md). The dev.27 references in the implementation sequence describe its original pre-deployment guard.
 
 ## Implemented architecture
 
