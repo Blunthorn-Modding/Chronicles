@@ -83,7 +83,7 @@ public final class QuietBelowEcology {
                 try{r.engine.chunkUnloaded(chunk.getPos().x,chunk.getPos().z);}catch(Exception e){hold(r,e);}
         });
         ServerLifecycleEvents.SERVER_STARTED.register(QuietBelowEcology::start);
-        ServerTickEvents.START_SERVER_TICK.register(server->{Runtime r=WORLDS.get(server);if(r!=null)r.engine.beginTick();});
+        ServerTickEvents.START_SERVER_TICK.register(server->{Runtime r=WORLDS.get(server);if(r!=null){r.engine.beginTick();r.settlingWrites=0;}});
         ServerTickEvents.END_SERVER_TICK.register(QuietBelowEcology::tick);
         ServerLifecycleEvents.SERVER_STOPPED.register(server->{
             Runtime r=WORLDS.remove(server);if(r!=null){
@@ -201,6 +201,7 @@ public final class QuietBelowEcology {
         if(rules.equals(EcologyVitality.DEFAULT))disabled.put("reset","Vitality tuning already uses defaults.");
         return new GameSetupTools.Status(e.view().revision()+r.menuRevision,List.of(
                 new Fact("Assessment",e.vitalityPending()?"Checking connections/exposures; extent retains its last known value.":"Latest bounded assessment; "+e.vitality().extent()+" extent."),
+                new Fact("Looked sculk",inspectedCell(source,r)),
                 new Fact("Rooted vitality",s.rootedPercent()+"% average; "+s.ready()+" ready / "+s.rooted()+" rooted cells"),
                 new Fact("Detached vitality",s.detachedPercent()+"% average across "+s.detached()+" detached cells; blocks stay in place"),
                 new Fact("Exposure",s.feeding()+" feeding; "+s.sealed()+" fully sealed; "+s.unknown()+" unresolved exposures"),
@@ -211,6 +212,28 @@ public final class QuietBelowEcology {
                 new Fact("Visible vitality","Glistening blue: healthy, feeding roots (75%+). Dull blue: reduced vitality or dormant connection (25%+). Faded brown/blue: below 25%. Fully brown: zero. Colors recover too; large patches update gradually."),
                 new Fact("Clock",e.vitality().ticks()/20+" saved eligible seconds; pause, empty play, holds and unresolved networks do not advance it. Bright means light above 7; no air depletion."),
                 new Fact("Tuning","Pause play and enable editing. Full-loss/recovery choices: 1 / 2 / 5 / 10 / 20 / 40 minutes. Speed controls remain in Sculk ecology.")),disabled);
+    }
+    private static String inspectedCell(ServerCommandSource source,Runtime r) {
+        var player=source.getPlayer();if(player==null)return "Look at sculk within six blocks, then refresh this menu.";
+        var world=source.getWorld();var start=player.getEyePos();var end=start.add(player.getRotationVec(1).multiply(6));
+        for(int n=0;n<=24;n++){
+            BlockPos p=BlockPos.ofFloored(start.lerp(end,n/24.0));
+            if(!world.getChunkManager().isChunkLoaded(p.getX()>>4,p.getZ()>>4))return "Target crosses an unloaded chunk; no chunks loaded.";
+        }
+        var hit=world.raycast(new net.minecraft.world.RaycastContext(start,end,net.minecraft.world.RaycastContext.ShapeType.OUTLINE,
+                net.minecraft.world.RaycastContext.FluidHandling.NONE,player));
+        if(hit.getType()!=net.minecraft.util.hit.HitResult.Type.BLOCK)return "Look at sculk within six blocks, then refresh this menu.";
+        BlockPos p=hit.getBlockPos();var actual=world.getBlockState(p);Pos cell=pos(p);
+        if(!actual.contains(SculkAppearance.VITALITY))return "Target is not campaign-supported sculk.";
+        String location=p.getX()+", "+p.getY()+", "+p.getZ();
+        if(r.engine.setup()==null||!r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString())||!r.engine.owns(cell))
+            return location+": not campaign-owned; no campaign vitality. Adopt a region or physically connect it during play.";
+        int value=r.engine.vitality().value(cell);int expected=EcologyAppearance.stage(value,r.engine.rooted(cell),r.engine.vitality().mode(cell));
+        String exact=value==0?"zero":"positive";
+        String percent=value>0&&value*10000L<EcologyVitality.FULL?"<0.01%":String.format(Locale.ROOT,"%.2f%%",value*100.0/EcologyVitality.FULL);
+        return location+": "+percent+" ("+exact+"); "
+                +(r.engine.rooted(cell)?"rooted":"detached")+"; displayed "+EcologyAppearance.label(actual.get(SculkAppearance.VITALITY))
+                +"; expected "+(expected<0?"unknown, retain last appearance":EcologyAppearance.label(expected))+". Refresh after a checkpoint/scan.";
     }
     private static String vitalityAction(ServerCommandSource source,String verb)throws Exception{
         Runtime r=runtime(source.getServer());var old=r.engine.vitality().rules();int loss=old.lossMinutes(),recovery=old.recoveryMinutes(),extent=old.extentPreset();
@@ -353,7 +376,7 @@ public final class QuietBelowEcology {
         if(r.engine.failure()==null){r.engine.fail(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry",e);}
     }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;long menuRevision;String rootProblem,claimProblem;EcologyCleanup cleanup;
+        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision;String rootProblem,claimProblem;EcologyCleanup cleanup;
         Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
@@ -363,6 +386,21 @@ public final class QuietBelowEcology {
         }
         @Override public boolean owns(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.engine.owns(pos(p));}
         @Override public boolean managesCatalyst(ServerWorld w,BlockPos p){return find(w)!=null;}
+        @Override public boolean managesFeature(ServerWorld w,BlockPos p){return find(w)!=null;}
+        @Override public void settleInactive(ServerWorld w,BlockPos p,BlockState state){
+            Runtime r=find(w);if(r==null||r.engine.failure()!=null||r.settlingWrites>=EcologyFeatureActivity.SETTLING_WRITES)return;
+            BlockState actual=w.getBlockState(p);
+            // Marking a native receiver dirty can update comparators. Preserve any resulting edit.
+            if(actual.getBlock()!=state.getBlock()||active(w,p))return;
+            state=EcologyFeatureActivity.quietState(actual);if(state==actual)return;
+            r.settlingWrites++;
+            try{
+                if(!w.setBlockState(p,state,Block.NOTIFY_ALL))throw new IllegalStateException("Inactive sculk phase settling failed");
+                // A reconnected feature must not inherit the old activation's delayed tick.
+                w.getBlockTickScheduler().clearNextTicks(new BlockBox(p));
+                if(state.isOf(Blocks.SCULK_SENSOR)){w.updateNeighbors(p,state.getBlock());w.updateNeighbors(p.down(),state.getBlock());}
+            }catch(Exception failure){hold(r,failure);}
+        }
         @Override public void unownedNetworkWrite(ServerWorld w,BlockPos p){Runtime r=find(w);if(r==null)return;r.engine.noticeContact(pos(p));if(cleanupWorld(w,r))try{r.cleanup.changed(pos(p));}catch(Exception e){hold(r,e);}}
         @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.rootProblem==null&&r.engine.enabled()&&r.engine.living(pos(p))&&playing(w.getServer());}
         @Override public BlockState beforeWrite(ServerWorld w,BlockPos p,BlockState before,BlockState proposed,int flags) {

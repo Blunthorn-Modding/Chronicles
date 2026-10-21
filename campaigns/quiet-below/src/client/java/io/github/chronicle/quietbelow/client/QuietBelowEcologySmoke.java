@@ -32,7 +32,7 @@ final class QuietBelowEcologySmoke {
     private static final String ADDRESS = "127.0.0.1:25575";
     private final List<String> messages = new ArrayList<>(), checks = new ArrayList<>();
     private final List<Step> steps = new ArrayList<>();
-    private final long overallDeadline = System.nanoTime() + 180_000_000_000L;
+    private final long overallDeadline = System.nanoTime() + 240_000_000_000L;
     private int index, baseline, sculkBefore, pausedSculk;
     private long deadline, until, rootFrames;
     private String vitalityClock;
@@ -139,7 +139,20 @@ final class QuietBelowEcologySmoke {
         command(client,"join vitality play","chronicles join",".*(joined|already).*Chronicle participation.*");
         command(client,"cut vitality branch","setblock 1 64 0 air",".*Changed.*");
         command(client,"active play rejects vitality edits","chronicles setup tool \"quiet_below:vitality\" loss_slower",".*requires operator editing mode.*");
-        delay("let detached vitality fall through a real eligible minute",70_000);
+        delay("let detached vitality fall below readiness while remaining positive",53_000);
+        command(client,"positive fading vitality selects its own model","quiet_below_native_trial vitality_fading","PASS vitality fading:.*");
+        command(client,"aim at the fading branch end","tp @s 7.5 64 0.5 90 21",".*Teleported.*");
+        command(client,"pause known positive fading vitality","chronicle session pause","Paused Chronicle session.*");
+        openVitalityMenu(client);
+        check("per-cell readout distinguishes positive fading from zero",()->{
+            String fact=vitalityFact(client,"Looked sculk");
+            require(fact.contains("4, 64, 0")&&fact.contains("(positive)")&&fact.contains("displayed brown with blue flecks")
+                    &&fact.contains("expected brown with blue flecks"),"wrong per-cell vitality readout: "+fact);
+        });
+        check("close fading vitality menu",()->client.currentScreen.close());
+        screenshot(client,"ecology-vitality-fading-world.png");
+        command(client,"resume fading vitality decline","chronicle session resume","Resumed Chronicle session.*");
+        delay("let detached vitality exhaust through a real eligible minute",20_000);
         command(client,"zero vitality retains terrain and disables native response","quiet_below_native_trial vitality_zero","PASS vitality zero:.*");
         command(client,"pause spent vitality time","chronicle session pause","Paused Chronicle session.*");
         openVitalityMenu(client);check("capture paused vitality clock",()->vitalityClock=vitalityFact(client,"Clock"));
@@ -147,7 +160,12 @@ final class QuietBelowEcologySmoke {
         step("refresh paused vitality status",()->require(press((CoreMenuScreen)client.currentScreen,"Refresh status"),"vitality refresh unavailable"),
                 ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().message().contains("Vitality status refreshed"),10_000);
         check("paused vitality does not advance",()->require(vitalityClock.equals(vitalityFact(client,"Clock")),"paused vitality clock advanced"));
+        check("per-cell zero is explicit",()->{
+            String fact=vitalityFact(client,"Looked sculk");
+            require(fact.contains("(zero)")&&fact.contains("displayed fully brown (zero)"),"zero is not explicit: "+fact);
+        });
         vitalityScreenshot(client,"ecology-vitality-dormant.png");check("close dormant vitality menu",()->client.currentScreen.close());
+        screenshot(client,"ecology-vitality-zero-world.png");
         command(client,"replace physical vitality bridge while paused","setblock 1 64 0 sculk",".*Changed.*");
         command(client,"resume vitality recovery","chronicle session resume","Resumed Chronicle session.*");
         delay("allow physical joining without immediate vitality refill",500);

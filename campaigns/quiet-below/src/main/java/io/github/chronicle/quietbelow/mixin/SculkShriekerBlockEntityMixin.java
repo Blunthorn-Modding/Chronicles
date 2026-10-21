@@ -43,6 +43,6 @@ abstract class SculkShriekerBlockEntityMixin {
     private boolean quietBelow$ownedAndInactive(ServerWorld world) {
         BlockPos pos = ((SculkShriekerBlockEntity) (Object) this).getPos();
         EcologyHooks.Handler handler = EcologyHooks.handler();
-        return handler != null && handler.owns(world, pos) && !handler.active(world, pos);
+        return handler != null && handler.managesFeature(world, pos) && !handler.active(world, pos);
     }
 }

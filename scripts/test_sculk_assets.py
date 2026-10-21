@@ -54,6 +54,16 @@ def pixels(path):
 
 
 class SculkAssetTests(unittest.TestCase):
+    def test_fading_retains_visible_blue_flecks_that_zero_does_not(self):
+        root = assets.ASSETS / 'quiet_below/textures/block/vitality'
+        for name in ('sculk.png', 'sculk_vein.png'):
+            fading = [p for p in pixels(root/'stage_2'/name) if p[3]]
+            exhausted = [p for p in pixels(root/'stage_3'/name) if p[3]]
+            # A few nearly brown pixels are not a readable positive-vitality signal.
+            blue = [p for p in fading if p[2] - p[0] >= 30 and p[1] - p[0] >= 20]
+            self.assertGreaterEqual(len(blue), len(fading) // 8, name)
+            self.assertFalse(any(b > r or g > r for r, g, b, a in exhausted), name)
+
     def test_derived_textures_are_static_retain_alpha_and_zero_is_brown(self):
         root = assets.ASSETS / 'quiet_below/textures/block/vitality'
         names = {p.name for p in (root/'stage_1').glob('*.png')}

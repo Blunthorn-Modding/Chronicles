@@ -10,6 +10,8 @@
     "SculkCatalystBlockEntityMixin",
     "SculkCatalystListenerMixin",
     "SculkSensorVibrationCallbackMixin",
+    "SculkSensorBlockMixin",
+    "SculkVibrationTickerMixin",
     "SculkShriekerBlockEntityMixin",
     "SculkShriekerVibrationCallbackMixin",
     "WorldMixin"

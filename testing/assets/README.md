@@ -15,3 +15,5 @@ The generator runs `SculkPalette.java` with portable Java 21. It preserves pixel
 `appearance-smoke` also needs the retained stopped dev.18 test fixture at `../test-fixtures/sculk-layout-dev18` for old-save and incompatible-peer checks. Its manifest hashes both named development and remapped legacy jars. This fixture is local evidence, not a distributable dependency or production-world copy. The suite refuses missing/changed artifacts. Shared test ports are TCP25575/UDP24455; run sequentially with other native suites.
 
 Both peers must use the matching appearance layout; the configuration handshake rejects incompatible peers before PLAY. Back up and restore world and mod jars together when rolling back.
+
+Dev.20 strengthens the fading palette: native blue-fleck positions remain visibly cool on a brown body; exhausted textures have no cool pixels. The contrast regression checks that opaque sculk/veins retain a minimum readable blue-fleck area, alongside native rendering and known positive/zero vitality checks.

@@ -165,12 +165,16 @@ public final class EcologyAppearanceTrial {
         require(world.getBlockState(NATIVE_UNRELATED).equals(unrelated)
                         && !unrelated.contains(SculkAppearance.VITALITY),
                 "unrelated block changed during sculk appearance projection");
-        return "five native states retained properties, fluids, and block-entity identities; legacy decode and unrelated skip verified.";
+        require(!EcologyFeatureActivity.blocked(world,NATIVE_SENSOR),"unconfigured world was governed as a campaign");
+        ((SculkSensorBlock)Blocks.SCULK_SENSOR).setActive(null,world,NATIVE_SENSOR,world.getBlockState(NATIVE_SENSOR),9,1);
+        require(!SculkSensorBlock.isInactive(world.getBlockState(NATIVE_SENSOR)),"unconfigured sensor lost vanilla activation");
+        return "five native states retained properties, fluids, and block-entity identities; legacy decode, unrelated skip and unconfigured vanilla behavior verified.";
     }
 
     private static String legacy(ServerCommandSource source, boolean live) {
         EcologyEngine engine = legacyEngine(source);
         ServerWorld world = source.getWorld();
+        EcologyNativeTrial.inactiveFeatures(source,world);
         require(QuietBelowEcology.playing(source.getServer()) == live,
                 live ? "legacy live trial requires occupied ACTIVE play" : "legacy trial requires paused play");
         require(engine.vitality().rules().equals(new EcologyVitality.Rules(1, 1, 0)),

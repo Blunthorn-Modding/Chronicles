@@ -59,7 +59,6 @@ abstract class SculkSensorVibrationCallbackMixin {
     }
 
     private boolean quietBelow$ownedAndInactive(ServerWorld world) {
-        EcologyHooks.Handler handler = EcologyHooks.handler();
-        return handler != null && handler.owns(world, pos) && !handler.active(world, pos);
+        return io.github.chronicle.quietbelow.ecology.EcologyFeatureActivity.blocked(world,pos);
     }
 }

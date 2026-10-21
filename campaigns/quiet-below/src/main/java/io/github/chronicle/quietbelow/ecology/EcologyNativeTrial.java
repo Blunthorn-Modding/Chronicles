@@ -48,6 +48,7 @@ public final class EcologyNativeTrial {
                 .requires(source -> source.hasPermissionLevel(2))
                 .then(literal("inactive").executes(context -> run(context.getSource(), false)))
                 .then(literal("active").executes(context -> run(context.getSource(), true)))
+                .then(literal("vitality_fading").executes(context->vitality(context.getSource(),3)))
                 .then(literal("vitality_zero").executes(context->vitality(context.getSource(),0)))
                 .then(literal("vitality_recovering").executes(context->vitality(context.getSource(),1)))
                 .then(literal("vitality_ready").executes(context->vitality(context.getSource(),2))));
@@ -59,7 +60,8 @@ public final class EcologyNativeTrial {
             require(source.getPlayer()!=null&&e.setup()!=null&&e.setup().city().equals("vitality_source"),"wrong vitality fixture");
             require(e.owns(end)&&e.owns(sensorCell)&&w.getBlockState(QuietBelowEcology.blockPos(end)).isOf(net.minecraft.block.Blocks.SCULK),"dormant terrain or ownership was lost");
             require(QuietBelowEcology.playing(source.getServer()),"vitality probe requires occupied ACTIVE play");
-            if(stage==0){require(!e.rooted(end)&&e.vitality().value(end)==0,"detached branch has not reached zero vitality");}
+            if(stage==3){require(!e.rooted(end)&&e.vitality().value(end)>0&&e.vitality().value(end)<EcologyVitality.READY,"branch is not positive below 25 percent");}
+            else if(stage==0){require(!e.rooted(end)&&e.vitality().value(end)==0,"detached branch has not reached zero vitality");}
             else if(stage==1){require(e.rooted(end)&&!e.living(end),"reconnected branch should be recovering below 25 percent");}
             else require(e.living(end)&&e.living(sensorCell),"reconnected branch has not recovered to 25 percent");
             require(w.getBlockState(QuietBelowEcology.blockPos(end)).get(SculkAppearance.VITALITY)
@@ -68,9 +70,9 @@ public final class EcologyNativeTrial {
                     ==EcologyAppearance.stage(e.vitality().value(sensorCell),e.rooted(sensorCell),e.vitality().mode(sensorCell)),"sensor color disagrees with durable vitality");
             var sensor=w.getBlockEntity(sensorPos,BlockEntityType.SCULK_SENSOR).orElseThrow();
             var before=w.getBlockState(sensorPos);sensor.getVibrationCallback().accept(w,new BlockPos(7,64,0),GameEvent.STEP,source.getPlayer(),source.getPlayer(),1.0F);
-            if(stage<2)require(w.getBlockState(sensorPos).equals(before),"low-vitality/detached sensor responded");
+            if(stage!=2)require(w.getBlockState(sensorPos).equals(before),"low-vitality/detached sensor responded");
             else require(!SculkSensorBlock.isInactive(w.getBlockState(sensorPos)),"recovered sensor did not respond");
-            source.sendFeedback(()->Text.literal("PASS vitality "+(stage==0?"zero":stage==1?"recovering":"ready")+": retained terrain and native sensor gate verified."),false);return 1;
+            source.sendFeedback(()->Text.literal("PASS vitality "+(stage==0?"zero":stage==1?"recovering":stage==3?"fading":"ready")+": retained terrain and native sensor gate verified."),false);return 1;
         }catch(Exception ex){source.sendError(Text.literal("FAIL vitality trial: "+detail(ex)));return 0;}
     }
 
@@ -103,6 +105,7 @@ public final class EcologyNativeTrial {
     }
 
     private static void inactive(ServerCommandSource source, ServerWorld world) {
+        inactiveFeatures(source,world);
         SculkCatalystBlockEntity catalyst = catalyst(world);
         int cursors = catalyst.getEventListener().getSpreadManager().getCursors().size();
         int charge = charge(catalyst);
@@ -128,7 +131,80 @@ public final class EcologyNativeTrial {
         require(sensor.getLastVibrationFrequency() == frequency, "inactive owned sensor accepted a vibration");
     }
 
+    static void inactiveFeatures(ServerCommandSource source,ServerWorld world) {
+        BlockPos sensorPos=new BlockPos(8,65,8),shriekPos=new BlockPos(10,65,8);
+        var e=QuietBelowEcology.engineForTest(source.getServer());
+        require(!e.owns(QuietBelowEcology.pos(sensorPos))&&!e.owns(QuietBelowEcology.pos(shriekPos)),"unowned probe unexpectedly owned");
+        world.setBlockState(sensorPos,net.minecraft.block.Blocks.SCULK_SENSOR.getDefaultState());
+        world.setBlockState(shriekPos,net.minecraft.block.Blocks.SCULK_SHRIEKER.getDefaultState());
+        try {
+            var sensor=world.getBlockEntity(sensorPos,BlockEntityType.SCULK_SENSOR).orElseThrow();
+            var shrieker=world.getBlockEntity(shriekPos,BlockEntityType.SCULK_SHRIEKER).orElseThrow();
+            var player=source.getPlayer();
+            var foreign=new net.minecraft.world.event.Vibrations.Callback(){
+                public int getRange(){return 8;}
+                public net.minecraft.world.event.PositionSource getPositionSource(){return sensor.getVibrationCallback().getPositionSource();}
+                public boolean accepts(ServerWorld w,BlockPos p,net.minecraft.registry.entry.RegistryEntry<GameEvent> event,GameEvent.Emitter emitter){return true;}
+                public void accept(ServerWorld w,BlockPos p,net.minecraft.registry.entry.RegistryEntry<GameEvent> event,net.minecraft.entity.Entity entity,net.minecraft.entity.Entity owner,float distance){ }
+            };
+            require(!EcologyFeatureActivity.suppressTick(world,new net.minecraft.world.event.Vibrations.ListenerData(),foreign),"a foreign receiver at the sensor position was governed");
+            sensor.getVibrationCallback().accept(world,sensorPos.up(),GameEvent.STEP,player,player,1);
+            require(SculkSensorBlock.isInactive(world.getBlockState(sensorPos)),"unowned campaign sensor responded through vanilla delivery");
+            ((SculkSensorBlock)net.minecraft.block.Blocks.SCULK_SENSOR).setActive(player,world,sensorPos,world.getBlockState(sensorPos),9,1);
+            require(SculkSensorBlock.isInactive(world.getBlockState(sensorPos)),"unowned campaign sensor accepted direct activation");
+            shrieker.shriek(world,player);
+            require(!world.getBlockState(shriekPos).get(net.minecraft.block.SculkShriekerBlock.SHRIEKING),"unowned campaign shrieker responded to stepping");
+            for(var receiver:java.util.List.<net.minecraft.world.event.Vibrations>of(sensor,shrieker)) {
+                var data=receiver.getVibrationListenerData();
+                var vibration=new net.minecraft.world.event.listener.Vibration(GameEvent.STEP,8,Vec3d.ofCenter(sensorPos.up()),player);
+                data.setVibration(vibration);data.setDelay(8);data.setSpawnParticle(true);
+                data.getSelector().tryAccept(vibration,world.getTime());
+                net.minecraft.world.event.Vibrations.Ticker.tick(world,data,receiver.getVibrationCallback());
+                require(data.getVibration()==null&&data.getDelay()==0&&!data.shouldSpawnParticle()
+                        &&data.getSelector().getVibrationToTick(Long.MAX_VALUE).isEmpty(),"inactive feature retained a vibration/particle backlog");
+            }
+            world.setBlockState(sensorPos,world.getBlockState(sensorPos).with(SculkSensorBlock.POWER,9)
+                    .with(SculkSensorBlock.SCULK_SENSOR_PHASE,net.minecraft.block.enums.SculkSensorPhase.ACTIVE)
+                    .with(SculkSensorBlock.WATERLOGGED,true).with(SculkAppearance.VITALITY,EcologyAppearance.FADING));
+            require(world.getBlockState(sensorPos).getWeakRedstonePower(world,sensorPos,net.minecraft.util.math.Direction.UP)==0,"inactive sensor emitted redstone");
+            require(world.getBlockState(sensorPos).getComparatorOutput(world,sensorPos,net.minecraft.util.math.Direction.UP)==0,"inactive sensor emitted comparator output");
+            world.setBlockState(shriekPos,world.getBlockState(shriekPos).with(net.minecraft.block.SculkShriekerBlock.SHRIEKING,true).with(net.minecraft.block.SculkShriekerBlock.CAN_SUMMON,true));
+            world.scheduleBlockTick(sensorPos,net.minecraft.block.Blocks.SCULK_SENSOR,30);
+            world.scheduleBlockTick(shriekPos,net.minecraft.block.Blocks.SCULK_SHRIEKER,90);
+            net.minecraft.world.event.Vibrations.Ticker.tick(world,sensor.getVibrationListenerData(),sensor.getVibrationCallback());
+            net.minecraft.world.event.Vibrations.Ticker.tick(world,shrieker.getVibrationListenerData(),shrieker.getVibrationCallback());
+            require(SculkSensorBlock.isInactive(world.getBlockState(sensorPos))&&world.getBlockState(sensorPos).get(SculkSensorBlock.POWER)==0,"inactive sensor did not settle");
+            require(!world.getBlockState(shriekPos).get(net.minecraft.block.SculkShriekerBlock.SHRIEKING),"inactive shrieker did not settle");
+            require(world.getBlockEntity(sensorPos)==sensor&&world.getBlockEntity(shriekPos)==shrieker,"settling replaced a native block entity");
+            require(world.getBlockState(sensorPos).get(SculkSensorBlock.WATERLOGGED)
+                    &&world.getBlockState(sensorPos).get(SculkAppearance.VITALITY)==EcologyAppearance.FADING
+                    &&world.getBlockState(shriekPos).get(net.minecraft.block.SculkShriekerBlock.CAN_SUMMON),"settling lost fluid, appearance or summon capability");
+            require(!world.getBlockTickScheduler().isQueued(sensorPos,net.minecraft.block.Blocks.SCULK_SENSOR)
+                    &&!world.getBlockTickScheduler().isQueued(shriekPos,net.minecraft.block.Blocks.SCULK_SHRIEKER),"inactive features retained delayed activation ticks");
+            int settled=0;
+            try{
+                for(int x=0;x<20;x++){
+                    BlockPos p=new BlockPos(x,65,12);
+                    world.setBlockState(p,net.minecraft.block.Blocks.SCULK_SENSOR.getDefaultState().with(SculkSensorBlock.POWER,7)
+                            .with(SculkSensorBlock.SCULK_SENSOR_PHASE,net.minecraft.block.enums.SculkSensorPhase.ACTIVE));
+                    var be=world.getBlockEntity(p,BlockEntityType.SCULK_SENSOR).orElseThrow();
+                    net.minecraft.world.event.Vibrations.Ticker.tick(world,be.getVibrationListenerData(),be.getVibrationCallback());
+                    if(SculkSensorBlock.isInactive(world.getBlockState(p)))settled++;
+                    require(world.getBlockState(p).getWeakRedstonePower(world,p,net.minecraft.util.math.Direction.UP)==0,"pending settling emitted power");
+                }
+                require(settled>0&&settled<=16&&settled<20,"native phase settling is not bounded");
+                world.setBlockState(shriekPos,net.minecraft.block.Blocks.AIR.getDefaultState());
+                shrieker.shriek(world,player);
+                require(world.getBlockState(shriekPos).isAir(),"removed unowned shrieker responded through a stale receiver");
+            }finally{for(int x=0;x<20;x++)world.setBlockState(new BlockPos(x,65,12),net.minecraft.block.Blocks.AIR.getDefaultState());}
+        } finally {
+            world.setBlockState(sensorPos,net.minecraft.block.Blocks.AIR.getDefaultState());
+            world.setBlockState(shriekPos,net.minecraft.block.Blocks.AIR.getDefaultState());
+        }
+    }
+
     private static int startActive(ServerCommandSource source, ServerWorld world, EcologyEngine engine) {
+        inactiveFeatures(source,world);
         require(engine.rooted(QuietBelowEcology.pos(CATALYST)), "fixture catalyst is not rooted yet; retry after topology resolves");
         SculkCatalystBlockEntity catalyst = catalyst(world);
         int beforeCharge = charge(catalyst);

@@ -8,6 +8,9 @@ public final class EcologyAppearance {
 
     private EcologyAppearance() { }
 
+    public static String label(int stage) {
+        return switch(stage){case HEALTHY->"healthy blue";case DULL->"dull blue";case FADING->"brown with blue flecks";case EXHAUSTED->"fully brown (zero)";default->throw new IllegalArgumentException("Invalid appearance");};
+    }
     public static int stage(int value, boolean rooted, EcologyVitality.Mode feeding) {
         if(value<0||value>EcologyVitality.FULL)throw new IllegalArgumentException("Invalid vitality");
         if(feeding==null||feeding==EcologyVitality.Mode.UNKNOWN)return -1;

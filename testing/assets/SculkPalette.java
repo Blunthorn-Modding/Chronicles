@@ -44,7 +44,13 @@ class SculkPalette {
         int[] dull={clamp(r*.5+l*.15+5),clamp(g*.55+l*.12+4),clamp(b*.55+l*.16+5)};
         int[] brown={clamp(22+l*190/255),clamp(13+l*140/255),clamp(7+l*83/255)};
         int[] rgb=stage==1?dull:brown;
-        if(stage==2){double blend=g>55&&b>70&&r<g*.75?.45:.85;rgb=new int[3];for(int i=0;i<3;i++)rgb[i]=clamp(dull[i]*(1-blend)+brown[i]*blend);}
+        if(stage==2){
+            // Retain native blue-fleck positions, but make their remaining life readable.
+            // The surrounding tissue is brown; exhausted stage 3 has no cool flecks.
+            if(g>r*1.35&&b>r*1.35&&g+b>85)
+                rgb=new int[]{clamp(8+l*.12),clamp(40+l*.35),clamp(55+l*.40)};
+            else {rgb=new int[3];for(int i=0;i<3;i++)rgb[i]=clamp(dull[i]*.1+brown[i]*.9);}
+        }
         return (a<<24)|(rgb[0]<<16)|(rgb[1]<<8)|rgb[2];
     }
     static int clamp(double v){return Math.clamp((int)Math.round(v),0,255);}

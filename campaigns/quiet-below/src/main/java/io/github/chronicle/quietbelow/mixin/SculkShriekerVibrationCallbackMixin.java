@@ -69,6 +69,6 @@ abstract class SculkShriekerVibrationCallbackMixin {
             return false;
         }
         BlockPos pos = BlockPos.ofFloored(source.get());
-        return handler.owns(world, pos) && !handler.active(world, pos);
+        return handler.managesFeature(world, pos) && !handler.active(world, pos);
     }
 }

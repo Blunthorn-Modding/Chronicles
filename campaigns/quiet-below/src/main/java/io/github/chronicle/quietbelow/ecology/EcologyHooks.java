@@ -90,6 +90,10 @@ public final class EcologyHooks {
         default void unownedNetworkWrite(ServerWorld world,BlockPos pos) { }
         /** Suppress vanilla XP spread throughout a configured campaign dimension, including pending ownership. */
         default boolean managesCatalyst(ServerWorld world,BlockPos pos) { return owns(world,pos); }
+        /** Native sensors/shriekers in the campaign dimension cannot bypass ownership. */
+        default boolean managesFeature(ServerWorld world,BlockPos pos) { return owns(world,pos); }
+        /** Bounded native phase settling; does not change ownership or vitality. */
+        default void settleInactive(ServerWorld world,BlockPos pos,BlockState state) { }
         boolean owns(ServerWorld world, BlockPos pos);
 
         boolean active(ServerWorld world, BlockPos pos);

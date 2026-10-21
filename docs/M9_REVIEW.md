@@ -1,6 +1,6 @@
 # Surface ecology review
 
-Use **dev.19** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in a matching Fabric profile. This pack adds visible vitality after dev.18's loss/recovery and extent tuning. It retains GUI scale 2, narrator off, no accessibility onboarding prompt and multiplayer warning acknowledged for new profiles. Existing profile preferences are not changed by the server. **The review now requires the matching dev.19 client:** its sculk block-state layout differs, and older clients are rejected before joining. Keep your earlier profile for the unchanged dev.14 server on port25565; the new client also refuses that older server.
+Use **dev.20** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in a matching Fabric profile. This update fixes inactive sensor/shrieker behavior and makes positive low vitality visibly different from zero. New profiles retain GUI scale 2, narrator off, no accessibility onboarding and the multiplayer warning acknowledgement. The block-state layout remains version 1: dev.19 clients can connect safely but still show the old textures, so update the client for this visual review. Clients older than dev.19 are refused before joining. Keep your earlier profile for the unchanged dev.14 server on port25565; the new client refuses that older server.
 
 Join **`localhost:25585`** for the disposable ecology map. `localhost:25565` remains your usual map, with ecology unconfigured/disabled. Both servers keep authentication and the whitelist; SchinderRenge remains an operator.
 
@@ -35,10 +35,14 @@ Try a clean cut, let the detached vitality fall, then replace the physical bridg
 
 - **Glistening blue:** feeding, Heart-connected sculk at least 75% vital. Uses the original animated textures.
 - **Dull blue:** static, reduced vitality or a dormant/sealed connection, with at least 25% remaining. A fresh cut becomes dull while still retaining high vitality.
-- **Faded blue/brown:** positive vitality below 25%; local growth/native responses are disabled.
+- **Brown with clear blue flecks:** positive vitality below 25%; local growth/native responses are disabled. The remaining static blue flecks distinguish it from exact zero.
 - **Fully brown:** zero vitality. Blocks remain and can recover after physical reconnection and exposure.
 
 The same colors apply to full sculk, veins, catalysts, sensors and shriekers. Native geometry/properties remain intact; the variants add no entities or block entities. Recovery moves back through the colors. Only occupied ACTIVE enabled/resolved play updates them, in bounded batches; a paused map retains its last appearance. Allow the vitality checkpoint interval (up to 10 seconds) and a short scan delay. Large patches can take several passes. Unknown/unloaded evidence keeps the previous color rather than claiming death. The Sculk vitality menu also explains the legend.
+
+For a specific block, look at it within six blocks before opening **Game setup > Sculk vitality**. **Looked sculk** shows its position, vitality percentage, explicit positive/zero status, connection, displayed color and expected color. **Refresh status** rereads it using your current facing; it does not change health or load chunks. Very small positive values read `<0.01% (positive)` rather than rounding to zero. Unowned sculk is identified separately, without an invented health value.
+
+In the configured Heart dimension, ordinary sensors and shriekers remain inert until campaign-owned, rooted and at least 25% vital during eligible play. Unowned/pending-adoption features cannot use vanilla behavior to bypass this. Inactive vibration queues are discarded before new particles/delivery; direct activation and warnings are blocked. Sensor output is zero immediately. Lingering native active phases and their old activation timers settle in bounded batches on native loaded feature ticks; fully paused simulation stays frozen until ticking resumes. Already-emitted particles can finish their existing flight. Active campaign warnings, Warden summoning and natural despawn still use vanilla mechanics. No new entities or block entities are added.
 
 ## Ownership tools
 
