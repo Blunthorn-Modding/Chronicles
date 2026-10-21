@@ -1,6 +1,6 @@
 # The Quiet Below — campaign outline
 
-Design draft, 19 October 2026. **Current campaign direction; implementation follows the engineering milestones.** The operator has tested the prototype and confirmed that its functions generally work; its fiction and event sequence did not feel coherent. This outline replaces the prototype's narrative assumptions. Existing code remains a technical experiment until it serves this design.
+Design draft, 19 October 2026; benefit decision updated 21 October. **Current campaign direction; implementation follows the engineering milestones.** The operator has tested the prototype and confirmed that its functions generally work; its fiction and event sequence did not feel coherent. This outline replaces the prototype's narrative assumptions. Existing code remains a technical experiment until it serves this design.
 
 **Campaign format:** Situation (working name for the organizers' “Happening”). See [Chronicle's formats](CAMPAIGN_FORMATS.md). No fixed factions, personal corruption or forced stay are campaign decisions, not restrictions on other formats.
 
@@ -57,7 +57,7 @@ Growth, network updates and services run only during ACTIVE, occupied play; paus
 | Network condition | Growth and capability | Cost |
 | --- | --- | --- |
 | **Rooted** | Surface growth crawls out from the city. Nearby eligible planted crops receive additional normal growth-age increments. | Sculk occupies actual eligible terrain; keeping the benefit tolerates a living foothold. |
-| **Established** | Wider connected growth supports catalysts/sensors and local recovery; a connected Ancient Altar can offer a readable healing place. | Denser growth occupies passages and can produce short local Hunger effects. |
+| **Established** | Wider connected growth supports catalysts/sensors and passive local healing. Healing does not require an Altar; its later station role remains to be defined. | Denser growth occupies passages and can produce short local Hunger effects. |
 | **Extensive** | A sufficiently powered, physically connected Ancient Forge supports defined enchanted-equipment recipes. Shriekers may emerge in dense growth. | Larger footprint, more reactive terrain and possible local Darkness pulses make wider growth consequential. |
 
 These labels describe ecological conditions, not sessions or GM unlocks. Catalysts and sensors can appear as growth develops; their density/timing and the extensive threshold for shriekers remain balance proposals. Growth itself is the evidence of power; there is no mandatory indicator block. Threshold transitions should follow measured conditions and recover/decline consistently, without flickering on every tiny change.
@@ -65,6 +65,8 @@ These labels describe ecological conditions, not sessions or GM unlocks. Catalys
 The connected ecology is the only campaign growth system: catalysts do not consume deaths/XP or supply upkeep. Suppress native catalyst spread throughout the configured campaign dimension, including not-yet-adopted catalysts. Existing sculk can be explicitly adopted through a saved region; optional world-wide cleanup removes non-campaign sculk as chunks normally load. Sensors/shriekers remain tracked, functioning features with vanilla active detection/warning behavior. **Confirmed Warden policy:** grown shriekers may summon Wardens under standard vanilla conditions; use vanilla warnings and despawning, without a bespoke warning or encounter system. Set up generated shriekers to support that behavior, rather than assuming every placed shrieker can summon. This creates emergent hazards, not a compulsory boss encounter for discovery or Heart destruction. Existing city hazards also need rehearsal and a viable retreat route.
 
 ## Benefits and their discovery
+
+**Confirmed, 21 October:** established living sculk heals nearby players passively. [Implementation](M10_PASSIVE_RECOVERY.md) adds bounded direct health pulses and saved pace controls. Crop growth is accepted. Hunger/Darkness costs and station behavior remain later work.
 
 Proposed common thread: the living growth carries energy that stimulates plants and recovery and can be channelled by ancient equipment. Its exact source remains a lore decision.
 

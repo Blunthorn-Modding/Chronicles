@@ -39,6 +39,7 @@ final class QuietBelowEcologySmoke {
     private boolean started, connected, built, finished;
 
     static void register() {
+        if (PHASE!=null&&List.of("city","city_restart","recovery","recovery_restart").contains(PHASE)) return;
         if (OUTPUT == null) return;
         if (!List.of("initial","restart","surface","organic","vitality","items","crops","crops_restart","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();

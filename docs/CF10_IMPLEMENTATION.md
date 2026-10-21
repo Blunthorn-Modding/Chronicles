@@ -1,5 +1,7 @@
 # CF-10 implementation
 
+**Dev.24 navigation follow-up:** generic list pages now use up to12 rows when space allows and expose local overflow through visible up/down buttons. Pickers support the same controls and mouse wheel; selection retains its offset and page changes reset it. This keeps all registered Game setup tools reachable at compact sizes. Final healing fixture selects Local healing through rendered640x480 controls, and the full native Core menu regression passes. No server service/protocol/schema change.
+
 20 October 2026. The operator approves the revised mockup and authorizes implementation, verification and a matching review build. Branch `feat/cf10-core-menu` starts at approved design commit `e10f9d3`. This supersedes the design-only hold in earlier notes.
 
 Deliver the eight-page native menu, left navigation/middle selection/right context, compact drilldown, proper server editing status, player-owned movement settings, unified event presentation with separate typed execution services, independent loot-table editor and registry picker, region draft handoff/single-corner editing, separate point/block lists and typed game-site assignments. Core owns generic infrastructure; Quiet Below supplies definitions. Future format tools are absent unless supplied by a game. Actual Forge/Altar/Heart blocks, ecology and their campaign lifecycle remain M9–M12, not fake menu actions.

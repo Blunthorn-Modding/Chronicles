@@ -34,6 +34,30 @@ public final class EcologyVitality {
     public boolean ready(Pos p){return value(p)>=READY;}
     public int percent(Pos p){return value(p)*100/FULL;}
     public void forget(Pos p){cells.remove(p);}
+    // Offline compaction preserves the exact lazy budgets, including unknown/unresolved modes.
+    JsonObject checkpointHeader(){
+        JsonObject p=new JsonObject();p.add("rules",rulesPayload(rules));p.addProperty("ticks",ticks);
+        p.addProperty("loss",loss);p.addProperty("recovery",recovery);p.addProperty("extent",extent);return p;
+    }
+    JsonElement checkpointCell(Pos at){
+        Cell c=cells.get(at);if(c==null)return JsonNull.INSTANCE;
+        JsonObject p=new JsonObject();p.addProperty("value",c.value);p.addProperty("mode",c.mode.name());p.addProperty("budget",c.budget);return p;
+    }
+    void restoreHeader(JsonObject p){
+        keys(p,"rules","ticks","loss","recovery","extent");rules=parseRules(p.getAsJsonObject("rules"));
+        ticks=EcologyCheckpoint.natural(p,"ticks");loss=EcologyCheckpoint.natural(p,"loss");recovery=EcologyCheckpoint.natural(p,"recovery");
+        if(loss/200>ticks||recovery/200>ticks)throw new IllegalArgumentException("Invalid vitality budget");
+        Math.multiplyExact(recovery,2);extent=EcologyCheckpoint.text(p,"extent");
+        if(!Set.of("Rooted","Established","Extensive").contains(extent))throw new IllegalArgumentException("Invalid vitality extent");
+        cells.clear();
+    }
+    void restoreCell(Pos at,JsonElement item){
+        if(item.isJsonNull())return;
+        JsonObject p=EcologyCheckpoint.object(item);keys(p,"value","mode","budget");
+        int value=integer(p,"value");Mode mode=parseMode(p);long base=EcologyCheckpoint.natural(p,"budget");
+        if(value<0||value>FULL||base>budget(mode))throw new IllegalArgumentException("Invalid vitality cell budget");
+        cells.put(at,new Cell(value,mode,base));
+    }
     private long budget(Mode m){return switch(m){case DORMANT,SEALED->loss;case SHADED->recovery;case LIT->Math.multiplyExact(recovery,2);case UNKNOWN->0;};}
     public static JsonObject rulesPayload(Rules r){JsonObject p=new JsonObject();p.addProperty("loss",r.lossMinutes);p.addProperty("recovery",r.recoveryMinutes);p.addProperty("extent",r.extentPreset);return p;}
     public static Rules parseRules(JsonObject p){keys(p,"loss","recovery","extent");return new Rules(integer(p,"loss"),integer(p,"recovery"),integer(p,"extent"));}

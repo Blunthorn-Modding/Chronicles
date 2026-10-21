@@ -1,5 +1,11 @@
 # M9 — Quiet Below ecology
 
+## Reliability follow-up, dev.24
+
+Crop growth is accepted; passive healing has its own [review slice](M10_PASSIVE_RECOVERY.md). [Offline journal maintenance](M9_JOURNAL_MAINTENANCE.md) now provides verified checkpoint/replay/archive/atomic replacement without terrain writes. New records include CROP_RULES, RECOVERY_RULES and the four CHECKPOINT page types. Existing review and production worlds are preserved.
+
+A real generated city's complete source bounds contain 83,431 supported sculk blocks across 256 chunks, exceeding the current 32,768-cell cap. Indexing safely holds; the first fault is now logged and the test driver fails fast. Explicit non-active source indexing can progress with a normally loaded source chunk while the pinned Heart chunk is unloaded; actual growth still needs resolved roots. **M9 is not complete:** measured full-city scaling, complete indexing/restart/load-order and normal-TPS soak remain required before prolonged production use.
+
 Status: implementation in progress, M9b vitality/recovery review. QB-08/QB-09; this is an engineering checkpoint, never a story/session schedule.
 
 ## Authority and first review

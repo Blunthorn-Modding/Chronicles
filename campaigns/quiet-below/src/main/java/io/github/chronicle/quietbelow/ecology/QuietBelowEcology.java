@@ -75,6 +75,15 @@ public final class QuietBelowEcology {
                         new GameSetupTools.Verb("reset","Reset crop tuning",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::cropStatus,QuietBelowEcology::cropAction));
+        GameSetupTools.register(new GameSetupTools.Tool("quiet_below:recovery","Local healing",
+                "Established living sculk slowly heals nearby injured participants. Leaving its reach or cutting its roots stops the benefit.",
+                List.of(new GameSetupTools.Verb("enable","Enable local healing",GameSetupTools.Guard.EDIT,true),
+                        new GameSetupTools.Verb("disable","Disable local healing",GameSetupTools.Guard.OPERATOR,true),
+                        new GameSetupTools.Verb("faster","Faster healing",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("slower","Slower healing",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("reset","Reset healing tuning",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
+                QuietBelowEcology::recoveryStatus,QuietBelowEcology::recoveryAction));
         ServerChunkEvents.CHUNK_LOAD.register((world,chunk)->{
             Set<ChunkPos> loaded=LOADED.computeIfAbsent(world,k->new LinkedHashSet<>());
             Runtime r=WORLDS.get(world.getServer());
@@ -126,7 +135,9 @@ public final class QuietBelowEcology {
             Adapter world=adapter(server,r.engine.setup().dimension());
             // Indexing is explicit preparation, never starts from simply registering a role.
             if(!r.engine.view().indexed()) {
-                if(r.rootProblem==null&&ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.index(world);
+                // Explicit metadata preparation needs the exact pins and loaded source chunks,
+                // not the Heart chunk. Otherwise walking a large city can never finish its edges.
+                if(ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.index(world);
                 return;
             }
             if(r.engine.claim()!=null&&!r.engine.claim().complete()) {
@@ -137,6 +148,9 @@ public final class QuietBelowEcology {
             if(!r.crops.rules().equals(r.engine.cropRules()))r.crops=new EcologyCrops(r.engine.cropRules());
             try{r.crops.tick(new EcologyCropWorld(world.world),r.engine,r.rootProblem==null&&playing(server));}
             catch(Exception e){r.crops.fail("Crop boost held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below crop boost held; ecology retained",e);}
+            if(!r.recovery.rules().equals(r.engine.recoveryRules()))r.recovery=new EcologyRecovery(r.engine.recoveryRules());
+            try{r.recovery.tick(new EcologyRecoveryWorld(server,world.world,r.engine,r.recovery,()->r.rootProblem==null&&playing(server)),r.engine,r.rootProblem==null&&playing(server));}
+            catch(Exception e){r.recovery.fail("Local healing held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local healing held; ecology retained",e);}
             if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
         } catch(Exception e) { hold(r,e); }
     }
@@ -193,7 +207,7 @@ public final class QuietBelowEcology {
                 new Fact("Discovery",r.crops.cached()+" cached crops; "+r.crops.sections()+" nearby sections. Existing farms are found in bounded passes; new plantings are noticed."),
                 new Fact("Since last reset",r.crops.bonuses()+" bonus age increments; "+r.crops.ticks()+" eligible crop ticks. Discovery/cooldowns restart with a full interval."),
                 new Fact("Work bounds","128 discovery reads + 16 planting notices + 16 crop checks, at most 2 bonus writes per eligible tick; no forced chunks."),
-                new Fact("Review scope","First crop benefit only. Living sculk still occupies terrain; regeneration, Hunger, Darkness and stations follow later."));
+                new Fact("Other benefits","Established living sculk can also heal nearby participants; see Local healing. Hunger, Darkness and stations follow later."));
         Map<String,String> disabled=new HashMap<>();
         if(rules.enabled())disabled.put("enable","Crop boost is already enabled.");else disabled.put("disable","Crop boost is already disabled.");
         if(rules.seconds()==EcologyCrops.SECONDS.getFirst())disabled.put("faster","Minimum interval: 2 eligible seconds.");
@@ -216,6 +230,40 @@ public final class QuietBelowEcology {
         r.engine.tuneCrops(next);r.crops=new EcologyCrops(next);r.menuRevision++;
         QuietBelow.LOGGER.info("Quiet Below crop tuning {} by {}",verb,source.getName());
         return "Crop boost "+(next.enabled()?"enabled":"disabled")+"; minimum bonus interval "+next.seconds()+" eligible seconds. Discovery/cooldowns restarted; existing crops retained.";
+    }
+    private static GameSetupTools.Status recoveryStatus(ServerCommandSource source){
+        Runtime r=runtime(source.getServer());var e=r.engine;var rules=e.recoveryRules();Map<String,String> disabled=new HashMap<>();
+        if(rules.enabled())disabled.put("enable","Local healing is already enabled.");else disabled.put("disable","Local healing is already disabled.");
+        if(rules.seconds()==EcologyRecovery.SECONDS.getFirst())disabled.put("faster","Minimum interval: 2 eligible seconds.");
+        if(rules.seconds()==EcologyRecovery.SECONDS.getLast())disabled.put("slower","Maximum interval: 40 eligible seconds.");
+        if(rules.equals(EcologyRecovery.DEFAULT)&&r.recovery.failure()==null)disabled.put("reset","Healing tuning is already at its defaults.");
+        String issue=!e.view().indexed()?"Complete source indexing before tuning local healing.":e.failure();
+        if(issue!=null)for(String verb:List.of("enable","disable","faster","slower","reset"))disabled.put(verb,issue);
+        String state=r.recovery.failure()!=null?"HELD: "+r.recovery.failure():!rules.enabled()?"Disabled":r.rootProblem!=null?r.rootProblem:
+                !playing(source.getServer())?"Paused; requires occupied active play":!e.recoveryAvailable()?"Waiting for resolved Established or Extensive living sculk":"Running near living sculk";
+        return new GameSetupTools.Status(e.view().revision()+r.menuRevision,List.of(
+                new Fact("Local healing",state),
+                new Fact("Reach","4 blocks from owned, rooted sculk at 25%+ vitality. Established or Extensive network; no Altar needed."),
+                new Fact("Pace","Up to half a heart, at least "+rules.seconds()+" eligible seconds apart. Nearby sources do not stack."),
+                new Fact("Players","Injured survival/adventure participants in the Heart's dimension. Editing, Creative and Spectator modes do not qualify."),
+                new Fact("Fresh wait","Leaving reach, full health, lost power/eligibility, pause and restart reset the wait."),
+                new Fact("Normal healing","Minecraft's natural regeneration, food and potion effects keep their normal behavior."),
+                new Fact("Since last reset",r.recovery.healed()+" successful healing pulses; "+r.recovery.tracked()+" tracked participants."),
+                new Fact("Groups","Players are checked in turn; large groups can wait longer than the selected minimum interval.")),disabled);
+    }
+    private static String recoveryAction(ServerCommandSource source,String verb)throws Exception {
+        Runtime r=runtime(source.getServer());var old=r.engine.recoveryRules();var next=old;
+        switch(verb){
+            case "enable" -> next=new EcologyRecovery.Rules(true,old.seconds());
+            case "disable" -> next=new EcologyRecovery.Rules(false,old.seconds());
+            case "faster","slower" -> next=new EcologyRecovery.Rules(old.enabled(),EcologyRecovery.SECONDS.get(EcologyRecovery.SECONDS.indexOf(old.seconds())+(verb.equals("faster")?-1:1)));
+            case "reset" -> next=EcologyRecovery.DEFAULT;
+            case "refresh" -> {r.menuRevision++;return "Local healing status refreshed.";}
+            default -> throw new IllegalArgumentException("Unknown local healing action");
+        }
+        r.engine.tuneRecovery(next);r.recovery=new EcologyRecovery(next);r.menuRevision++;
+        QuietBelow.LOGGER.info("Quiet Below healing tuning {} by {}",verb,source.getName());
+        return "Local healing "+(next.enabled()?"enabled":"disabled")+"; interval "+next.seconds()+" eligible seconds. Cooldowns restarted.";
     }
     private static String growthStatus(MinecraftServer server,Runtime r,EcologyEngine.View v) {
         if(v.hold()!=null)return "HELD: "+v.hold();
@@ -420,11 +468,12 @@ public final class QuietBelowEcology {
         if(w==null)throw new IllegalStateException("Ecology dimension unavailable");return new Adapter(w);
     }
     private static void hold(Runtime r,Exception e) {
-        if(r.engine.failure()==null){r.engine.fail(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry",e);}
+        if(r.engine.failure()==null)r.engine.fail(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());
+        if(!r.failureLogged){r.failureLogged=true;QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry: "+r.engine.failure(),e);}
     }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;
-        Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;crops=new EcologyCrops(e.cropRules());}
+        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision;boolean failureLogged;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;
+        Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;crops=new EcologyCrops(e.cropRules());recovery=new EcologyRecovery(e.recoveryRules());}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
         private Runtime find(ServerWorld w) {

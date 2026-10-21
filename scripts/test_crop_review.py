@@ -7,6 +7,15 @@ import crop_review as review
 
 
 class CropReviewTests(unittest.TestCase):
+    def test_checkpoint_rules_and_cleanup_are_used(self):
+        with TemporaryDirectory() as tmp:
+            work=Path(tmp);root=work/'test-runs/20261021T084717415282Z';source=root/'review-world'
+            (source/'quiet-below').mkdir(parents=True);(source/'chronicle').mkdir();(source/'level.dat').touch()
+            (source/'chronicle/campaign-state.json').write_text('{"phase":"PAUSED"}')
+            report={'result':'PASS','phases':['crops','crops_restart'],'crops_world':str(root)}
+            (source/'quiet-below/ecology.jsonl').write_text(json.dumps({'type':'CHECKPOINT_BEGIN','payload':{'crops':{'enabled':False,'seconds':2},'cleanup':True}}))
+            with patch.object(review.w,'WORK',work),patch.object(review.w,'check_stopped'):
+                with self.assertRaises(RuntimeError):review.snapshot(report)
     def test_refuses_missing_or_failed_native_crop_restart_evidence(self):
         for report in ({'result':'FAIL'},{'result':'PASS','phases':['crops']},{'result':'PASS','phases':['initial','restart']}):
             with self.assertRaises(RuntimeError):review.snapshot(report)

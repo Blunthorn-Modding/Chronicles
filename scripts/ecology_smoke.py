@@ -24,17 +24,33 @@ def _reserve_ports():
         probe.bind(('127.0.0.1', 24455))
 
 
+def _city_world(root):
+    """Use a deterministic normal overworld before the first server launch for real structures."""
+    properties = root / 'server.properties'
+    text = properties.read_text(encoding='utf-8')
+    text = text.replace('level-type=minecraft:flat', 'level-type=minecraft:normal')
+    text = text.replace('generate-structures=false', 'generate-structures=true')
+    properties.write_text(text.replace('level-name=world', 'level-name=world\nlevel-seed=quiet-below-city-soak-v1'), encoding='utf-8')
+
+
 def run(phases=None):
     import workspace as w
     import fabric_smoke as f
-    allowed = ('initial', 'restart', 'surface', 'organic', 'vitality', 'items', 'crops', 'crops_restart')
-    phases = allowed if phases is None else tuple(phases)
+    default = ('initial', 'restart', 'surface', 'organic', 'vitality', 'items', 'crops', 'crops_restart')
+    allowed = default + ('city', 'city_restart', 'compact', 'recovery', 'recovery_restart')
+    phases = default if phases is None else tuple(phases)
     if not phases or any(p not in allowed for p in phases) or len(set(phases)) != len(phases):
         raise ValueError('Select distinct known ecology phases')
     if 'restart' in phases and ('initial' not in phases or phases.index('initial') > phases.index('restart')):
         raise ValueError('Restart requires an earlier initial phase in the same run')
     if 'crops_restart' in phases and ('crops' not in phases or phases.index('crops') > phases.index('crops_restart')):
         raise ValueError('Crop restart requires an earlier crop phase in the same run')
+    if 'city_restart' in phases and ('city' not in phases or phases.index('city') > phases.index('city_restart')):
+        raise ValueError('Ancient-city restart requires an earlier city phase in the same run')
+    if 'compact' in phases and not ('initial' in phases and 'restart' in phases and phases.index('initial') < phases.index('compact') < phases.index('restart')):
+        raise ValueError('Compaction requires initial, compact, restart in that order')
+    if 'recovery_restart' in phases and not ('recovery' in phases and phases.index('recovery') < phases.index('recovery_restart')):
+        raise ValueError('Healing restart requires an earlier recovery phase')
     w.require_eula()
     w.validate_server_runtime()
     w.validate_managed_mod_names()
@@ -42,6 +58,8 @@ def run(phases=None):
            ':campaigns:quiet-below:remapJar', ':campaigns:quiet-below:writeSmokeClientLaunch'])
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text(encoding='utf-8'))
     root = f._stage(w)
+    if 'city' in phases:
+        _city_world(root)
     reports = w.REPORTS / ('ecology-smoke-' + root.name)
     reports.mkdir(parents=True)
     report = {'result': 'FAIL', 'world': str(root), 'reports': str(reports), 'phases': list(phases), 'checks': []}
@@ -49,16 +67,32 @@ def run(phases=None):
     server_log = None
     clients = []
     crop_root = None
+    recovery_root = None
     try:
         for phase in phases:
+            if phase == 'compact':
+                from ecology_maintenance import run as compact
+                maintenance = compact(root / 'world', apply=True)
+                if not maintenance['applied']:
+                    raise RuntimeError('Native compaction fixture did not install a smaller checkpoint')
+                (reports / 'compaction.json').write_text(json.dumps(maintenance, indent=2), encoding='utf-8')
+                report['checks'].append('compact: stopped-world checkpoint verified, archived and installed')
+                continue
             if phase == 'crops':
                 crop_root = f._stage(w)
+            if phase == 'recovery':
+                recovery_root = f._stage(w)
             phase_root = f._stage(w) if phase in ('surface', 'organic', 'vitality', 'items') else root
             if phase in ('crops', 'crops_restart'):
                 phase_root = crop_root
                 report['crops_world'] = str(crop_root)
+            if phase in ('recovery', 'recovery_restart'):
+                phase_root = recovery_root
+                report['recovery_world'] = str(recovery_root)
             if phase in ('surface', 'organic', 'vitality', 'items'):
                 report[phase + '_world'] = str(phase_root)
+            if phase in ('city', 'city_restart'):
+                report['city_world'] = str(root)
             _reserve_ports()
             logfile = reports / ('server-' + phase + '.log')
             server_log = logfile.open('w', encoding='utf-8')
@@ -67,10 +101,12 @@ def run(phases=None):
             server = subprocess.Popen(w.server_command(), cwd=phase_root, env=trial_env, stdin=subprocess.PIPE,
                                       stdout=server_log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             _wait_ready(server, logfile)
-            clients = [f._client(w, launch, phase_root, reports, 'ChronicleFabricA', 'ecology-' + phase, {
-                'CHRONICLE_ECOLOGY_SMOKE': str(reports), 'CHRONICLE_ECOLOGY_PHASE': phase
-            })]
-            f._await_clients(clients, [reports / ('ecology-' + phase + '.json')], timeout=300)
+            variables={'CHRONICLE_ECOLOGY_SMOKE':str(reports),'CHRONICLE_ECOLOGY_PHASE':phase}
+            if phase in ('recovery','recovery_restart'):
+                variables.update(CHRONICLE_MENU_WIDTH='640' if phase == 'recovery' else '1280',
+                                 CHRONICLE_MENU_HEIGHT='480' if phase == 'recovery' else '720')
+            clients = [f._client(w, launch, phase_root, reports, 'ChronicleFabricA', 'ecology-' + phase, variables)]
+            f._await_clients(clients, [reports / ('ecology-' + phase + '.json')], timeout=780 if phase in ('city', 'city_restart') else 300)
             for _, handle in clients:
                 handle.close()
             clients = []
@@ -82,6 +118,8 @@ def run(phases=None):
                 shutil.copytree(root / 'world', root / 'review-world')
             if phase == 'crops_restart':
                 shutil.copytree(crop_root / 'world', crop_root / 'review-world')
+            if phase == 'recovery_restart':
+                shutil.copytree(recovery_root / 'world', recovery_root / 'review-world')
             report['checks'].append(phase + ': native client ecology fixture passed and server saved cleanly')
         report['result'] = 'PASS'
         print('PASS: retained ecology fixture; evidence:', reports, flush=True)

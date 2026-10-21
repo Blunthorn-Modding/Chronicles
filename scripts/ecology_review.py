@@ -41,6 +41,8 @@ def snapshot(report: dict) -> Path:
     cleanup=False
     for line in (source / 'quiet-below/ecology.jsonl').read_text(encoding='utf-8').splitlines():
         entry=json.loads(line)
+        if entry['type']=='CHECKPOINT_BEGIN':
+            cleanup=entry['payload']['cleanup']
         if entry['type']=='CLEANUP_MODE':
             cleanup=entry['payload']['enabled']
     if cleanup or campaign.get('phase')!='PAUSED':

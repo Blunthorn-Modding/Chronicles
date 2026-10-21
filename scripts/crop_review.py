@@ -25,6 +25,7 @@ def snapshot(report):
     rules={'enabled':True,'seconds':10};cleanup=False
     for line in (source/'quiet-below/ecology.jsonl').read_text().splitlines():
         entry=json.loads(line)
+        if entry['type']=='CHECKPOINT_BEGIN':rules=entry['payload']['crops'];cleanup=entry['payload']['cleanup']
         if entry['type']=='CROP_RULES':rules=entry['payload']
         if entry['type']=='CLEANUP_MODE':cleanup=entry['payload']['enabled']
     if rules!={'enabled':True,'seconds':10} or cleanup:raise RuntimeError('Review requires default crop tuning and cleanup off')

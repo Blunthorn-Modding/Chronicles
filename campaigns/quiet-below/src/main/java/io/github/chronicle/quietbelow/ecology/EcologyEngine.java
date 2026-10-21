@@ -6,7 +6,7 @@ import java.util.*;
 import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 
 /** Bounded, durable campaign ecology. No clocks, players, chunk loads or Minecraft classes. */
-public final class EcologyEngine implements EcologyCrops.Network {
+public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery.Network {
     public static final int MAX_CELLS=32768, MAX_AIR=131072, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
     public static final List<Integer> SPEEDS=List.of(25,50,100,200,400,800,1600);
@@ -55,6 +55,7 @@ public final class EcologyEngine implements EcologyCrops.Network {
     private long growthTurn;
     private final EcologyVitality vitality=new EcologyVitality();
     private EcologyCrops.Rules cropRules=EcologyCrops.DEFAULT;
+    private EcologyRecovery.Rules recoveryRules=EcologyRecovery.DEFAULT;
     private int vitalityTicks;
     private Iterator<Pos> vitalityScan;
     private boolean vitalityPending=true;
@@ -77,8 +78,50 @@ public final class EcologyEngine implements EcologyCrops.Network {
 
     public EcologyEngine(EcologyJournal journal) {
         this.journal=Objects.requireNonNull(journal);
-        for(EcologyJournal.Entry e:journal.entries()) replay(e.type(),e.payload());
+        List<EcologyJournal.Entry> entries=journal.entries();
+        for(int n=0;n<entries.size();n++) {
+            EcologyJournal.Entry e=entries.get(n);
+            if(e.type().equals("CHECKPOINT_BEGIN")) {
+                EcologyCheckpoint.Decoded checkpoint=EcologyCheckpoint.read(entries,n);
+                restoreCheckpoint(checkpoint);n=checkpoint.end();
+            } else replay(e.type(),e.payload());
+        }
         controlRevision=journal.revision();
+    }
+    /** Called only on a new, unexposed engine during strict startup replay. */
+    private void restoreCheckpoint(EcologyCheckpoint.Decoded checkpoint){
+        if(!indexed)throw bad("Checkpoint before source index completion");
+        Set<Pos> adopted=new HashSet<>();for(Cell c:cells.values())if(c.adopted)adopted.add(c.position);
+        for(Cell c:checkpoint.cells())if(c.adopted&&(!adopted.contains(c.position)||!c.before.equals(AIR)))throw bad("Checkpoint invented a source cell");
+        JsonObject h=checkpoint.header();enabled=EcologyCheckpoint.bool(h,"enabled");cleanup=EcologyCheckpoint.bool(h,"cleanup");
+        speedPercent=EcologyCheckpoint.integer(h,"speed");if(!SPEEDS.contains(speedPercent))throw bad("Unsupported checkpoint speed");
+        JsonObject crop=EcologyCheckpoint.object(h.get("crops"));EcologyCheckpoint.keys(crop,"enabled","seconds");
+        cropRules=new EcologyCrops.Rules(EcologyCheckpoint.bool(crop,"enabled"),EcologyCheckpoint.integer(crop,"seconds"));
+        if(h.has("recovery")){
+            JsonObject recovery=EcologyCheckpoint.object(h.get("recovery"));EcologyCheckpoint.keys(recovery,"enabled","seconds");
+            recoveryRules=new EcologyRecovery.Rules(EcologyCheckpoint.bool(recovery,"enabled"),EcologyCheckpoint.integer(recovery,"seconds"));
+        }
+        EcologyVitality restored=new EcologyVitality();restored.restoreHeader(EcologyCheckpoint.object(h.get("vitality")));
+        for(int n=0;n<checkpoint.cells().size();n++)restored.restoreCell(checkpoint.cells().get(n).position,checkpoint.health().get(n));
+        // Copy only after every page and every value has passed validation.
+        vitality.restoreHeader(restored.checkpointHeader());
+        for(Cell c:checkpoint.cells())vitality.restoreCell(c.position,restored.checkpointCell(c.position));
+        cells.clear();ownedChunks.clear();for(Cell c:checkpoint.cells())putCell(c.position,c);
+        air.clear();airSet.clear();for(Pos p:checkpoint.air()){air.add(p);airSet.add(p);}
+        claim=checkpoint.claim();generation++;
+    }
+    void writeCheckpoint(EcologyJournal target,String sourceHash)throws IOException {
+        healthy();requireSetup();if(!indexed||vitalityTicks!=0)throw new IllegalStateException("Checkpoint requires a completed, flushed source index");
+        List<EcologyJournal.Entry> original=journal.entries();int end=EcologyCheckpoint.prefixEnd(original);
+        for(int n=0;n<=end;n++){var entry=original.get(n);target.append(entry.type(),entry.payload());}
+        EcologyCheckpoint.write(target,this,List.copyOf(air),sourceHash,journal.revision());
+    }
+    boolean sameCheckpointState(EcologyEngine other){
+        if(!Objects.equals(setup,other.setup)||indexed!=other.indexed||enabled!=other.enabled||cleanup!=other.cleanup||speedPercent!=other.speedPercent
+                ||!cropRules.equals(other.cropRules)||!recoveryRules.equals(other.recoveryRules)||!Objects.equals(claim,other.claim)||!cursors.equals(other.cursors)
+                ||!cells().equals(other.cells())||!air.equals(other.air)||!vitality.checkpointHeader().equals(other.vitality.checkpointHeader()))return false;
+        for(Pos p:cells.keySet())if(!vitality.checkpointCell(p).equals(other.vitality.checkpointCell(p)))return false;
+        return true;
     }
     public Setup setup() { return setup; }
     public List<Cell> cells() { return List.copyOf(cells.values()); }
@@ -90,6 +133,15 @@ public final class EcologyEngine implements EcologyCrops.Network {
     public EcologyVitality.Summary vitalitySummary(){return vitalitySummary;}
     public boolean vitalityPending(){return vitalityPending;}
     public EcologyCrops.Rules cropRules(){return cropRules;}
+    public EcologyRecovery.Rules recoveryRules(){return recoveryRules;}
+    // Extent retains its last completed bounded assessment during harmless connected additions.
+    // Local power and certified topology are still checked; a cut/unload invalidates immediately.
+    @Override public boolean recoveryAvailable(){return cropsAvailable()&&!vitality.extent().equals("Rooted");}
+    public void tuneRecovery(EcologyRecovery.Rules rules)throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing local healing");
+        Objects.requireNonNull(rules);if(rules.equals(recoveryRules))return;
+        JsonObject p=new JsonObject();p.addProperty("enabled",rules.enabled());p.addProperty("seconds",rules.seconds());record("RECOVERY_RULES",p);
+    }
     @Override public List<Pos> cropSources(){return List.copyOf(cells.keySet());}
     @Override public boolean cropsAvailable(){return failure==null&&enabled&&indexed&&!unresolved
             &&(graph==null||extending)&&graphGeneration==generation;}
@@ -611,6 +663,7 @@ public final class EcologyEngine implements EcologyCrops.Network {
             case "SPEED" -> {requireSetup();keys(p,"percent");if(!indexed||!SPEEDS.contains(integer(p,"percent")))throw bad("Invalid spread speed");}
             case "VITALITY_RULES" -> {requireSetup();if(!indexed)throw bad("Vitality tuning before indexing");EcologyVitality.parseRules(p);}
             case "CROP_RULES" -> {requireSetup();if(!indexed)throw bad("Crop tuning before indexing");keys(p,"enabled","seconds");new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));}
+            case "RECOVERY_RULES" -> {requireSetup();if(!indexed)throw bad("Recovery tuning before indexing");keys(p,"enabled","seconds");new EcologyRecovery.Rules(bool(p,"enabled"),integer(p,"seconds"));}
             case "VITALITY" -> {requireSetup();if(!indexed||!enabled)throw bad("Vitality before enable");vitality.validate(p,cells::containsKey);}
             case "FRONTIER" -> {requireSetup();keys(p,"air");if(!indexed||!enabled)throw bad("Exposure discovery before enable");validateFronts(array(p,"air",64));}
             case "CLEANUP_MODE" -> {requireSetup();keys(p,"enabled");bool(p,"enabled");if(!indexed)throw bad("Cleanup before indexing");}
@@ -669,6 +722,7 @@ public final class EcologyEngine implements EcologyCrops.Network {
             case "SPEED" -> {speedPercent=integer(p,"percent");controlRevision++;}
             case "VITALITY_RULES" -> {vitality.applyRules(p);controlRevision++;}
             case "CROP_RULES" -> {cropRules=new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}
+            case "RECOVERY_RULES" -> {recoveryRules=new EcologyRecovery.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}
             case "VITALITY" -> {String prior=vitality.extent();vitality.apply(p);if(!prior.equals(vitality.extent()))controlRevision++;}
             case "FRONTIER" -> fronts(array(p,"air",64));
             case "PURGE" -> { }

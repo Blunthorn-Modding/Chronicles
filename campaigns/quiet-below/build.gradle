@@ -11,6 +11,19 @@ dependencies {
 
 tasks.named('test') { useJUnitPlatform() }
 
+// Pure Java maintenance entry point, launched outside the Minecraft process while its world is stopped.
+tasks.register('writeEcologyMaintenanceLaunch') {
+    dependsOn tasks.named('classes'), project(':core').tasks.named('classes')
+    doLast {
+        def target = layout.buildDirectory.file('maintenance/launch.json').get().asFile
+        target.parentFile.mkdirs()
+        target.text = groovy.json.JsonOutput.toJson([
+            classpath: sourceSets.main.runtimeClasspath.files.collect { it.absolutePath },
+            mainClass: 'io.github.chronicle.quietbelow.ecology.EcologyMaintenance'
+        ])
+    }
+}
+
 loom {
     runs {
         client {

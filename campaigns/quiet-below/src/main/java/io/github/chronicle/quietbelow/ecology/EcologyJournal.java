@@ -65,7 +65,8 @@ public final class EcologyJournal implements AutoCloseable {
     private static final String GENESIS_HASH = "0".repeat(HASH_TEXT_LENGTH);
     private static final Set<String> TYPES = Set.of(
             "CONFIGURE", "INDEX", "INDEX_COMPLETE", "MODE", "GROW", "REMOVE", "OBSERVE", "CONNECT",
-            "CLEANUP_MODE", "PURGE", "CLAIM_START", "CLAIM_SCAN", "CLAIM_DONE", "SPEED", "FRONTIER", "VITALITY", "VITALITY_RULES", "CROP_RULES");
+            "CLEANUP_MODE", "PURGE", "CLAIM_START", "CLAIM_SCAN", "CLAIM_DONE", "SPEED", "FRONTIER", "VITALITY", "VITALITY_RULES", "CROP_RULES",
+            "CHECKPOINT_BEGIN", "CHECKPOINT_CELLS", "CHECKPOINT_AIR", "CHECKPOINT_END", "RECOVERY_RULES");
     private static final Set<String> ENVELOPE_FIELDS = Set.of(
             "schema", "sequence", "type", "payload", "previousHash", "hash");
 
@@ -179,6 +180,29 @@ public final class EcologyJournal implements AutoCloseable {
     /** Returns the exact durable journal length observed by this instance. */
     public synchronized long bytes() {
         return byteCount;
+    }
+
+    /** Maintenance reads through the locked channel (Windows forbids a second file handle). */
+    synchronized String fingerprint() throws IOException {
+        ensureAppendable();verifyUnchanged();MessageDigest digest;
+        try { digest=MessageDigest.getInstance("SHA-256"); } catch(NoSuchAlgorithmException e){throw new IOException(e);}
+        ByteBuffer buffer=ByteBuffer.allocate(64*1024);long position=0;
+        while(position<byteCount){buffer.clear();buffer.limit((int)Math.min(buffer.capacity(),byteCount-position));
+            int read=channel.read(buffer,position);if(read<=0)throw new IOException("Journal changed during maintenance read");
+            position+=read;buffer.flip();digest.update(buffer);
+        }
+        verifyUnchanged();return java.util.HexFormat.of().formatHex(digest.digest());
+    }
+    synchronized void archiveTo(Path target) throws IOException {
+        ensureAppendable();verifyUnchanged();
+        try(FileChannel output=FileChannel.open(target,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE)){
+            ByteBuffer buffer=ByteBuffer.allocate(64*1024);long position=0;
+            while(position<byteCount){buffer.clear();buffer.limit((int)Math.min(buffer.capacity(),byteCount-position));
+                int read=channel.read(buffer,position);if(read<=0)throw new IOException("Journal changed during archive");
+                position+=read;buffer.flip();while(buffer.hasRemaining())output.write(buffer);
+            }
+            output.force(true);verifyUnchanged();
+        }
     }
 
     /**

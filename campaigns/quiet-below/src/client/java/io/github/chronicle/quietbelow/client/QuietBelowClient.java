@@ -11,6 +11,8 @@ public final class QuietBelowClient implements ClientModInitializer {
         QuietBelowCompatibilitySmoke.register();
         QuietBelowContentSmoke.registerIfRequested();
         QuietBelowEcologySmoke.register();
+        QuietBelowRecoverySmoke.register();
+        QuietBelowCitySmoke.register();
         QuietBelowWardenSmoke.register();
         QuietBelowStageSmoke.register();
         QuietBelow.LOGGER.info("The Quiet Below client initialized");

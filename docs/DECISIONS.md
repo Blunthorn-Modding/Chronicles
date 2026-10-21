@@ -1,5 +1,15 @@
 # Bootstrap decisions — 18 October 2026
 
+## Passive healing and stopped-world maintenance - 21 October 2026
+
+The operator accepts crop growth and explicitly chooses **passive healing near living sculk**. [M10b](M10_PASSIVE_RECOVERY.md) supplies half a heart per ten eligible seconds by default, within four blocks of owned/rooted/25%+ sculk in an Established or Extensive network. No Altar requirement, authored reveal or session boundary. Saved controls offer 2/5/10/20/40 seconds. Direct native healing preserves hunger, natural regeneration, maximum health and external effects. Cuts, pause, weaker sources and eligibility exits discard cooldown credit; no stacking or offline catch-up. Costs and station interactions remain later work.
+
+[M9 maintenance](M9_JOURNAL_MAINTENANCE.md) is explicit **offline** maintenance, default dry run, with the native world lock held, strict source/pin validation, state-equivalent bounded checkpoint pages, a durable exact archive and atomic promotion only. New records require the new reader; rollback restores a stopped backup and its jars together. No existing review or production world is compacted automatically.
+
+The complete native test city has **83,431** supported sculk blocks across 256 chunks, exceeding the current 32,768-cell bound. Do not truncate the region or merely raise one bound to claim readiness. Full-city capacity/memory/replay design and normal-TPS load-order/restart soak remain M9 requirements. A held engine now logs its first fault even when it marked itself held before throwing. Explicit non-active indexing no longer requires the Heart chunk to be loaded; live growth still requires resolved physical roots.
+
+Shared Core list navigation now exposes local overflow with visible up/down buttons, including pickers, and uses up to twelve rows where space permits. This keeps newly registered campaign tools reachable without changing Core protocol or campaign ownership.
+
 ## First autonomous crop benefit - 21 October 2026
 
 The operator accepts dev.21 and requests continued implementation. The next visible slice is [M10a](M10_CROP_GROWTH.md): wheat, carrots, potatoes and beetroot near owned/rooted sculk at 25%+ vitality receive extra ordinary age increments under native farmland/light conditions. Four-block Euclidean reach and a default ten-eligible-second minimum interval are review defaults; saved controls offer 2/5/10/20/40 seconds and enable/disable. More nearby sculk does not multiply the bonus. There is no farm binding, discovery flag, story/session gate, global tick-speed change or auto harvesting. Runtime discovery/cooldowns are bounded and derived; saved rules are campaign journal records requiring dev.22. No Core service/schema, registry or appearance-layout change; dev.21 clients remain compatible.

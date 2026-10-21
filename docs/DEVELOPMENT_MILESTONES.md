@@ -1,5 +1,9 @@
 # Implementation milestones after the prototype
 
+**Current delivery, 21 October: dev.24 on `feat/qb09-local-recovery`.** The operator accepts [crop growth](M10_CROP_GROWTH.md) and chooses [passive local healing](M10_PASSIVE_RECOVERY.md). M10b implements that benefit and saved rate controls; hands-on balance/control review is the next gate. Hunger/Darkness, stations and Heart eradication remain later slices. Shared Core only receives generic list navigation improvements; health/ecology/journal semantics stay in Quiet Below.
+
+[M9 offline journal maintenance](M9_JOURNAL_MAINTENANCE.md) is implemented and rehearsed on a disposable world. Full native-city certification remains blocked by the current bounded storage design: 83,431 source blocks versus the 32,768-cell cap. Next M9 work must measure and redesign combined cell/frontier/journal memory/replay bounds, then complete full indexing, restart/load order and a normal-TPS soak. Existing worlds are preserved. The historical checkpoints below do not supersede this status.
+
 19 October 2026. The operator authorizes milestone design followed by implementation until a concrete product decision or hands-on review is needed. M0–M5 remain historical prototype work; the production track starts at **M6**. These are engineering milestones, never story sessions. No narrative event sequence, session-based reveal or growth route is prescribed.
 
 ## Ownership

@@ -203,11 +203,15 @@ public final class CoreMenuScreen extends Screen {
                 }
             }
         }
-        drawListHeader("Select an item", x, y, w);
-        int rows = Math.max(1, Math.min(9, (h - (state.picker() == null ? 40 : 60)) / 20));
+        int rows = Math.max(1, Math.min(12, (h - (state.picker() == null ? 40 : 60)) / 20));
         List<Entry> entries = state.picker() == null ? state.entries() : state.picker().entries();
         int maxOffset = Math.max(0, entries.size() - rows);
-        listOffset = Math.min(listOffset, maxOffset);
+        listOffset = Math.clamp(listOffset, 0, maxOffset);
+        drawListHeader("Select an item", x, y, maxOffset > 0 ? w - 42 : w);
+        if(maxOffset>0){
+            button("↑",x+w-39,y,18,14,()->{listOffset--;clearAndInit();},"Earlier items in this page",listOffset>0);
+            button("↓",x+w-19,y,18,14,()->{listOffset++;clearAndInit();},"More items in this page",listOffset<maxOffset);
+        }
         for (int row = 0; row < rows && row + listOffset < entries.size(); row++) {
             Entry entry = entries.get(row + listOffset);
             String label = entry.label().isBlank() ? entry.id() : entry.label();
@@ -478,15 +482,15 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void select(String id) {
-        selected = id; detailOnCompact = true; listOffset = actionOffset = factOffset = detailScroll = 0;
+        selected = id; detailOnCompact = true; actionOffset = factOffset = detailScroll = 0;
         pageSelections.put(state.page(), id);
         if (state.page() == Page.LOCATIONS) locationSelections.put(state.filter(), id);
         request(Action.OPEN, state.page(), id, "", state.index(), state.filter(), "", false);
     }
     private void open(Page page) { if (page == Page.LOCATIONS) { locations(locationFilter.isBlank() ? "POINT" : locationFilter); return; } detailOnCompact = false; selected = pageSelections.getOrDefault(page, ""); listOffset = detailScroll = 0; request(Action.OPEN, page, selected, "", 0, "", "", false); }
     private void locations(String filter) { locationFilter = filter; selected = locationSelections.getOrDefault(filter, ""); detailOnCompact = false; listOffset = detailScroll = 0; request(Action.OPEN, Page.LOCATIONS, selected, "", 0, filter, "", false); }
-    private void page(int delta) { request(Action.OPEN, state.page(), selected, "", Math.max(0, Math.min(state.pages() - 1, state.index() + delta)), state.filter(), "", false); }
-    private void pickerPage(int delta) { if (state.picker() != null) request(Action.OPTIONS, state.page(), detailId(), state.picker().kind(), Math.max(0, Math.min(state.picker().pages() - 1, state.picker().page() + delta)), state.filter(), pickerSearch, false); }
+    private void page(int delta) { listOffset=0;request(Action.OPEN, state.page(), selected, "", Math.max(0, Math.min(state.pages() - 1, state.index() + delta)), state.filter(), "", false); }
+    private void pickerPage(int delta) { if (state.picker() != null) {listOffset=0;request(Action.OPTIONS, state.page(), detailId(), state.picker().kind(), Math.max(0, Math.min(state.picker().pages() - 1, state.picker().page() + delta)), state.filter(), pickerSearch, false);} }
     private void prompt(Action action, String id, String prefix) {
         pickerAction = new PendingPicker(action, id, prefix); clearAndInit();
     }
@@ -555,7 +559,7 @@ public final class CoreMenuScreen extends Screen {
             clearAndInit();
             return true;
         }
-        if (state.picker() == null && mouseY > 45 && mouseY < height - 60) { listOffset = Math.max(0, listOffset + (verticalAmount < 0 ? 1 : -1)); clearAndInit(); return true; }
+        if (mouseY > 45 && mouseY < height - 60) { listOffset = Math.max(0, listOffset + (verticalAmount < 0 ? 1 : -1)); clearAndInit(); return true; }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
     @Override public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
