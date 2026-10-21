@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "minecraft": "1.21.10",
+  "resolved": "2026-10-21",
+  "distribution": "official-download-references-only",
+  "mods": [
+    {
+      "slug": "spiffyhud",
+      "project_id": "wtOPHICQ",
+      "version_id": "oZJvidU2",
+      "version": "3.1.0-1.21.10-fabric",
+      "filename": "spiffyhud_fabric_3.1.0_MC_1.21.10.jar",
+      "url": "https://cdn.modrinth.com/data/wtOPHICQ/versions/oZJvidU2/spiffyhud_fabric_3.1.0_MC_1.21.10.jar",
+      "size": 837936,
+      "sha1": "6d42473e808bfea0989dacac7beb8934f7382c71",
+      "sha512": "bf8b1a84513ed3209904b7c3c1a619c47f5183acc50bc81ec4a32b36eaf046bd8f890cebbdcca26c85763b3aacee3f13a7ed92347a65e5228fe335fd41c7b822",
+      "license": "DSMSLv3",
+      "license_url": "https://github.com/Keksuccino/SpiffyHUD/blob/main/LICENSE.md",
+      "project_url": "https://modrinth.com/mod/spiffyhud",
+      "reviewed_license_sha256": "e1c0ba24ad4a5798ab2e170db12f83509551cf4de5cb94b0139627a7e6214104",
+      "reviewed_license_git_blob": "3ceda00c418620e7962badcc8cd93cea9f5b5389"
+    },
+    {
+      "slug": "fancymenu",
+      "project_id": "Wq5SjeWM",
+      "version_id": "wQfYaY3H",
+      "version": "3.8.2-1.21.10-fabric",
+      "filename": "fancymenu_fabric_3.8.2_MC_1.21.10.jar",
+      "url": "https://cdn.modrinth.com/data/Wq5SjeWM/versions/wQfYaY3H/fancymenu_fabric_3.8.2_MC_1.21.10.jar",
+      "size": 4476204,
+      "sha1": "cf2ffda9a5ac1bd0016b0d7790cba7ff269b718c",
+      "sha512": "c7e3d8287fbc80b52ee88b137b43bf3d602ddb79bf9437c9373e1f666ccecb7624fc0d8cb5a823036c475899a8898c91fc3f78145234a78b09d7faf592306b79",
+      "license": "DSMSLv3.1",
+      "license_url": "https://github.com/Keksuccino/FancyMenu/blob/master/LICENSE.md",
+      "project_url": "https://modrinth.com/mod/fancymenu",
+      "reviewed_license_sha256": "19e0880abd16bf2093df1e07eee34ed2aa32af15c1d8321181a554a64f9ff59a",
+      "reviewed_license_git_blob": "113dceaed68e2130559496f74049c446901e5a16",
+      "artifact_license": "DSMSLv3"
+    },
+    {
+      "slug": "konkrete",
+      "project_id": "J81TRJWm",
+      "version_id": "kLTIGlRD",
+      "version": "1.9.13-1.21.10-fabric",
+      "filename": "konkrete_fabric_1.9.13_MC_1.21.10.jar",
+      "url": "https://cdn.modrinth.com/data/J81TRJWm/versions/kLTIGlRD/konkrete_fabric_1.9.13_MC_1.21.10.jar",
+      "size": 669041,
+      "sha1": "b6d89fe7f542c7f05bb6a7a4c6573225f255a284",
+      "sha512": "1f7a92030d323de78214347973a966bce6fcef0e043b7eff58539772bf27935a66f19f3ae513f66070b3296b5028c626a7495ce7f7efde70edf19e6923ee3536",
+      "license": "Apache-2.0",
+      "license_url": "https://github.com/Keksuccino/Konkrete/blob/main/LICENSE",
+      "project_url": "https://modrinth.com/mod/konkrete",
+      "reviewed_license_sha256": "c531b1da416c9efc58c54b781985ae313f152227448b9a643ee82d4c31e4c452",
+      "reviewed_license_git_blob": "d763780316dc78087a628b862803d270c52cf4e0"
+    },
+    {
+      "slug": "melody",
+      "project_id": "CVT4pFB2",
+      "version_id": "4nd52KsY",
+      "version": "1.0.14-1.21.10-fabric",
+      "filename": "melody_fabric_1.0.14_MC_1.21.10.jar",
+      "url": "https://cdn.modrinth.com/data/CVT4pFB2/versions/4nd52KsY/melody_fabric_1.0.14_MC_1.21.10.jar",
+      "size": 198661,
+      "sha1": "46e439abfe66794c18bb9d4a9c857d0b00da29df",
+      "sha512": "b252080c840b6e4dfa8335fa2d73fca09701f2e6ea73bf1dc696027d5434887e82999786a32305d7d4a30cf18e58f538db4842be3370fd8ecaa851de73227095",
+      "license": "MIT",
+      "license_url": "https://github.com/Keksuccino/Melody/blob/main/LICENSE",
+      "project_url": "https://modrinth.com/mod/melody",
+      "reviewed_license_sha256": "e28c703bd9d2c033e68748fd5fbd7d77bf83fed4ef32403609425f182d974e63",
+      "reviewed_license_git_blob": "46ba47ccbe960aa70a7603a1f59460550e9257b0"
+    }
+  ]
+}
