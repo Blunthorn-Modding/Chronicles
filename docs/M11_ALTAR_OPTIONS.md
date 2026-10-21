@@ -1,6 +1,6 @@
-# Altar offerings: options for review
+# Altar offerings: accepted direction
 
-21 October2026. The operator wants a place of voluntary sacrifice for a concrete bonus, including the example of an extra maximum heart with a larger hunger bar and more food required before natural regeneration. This is a candidate list for review, not installed gameplay or a selection of all options. Numbers are illustrative balance defaults.
+21 October2026. The operator wants a place of voluntary sacrifice for a concrete bonus, including the example of an extra maximum heart with a larger hunger bar and more food required before natural regeneration. The operator accepts the following options as the design direction. They are not installed gameplay; numbers remain illustrative balance defaults, and acceptance of the options does not settle every stacking, reversal or ending rule.
 
 | Option | Sacrifice / ongoing cost | Bonus | Why choose it |
 | --- | --- | --- | --- |
@@ -11,7 +11,7 @@
 | Cave sight | Pay XP and accept greater food consumption for the buff's duration | A few minutes of Night Vision | Useful underground without changing species, identity or Warden warnings |
 | Settlement harvest | Consume a meaningful communal food/material offering and accept faster local ecological expansion | A temporary stronger nearby crop bonus | Helps the group while strengthening the sculk it may later wish to contain |
 
-Recommended first review candidates: Extra heart, Emergency healing and Repair gear. They have distinct understandable costs, clear interfaces and no invented prophecy, personality change or compulsory faction. Settlement harvest is a later option because tuning additional growth must preserve the existing physical frontier and barriers; it must not seed remote sculk or require authored routes.
+Recommended first implementation slice: Extra heart, Emergency healing and Repair gear. They have distinct understandable costs, clear interfaces and no invented prophecy, personality change or compulsory faction. Settlement harvest is a later option because tuning additional growth must preserve the existing physical frontier and barriers; it must not seed remote sculk or require authored routes.
 
 ## The hunger example
 
@@ -19,7 +19,7 @@ Translate one full heart/icon explicitly: health20->22 points (10->11 hearts), f
 
 ## Consent, stacking and ownership
 
-Proposed guardrails: show the complete trade before acceptance; preview actual resulting stats; cap repeated purchases; support deliberate reversal and operator repair; never kill a donor, erase unrelated modifiers or silently apply bargains to nonparticipants. Personal changes should have readable icons/status and clear death/reconnect/pause/eradication rules before implementation. These are design candidates awaiting review, not approved permanent-stat or ending policy.
+Proposed guardrails: show the complete trade before acceptance; preview actual resulting stats; cap repeated purchases; support deliberate reversal and operator repair; never kill a donor, erase unrelated modifiers or silently apply bargains to nonparticipants. Personal changes should have readable icons/status and clear death/reconnect/pause/eradication rules before implementation. These detailed policies still need an implementation contract; the accepted options alone do not establish irreversible permanent-stat or ending policy.
 
 Core owns reusable player modifiers, persistence/synchronization, configurable stat bounds and offering/transaction primitives. Quiet Below owns the Altar's recipes, living-network power and costs. HUD dependencies are for rendering/layout/editing only. Hunger, regeneration, sacrifice and health calculations remain ours, per the operator's explicit clarification.
 
@@ -27,9 +27,13 @@ Core owns reusable player modifiers, persistence/synchronization, configurable s
 
 Checked21 October2026 against official Modrinth release metadata and upstream documentation. No candidate is installed or executed by this research. Exact metadata is retained at `../reports/m11-hud-frameworks.json`.
 
-- [OneConfig](https://modrinth.com/mod/oneconfig): developer HUD editor for movement/scaling/styling. Official exact1.21.10 Fabric artifact `OneConfig-1.21.10-fabric-1.4.4.jar`, released19 October2026. Dependencies include Fabric API, Fabric Language Kotlin and Compose Multiplatform. [Upstream](https://github.com/Polyfrost/OneConfig) confirms editor/API scope. Candidate for the mod the operator remembers; runtime compatibility with Chronicle has not been tested.
-- [kUI](https://modrinth.com/mod/kui): shared custom-HUD registry plus editor for vanilla elements, including hunger/health. Filtered1.21.10 release is `1.1.0+mc1.21.8` (26 July2026); checksum-verified archive declares Minecraft `>=1.21.8 <1.21.11`, Java21+, client-only, Fabric API, and exports `dev.kui.api.KuiMod`. About80KiB. [Upstream guide](https://github.com/KalpeGames/kUI) supplies element/layout registration; custom licence permits unmodified redistribution but not distributed modified copies. A small candidate to prototype, not an assertion of runtime success.
+- [OneConfig](https://modrinth.com/mod/oneconfig): rejected by the operator because of its appearance. Exact1.21.10 Fabric release exists, but do not select or install it for this work.
+- [kUI](https://modrinth.com/mod/kui): deprioritized because the operator is concerned about maturity and maintenance. Previous archive inspection is retained as evidence, not a dependency decision. A recent release alone cannot establish long-term maintenance quality.
 - [DynamicHUD](https://modrinth.com/mod/dynamichud): a direct developer HUD/widget/editor library, MIT. Official exactFabric1.21.10 version query returned no releases, so do not install an adjacent-version jar as compatible.
-- [owo-lib](https://modrinth.com/mod/owo-lib): MIT UI/layout library with exact1.21.10-tagged release `0.12.24+1.21.9`; a general component framework rather than the same turnkey player HUD editor. Fallback if the dedicated editor options fail the prototype.
+- [SpiffyHUD](https://modrinth.com/mod/spiffyhud) with [FancyMenu](https://modrinth.com/mod/fancymenu): strongest visual-editor candidate from the new search. Official Fabric1.21.10 releases `3.1.0-1.21.10-fabric` (22 November2025) and `3.8.2-1.21.10-fabric` (8 December2025); project metadata records updates in September2026. The [element documentation](https://github.com/Keksuccino/SpiffyHUD/wiki/Elements) includes configurable heart and food-icon bars. The [mod-HUD integration page](https://github.com/Keksuccino/SpiffyHUD/wiki/Customize-Mod-HUD-Elements) warns that arbitrary mod overlays generally cannot be moved/deleted directly. Extra maximum food capacity must therefore be proven against the pinned implementation; changing icons-per-row is not proof of a dynamic maximum. Inspect its dependency graph and DSMSL redistribution terms before a pack change. No Chronicle runtime compatibility claim.
+- [owo-lib](https://modrinth.com/mod/owo-lib): MIT UI/layout library with exact1.21.10-tagged release `0.12.24+1.21.9`; the [component framework](https://docs.wispforest.io/owo/ui/) gives us control over native-looking presentation. Its [draggable containers](https://docs.wispforest.io/owo/ui/utility-components) are useful building blocks, not a complete persistent player HUD editor. A developer-framework alternative with more integration work.
+- [CustomHud](https://modrinth.com/mod/customhud): MIT, established variable/profile-based text HUD; Fabric1.21.10 release `4.1.3+1.21.9` (14 October2025). Configurable placement, variables and conditionals are useful, but a weaker fit for a visual editor and vanilla-style extra food icons. This is a different workflow, not a like-for-like editor substitute.
+
+New exact-version/project metadata is retained at `../reports/m11-hud-alternatives.json`. Recommendation is a bounded SpiffyHUD/FancyMenu visual prototype, with owo-lib as the developer-framework alternative. No framework is chosen or installed yet. Neither option changes the Forge requirement: Core-owned item/enchantment mappings and universal caps can proceed independently of HUD selection.
 
 Next integration check: isolated client-only prototype registering a Chronicle element with11+ food icons and extra hearts, dragging/scaling/window resize/GUIscale2, alongside existing status/actionbar and AppleSkin if present. Inspect the pinned source/dependency loading before executing; pin all jars/hashes and test on a disposable matching client. No gameplay-overhaul dependency is needed for this request. Server food mechanics stay separate from the HUD dependency and remain authoritative.

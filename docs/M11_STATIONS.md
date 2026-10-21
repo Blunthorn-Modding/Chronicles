@@ -1,6 +1,6 @@
 # M11 station implementation preparation
 
-21 October 2026. M10 healing and approved brief Hunger/Darkness costs precede this slice. The operator specifies item-to-enchantment mappings (e.g.echo shard -> Sharpness), with level I defaults and configurable maxima owned by Core. They explicitly require caps everywhere, including vanilla enchanting/anvils/loot. The Altar should offer voluntary sacrifices for bonuses; [candidate trades and HUD research](M11_ALTAR_OPTIONS.md) await review. No Altar trade is selected or implemented yet.
+21 October 2026. M10 healing and approved brief Hunger/Darkness costs precede this slice. The operator specifies item-to-enchantment mappings (e.g.echo shard -> Sharpness), with level I defaults and configurable maxima owned by Core. They explicitly require caps everywhere, including vanilla enchanting/anvils/loot. The Altar should offer voluntary sacrifices for bonuses; the [offering options](M11_ALTAR_OPTIONS.md) are accepted as the direction, with numerical balance and detailed lifecycle policies still to specify. Forge/caps and Altar gameplay are not implemented yet. HUD dependency selection does not block independent Core enchanting work.
 
 ## Asset readiness
 
@@ -24,7 +24,7 @@ Forge power derives from actual adjacent connected living ecology and its config
 
 The old illustrative Efficiency III recipe is superseded. Forge ingredients now map to specific enchantments, default level I, respecting compatible targets and existing enchantments. Core owns reusable mapping/configuration and server-wide maximum-level enforcement, including generated loot; Quiet Below owns physical Forge power and campaign default mappings. Before code, define accepted tool components and preservation, exact inventory/XP mutation, rejection of existing enchantments, output delivery, Creative semantics, pause/power-loss interruption and duplicate/concurrent clicks. Prefer one server-confirmed transaction over an asynchronous process needing distributed crash recovery. Tests must include full inventory, components/durability/custom names, insufficient inputs/XP, stale state, double click, simultaneous users, interruption and restart; never silently consume without output.
 
-The Altar is now a sacrifice-for-bonus station; its specific trades await review in M11_ALTAR_OPTIONS.md. It should remain distinct from passive healing. Ancient Focus remains removed, and RelicShard remains optional with no mandatory Heart-destruction key.
+The Altar is now a sacrifice-for-bonus station; its accepted options and proposed implementation order are in M11_ALTAR_OPTIONS.md. It should remain distinct from passive healing. Ancient Focus remains removed, and RelicShard remains optional with no mandatory Heart-destruction key.
 
 ## Heart and review boundaries
 

@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## M11 design clarification and HUD alternatives - 21 October 2026
+
+Design-only update on `design/qb12-enchanting-and-offerings`: records accepted Altar option direction, rejected OneConfig appearance, kUI maturity concern and alternative HUD research. Adds explicit CF-11 Core enchanting/mappings/universal caps and CF-12 reusable offering/stat ownership; Forge remains QB-12 physical campaign behavior. Official Modrinth exact-Fabric1.21.10 metadata is retained in `../reports/m11-hud-alternatives.json`; upstream SpiffyHUD element/mod-overlay docs, owo-ui docs and CustomHud description were read. Extra-food-maximum integration is unproven. No dependency installed, runtime code changed, server restarted or world modified. Verification: inspect full scoped diff and `git diff --check`; runtime/build tests are not applicable to this documentation-only change.
+
 ## QB-09 brief local costs - 21 October 2026
 
 Dev.26 on `feat/qb09-local-costs`, following city commit7a34993. The operator explicitly approves brief local Hunger and Darkness. [Contract](M10_LOCAL_COSTS.md); [combined review](M10_REVIEW.md). Core remains unchanged; campaign rules, scheduler, effects and persistence belong to Quiet Below.
