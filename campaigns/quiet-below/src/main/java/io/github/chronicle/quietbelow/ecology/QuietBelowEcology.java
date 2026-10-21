@@ -202,6 +202,24 @@ public final class QuietBelowEcology {
                     && !PlayRuntime.eligiblePlayers(server).isEmpty();
         } catch(IllegalStateException e) {return false;}
     }
+    /** Loaded-only, six-neighbor physical station power, independent of authored station bindings. */
+    public static String stationPower(ServerWorld world,BlockPos station) {
+        try {
+            var server=world.getServer();var r=runtime(server);var e=r.engine;
+            if(!playing(server))return "The network rests while play is paused, empty or held.";
+            if(e.setup()==null||!e.setup().dimension().equals(world.getRegistryKey().getValue().toString()))return "No campaign network is configured in this dimension.";
+            Pins root=pins(server);
+            if(!root.setup.equals(e.setup()))return "Source or Heart bindings changed; resolve ecology setup first.";
+            var rootChunk=EcologyLoadedBlocks.chunk(world,blockPos(root.heart));
+            if(rootChunk==null||!Registries.BLOCK.getId(rootChunk.getBlockState(blockPos(root.heart)).getBlock()).toString().equals(root.heartBlock))return "The living Relic Heart is missing or unloaded.";
+            if(r.rootProblem!=null||!e.recoveryAvailable())return "The network needs connected Established or Extensive living sculk.";
+            for(Direction direction:Direction.values()){
+                BlockPos at=station.offset(direction);var chunk=EcologyLoadedBlocks.chunk(world,at);
+                if(chunk!=null&&e.living(pos(at),encode(chunk.getBlockState(at))))return null;
+            }
+            return "Place the Forge directly beside connected living sculk (at least25% vitality).";
+        }catch(IllegalStateException error){return "The network is unavailable: "+error.getMessage();}
+    }
     private static GameSetupTools.Status status(ServerCommandSource source) {
         Runtime r=runtime(source.getServer());EcologyEngine.View v=r.engine.view();
         Pins root=null;String rootIssue=null;

@@ -7,10 +7,13 @@ import net.fabricmc.api.ClientModInitializer;
 public final class QuietBelowClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
+        net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(QuietBelow.ANCIENT_FORGE_BLOCK,
+                net.minecraft.client.render.BlockRenderLayer.CUTOUT);
         SculkAppearanceHandshakeClient.register();
         QuietBelowCompatibilitySmoke.register();
         QuietBelowContentSmoke.registerIfRequested();
         QuietBelowEcologySmoke.register();
+        AncientForgeSmoke.register();
         QuietBelowRecoverySmoke.register();
         QuietBelowCostsSmoke.register();
         QuietBelowCitySmoke.register();

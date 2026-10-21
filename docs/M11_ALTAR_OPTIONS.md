@@ -21,6 +21,8 @@ Translate one full heart/icon explicitly: health20->22 points (10->11 hearts), f
 
 Guardrails: show the complete trade before acceptance; preview actual resulting stats; cap repeated purchases; never kill a donor, erase unrelated modifiers or silently apply bargains to nonparticipants. Personal changes need readable icons/status and clear pause/eradication rules. **Confirmed lifecycle,21 October:** lasting bargains survive death and reconnecting, with no player reversal. Completing Relic Heart eradication removes both their bonuses and sacrifices. An operator repair route may correct bugs, not offer a normal refund. Duration-limited offerings retain their own expiry. Stacking, exact balance and transaction details still need the implementation contract.
 
+**Confirmed stacking,21 October:** each character may repeat each lasting bargain up to three times. Extra-heart and movement purchases have independent counts. Every purchase applies the same advertised bonus and sacrifice; the UI must show the current count and resulting totals before confirmation. This supersedes the proposed one-purchase default. Exact temporary-offering balance remains implementation work.
+
 Core owns reusable player modifiers, persistence/synchronization, configurable stat bounds and offering/transaction primitives. Quiet Below owns the Altar's recipes, living-network power and costs. HUD dependencies are for rendering/layout/editing only. Hunger, regeneration, sacrifice and health calculations remain ours, per the operator's explicit clarification.
 
 ## HUD dependency research

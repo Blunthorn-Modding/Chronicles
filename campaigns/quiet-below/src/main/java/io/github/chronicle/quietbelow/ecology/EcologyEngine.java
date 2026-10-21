@@ -142,6 +142,8 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public boolean rooted(Pos p) { return connected.contains(p) && !unresolved && (graph==null||extending) && graphGeneration==generation; }
     public boolean enabled() { return enabled && failure==null; }
     public boolean living(Pos p) { return rooted(p)&&vitality.ready(p); }
+    /** Constant-time local proof for station power; metadata alone cannot bless a replaced block. */
+    public boolean living(Pos p,State actual) { Cell cell=cells.get(p);return cell!=null&&living(p)&&cell.after.sameOwnedShape(actual); }
     public EcologyVitality vitality(){return vitality;}
     public EcologyVitality.Summary vitalitySummary(){return vitalitySummary;}
     public boolean vitalityPending(){return vitalityPending;}

@@ -49,6 +49,16 @@ public final class QuietBelow implements ModInitializer {
             new BlockItem(BLOCK, new Item.Settings().registryKey(RESONANCE_MARKER_ITEM_KEY)
                     .useBlockPrefixedTranslationKey()));
 
+    public static final RegistryKey<Block> ANCIENT_FORGE_KEY=blockKey("ancient_forge");
+    public static final RegistryKey<Item> ANCIENT_FORGE_ITEM_KEY=itemKey("ancient_forge");
+    public static final Block ANCIENT_FORGE_BLOCK=Registry.register(Registries.BLOCK,ANCIENT_FORGE_KEY,
+            new io.github.chronicle.quietbelow.content.AncientForgeBlock(AbstractBlock.Settings.create().registryKey(ANCIENT_FORGE_KEY).strength(3.5f,8).requiresTool().nonOpaque()));
+    public static final Item ANCIENT_FORGE=Registry.register(Registries.ITEM,ANCIENT_FORGE_ITEM_KEY,
+            new BlockItem(ANCIENT_FORGE_BLOCK,new Item.Settings().registryKey(ANCIENT_FORGE_ITEM_KEY).useBlockPrefixedTranslationKey()));
+    public static final net.minecraft.block.entity.BlockEntityType<io.github.chronicle.quietbelow.content.AncientForgeBlockEntity> FORGE_BLOCK_ENTITY=
+            Registry.register(Registries.BLOCK_ENTITY_TYPE,id("ancient_forge"),net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
+                    .create(io.github.chronicle.quietbelow.content.AncientForgeBlockEntity::new,ANCIENT_FORGE_BLOCK).build());
+
     private static RegistryKey<Item> itemKey(String path) {
         return RegistryKey.of(RegistryKeys.ITEM, id(path));
     }
@@ -80,7 +90,7 @@ public final class QuietBelow implements ModInitializer {
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_altar", "Ancient Altar",
                 "An ancient altar site; station mechanics follow in later milestones.", AuthoringCatalog.Kind.BLOCK));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",
-                "An ancient forge site; station mechanics follow in later milestones.", AuthoringCatalog.Kind.BLOCK));
+                "Optional contextual Forge site. Placed Ancient Forge blocks work without this registration.", AuthoringCatalog.Kind.BLOCK));
         // Map-authoring defaults, adjustable in the server's Core loot configuration.
         ChronicleCore.chestTypes().register(new LootType("quiet_below:settlement_supplies", "Settlement supplies",
                 "Everyday supplies; a suggested starting distribution, editable by the organizer.", 4, 0, List.of(
@@ -99,8 +109,11 @@ public final class QuietBelow implements ModInitializer {
                 new LootEntry("minecraft:echo_shard", 10, 1, 1, "{}"))));
         QuietBelowStages.register();
         io.github.chronicle.quietbelow.ecology.QuietBelowEcology.register();
+        io.github.chronicle.quietbelow.content.AncientForges.register();
+        io.github.chronicle.quietbelow.ecology.AncientForgeTrial.register();
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ECHO_LENS));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RESONANCE_MARKER));
+        ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_FORGE));
         ChronicleCore.events().register(new CampaignEvent("quiet_below:readiness_check",
                 "Records a framework readiness check without changing the world.", true, Map.of(),
                 state -> new EventOutcome(Map.of("quiet_below:readiness_checked", true), "The Quiet Below readiness check was recorded.")));

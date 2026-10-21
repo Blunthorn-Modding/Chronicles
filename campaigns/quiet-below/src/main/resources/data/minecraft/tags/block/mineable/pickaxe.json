@@ -1,4 +1,7 @@
 {
   "replace": false,
-  "values": ["quiet_below:resonance_marker"]
+  "values": [
+    "quiet_below:resonance_marker",
+    "quiet_below:ancient_forge"
+  ]
 }
