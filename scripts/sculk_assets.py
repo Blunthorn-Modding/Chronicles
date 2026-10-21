@@ -86,6 +86,21 @@ def generate():
         for name in zip.namelist():
             if name.startswith('assets/minecraft/textures/block/sculk') and name.endswith('.png'):
                 source_hashes[name] = hashlib.sha256(zip.read(name)).hexdigest()
+        # An inventory stack has no world/network connection. Keep ordinary vanilla
+        # items/components/loot, including old stacks, and select static dormant art.
+        for block in BLOCKS:
+            native = read('assets/minecraft/items/' + block + '.json')
+            if native['model']['type'] != 'minecraft:model':
+                raise RuntimeError('Unexpected native sculk item model: ' + block)
+            if block == 'sculk_vein':
+                vein = read('assets/minecraft/models/item/sculk_vein.json')
+                vein['textures']['layer0'] = 'quiet_below:block/vitality/stage_3/sculk_vein'
+                write(ASSETS/'quiet_below/models/item/dormant_sculk_vein.json', vein)
+                model = 'quiet_below:item/dormant_sculk_vein'
+            else:
+                model = 'quiet_below:block/vitality/stage_3/' + native['model']['model'].rsplit('/', 1)[1]
+            native['model']['model'] = model
+            write(ASSETS/'minecraft/items'/(block+'.json'), native)
     write(w.REPO / 'testing/assets/sculk-source-hashes.json',
           {'minecraft': w.LOCK['minecraft'], 'source': 'installed pinned minecraft-client.jar', 'sha256': source_hashes})
     print('Generated stage selectors for five native blocks and', len(models) * 3, 'derived models')

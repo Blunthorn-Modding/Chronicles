@@ -17,3 +17,7 @@ The generator runs `SculkPalette.java` with portable Java 21. It preserves pixel
 Both peers must use the matching appearance layout; the configuration handshake rejects incompatible peers before PLAY. Back up and restore world and mod jars together when rolling back.
 
 Dev.20 strengthens the fading palette: native blue-fleck positions remain visibly cool on a brown body; exhausted textures have no cool pixels. The contrast regression checks that opaque sculk/veins retain a minimum readable blue-fleck area, alongside native rendering and known positive/zero vitality checks.
+
+## Dormant inventory models (dev.21)
+
+`scripts/sculk_assets.py` also derives the five native item definitions from the pinned client. All inventory stacks show static exhausted-palette art because they have no network connection. Full blocks reuse the stage-3 native geometry; veins retain the native generated-item shape/alpha with the brown texture. This changes no loot, item IDs or components and applies to existing stacks. Placement in the configured campaign dimension begins brown and the bounded ecology projection reconciles connected blocks. Source hashes include the item definitions and native vein item model.

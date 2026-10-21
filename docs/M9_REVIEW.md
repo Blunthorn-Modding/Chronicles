@@ -1,6 +1,6 @@
 # Surface ecology review
 
-Use **dev.20** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in a matching Fabric profile. This update fixes inactive sensor/shrieker behavior and makes positive low vitality visibly different from zero. New profiles retain GUI scale 2, narrator off, no accessibility onboarding and the multiplayer warning acknowledgement. The block-state layout remains version 1: dev.19 clients can connect safely but still show the old textures, so update the client for this visual review. Clients older than dev.19 are refused before joining. Keep your earlier profile for the unchanged dev.14 server on port25565; the new client refuses that older server.
+Use **dev.21** with Minecraft Java **1.21.10**. Import `../client/Chronicle-M9-1.21.10.mrpack`, or replace both Chronicle jars in a matching Fabric profile. This update makes sculk inventory and newly placed disconnected blocks visibly dormant. It retains the dev.20 inactive-feature gates and readable fading/zero palettes. New profiles retain GUI scale 2, narrator off, no accessibility onboarding and multiplayer acknowledgement. Layout version remains 1: dev.19/20 clients connect but require refreshed assets. Older clients are refused. Keep the earlier profile for unchanged dev.14 production.
 
 Join **`localhost:25585`** for the disposable ecology map. `localhost:25565` remains your usual map, with ecology unconfigured/disabled. Both servers keep authentication and the whitelist; SchinderRenge remains an operator.
 
@@ -43,6 +43,12 @@ The same colors apply to full sculk, veins, catalysts, sensors and shriekers. Na
 For a specific block, look at it within six blocks before opening **Game setup > Sculk vitality**. **Looked sculk** shows its position, vitality percentage, explicit positive/zero status, connection, displayed color and expected color. **Refresh status** rereads it using your current facing; it does not change health or load chunks. Very small positive values read `<0.01% (positive)` rather than rounding to zero. Unowned sculk is identified separately, without an invented health value.
 
 In the configured Heart dimension, ordinary sensors and shriekers remain inert until campaign-owned, rooted and at least 25% vital during eligible play. Unowned/pending-adoption features cannot use vanilla behavior to bypass this. Inactive vibration queues are discarded before new particles/delivery; direct activation and warnings are blocked. Sensor output is zero immediately. Lingering native active phases and their old activation timers settle in bounded batches on native loaded feature ticks; fully paused simulation stays frozen until ticking resumes. Already-emitted particles can finish their existing flight. Active campaign warnings, Warden summoning and natural despawn still use vanilla mechanics. No new entities or block entities are added.
+
+## Harvesting and replacing sculk
+
+All five native sculk items show static brown inventory art, including existing stacks and creative stock. Items have no network connection; brown inventory art is not stored health. Survival loot/Silk Touch requirements, item IDs, components and stacking remain vanilla. A harvested shrieker does not retain summon capability.
+
+In the campaign dimension, place a block away from living sculk: it should be brown immediately and sensors/shriekers should remain silent. Place it against the Heart or living network, then resume occupied active play: bounded adoption and color reconciliation select the appropriate appearance and native response. Paused play keeps new placements dormant. Extending an owned vein preserves its current band; unowned vein extensions become dormant, preserving face geometry and waterlogging. Existing vitality/adoption rates are unchanged; this does not transfer the old block's health through inventory. Outside the campaign, world placement remains vanilla.
 
 ## Ownership tools
 

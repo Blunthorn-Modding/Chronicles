@@ -27,7 +27,7 @@ def _reserve_ports():
 def run(phases=None):
     import workspace as w
     import fabric_smoke as f
-    allowed = ('initial', 'restart', 'surface', 'organic', 'vitality')
+    allowed = ('initial', 'restart', 'surface', 'organic', 'vitality', 'items')
     phases = allowed if phases is None else tuple(phases)
     if not phases or any(p not in allowed for p in phases) or len(set(phases)) != len(phases):
         raise ValueError('Select distinct known ecology phases')
@@ -48,8 +48,8 @@ def run(phases=None):
     clients = []
     try:
         for phase in phases:
-            phase_root = f._stage(w) if phase in ('surface', 'organic', 'vitality') else root
-            if phase in ('surface', 'organic', 'vitality'):
+            phase_root = f._stage(w) if phase in ('surface', 'organic', 'vitality', 'items') else root
+            if phase in ('surface', 'organic', 'vitality', 'items'):
                 report[phase + '_world'] = str(phase_root)
             _reserve_ports()
             logfile = reports / ('server-' + phase + '.log')

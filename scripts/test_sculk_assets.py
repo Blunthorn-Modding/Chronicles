@@ -54,6 +54,20 @@ def pixels(path):
 
 
 class SculkAssetTests(unittest.TestCase):
+    def test_inventory_models_are_dormant_for_existing_and_new_stacks(self):
+        for block in assets.BLOCKS:
+            definition=json.loads((assets.ASSETS/'minecraft/items'/(block+'.json')).read_text())
+            model=definition['model']
+            self.assertEqual(model['type'],'minecraft:model')
+            if block=='sculk_vein':
+                data=json.loads((assets.ASSETS/'quiet_below/models/item/dormant_sculk_vein.json').read_text())
+                self.assertEqual(data['parent'],'minecraft:item/generated')
+                self.assertEqual(data['textures']['layer0'],'quiet_below:block/vitality/stage_3/sculk_vein')
+                self.assertEqual(model['model'],'quiet_below:item/dormant_sculk_vein')
+            else:
+                native={'sculk_sensor':'sculk_sensor_inactive'}.get(block,block)
+                self.assertEqual(model['model'],'quiet_below:block/vitality/stage_3/'+native)
+
     def test_fading_retains_visible_blue_flecks_that_zero_does_not(self):
         root = assets.ASSETS / 'quiet_below/textures/block/vitality'
         for name in ('sculk.png', 'sculk_vein.png'):

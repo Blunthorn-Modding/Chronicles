@@ -1,5 +1,9 @@
 # Bootstrap decisions — 18 October 2026
 
+## Dormant harvested sculk - 21 October 2026
+
+The operator accepts dev.20 and reports that harvested items and disconnected replacements look healthy. [Dev.21](M9_DORMANT_ITEMS.md) uses dormant inventory models for all five supported native items, retaining ordinary loot, Silk Touch, identity, components and stacking. Inventory has no network state. Campaign-dimension item placements start brown; existing bounded physical adoption/vitality projection restores their appropriate appearance. A placed block does not carry ownership, vitality or summon capability from its previous location. Owned vein extensions keep their current band; unowned veins become dormant. Native waterlogging/shape remain intact. No change to recovery rates, journal schema, layout version or active-network vanilla Warden rules; outside-campaign world placement stays vanilla. Clients need refreshed assets.
+
 ## Inactive features and readable low vitality - 21 October 2026
 
 The operator authorizes implementation of yesterday's review notes. [Dev.20 repair](M9_INACTIVE_FEATURES.md) applies campaign-dimension management to ordinary sensors/shriekers, including unowned/pending-adoption receivers and delayed callbacks after removal. Only owned, rooted, ready features during eligible play respond; active vanilla Warden mechanics remain intact. Queue clearing precedes native vibration particle emission. Native phase settling is capped at 16 direct writes per server tick, preserving current properties and native objects; sensor power/comparator queries are suppressed immediately. No new ticking entities/block entities or full-world scan. Calibrated sensors remain outside the five campaign-supported block types.

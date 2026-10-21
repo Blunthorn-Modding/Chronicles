@@ -1,8 +1,10 @@
 # Chronicle work tracking
 
-Updated 20 October 2026. Stable QB IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
+Updated 21 October 2026. Stable QB IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
 
 ## Current checkpoint
+
+Dev.21 on `fix/qb08-dormant-items` implements the operator's post-dev.20 feedback: inactive inventory art for existing/new vanilla sculk stacks, dormant campaign placement and network-derived recoloring. [Contract](M9_DORMANT_ITEMS.md). Keep vanilla loot/stacking and existing adoption/vitality rules; no new entities/block entities. This is a scoped M9 review correction, not completion of M9 or later mechanics.
 
 **Dev.20 follow-up, 21 October:** the operator authorizes yesterday's notes. [Inactive features/readability](M9_INACTIVE_FEATURES.md), on `fix/qb08-inactive-features`, closes unowned/pending/stale sensor/shrieker callbacks, settles native phases with bounded writes and retains vanilla active Warden mechanics. Fading and zero have distinct palettes, and the vitality menu reports the looked-at block's actual positive/zero state and displayed/expected color. Native verification passes; the preserved review receives dev.20 paused with its settings intact. Next is hands-on review of these corrections; M9 remains in progress.
 

@@ -40,7 +40,7 @@ final class QuietBelowEcologySmoke {
 
     static void register() {
         if (OUTPUT == null) return;
-        if (!List.of("initial","restart","surface","organic","vitality","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
+        if (!List.of("initial","restart","surface","organic","vitality","items","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();
         ClientReceiveMessageEvents.GAME.register((text, overlay) -> smoke.messages.add(text.getString()));
         ClientTickEvents.END_CLIENT_TICK.register(smoke::tick);
@@ -73,7 +73,36 @@ final class QuietBelowEcologySmoke {
     }
 
     private void build(MinecraftClient client) {
-        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else if("appearance".equals(PHASE)) appearance(client); else if("appearance_legacy".equals(PHASE)) appearanceLegacy(client); else restart(client);
+        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else if("items".equals(PHASE)) items(client); else if("appearance".equals(PHASE)) appearance(client); else if("appearance_legacy".equals(PHASE)) appearanceLegacy(client); else restart(client);
+    }
+    private void items(MinecraftClient client){
+        command(client,"vanilla item placement outside campaign","quiet_below_item_trial vanilla","PASS sculk items vanilla:.*");
+        command(client,"place item fixture Heart","setblock 0 64 0 reinforced_deepslate",".*Changed.*");
+        command(client,"place item fixture source","fill 1 64 0 5 64 0 sculk",".*filled.*");
+        command(client,"enable item authoring","chronicle author mode on","Author mode enabled.*");
+        command(client,"create item source","chronicle author region create items_source","Region draft items_source opened.*");
+        command(client,"item source first corner","chronicle author region pos1 0 64 0","Set region draft items_source position 1.*");
+        command(client,"item source second corner","chronicle author region pos2 5 64 0","Set region draft items_source position 2.*");
+        command(client,"save item source","chronicle author region save","Saved region items_source.*");
+        command(client,"look at item Heart","tp @s 0.5 65 0.5 0 90",".*Teleported.*");
+        command(client,"bind item Heart","chronicle author block bind items_heart target","Saved block items_heart.*");
+        command(client,"assign item source","chronicles setup assign \"quiet_below:source_city\" items_source","Requirement assigned.*");
+        command(client,"assign item Heart","chronicles setup assign \"quiet_below:relic_heart\" items_heart","Requirement assigned.*");
+        command(client,"index item source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("complete item source index",600);
+        command(client,"enable item ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        command(client,"survival Silk Touch harvest and dormant placement","quiet_below_item_trial prepare","PASS sculk items prepare:.*");
+        delay("receive dormant placement states",500);
+        check("all five dormant placements arrive at client",()->{
+            for(int x=1;x<=5;x++)require(client.world.getBlockState(new BlockPos(x,65,8)).get(io.github.chronicle.quietbelow.content.SculkAppearance.VITALITY)==3,"client placement still healthy at "+x);
+        });
+        command(client,"view dormant item models","tp @s 3.5 67 3.5 0 25",".*Teleported.*");
+        screenshot(client,"ecology-dormant-items.png");
+        command(client,"start item play","chronicle session start","Started Chronicle session.*");
+        command(client,"join item play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        delay("adopt connected placements and reconcile their colors",2_000);
+        command(client,"connected color and native response; detached remain dormant","quiet_below_item_trial connected","PASS sculk items connected:.*");
+        command(client,"leave item trial paused","chronicle session pause","Paused Chronicle session.*");
     }
     private void appearance(MinecraftClient client){
         command(client,"verify native state and block entity preservation","quiet_below_appearance_trial native","PASS sculk appearance native:.*");

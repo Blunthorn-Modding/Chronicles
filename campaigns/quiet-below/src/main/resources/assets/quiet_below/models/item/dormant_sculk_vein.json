@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "quiet_below:block/vitality/stage_3/sculk_vein"
+  }
+}
