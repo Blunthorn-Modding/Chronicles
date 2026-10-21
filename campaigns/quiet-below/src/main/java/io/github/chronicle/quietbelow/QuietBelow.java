@@ -63,6 +63,8 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
+                new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));
         io.github.chronicle.quietbelow.content.SculkAppearanceHandshake.register();
         // Optional public cues. Registering definitions arms no triggers or story timetable.
         ChronicleCore.observations().register(new ObservationCatalog.Definition("quiet_below:city_presence", "City vibration",

@@ -5,6 +5,7 @@
   "name": "Chronicle Core",
   "description": "Reusable services for Chronicle roleplay campaigns.",
   "environment": "*",
+  "mixins": ["chronicle_core.mixins.json"],
   "entrypoints": {
     "main": [
       "io.github.chronicle.core.ChronicleCore"

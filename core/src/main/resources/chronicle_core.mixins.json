@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8.7",
+  "package": "io.github.chronicle.core.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["EnchantmentStackMixin", "EnchantmentMaximumMixin", "CappedAnvilMixin", "CappedLootMixin", "CappedCreativeMixin", "CappedTradeMixin", "CappedProjectileMixin", "CappedSlotMixin"],
+  "injectors": {"defaultRequire": 1}
+}

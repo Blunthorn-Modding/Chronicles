@@ -19,7 +19,7 @@ Translate one full heart/icon explicitly: health20->22 points (10->11 hearts), f
 
 ## Consent, stacking and ownership
 
-Proposed guardrails: show the complete trade before acceptance; preview actual resulting stats; cap repeated purchases; support deliberate reversal and operator repair; never kill a donor, erase unrelated modifiers or silently apply bargains to nonparticipants. Personal changes should have readable icons/status and clear death/reconnect/pause/eradication rules before implementation. These detailed policies still need an implementation contract; the accepted options alone do not establish irreversible permanent-stat or ending policy.
+Guardrails: show the complete trade before acceptance; preview actual resulting stats; cap repeated purchases; never kill a donor, erase unrelated modifiers or silently apply bargains to nonparticipants. Personal changes need readable icons/status and clear pause/eradication rules. **Confirmed lifecycle,21 October:** lasting bargains survive death and reconnecting, with no player reversal. Completing Relic Heart eradication removes both their bonuses and sacrifices. An operator repair route may correct bugs, not offer a normal refund. Duration-limited offerings retain their own expiry. Stacking, exact balance and transaction details still need the implementation contract.
 
 Core owns reusable player modifiers, persistence/synchronization, configurable stat bounds and offering/transaction primitives. Quiet Below owns the Altar's recipes, living-network power and costs. HUD dependencies are for rendering/layout/editing only. Hunger, regeneration, sacrifice and health calculations remain ours, per the operator's explicit clarification.
 

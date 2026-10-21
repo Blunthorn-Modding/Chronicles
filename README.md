@@ -1,5 +1,7 @@
 # Chronicle
 
+**Core enchantment caps, dev.28:** server-wide configurable maxima permanently lower stored levels on gear/books, including native enchanting, anvils and loot. Core alone defaults unrestricted; Quiet Below recommends level I on first setup. See [configuration and persistence](docs/CF11_ENCHANTMENT_CAPS.md). Native save/restart checks and258 Java/60 Python tests pass. The authenticated review server/client pack below remain dev.27 while the Forge slice is prepared; no existing-world cap migration has been deployed.
+
 **HUD integration prototype:** selected SpiffyHUD/FancyMenu and dependencies are pinned as official Modrinth download references, with [license/distribution rules and test commands](docs/THIRD_PARTY_HUD.md). The separate prototype pack preserves the current review pack; expanded hunger and Altar gameplay remain implementation work.
 
 **Development build: contact costs and growth modes (M10), dev.27**, on `feat/qb09-contact-costs-and-growth-modes`. Hunger/Darkness now wait once on living sculk, then persist until you step off. Spread can use a fixed rate or configurable amplification from living sculk count. [Review instructions](docs/M10_REVIEW.md) cover the authenticated **localhost:25588** bench. The existing map/tuning are preserved through a stopped backup; [verification evidence](docs/TEST_PLAN.md) records build and native results. [Client pack](../client/Chronicle-M9-1.21.10.mrpack).
