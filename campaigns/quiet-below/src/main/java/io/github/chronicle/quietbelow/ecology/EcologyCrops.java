@@ -6,7 +6,7 @@ import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.Pos;
 /** Derived, bounded crop discovery and per-position bonus cooldowns; no world entities. */
 public final class EcologyCrops {
     public static final int RADIUS=4, DISCOVERY_READS=128, SECTION_CHECKS=16, CROP_CHECKS=16,
-            SOURCE_CHECKS=32, WRITES=2, MAX_CROPS=8192, MAX_SECTIONS=EcologyEngine.MAX_CELLS*8;
+            SOURCE_CHECKS=32, WRITES=2, MAX_CROPS=8192, MAX_SECTIONS=262144;
     public static final List<Integer> SECONDS=List.of(2,5,10,20,40);
     private static final Set<String> CROP_IDS=Set.of("minecraft:wheat","minecraft:carrots","minecraft:potatoes","minecraft:beetroots");
     public record Rules(boolean enabled,int seconds) {
@@ -32,7 +32,7 @@ public final class EcologyCrops {
         boolean grow(Pos p,Crop expected);
     }
     public interface Network {
-        List<Pos> cropSources();
+        Iterable<Pos> cropSources();
         boolean owns(Pos p);
         boolean living(Pos p);
         boolean cropsAvailable();
@@ -79,7 +79,7 @@ public final class EcologyCrops {
         ticks=Math.addExact(ticks,1);
         if(sources==null&&ticks>=nextSources){sources=network.cropSources().iterator();rebuilding=new LinkedHashSet<>();}
         if(sources!=null){
-            for(int n=0;n<SOURCE_CHECKS&&sources.hasNext();n++){Pos p=sources.next();if(network.owns(p))source(p);}
+            for(int n=0;n<SOURCE_CHECKS&&sources.hasNext();n++){Pos p=sources.next();if(p!=null&&network.owns(p))source(p);}
             if(!sources.hasNext()){
                 sections.retainAll(rebuilding);rebuilding=null;sources=null;nextSources=ticks+200;
                 if(current!=null&&!sections.contains(current))current=null;

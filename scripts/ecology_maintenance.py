@@ -8,7 +8,7 @@ import workspace as w
 
 
 def world_path(path):
-    world = Path(path).absolute()
+    world = Path(os.path.abspath(path))
     if world.resolve() != world or not world.is_dir():
         raise ValueError('Select a real, existing world directory')
     if not world.is_relative_to(w.WORK.resolve()) or world == w.WORK.resolve():

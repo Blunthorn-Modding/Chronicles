@@ -737,21 +737,31 @@ public final class EcologyJournal implements AutoCloseable {
         try { channel.close(); } catch (IOException ignored) { }
     }
 
-    /** A durable ecology journal entry. The payload accessor always returns a defensive copy. */
-    public record Entry(long sequence, String type, JsonObject payload) {
-        public Entry {
+    /** Immutable compact evidence. Parsed payload trees live only while a consumer uses them. */
+    public static final class Entry {
+        private final long sequence;
+        private final String type;
+        private final String payloadJson;
+
+        public Entry(long sequence, String type, JsonObject payload) {
             if (sequence < 1) throw new IllegalArgumentException("entry sequence must be positive");
             if (type == null || !TYPES.contains(type)) {
                 throw new IllegalArgumentException("unknown ecology journal type: " + type);
             }
             if (payload == null) throw new IllegalArgumentException("entry payload is required");
-            payload = payload.deepCopy();
+            this.sequence=sequence;this.type=type;
+            this.payloadJson=canonicalJson(canonicalize(payload,1,new JsonBudget()));
         }
-
-        @Override
+        public long sequence(){return sequence;}
+        public String type(){return type;}
         public JsonObject payload() {
-            return payload.deepCopy();
+            // This immutable string was bounded and canonicalized at construction; it is never
+            // supplied by a caller or a file without strict validation of the full envelope.
+            return com.google.gson.JsonParser.parseString(payloadJson).getAsJsonObject();
         }
+        @Override public boolean equals(Object other){return other instanceof Entry e&&sequence==e.sequence&&type.equals(e.type)&&payloadJson.equals(e.payloadJson);}
+        @Override public int hashCode(){return java.util.Objects.hash(sequence,type,payloadJson);}
+        @Override public String toString(){return "Entry[sequence="+sequence+", type="+type+", payload="+payloadJson+"]";}
     }
 
     private record Encoded(String line, String hash) { }

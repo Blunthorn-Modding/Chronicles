@@ -130,6 +130,7 @@ public final class QuietBelowEcology {
     }
     private static void tick(MinecraftServer server) {
         Runtime r=WORLDS.get(server);if(r==null||r.engine.failure()!=null||r.engine.setup()==null)return;
+        long started=System.nanoTime();
         try {
             attach(server,r);
             Adapter world=adapter(server,r.engine.setup().dimension());
@@ -153,6 +154,7 @@ public final class QuietBelowEcology {
             catch(Exception e){r.recovery.fail("Local healing held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local healing held; ecology retained",e);}
             if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
         } catch(Exception e) { hold(r,e); }
+        finally {r.lastTickNanos=System.nanoTime()-started;}
     }
     public static boolean playing(MinecraftServer server) {
         try {
@@ -463,6 +465,7 @@ public final class QuietBelowEcology {
         Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Ecology unavailable; inspect quiet-below/ecology.jsonl and server log.");return r;
     }
     static EcologyEngine engineForTest(MinecraftServer server){return runtime(server).engine;}
+    static long tickNanosForTest(MinecraftServer server){return runtime(server).lastTickNanos;}
     private static Adapter adapter(MinecraftServer server,String dimension) {
         ServerWorld w=server.getWorld(RegistryKey.of(RegistryKeys.WORLD,Identifier.of(dimension)));
         if(w==null)throw new IllegalStateException("Ecology dimension unavailable");return new Adapter(w);
@@ -472,7 +475,7 @@ public final class QuietBelowEcology {
         if(!r.failureLogged){r.failureLogged=true;QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry: "+r.engine.failure(),e);}
     }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision;boolean failureLogged;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;
+        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision,lastTickNanos;boolean failureLogged;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;
         Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;crops=new EcologyCrops(e.cropRules());recovery=new EcologyRecovery(e.recoveryRules());}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
@@ -490,7 +493,8 @@ public final class QuietBelowEcology {
         @Override public boolean managesFeature(ServerWorld w,BlockPos p){return find(w)!=null;}
         @Override public void settleInactive(ServerWorld w,BlockPos p,BlockState state){
             Runtime r=find(w);if(r==null||r.engine.failure()!=null||r.settlingWrites>=EcologyFeatureActivity.SETTLING_WRITES)return;
-            BlockState actual=w.getBlockState(p);
+            var chunk=EcologyLoadedBlocks.chunk(w,p);if(chunk==null)return;
+            BlockState actual=chunk.getBlockState(p);
             // Marking a native receiver dirty can update comparators. Preserve any resulting edit.
             if(actual.getBlock()!=state.getBlock()||active(w,p))return;
             state=EcologyFeatureActivity.quietState(actual);if(state==actual)return;
@@ -526,7 +530,8 @@ public final class QuietBelowEcology {
             Runtime r=find(w);if(r==null||!r.engine.owns(pos(p)))return;
             try {
                 // Neighbor updates can change the same position before the outer write returns.
-                if(w.getChunkManager().isChunkLoaded(p.getX()>>4,p.getZ()>>4))r.engine.observed(pos(p),encode(w.getBlockState(p)));
+                var chunk=EcologyLoadedBlocks.chunk(w,p);
+                if(chunk!=null)r.engine.observed(pos(p),encode(chunk.getBlockState(p)));
             }catch(Exception e){hold(r,e);}
         }
     }
@@ -548,11 +553,11 @@ public final class QuietBelowEcology {
     public static final class Adapter implements EcologyTerrain {
         private final ServerWorld world;
         public Adapter(ServerWorld w){world=w;}
-        @Override public boolean loaded(Pos p){return world.isInBuildLimit(blockPos(p))&&world.getWorldBorder().contains(blockPos(p))&&world.getChunkManager().isChunkLoaded(p.x()>>4,p.z()>>4);}
-        private BlockState checked(Pos p){if(!loaded(p))throw new IllegalStateException("Unloaded ecology read");return world.getBlockState(blockPos(p));}
+        @Override public boolean loaded(Pos p){return EcologyLoadedBlocks.chunk(world,blockPos(p))!=null;}
+        private BlockState checked(Pos p){return EcologyLoadedBlocks.state(world,blockPos(p));}
         @Override public State get(Pos p){return encode(checked(p));}
         @Override public boolean solidFace(Pos p,int face){return checked(p).isSideSolidFullSquare(world,blockPos(p),Direction.byId(FACES[face]));}
-        @Override public boolean substrate(Pos p){return checked(p).isIn(BlockTags.SCULK_REPLACEABLE)&&world.getBlockEntity(blockPos(p))==null;}
+        @Override public boolean substrate(Pos p){var state=checked(p);return state.isIn(BlockTags.SCULK_REPLACEABLE)&&!state.hasBlockEntity();}
         @Override public int light(Pos p){checked(p);return world.getLightLevel(blockPos(p));}
         @Override public boolean set(Pos p,State state){
             checked(p);

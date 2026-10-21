@@ -7,7 +7,7 @@ import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 
 /** Bounded, durable campaign ecology. No clocks, players, chunk loads or Minecraft classes. */
 public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery.Network {
-    public static final int MAX_CELLS=32768, MAX_AIR=131072, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
+    public static final int MAX_CELLS=131072, MAX_AIR=524288, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
     public static final List<Integer> SPEEDS=List.of(25,50,100,200,400,800,1600);
     public record Setup(String city, long cityRevision, String heart, long heartRevision, String dimension) {
@@ -41,6 +41,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
 
     private final EcologyJournal journal;
     private final LinkedHashMap<Pos,Cell> cells=new LinkedHashMap<>();
+    private final EcologyPositions positions=new EcologyPositions(MAX_CELLS);
     private final Map<Long,Integer> ownedChunks=new HashMap<>();
     private final ArrayList<Pos> air=new ArrayList<>();
     private final Set<Pos> airSet=new HashSet<>();
@@ -106,7 +107,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         // Copy only after every page and every value has passed validation.
         vitality.restoreHeader(restored.checkpointHeader());
         for(Cell c:checkpoint.cells())vitality.restoreCell(c.position,restored.checkpointCell(c.position));
-        cells.clear();ownedChunks.clear();for(Cell c:checkpoint.cells())putCell(c.position,c);
+        cells.clear();positions.clear();ownedChunks.clear();for(Cell c:checkpoint.cells())putCell(c.position,c);
         air.clear();airSet.clear();for(Pos p:checkpoint.air()){air.add(p);airSet.add(p);}
         claim=checkpoint.claim();generation++;
     }
@@ -142,7 +143,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         Objects.requireNonNull(rules);if(rules.equals(recoveryRules))return;
         JsonObject p=new JsonObject();p.addProperty("enabled",rules.enabled());p.addProperty("seconds",rules.seconds());record("RECOVERY_RULES",p);
     }
-    @Override public List<Pos> cropSources(){return List.copyOf(cells.keySet());}
+    @Override public Iterable<Pos> cropSources(){return positions::scan;}
     @Override public boolean cropsAvailable(){return failure==null&&enabled&&indexed&&!unresolved
             &&(graph==null||extending)&&graphGeneration==generation;}
     public void tuneCrops(EcologyCrops.Rules rules)throws IOException {
@@ -160,7 +161,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     private void resetVitalityScan(){vitalityScan=null;vitalityPending=true;}
     public void chunkUnloaded(int x,int z)throws IOException {if(ownedChunks.containsKey(chunk(x,z))){flushVitality();invalidateConnections();}}
-    private void putCell(Pos p,Cell cell){if(cells.put(p,cell)==null)ownedChunks.merge(chunk(p.x()>>4,p.z()>>4),1,Integer::sum);}
+    private void putCell(Pos p,Cell cell){if(cells.put(p,cell)==null){positions.add(p);ownedChunks.merge(chunk(p.x()>>4,p.z()>>4),1,Integer::sum);}}
     public String failure() { return failure; }
     public Claim claim() { return claim; }
     public boolean cleanup() { return cleanup; }
@@ -240,8 +241,11 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             JsonObject p=entry.payload();int cx=integer(p,"chunkX"),cz=integer(p,"chunkZ"),end=integer(p,"cursor");
             int start=checked.getOrDefault(chunk(cx,cz),0);
             if(cx<(area.min.x()>>4)||cx>(area.max.x()>>4)||cz<(area.min.z()>>4)||cz>(area.max.z()>>4)||end>chunkSize(cx,cz))throw bad("Index history outside pinned region");
-            Set<Pos> scanned=new HashSet<>();for(int n=start;n<end;n++)scanned.add(at(cx,cz,n));
-            for(JsonElement cell:array(p,"cells",64))if(!scanned.contains(position(object(cell).get("p"))))throw bad("Adopted cell outside scanned interval");
+            for(JsonElement cell:array(p,"cells",64)){
+                Pos at=position(object(cell).get("p"));
+                int offset=sourceOffset(cx,cz,at);
+                if(offset<start||offset>=end)throw bad("Adopted cell outside scanned interval");
+            }
             checked.put(chunk(cx,cz),end);
         }
     }
@@ -317,7 +321,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         grow(w);
     }
     private void projectAppearance(EcologyTerrain w) {
-        if(appearanceScan==null||!appearanceScan.hasNext())appearanceScan=new ArrayList<>(cells.keySet()).iterator();
+        if(appearanceScan==null||!appearanceScan.hasNext())appearanceScan=positions.scan();
         int changed=0;
         for(int n=0;n<EcologyAppearance.READS&&appearanceScan.hasNext()&&changed<EcologyAppearance.WRITES;n++) {
             Pos p=appearanceScan.next();Cell c=cells.get(p);if(c==null||!w.loaded(p))continue;
@@ -327,7 +331,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     private void vitalityTick(EcologyTerrain w)throws IOException {
         vitalityTicks++;
-        if(vitalityScan==null){vitalityScan=new ArrayList<>(cells.keySet()).iterator();vRooted=vReady=vDetached=vFeeding=vSealed=vUnknown=0;vRootedHealth=vDetachedHealth=0;}
+        if(vitalityScan==null){vitalityScan=positions.scan();vRooted=vReady=vDetached=vFeeding=vSealed=vUnknown=0;vRootedHealth=vDetachedHealth=0;}
         JsonArray changes=new JsonArray();List<Pos> checked=new ArrayList<>();
         for(int n=0;n<EcologyVitality.WORK&&vitalityScan.hasNext();n++){
             Pos p=vitalityScan.next();if(!owns(p))continue;EcologyVitality.Mode next=feedingMode(w,p);checked.add(p);
@@ -368,7 +372,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             if(owns(p)||!w.loaded(p))continue;State actual=w.get(p);
             if(actual.network()&&((EcologyTerrain.connected(heart,SCULK,p,actual))||touchesRooted(p,actual)))connect(w,p,actual);
         }
-        if(contactScan==null||!contactScan.hasNext())contactScan=new ArrayList<>(cells.keySet()).iterator();
+        if(contactScan==null||!contactScan.hasNext())contactScan=positions.scan();
         for(int n=0;n<32&&contactScan.hasNext()&&writes<MAX_WRITES;n++) {
             Pos p=contactScan.next();Cell c=cells.get(p);
             if(c!=null&&rooted(p)&&w.loaded(p))connectNeighbours(w,p,c.after);
@@ -395,7 +399,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     private void reconcile(EcologyTerrain w) throws IOException {
         if(validation==null) {
-            validation=new ArrayList<>(cells.keySet()).iterator(); validationUnknown=false;
+            validation=positions.scan(); validationUnknown=false;
         }
         for(int n=0;n<GRAPH_WORK&&validation.hasNext();n++) {
             Pos p=validation.next(); Cell c=cells.get(p); if(c==null) continue;
@@ -414,7 +418,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         }
     }
     private void discoverExposure(EcologyTerrain w)throws IOException {
-        if(exposureScan==null||!exposureScan.hasNext())exposureScan=new ArrayList<>(cells.keySet()).iterator();
+        if(exposureScan==null||!exposureScan.hasNext())exposureScan=positions.scan();
         Set<Pos> fresh=new LinkedHashSet<>();
         for(int n=0;n<32&&exposureScan.hasNext()&&fresh.size()<64;n++) {
             Pos p=exposureScan.next();if(!rooted(p)||!w.loaded(p))continue;
@@ -747,7 +751,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
                 // journal never takes this shortcut because no graph is certified at startup.
                 if(extend){graphGeneration=generation;connected.add(at);visiting=connected;if(graph==null)graph=new ArrayDeque<>();graph.add(at);graphUnknown=false;extending=true;}
             }
-            case "REMOVE" -> { requireSetup();keys(p,"p");Pos at=position(p.get("p"));if(cells.remove(at)==null) throw bad("Unknown removed cell");ownedChunks.compute(chunk(at.x()>>4,at.z()>>4),(k,n)->n==1?null:n-1);vitality.forget(at);resetVitalityScan();generation++; }
+            case "REMOVE" -> { requireSetup();keys(p,"p");Pos at=position(p.get("p"));if(cells.remove(at)==null) throw bad("Unknown removed cell");positions.remove(at);ownedChunks.compute(chunk(at.x()>>4,at.z()>>4),(k,n)->n==1?null:n-1);vitality.forget(at);resetVitalityScan();generation++; }
             case "OBSERVE" -> {Pos at=position(p.get("p"));Cell c=cells.get(at);cells.put(at,new Cell(at,c.before,block(p.get("after")),c.adopted));resetVitalityScan();generation++;}
             default -> throw bad("Unsupported ecology payload type: "+type);
         }
@@ -763,6 +767,12 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     private void requireSetup() { if(setup==null) throw bad("Ecology record before configuration"); }
     private int chunkSize(int cx,int cz) {return chunkSize(area,cx,cz);}
+    private int sourceOffset(int cx,int cz,Pos p){
+        if(!area.contains(p)||(p.x()>>4)!=cx||(p.z()>>4)!=cz)return -1;
+        int minX=Math.max(area.min.x(),cx<<4),minZ=Math.max(area.min.z(),cz<<4);
+        int width=Math.min(area.max.x(),(cx<<4)+15)-minX+1,depth=Math.min(area.max.z(),(cz<<4)+15)-minZ+1;
+        return (p.y()-area.min.y())*width*depth+(p.z()-minZ)*width+p.x()-minX;
+    }
     private static int chunkSize(Area area,int cx,int cz) {return (Math.min(area.max.x(),(cx<<4)+15)-Math.max(area.min.x(),cx<<4)+1)*
             (Math.min(area.max.z(),(cz<<4)+15)-Math.max(area.min.z(),cz<<4)+1)*(area.max.y()-area.min.y()+1);}
     private Pos at(int cx,int cz,int cursor) {

@@ -106,7 +106,7 @@ def run(phases=None):
                 variables.update(CHRONICLE_MENU_WIDTH='640' if phase == 'recovery' else '1280',
                                  CHRONICLE_MENU_HEIGHT='480' if phase == 'recovery' else '720')
             clients = [f._client(w, launch, phase_root, reports, 'ChronicleFabricA', 'ecology-' + phase, variables)]
-            f._await_clients(clients, [reports / ('ecology-' + phase + '.json')], timeout=780 if phase in ('city', 'city_restart') else 300)
+            f._await_clients(clients, [reports / ('ecology-' + phase + '.json')], timeout=1200 if phase in ('city', 'city_restart') else 300)
             for _, handle in clients:
                 handle.close()
             clients = []

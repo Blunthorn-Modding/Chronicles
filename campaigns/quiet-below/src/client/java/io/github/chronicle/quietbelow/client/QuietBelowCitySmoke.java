@@ -23,7 +23,7 @@ final class QuietBelowCitySmoke {
     private static final String ADDRESS = "127.0.0.1:25575";
     private final List<String> messages = new ArrayList<>(), checks = new ArrayList<>();
     private final List<Step> steps = new ArrayList<>();
-    private final long overallDeadline = System.nanoTime() + 780_000_000_000L;
+    private final long overallDeadline = System.nanoTime() + 1_200_000_000_000L;
     private int index, baseline;
     private long deadline, until, nextVisit, nextCertification;
     private boolean connected, started, built, finished;
@@ -65,9 +65,9 @@ final class QuietBelowCitySmoke {
         command("start native-city session", "chronicle session start", "Started Chronicle session.*", 20_000);
         command("join native-city session", "chronicles join", ".*(joined|already).*Chronicle participation.*", 20_000);
         certifyCity();
+        soakCity();
         command("move the actual client away for ordinary city chunk unload", "quiet_below_city_trial unload", "CITY_UNLOAD.*", 20_000);
-        delay("wait for natural city chunk unload without force loading", 15_000);
-        command("capture unloaded city baseline after normal settling", "quiet_below_city_trial unloaded", "PASS ancient city unload:.*", 30_000);
+        awaitUnload();
         delay("unloaded eligible city remains stable", 5_000);
         command("unresolved unloaded city has no writes or vitality decay", "quiet_below_city_trial stable", "PASS ancient city unloaded stability:.*", 30_000);
         command("save paused native-city world", "chronicle session pause", "Paused Chronicle session.*", 20_000);
@@ -79,10 +79,10 @@ final class QuietBelowCitySmoke {
         command("restore native city exact pins and indexed ownership", "quiet_below_city_trial restart", "PASS ancient city restart:.*", 30_000);
         command("return native client to the whole city after restart", "quiet_below_city_trial converge", "CITY_CONVERGE.*", 20_000);
         delay("allow ordinary client chunk reload after restart", 5_000);
-        command("recheck loaded city index after restart", "quiet_below_city_trial indexed", "PASS ancient city indexed:.*", 30_000);
         command("resume restarted native-city play", "chronicle session resume", "Resumed Chronicle session.*", 20_000);
-        command("join restarted native-city play", "chronicles join", ".*(joined|already).*Chronicle participation.*", 20_000);
+        command("join restarted native-city play", "chronicles join", ".*(joined.*Chronicle participation|already a Chronicle participant).*", 20_000);
         certifyCity();
+        soakCity();
         command("leave restarted ancient city paused", "chronicle session pause", "Paused Chronicle session.*", 20_000);
     }
 
@@ -104,6 +104,20 @@ final class QuietBelowCitySmoke {
             if (System.nanoTime() >= nextCertification) { send("quiet_below_city_trial certified"); nextCertification = System.nanoTime() + 500_000_000L; }
             return false;
         }, 90_000);
+    }
+    private void soakCity(){
+        command("start full-city native 20 TPS performance soak","quiet_below_city_trial soak","CITY_SOAK.*",20_000);
+        delay("sample a minute of full-city occupied play",61_000);
+        step("verify measured native and ecology work budgets",()->{send("quiet_below_city_trial measured");nextCertification=System.nanoTime()+1_000_000_000L;},()->{
+            if(received("PASS ancient city measured:.*"))return true;
+            if(System.nanoTime()>=nextCertification){send("quiet_below_city_trial measured");nextCertification=System.nanoTime()+1_000_000_000L;}return false;
+        },60_000);
+    }
+    private void awaitUnload(){
+        step("wait for natural city chunk unload and capture settled baseline",()->{send("quiet_below_city_trial unloaded");nextCertification=System.nanoTime()+1_000_000_000L;},()->{
+            if(received("PASS ancient city unload:.*"))return true;
+            if(System.nanoTime()>=nextCertification){send("quiet_below_city_trial unloaded");nextCertification=System.nanoTime()+1_000_000_000L;}return false;
+        },120_000);
     }
     private void delay(String name, long millis) { step(name, () -> until = System.nanoTime() + millis * 1_000_000L, () -> System.nanoTime() >= until, millis + 5_000); }
     private void step(String name, Runnable start, BooleanSupplier done, long timeout) { steps.add(new Step(name, start, done, timeout)); }

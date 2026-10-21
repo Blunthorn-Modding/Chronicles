@@ -8,6 +8,13 @@ import ecology_maintenance as m
 
 
 class EcologyMaintenanceScriptTests(unittest.TestCase):
+    def test_documented_parent_relative_world_path_is_normalized_before_link_checks(self):
+        with TemporaryDirectory() as temporary:
+            root=Path(temporary).resolve();(root/'scripts').mkdir();world=root/'world';world.mkdir()
+            with patch.object(m.w,'WORK',root):
+                self.assertEqual(world,m.world_path(root/'scripts'/'..'/'world'))
+                with self.assertRaises(ValueError):m.world_path(root/'..')
+
     def test_rejects_missing_and_outside_worlds(self):
         with TemporaryDirectory() as temporary:
             root = Path(temporary).resolve()

@@ -9,7 +9,17 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-tasks.named('test') { useJUnitPlatform() }
+tasks.named('test') { useJUnitPlatform { excludeTags 'scale' } }
+
+// Explicit capacity/replay benchmark; a fixed heap makes memory evidence reproducible.
+tasks.register('ecologyScaleTest', Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'scale' }
+    maxHeapSize = '1G'
+    workingDir = project.rootDir
+    outputs.upToDateWhen { false }
+}
 
 // Pure Java maintenance entry point, launched outside the Minecraft process while its world is stopped.
 tasks.register('writeEcologyMaintenanceLaunch') {
