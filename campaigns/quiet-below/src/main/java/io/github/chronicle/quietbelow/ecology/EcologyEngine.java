@@ -10,6 +10,12 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public static final int MAX_CELLS=131072, MAX_AIR=524288, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
     public static final List<Integer> SPEEDS=List.of(25,50,100,200,400,800,1600);
+    public static final List<Integer> AMPLIFICATIONS=List.of(0,1,2,5,10,25,50,100);
+    public enum GrowthMode { FIXED, SCULK_COUNT }
+    public record SpreadRules(GrowthMode mode,int amplificationPercent) {
+        public SpreadRules { Objects.requireNonNull(mode);if(!AMPLIFICATIONS.contains(amplificationPercent))throw new IllegalArgumentException("Choose a supported sculk-count amplification"); }
+    }
+    public static final SpreadRules DEFAULT_SPREAD=new SpreadRules(GrowthMode.FIXED,10);
     public record Setup(String city, long cityRevision, String heart, long heartRevision, String dimension) {
         public Setup {
             if(city==null || !city.matches("[a-z][a-z0-9_]{0,63}(?::[a-z][a-z0-9_]{0,63})?") ||
@@ -65,6 +71,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private int vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown;
     private long vRootedHealth,vDetachedHealth;
     private int speedPercent=100;
+    private SpreadRules spreadRules=DEFAULT_SPREAD;
     private long generation;
     private long graphGeneration=-1;
     private Iterator<Pos> validation;
@@ -97,6 +104,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         for(Cell c:checkpoint.cells())if(c.adopted&&(!adopted.contains(c.position)||!c.before.equals(AIR)))throw bad("Checkpoint invented a source cell");
         JsonObject h=checkpoint.header();enabled=EcologyCheckpoint.bool(h,"enabled");cleanup=EcologyCheckpoint.bool(h,"cleanup");
         speedPercent=EcologyCheckpoint.integer(h,"speed");if(!SPEEDS.contains(speedPercent))throw bad("Unsupported checkpoint speed");
+        SpreadRules restoredSpread=h.has("spread")?spreadRules(EcologyCheckpoint.object(h.get("spread"))):DEFAULT_SPREAD;
         JsonObject crop=EcologyCheckpoint.object(h.get("crops"));EcologyCheckpoint.keys(crop,"enabled","seconds");
         cropRules=new EcologyCrops.Rules(EcologyCheckpoint.bool(crop,"enabled"),EcologyCheckpoint.integer(crop,"seconds"));
         if(h.has("recovery")){
@@ -108,6 +116,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         for(int n=0;n<checkpoint.cells().size();n++)restored.restoreCell(checkpoint.cells().get(n).position,checkpoint.health().get(n));
         // Copy only after every page and every value has passed validation.
         costRules=restoredCosts;
+        spreadRules=restoredSpread;
         vitality.restoreHeader(restored.checkpointHeader());
         for(Cell c:checkpoint.cells())vitality.restoreCell(c.position,restored.checkpointCell(c.position));
         cells.clear();positions.clear();ownedChunks.clear();for(Cell c:checkpoint.cells())putCell(c.position,c);
@@ -122,7 +131,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     boolean sameCheckpointState(EcologyEngine other){
         if(!Objects.equals(setup,other.setup)||indexed!=other.indexed||enabled!=other.enabled||cleanup!=other.cleanup||speedPercent!=other.speedPercent
-                ||!cropRules.equals(other.cropRules)||!recoveryRules.equals(other.recoveryRules)||!costRules.equals(other.costRules)||!Objects.equals(claim,other.claim)||!cursors.equals(other.cursors)
+                ||!cropRules.equals(other.cropRules)||!recoveryRules.equals(other.recoveryRules)||!costRules.equals(other.costRules)||!spreadRules.equals(other.spreadRules)||!Objects.equals(claim,other.claim)||!cursors.equals(other.cursors)
                 ||!cells().equals(other.cells())||!air.equals(other.air)||!vitality.checkpointHeader().equals(other.vitality.checkpointHeader()))return false;
         for(Pos p:cells.keySet())if(!vitality.checkpointCell(p).equals(other.vitality.checkpointCell(p)))return false;
         return true;
@@ -139,6 +148,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public EcologyCrops.Rules cropRules(){return cropRules;}
     public EcologyRecovery.Rules recoveryRules(){return recoveryRules;}
     public EcologyCosts.Rules costRules(){return costRules;}
+    public SpreadRules spreadRules(){return spreadRules;}
     // Extent retains its last completed bounded assessment during harmless connected additions.
     // Local power and certified topology are still checked; a cut/unload invalidates immediately.
     @Override public boolean recoveryAvailable(){return cropsAvailable()&&!vitality.extent().equals("Rooted");}
@@ -178,12 +188,28 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public boolean cleanup() { return cleanup; }
     public int writeBudgetRemaining() { return MAX_WRITES-writes; }
     public int speedPercent() { return speedPercent; }
-    public int attemptTicks(boolean bright) { return Math.max(1,Math.round((bright?10:20)*100f/speedPercent)); }
+    /** Last bounded vitality summary only; changing the source policy is localized here. */
+    private int growthCount(){return vitalitySummary.ready();}
+    public int effectiveSpeedPercent(){
+        return effectiveSpeed(speedPercent,growthCount(),spreadRules);
+    }
+    static int effectiveSpeed(int baseSpeed,int readyCount,SpreadRules rules){
+        if(!SPEEDS.contains(baseSpeed)||readyCount<0)throw new IllegalArgumentException("Invalid effective spread inputs");
+        if(rules.mode()==GrowthMode.FIXED)return baseSpeed;
+        long scaled=(long)baseSpeed*(100_000L+(long)readyCount*rules.amplificationPercent())/100_000L;
+        return (int)Math.min(SPEEDS.getLast(),Math.max(1L,scaled));
+    }
+    public int attemptTicks(boolean bright) { return Math.max(1,Math.round((bright?10:20)*100f/effectiveSpeedPercent())); }
     public void speed(int percent)throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing spread speed");
         if(!SPEEDS.contains(percent))throw new IllegalArgumentException("Choose a supported spread-speed multiplier");
         if(percent==speedPercent)return;
         JsonObject p=new JsonObject();p.addProperty("percent",percent);record("SPEED",p);clock=0;growthInterval=20;
+    }
+    public void tuneSpread(SpreadRules rules)throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing growth mode");
+        Objects.requireNonNull(rules);if(rules.equals(spreadRules))return;
+        record("SPREAD_RULES",spreadRulesPayload(rules));clock=0;growthInterval=20;
     }
     public void noticeContact(Pos p) { if(pendingContacts.size()<MAX_CELLS)pendingContacts.add(p); }
     public void cleanup(boolean on) throws IOException {
@@ -676,6 +702,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
                 validateFronts(array(p,"air",6));
             }
             case "SPEED" -> {requireSetup();keys(p,"percent");if(!indexed||!SPEEDS.contains(integer(p,"percent")))throw bad("Invalid spread speed");}
+            case "SPREAD_RULES" -> {requireSetup();if(!indexed)throw bad("Spread tuning before indexing");spreadRules(p);}
             case "VITALITY_RULES" -> {requireSetup();if(!indexed)throw bad("Vitality tuning before indexing");EcologyVitality.parseRules(p);}
             case "CROP_RULES" -> {requireSetup();if(!indexed)throw bad("Crop tuning before indexing");keys(p,"enabled","seconds");new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));}
             case "RECOVERY_RULES" -> {requireSetup();if(!indexed)throw bad("Recovery tuning before indexing");keys(p,"enabled","seconds");new EcologyRecovery.Rules(bool(p,"enabled"),integer(p,"seconds"));}
@@ -736,6 +763,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             case "MODE" -> { requireSetup();keys(p,"enabled");boolean on=bool(p,"enabled");if(on&&(!indexed||cells.isEmpty())) throw bad("Enabled incomplete network");enabled=on;controlRevision++; }
             case "CLEANUP_MODE" -> {cleanup=bool(p,"enabled");controlRevision++;}
             case "SPEED" -> {speedPercent=integer(p,"percent");controlRevision++;}
+            case "SPREAD_RULES" -> {spreadRules=spreadRules(p);controlRevision++;}
             case "VITALITY_RULES" -> {vitality.applyRules(p);controlRevision++;}
             case "CROP_RULES" -> {cropRules=new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}
             case "RECOVERY_RULES" -> {recoveryRules=new EcologyRecovery.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}
@@ -813,6 +841,12 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private static EcologyCosts.Rule costRule(JsonObject payload){
         keys(payload,"enabled","seconds");return new EcologyCosts.Rule(bool(payload,"enabled"),integer(payload,"seconds"));
     }
+    private static SpreadRules spreadRules(JsonObject payload){
+        keys(payload,"mode","amplificationPercent");String mode=string(payload,"mode");
+        try{return new SpreadRules(GrowthMode.valueOf(mode),integer(payload,"amplificationPercent"));}
+        catch(IllegalArgumentException e){throw bad("Invalid spread rules");}
+    }
+    static JsonObject spreadRulesPayload(SpreadRules rules){JsonObject p=new JsonObject();p.addProperty("mode",rules.mode().name());p.addProperty("amplificationPercent",rules.amplificationPercent());return p;}
     private static void keys(JsonObject p,String... expected) {if(!p.keySet().equals(Set.of(expected)))throw bad("Unexpected ecology payload fields");}
     private static JsonObject object(JsonElement p) {if(p==null||!p.isJsonObject())throw bad("Object required");return p.getAsJsonObject();}
     private static JsonArray array(JsonObject p,String key,int max) {JsonElement e=p.get(key);if(e==null||!e.isJsonArray()||e.getAsJsonArray().size()>max)throw bad("Invalid array: "+key);return e.getAsJsonArray();}

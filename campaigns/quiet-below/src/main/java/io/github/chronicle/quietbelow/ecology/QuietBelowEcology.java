@@ -8,6 +8,8 @@ import io.github.chronicle.quietbelow.QuietBelow;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.minecraft.block.*;
 import net.minecraft.registry.*;
 import net.minecraft.registry.tag.BlockTags;
@@ -47,6 +49,16 @@ public final class QuietBelowEcology {
                         new GameSetupTools.Verb("speed_reset","Reset speed",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::status,QuietBelowEcology::execute));
+        GameSetupTools.register(new GameSetupTools.Tool("quiet_below:spread","Spread mode",
+                "Choose fixed spread or amplification from living, Heart-connected sculk. Sculk ecology holds the base speed controls. Both modes retain existing growth work limits.",
+                List.of(
+                        new GameSetupTools.Verb("use_fixed","Use fixed rate",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("use_count","Use sculk-count rate",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("amplification_lower","Lower count amplification",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("amplification_higher","Raise count amplification",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("spread_reset","Reset growth mode",GameSetupTools.Guard.EDIT,false),
+                        new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
+                QuietBelowEcology::spreadStatus,QuietBelowEcology::execute));
         GameSetupTools.register(new GameSetupTools.Tool("quiet_below:vitality","Sculk vitality",
                 "Vitality and extent tuning. Detached or sealed sculk loses vitality but keeps its blocks. Physical reconnection and air exposure permit recovery, even from zero. No XP upkeep or oxygen simulation.",
                 List.of(new GameSetupTools.Verb("loss_slower","Slower vitality loss",GameSetupTools.Guard.EDIT,false),
@@ -87,12 +99,12 @@ public final class QuietBelowEcology {
         for(var kind:EcologyCosts.Kind.values()){
             String name=kind==EcologyCosts.Kind.HUNGER?"Local Hunger":"Local Darkness";
             GameSetupTools.register(new GameSetupTools.Tool(kind==EcologyCosts.Kind.HUNGER?"quiet_below:hunger":"quiet_below:darkness",name,
-                    "Brief local ecological cost in dense living sculk. A fresh interval starts on entry; existing potion and Warden effects are preserved.",
+                    "Standing on living sculk starts an exposure wait. The cost then persists until you land off living sculk; jumping keeps exposure and a pillar provides shelter. Existing potion and Warden effects are preserved.",
                     List.of(new GameSetupTools.Verb("enable","Enable "+name,GameSetupTools.Guard.EDIT,true),
                             new GameSetupTools.Verb("disable","Disable "+name,GameSetupTools.Guard.OPERATOR,true),
-                            new GameSetupTools.Verb("faster","More frequent pulses",GameSetupTools.Guard.EDIT,false),
-                            new GameSetupTools.Verb("slower","Less frequent pulses",GameSetupTools.Guard.EDIT,false),
-                            new GameSetupTools.Verb("reset","Reset pulse tuning",GameSetupTools.Guard.EDIT,false),
+                            new GameSetupTools.Verb("faster","Shorter exposure delay",GameSetupTools.Guard.EDIT,false),
+                            new GameSetupTools.Verb("slower","Longer exposure delay",GameSetupTools.Guard.EDIT,false),
+                            new GameSetupTools.Verb("reset","Reset exposure tuning",GameSetupTools.Guard.EDIT,false),
                             new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                     source->costStatus(source,kind),(source,verb)->costAction(source,verb,kind)));
         }
@@ -115,7 +127,18 @@ public final class QuietBelowEcology {
         ServerLifecycleEvents.SERVER_STARTED.register(QuietBelowEcology::start);
         ServerTickEvents.START_SERVER_TICK.register(server->{Runtime r=WORLDS.get(server);if(r!=null){r.engine.beginTick();r.settlingWrites=0;}});
         ServerTickEvents.END_SERVER_TICK.register(QuietBelowEcology::tick);
+        ServerLifecycleEvents.SERVER_STOPPING.register(EcologyCostEffects::clear);
+        ServerPlayConnectionEvents.DISCONNECT.register((handler,server)->{
+            EcologyCostEffects.disconnect(handler.player);
+            Runtime r=WORLDS.get(server);if(r!=null)r.costs.resetPlayer(handler.player.getUuid());
+        });
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer,player,alive)->{
+            EcologyCostEffects.disconnect(oldPlayer);
+            EcologyCostEffects.withdrawMarked(player);
+            Runtime r=WORLDS.get(player.getEntityWorld().getServer());if(r!=null)r.costs.resetPlayer(player.getUuid());
+        });
         ServerLifecycleEvents.SERVER_STOPPED.register(server->{
+            EcologyCostEffects.forget(server);
             Runtime r=WORLDS.remove(server);if(r!=null){
                 try{r.engine.flushVitality();}catch(Exception e){QuietBelow.LOGGER.error("Ecology vitality shutdown checkpoint failed",e);}
                 try{r.journal.close();}catch(IOException e){QuietBelow.LOGGER.error("Ecology journal close failed",e);}
@@ -141,13 +164,14 @@ public final class QuietBelowEcology {
         }
     }
     private static void tick(MinecraftServer server) {
-        Runtime r=WORLDS.get(server);if(r==null||r.engine.failure()!=null||r.engine.setup()==null)return;
+        Runtime r=WORLDS.get(server);if(r==null||r.engine.failure()!=null||r.engine.setup()==null){EcologyCostEffects.clear(server);return;}
         long started=System.nanoTime();
         try {
             attach(server,r);
             Adapter world=adapter(server,r.engine.setup().dimension());
             // Indexing is explicit preparation, never starts from simply registering a role.
             if(!r.engine.view().indexed()) {
+                EcologyCostEffects.clear(server);
                 // Explicit metadata preparation needs the exact pins and loaded source chunks,
                 // not the Heart chunk. Otherwise walking a large city can never finish its edges.
                 if(ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.index(world);
@@ -164,11 +188,12 @@ public final class QuietBelowEcology {
             if(!r.recovery.rules().equals(r.engine.recoveryRules()))r.recovery=new EcologyRecovery(r.engine.recoveryRules());
             try{r.recovery.tick(new EcologyRecoveryWorld(server,world.world,r.engine,r.recovery,()->r.rootProblem==null&&playing(server)),r.engine,r.rootProblem==null&&playing(server));}
             catch(Exception e){r.recovery.fail("Local healing held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local healing held; ecology retained",e);}
-            if(!r.costs.rules().equals(r.engine.costRules()))r.costs=new EcologyCosts(r.engine.costRules());
-            try{r.costs.tick(new EcologyCostsWorld(server,world.world,r.engine,r.costs,()->r.rootProblem==null&&playing(server)),r.engine,r.rootProblem==null&&playing(server));}
-            catch(Exception e){r.costs.fail("Local costs held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local costs held; ecology retained",e);}
+            if(!r.costs.rules().equals(r.engine.costRules())){EcologyCostEffects.clear(server);r.costs=new EcologyCosts(r.engine.costRules());}
+            try{r.costs.tick(new EcologyCostsWorld(server,world.world,r.engine,r.costs,()->r.rootProblem==null
+                    &&ChronicleRuntime.service(server).state().phase()==SessionPhase.ACTIVE&&RuntimeHolds.reason(server)==null),r.engine,r.rootProblem==null&&playing(server));}
+            catch(Exception e){EcologyCostEffects.clear(server);r.costs.fail("Local costs held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local costs held; ecology retained",e);}
             if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
-        } catch(Exception e) { hold(r,e); }
+        } catch(Exception e) { EcologyCostEffects.clear(server);hold(r,e); }
         finally {r.lastTickNanos=System.nanoTime()-started;}
     }
     public static boolean playing(MinecraftServer server) {
@@ -184,8 +209,9 @@ public final class QuietBelowEcology {
         List<Fact> facts=List.of(new Fact("Root (Relic Heart)",root==null?rootIssue:coordinates(root)),
                 new Fact("Growth",growthStatus(source.getServer(),r,v)),
                 new Fact("Spread speed",speedLabel(r.engine)),
+                new Fact("Growth mode",spreadLabel(r.engine)),
                 new Fact("Vitality",r.engine.vitalitySummary().rootedPercent()+"% rooted average; "+r.engine.vitalitySummary().ready()+" ready rooted cells. See Sculk vitality for recovery/tuning."),
-                new Fact("Speed controls","Slower / Faster: 0.25x to 16x; Reset speed: 1x. Pause play and enable editing to change. These are attempt intervals; blocked surfaces can advance more slowly."),
+                new Fact("Speed controls","Set the base rate from 0.25x to 16x here. See Spread mode for fixed/sculk-count mode and amplification. Pause play and enable editing to change; these are attempt intervals."),
                 new Fact("Living connection",!v.configured()?"No network indexed yet.":v.unresolved()?"Checking loaded sculk connections; expansion waits.":v.connected()==0?
                         "None. Detached sculk is dormant. Restore continuous sculk contact with the Heart to reconnect it.":
                         "Continuous sculk contact with the Heart; cutting every contact makes a branch dormant."),
@@ -194,13 +220,18 @@ public final class QuietBelowEcology {
                 new Fact("How to test","Show root, then close this menu to see its private outline. Break every sculk connection to a branch; replace sculk to reconnect. Sensors are audible evidence, not a growth meter."),
                 new Fact("Surface frontier",v.frontier()+" discovered air cells"),
                 new Fact("Persistence",v.journalBytes()+" bytes; append-only history"),
-                new Fact("Review scope","Surface growth, vitality, crops, passive healing and short local costs. Stations and Heart ending follow later."));
+                new Fact("Review scope","Surface growth, vitality, crops, passive healing and sustained footing costs. Stations and Heart ending follow later."));
         Map<String,String> disabled=new HashMap<>();
-        if(!v.indexed())for(String verb:List.of("slower","faster","speed_reset"))disabled.put(verb,"Complete source indexing before changing spread speed.");
+        if(!v.indexed())for(String verb:List.of("slower","faster","speed_reset","use_fixed","use_count","amplification_lower","amplification_higher","spread_reset"))disabled.put(verb,"Complete source indexing before changing growth mode.");
         if(r.engine.speedPercent()==EcologyEngine.SPEEDS.getFirst())disabled.put("slower","Minimum speed: 0.25x.");
         if(r.engine.speedPercent()==EcologyEngine.SPEEDS.getLast())disabled.put("faster","Maximum speed: 16x; at most one attempt per game tick.");
         if(r.engine.speedPercent()==100)disabled.put("speed_reset","Spread speed is already 1x.");
-        if(v.hold()!=null)for(String verb:List.of("slower","faster","speed_reset"))disabled.put(verb,v.hold());
+        var spread=r.engine.spreadRules();
+        if(spread.mode()==EcologyEngine.GrowthMode.FIXED)disabled.put("use_fixed","Fixed rate is already active.");else disabled.put("use_count","Sculk-count rate is already active.");
+        if(spread.amplificationPercent()==EcologyEngine.AMPLIFICATIONS.getFirst())disabled.put("amplification_lower","Minimum amplification: 0% per 1,000 sculk.");
+        if(spread.amplificationPercent()==EcologyEngine.AMPLIFICATIONS.getLast())disabled.put("amplification_higher","Maximum amplification: 100% per 1,000 sculk.");
+        if(spread.equals(EcologyEngine.DEFAULT_SPREAD))disabled.put("spread_reset","Growth mode is already at its defaults.");
+        if(v.hold()!=null)for(String verb:List.of("slower","faster","speed_reset","use_fixed","use_count","amplification_lower","amplification_higher","spread_reset"))disabled.put(verb,v.hold());
         if(root==null)disabled.put("show_root",rootIssue);
         else if(source.getPlayer()==null||!source.getPlayer().getEntityWorld().getRegistryKey().getValue().toString().equals(root.setup.dimension()))
             disabled.put("show_root","Visit the root dimension: "+root.setup.dimension());
@@ -212,6 +243,16 @@ public final class QuietBelowEcology {
         if(v.hold()!=null){disabled.put("enable",v.hold());disabled.put("index",v.hold());}
         if(r.rootProblem!=null)disabled.put("enable",r.rootProblem);
         return new GameSetupTools.Status(v.revision()+r.menuRevision,facts,disabled);
+    }
+    private static GameSetupTools.Status spreadStatus(ServerCommandSource source){
+        Runtime r=runtime(source.getServer());var all=status(source);var rules=r.engine.spreadRules();
+        return new GameSetupTools.Status(all.controlRevision(),List.of(
+                new Fact("Growth mode",spreadLabel(r.engine)),new Fact("Spread speed",speedLabel(r.engine)),
+                new Fact("Amplification","+"+rules.amplificationPercent()+"% per 1,000 living, Heart-connected sculk. Dormant/disconnected sculk does not count."),
+                new Fact("Count",r.engine.vitalitySummary().ready()+" cells at 25%+ vitality in the last completed bounded summary."),
+                new Fact("Formula","Effective rate = base x (1 + count x amplification / 100000), capped at 16x. Set the base speed under Sculk ecology."),
+                new Fact("Growth",growthStatus(source.getServer(),r,r.engine.view())),
+                new Fact("Limits","Attempt speed only; existing loaded-only work, terrain-write limits and physical barriers remain.")),all.disabledReasons());
     }
     private static GameSetupTools.Status cropStatus(ServerCommandSource source){
         Runtime r=runtime(source.getServer());var e=r.engine;var v=e.view();var rules=e.cropRules();
@@ -286,23 +327,23 @@ public final class QuietBelowEcology {
         Runtime r=runtime(source.getServer());var e=r.engine;var rule=kind==EcologyCosts.Kind.HUNGER?e.costRules().hunger():e.costRules().darkness();
         Map<String,String> disabled=new HashMap<>();
         if(rule.enabled())disabled.put("enable","Already enabled.");else disabled.put("disable","Already disabled.");
-        if(rule.seconds()==EcologyCosts.SECONDS.getFirst())disabled.put("faster","Minimum interval: 10 eligible seconds.");
-        if(rule.seconds()==EcologyCosts.SECONDS.getLast())disabled.put("slower","Maximum interval: 120 eligible seconds.");
-        if(rule.equals(EcologyCosts.DEFAULT.hunger())&&r.costs.failure()==null)disabled.put("reset","Pulse tuning is already at its defaults.");
+        if(rule.seconds()==EcologyCosts.SECONDS.getFirst())disabled.put("faster","Minimum initial delay: 10 eligible seconds.");
+        if(rule.seconds()==EcologyCosts.SECONDS.getLast())disabled.put("slower","Maximum initial delay: 120 eligible seconds.");
+        if(rule.equals(EcologyCosts.DEFAULT.hunger())&&r.costs.failure()==null)disabled.put("reset","Exposure tuning is already at its defaults.");
         String issue=!e.view().indexed()?"Complete source indexing before tuning local costs.":e.failure();
         if(issue!=null)for(String verb:List.of("enable","disable","faster","slower","reset"))disabled.put(verb,issue);
         String state=r.costs.failure()!=null?"HELD: "+r.costs.failure():!rule.enabled()?"Disabled":r.rootProblem!=null?r.rootProblem:
                 !playing(source.getServer())?"Paused; requires occupied active play":!e.costsAvailable()?"Waiting for resolved Established or Extensive living sculk":
-                kind==EcologyCosts.Kind.DARKNESS&&!e.extensive()?"Waiting for Extensive growth":"Running in dense living sculk";
+                kind==EcologyCosts.Kind.DARKNESS&&!e.extensive()?"Waiting for Extensive growth":"Running on living sculk";
         return new GameSetupTools.Status(e.view().revision()+r.menuRevision,List.of(
                 new Fact(kind==EcologyCosts.Kind.HUNGER?"Local Hunger":"Local Darkness",state),
-                new Fact("Density","At least eight owned, rooted cells at 25%+ vitality within 4 blocks. No authored hazard region."),
-                new Fact("Pulse",kind==EcologyCosts.Kind.HUNGER?"Hunger I for 5 seconds; Established or Extensive growth.":"Darkness for 4 seconds; Extensive growth only."),
-                new Fact("Pace","At least "+rule.seconds()+" eligible seconds apart, with a full wait on first entry. Large groups can wait longer."),
+                new Fact("Footing","Physically standing on owned, Heart-connected sculk at 25%+ vitality, including a floor-facing vein. Nearby sculk alone cannot start exposure. Jumping retains the last living footing; landing on a non-sculk pillar is safe."),
+                new Fact("Effect",kind==EcologyCosts.Kind.HUNGER?"Sustained Hunger I after the initial wait; Established or Extensive growth.":"Sustained Darkness after the initial wait; Extensive growth only."),
+                new Fact("Initial delay",rule.seconds()+" continuous eligible seconds after living footing, then the effect stays until a non-sculk landing or loss of power/eligibility."),
                 new Fact("Players","Survival/Adventure participants in the Heart's dimension; Creative, Spectator and editing excluded."),
-                new Fact("Reset","Leaving density, lost power/eligibility, pause and restart discard waiting credit."),
-                new Fact("Existing effects","Never replaced or removed. A delivered pulse expires naturally after leaving or pausing."),
-                new Fact("Since reset",r.costs.applications()+" guarded attempts across both effects; "+r.costs.tracked()+" tracked participants.")),disabled);
+                new Fact("Reset","Landing off living sculk, lost power/eligibility, pause and restart remove campaign effects and discard waiting credit."),
+                new Fact("Existing effects","Independent potion/Warden effects take precedence. Leaving removes only our marked effects; our effects are excluded from player saves."),
+                new Fact("Since reset",r.costs.applications()+" initial waits completed across both effects; "+r.costs.tracked()+" tracked participants.")),disabled);
     }
     private static String costAction(ServerCommandSource source,String verb,EcologyCosts.Kind kind)throws Exception {
         Runtime r=runtime(source.getServer());var all=r.engine.costRules();var old=kind==EcologyCosts.Kind.HUNGER?all.hunger():all.darkness();var next=old;
@@ -315,9 +356,9 @@ public final class QuietBelowEcology {
             default -> throw new IllegalArgumentException("Unknown local cost action");
         }
         r.engine.tuneCosts(kind==EcologyCosts.Kind.HUNGER?new EcologyCosts.Rules(next,all.darkness()):new EcologyCosts.Rules(all.hunger(),next));
-        r.costs=new EcologyCosts(r.engine.costRules());r.menuRevision++;
+        EcologyCostEffects.clear(source.getServer());r.costs=new EcologyCosts(r.engine.costRules());r.menuRevision++;
         QuietBelow.LOGGER.info("Quiet Below {} tuning {} by {}",kind,verb,source.getName());
-        return (kind==EcologyCosts.Kind.HUNGER?"Local Hunger":"Local Darkness")+" "+(next.enabled()?"enabled":"disabled")+"; interval "+next.seconds()+" eligible seconds. Cost cooldowns restarted; delivered effects expire naturally.";
+        return (kind==EcologyCosts.Kind.HUNGER?"Local Hunger":"Local Darkness")+" "+(next.enabled()?"enabled":"disabled")+"; initial delay "+next.seconds()+" eligible seconds. Exposure waits restarted; campaign effects removed.";
     }
     private static String growthStatus(MinecraftServer server,Runtime r,EcologyEngine.View v) {
         if(v.hold()!=null)return "HELD: "+v.hold();
@@ -334,7 +375,11 @@ public final class QuietBelowEcology {
     }
     private static String coordinates(Pins p) {return p.heart.x()+", "+p.heart.y()+", "+p.heart.z()+" in "+p.setup.dimension();}
     private static String speedLabel(EcologyEngine e) {
-        return String.format(Locale.ROOT,"%.2fx; attempts every %.2fs dark / %.2fs bright (at 20 TPS)",e.speedPercent()/100.0,e.attemptTicks(false)/20.0,e.attemptTicks(true)/20.0);
+        return String.format(Locale.ROOT,"%.2fx base, effective %.2fx; attempts every %.2fs dark / %.2fs bright (at 20 TPS)",e.speedPercent()/100.0,e.effectiveSpeedPercent()/100.0,e.attemptTicks(false)/20.0,e.attemptTicks(true)/20.0);
+    }
+    private static String spreadLabel(EcologyEngine e){
+        var rules=e.spreadRules();return rules.mode()==EcologyEngine.GrowthMode.FIXED?"Fixed rate: the saved base rate is used.":
+                "Sculk-count rate: +"+rules.amplificationPercent()+"% per 1,000 ready rooted sculk; "+e.vitalitySummary().ready()+" counted; capped at 16x.";
     }
     private static GameSetupTools.Status vitalityStatus(ServerCommandSource source){
         Runtime r=runtime(source.getServer());var e=r.engine;var rules=e.vitality().rules();var s=e.vitalitySummary();Map<String,String> disabled=new HashMap<>();
@@ -482,6 +527,10 @@ public final class QuietBelowEcology {
             case "hide_root" -> AuthoringRuntime.clearPreview(source.getPlayerOrThrow());
             case "slower", "faster" -> r.engine.speed(EcologyEngine.SPEEDS.get(EcologyEngine.SPEEDS.indexOf(r.engine.speedPercent())+(verb.equals("faster")?1:-1)));
             case "speed_reset" -> r.engine.speed(100);
+            case "use_fixed" -> r.engine.tuneSpread(new EcologyEngine.SpreadRules(EcologyEngine.GrowthMode.FIXED,r.engine.spreadRules().amplificationPercent()));
+            case "use_count" -> r.engine.tuneSpread(new EcologyEngine.SpreadRules(EcologyEngine.GrowthMode.SCULK_COUNT,r.engine.spreadRules().amplificationPercent()));
+            case "amplification_lower", "amplification_higher" -> {var old=r.engine.spreadRules();int index=EcologyEngine.AMPLIFICATIONS.indexOf(old.amplificationPercent());r.engine.tuneSpread(new EcologyEngine.SpreadRules(old.mode(),EcologyEngine.AMPLIFICATIONS.get(index+(verb.equals("amplification_higher")?1:-1))));}
+            case "spread_reset" -> r.engine.tuneSpread(EcologyEngine.DEFAULT_SPREAD);
             case "refresh" -> r.menuRevision++;
             default -> throw new IllegalArgumentException("Unknown ecology action");
         }
@@ -491,7 +540,8 @@ public final class QuietBelowEcology {
             case "disable"->"Growth disabled; owned terrain and history retained.";
             case "show_root"->"Root outlined privately. Close the menu to view it.";
             case "hide_root"->"Root outline hidden.";
-            case "slower", "faster", "speed_reset"->"Spread speed saved: "+speedLabel(r.engine);
+            case "slower", "faster", "speed_reset"->"Spread speed saved: "+speedLabel(r.engine)+". "+spreadLabel(r.engine);
+            case "use_fixed","use_count","amplification_lower","amplification_higher","spread_reset"->"Spread tuning saved: "+speedLabel(r.engine)+". "+spreadLabel(r.engine);
             default->"Ecology status refreshed. "+growthStatus(source.getServer(),r,r.engine.view());};
     }
     private record Pins(EcologyEngine.Setup setup,EcologyEngine.Area area,Pos heart,String heartBlock) { }

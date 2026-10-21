@@ -4,6 +4,8 @@
   "package": "io.github.chronicle.quietbelow.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "ContactCostInstanceMixin",
+    "ContactCostLivingMixin",
     "SculkVisualPropertyMixin",
     "SculkVeinVisualPropertyMixin",
     "SculkFeatureVisualPropertyMixin",

@@ -26,25 +26,30 @@ class EcologyCostsPersistenceTest {
             EcologyJournal.Entry entry=journal.entries().getLast();assertEquals("COST_RULES",entry.type());assertEquals(Set.of("hunger","darkness"),entry.payload().keySet());
             assertEquals(Set.of("enabled","seconds"),entry.payload().getAsJsonObject("hunger").keySet());
             assertFalse(entry.payload().has("effects"));
+            old.speed(200);old.tuneSpread(new EcologyEngine.SpreadRules(EcologyEngine.GrowthMode.SCULK_COUNT,25));
         }
         assertEquals(CUSTOM,load(source).costRules());
+        assertEquals(new EcologyEngine.SpreadRules(EcologyEngine.GrowthMode.SCULK_COUNT,25),load(source).spreadRules());
+        assertEquals(200,load(source).speedPercent());
         assertTrue(EcologyMaintenance.compact(world,true).applied());EcologyEngine compacted=load(source);
         assertEquals(CUSTOM,compacted.costRules());assertTrue(old.sameCheckpointState(compacted));
+        assertEquals(new EcologyEngine.SpreadRules(EcologyEngine.GrowthMode.SCULK_COUNT,25),compacted.spreadRules());
+        assertEquals(200,compacted.speedPercent());
         try(var journal=new EcologyJournal(source)){
             JsonObject header=journal.entries().stream().filter(e->e.type().equals("CHECKPOINT_BEGIN")).findFirst().orElseThrow().payload();
-            assertEquals(3,header.get("format").getAsInt());assertEquals(Set.of("hunger","darkness"),header.getAsJsonObject("costs").keySet());
+            assertEquals(4,header.get("format").getAsInt());assertEquals(Set.of("hunger","darkness"),header.getAsJsonObject("costs").keySet());assertEquals(Set.of("mode","amplificationPercent"),header.getAsJsonObject("spread").keySet());
             assertFalse(header.has("effects"));
         }
     }
 
-    @Test void formatOneAndTwoCheckpointsDefaultCosts()throws Exception {
+    @Test void legacyCheckpointsDefaultCostsAndSpread()throws Exception {
         Path world=world("legacy"),source=file(world);try(var journal=new EcologyJournal(source)){costHistory(prepared(journal));}EcologyMaintenance.compact(world,true);
         List<EcologyJournal.Entry> entries;try(var journal=new EcologyJournal(source)){entries=journal.entries();}
-        for(int format:List.of(1,2)){
+        for(int format:List.of(1,2,3)){
             Path legacy=dir.resolve("format"+format+".jsonl");try(var journal=new EcologyJournal(legacy)){
-                for(EcologyJournal.Entry entry:entries){JsonObject p=entry.payload();if(entry.type().equals("CHECKPOINT_BEGIN")){p.addProperty("format",format);p.remove("costs");if(format==1)p.remove("recovery");}journal.append(entry.type(),p);}
+                for(EcologyJournal.Entry entry:entries){JsonObject p=entry.payload();if(entry.type().equals("CHECKPOINT_BEGIN")){p.addProperty("format",format);p.remove("spread");if(format<3)p.remove("costs");if(format==1)p.remove("recovery");}journal.append(entry.type(),p);}
             }
-            assertEquals(EcologyCosts.DEFAULT,load(legacy).costRules());
+            assertEquals(format<3?EcologyCosts.DEFAULT:CUSTOM,load(legacy).costRules());assertEquals(EcologyEngine.DEFAULT_SPREAD,load(legacy).spreadRules());
         }
     }
 
@@ -74,6 +79,18 @@ class EcologyCostsPersistenceTest {
                 }journal.append(entry.type(),p);}
             }
             assertThrows(IllegalArgumentException.class,()->load(altered),"checkpoint "+fault);
+        }
+        for(String fault:List.of("mode","amplification","extra","missing")){
+            Path altered=dir.resolve("checkpoint-spread-"+fault+".jsonl");try(var journal=new EcologyJournal(altered)){
+                for(EcologyJournal.Entry entry:compacted){JsonObject p=entry.payload();if(entry.type().equals("CHECKPOINT_BEGIN")){
+                    JsonObject spread=p.getAsJsonObject("spread");
+                    if(fault.equals("mode"))spread.addProperty("mode","FUTURE");
+                    if(fault.equals("amplification"))spread.addProperty("amplificationPercent",3);
+                    if(fault.equals("extra"))spread.addProperty("extra",true);
+                    if(fault.equals("missing"))p.remove("spread");
+                }journal.append(entry.type(),p);}
+            }
+            assertThrows(IllegalArgumentException.class,()->load(altered),"checkpoint spread "+fault);
         }
     }
 

@@ -1,5 +1,7 @@
 # QB-08: exposed corners and spread speed
 
+> **Historical dev.16 contract.** The exposed-corner repair and base speed bounds below remain valid. The fixed multiplier is now accompanied by the persisted fixed/sculk-count mode and amplification controls in [M10 contact costs and growth-mode tuning](M10_CONTACT_COSTS.md). That later contract supersedes this document's statement that only a fixed multiplier exists; it does not change the existing scan, attempt or terrain-write budgets.
+
 The operator accepts root identification, disconnection and physical reconnection. This review reports a converted face of an exposed stone cuboid failing to continue around its outer edge, and requests in-game spread-speed configuration.
 
 Reproduce with an isolated stone cuboid, one source on a flat face and an adjacent Heart. Growth must reach adjacent/opposite exposed faces, while leaving enclosed interior stone intact. Retain closed-passage, loaded-only, ownership, reconnection, pause and bounded-work rules. Fix exposure discovery rather than weakening the physical connection check. Discover only faces reachable through a local 3x3x3 air path; a regression must also prove that converting a thin sealed wall does not seed its far side. Refresh missing exposures on existing rooted cells so the preserved review world recovers without resetting its history. The rolling scan checks at most 32 owned cells and journals at most 64 new positions per tick. Frontier-only discovery is metadata; it must not count as growth or invalidate native connectivity.
