@@ -39,7 +39,7 @@ final class QuietBelowEcologySmoke {
     private boolean started, connected, built, finished;
 
     static void register() {
-        if (PHASE!=null&&List.of("city","city_restart","recovery","recovery_restart").contains(PHASE)) return;
+        if (PHASE!=null&&List.of("city","city_restart","recovery","recovery_restart","costs","costs_restart").contains(PHASE)) return;
         if (OUTPUT == null) return;
         if (!List.of("initial","restart","surface","organic","vitality","items","crops","crops_restart","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
         var smoke = new QuietBelowEcologySmoke();
@@ -540,6 +540,8 @@ final class QuietBelowEcologySmoke {
         finished = true;
         try {
             Files.createDirectories(Path.of(OUTPUT));
+            if(!pass&&client.currentScreen instanceof CoreMenuScreen menu)
+                Files.writeString(Path.of(OUTPUT).resolve("ecology-"+PHASE+"-menu-failure.json"),new Gson().toJson(menu.state()));
             Files.writeString(Path.of(OUTPUT).resolve("ecology-" + PHASE + ".json"), new Gson().toJson(Map.of(
                     "result", pass ? "PASS" : "FAIL", "detail", detail, "checks", checks,
                     "step", index < steps.size() ? steps.get(index).name : "complete", "messages", messages)));

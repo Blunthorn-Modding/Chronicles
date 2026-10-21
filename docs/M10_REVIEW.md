@@ -1,3 +1,16 @@
+# Combined benefits and local costs (dev.26)
+
+The new separate bench uses **localhost:25588**, authenticated and whitelisted, with SchinderRenge as operator. It is running PAUSED at `../reviews/costs/20261021T131343506328Z` after both native cost phases passed; existing ecology25585, crop25586, healing25587 and production worlds remain untouched. The client assets, registry and wire contract are unchanged; the refreshed pack keeps GUI scale2, narrator/offboarding off and multiplayer acknowledgement. This review can be bundled with healing feedback and does not gate independent implementation.
+
+1. In Survival, join participation through **Players** or `/chronicles join`, then resume play under **Session**. Editing must be off. Stand near **2,65,2** on the dense living field. A full fresh wait of40 eligible seconds precedes **Hunger I for5 seconds** and **Darkness for4 seconds**. Both require at least8 owned/rooted cells at25%+ vitality within4 blocks; Darkness additionally needs Extensive growth. This fixture lowers extent thresholds to64/512 and supplies643 source cells, preserving production defaults elsewhere.
+2. Compare the distant pad at **24,64,2**. A large/newly spreading field can eventually bring the control into reach. Move away, pause or cut the sole contact at **-3,64,0**: no new pulses should occur. An existing pulse finishes naturally. Replace that contact and allow reconnection; a fresh wait starts. Creative, spectator, editing, nonparticipants and offline time grant no credit.
+3. Pause and enable editing, then open **Game setup > Local Hunger** or **Local Darkness**. Toggle each separately, choose10/20/40/60/120-second spacing using More/Less frequent pulses, or reset to40s. Operators may disable during play. The displayed density, duration and current hold/running state explain when each applies. Existing potion/Warden effects are never shortened, overwritten or removed.
+4. The same field also supports passive healing. For a useful comparison, lower food below18 and injure your character safely, then compare near/far: up to half a heart every10 eligible seconds. Ordinary food regeneration still works; damage is unnecessary when already injured. **Game setup > Local healing** retains its independent controls. There is no regeneration potion effect, corruption meter or lasting character conversion.
+
+The dense platform is a technical comparison, not proposed map scenery. Review usefulness/annoyance,40-second pulse spacing, duration, density and4-block reach together with healing. No settlement of balance is assumed from automated checks. [Cost contract](M10_LOCAL_COSTS.md), [healing contract](M10_PASSIVE_RECOVERY.md), [test evidence](TEST_PLAN.md).
+
+`python scripts/costs_review.py prepare` requires a stopped PAUSED successful costs+restart snapshot, defaults for both effects and healing, and cleanup off. `start` verifies manifest/jar hashes/authentication/loopback/voice bindings before opening25588/24468. New COST_RULES/checkpoint format3 requires the matching reader; rollback restores a stopped backup and jars together.
+
 # Local healing review
 
 Use **dev.24**, Minecraft Java **1.21.10**, and the refreshed `../client/Chronicle-M9-1.21.10.mrpack`. Import/update your client profile to receive the visible list navigation controls. No protocol, registry, asset or appearance-layout change was made; older dev.22 clients are compatible by the unchanged contract, without a separate old-binary rehearsal. This review follows accepted crop growth and the operator's explicit choice of passive healing.
@@ -12,7 +25,7 @@ Join **localhost:25587**. This is a fresh authenticated, whitelisted bench at `.
 
 This benefit needs an **Established or Extensive** network and a physically rooted source at **25%+ vitality**. The small bench starts with 67 owned source cells and deliberately lowered extent thresholds (Established64, Extensive512), rather than changing the production default256/2048. The source and old control blocks remain ordinary terrain. Fully healthy players hold no credit; larger groups are served in turn and may wait longer than the selected minimum. No Altar, reveal event, authored benefit region or new entity/block entity is involved.
 
-Please review whether healing is noticeable/useful, the default pace and four-block reach feel appropriate, and the menu plus cut/reconnection behavior are clear. Costs, stations and the Heart ending remain later slices. [Implementation contract](M10_PASSIVE_RECOVERY.md), [maintenance and full-city limitation](M9_JOURNAL_MAINTENANCE.md), [verification](TEST_PLAN.md).
+Please review whether healing is noticeable/useful, the default pace and four-block reach feel appropriate, and the menu plus cut/reconnection behavior are clear. Local costs are implemented separately above; stations and the Heart ending remain later slices. [Implementation contract](M10_PASSIVE_RECOVERY.md), [maintenance and full-city limitation](M9_JOURNAL_MAINTENANCE.md), [verification](TEST_PLAN.md).
 
 `python scripts/recovery_review.py prepare` accepts only a passing healing+restart report and a stopped PAUSED snapshot with default healing/cleanup off. It creates a new review directory; `python scripts/recovery_review.py start` checks its manifest, jar hashes, loopback binding, authentication and whitelist before starting TCP25587 / voice UDP24467. Console `stop` saves normally. New RECOVERY_RULES and checkpoint records require the matching reader: rollback restores a stopped backup and matching jars together.
 
@@ -34,7 +47,7 @@ The fixed reach is **four blocks in three dimensions**, measured from owned, roo
 
 Review whether the bonus is noticeable, its default pace feels useful, and the physical reach and cut/reconnection behavior make sense. The floor is ordinary terrain and can eventually carry spreading sculk; a control plot ceases to be a control if living growth reaches within four blocks of it.
 
-The operator accepted this crop slice. Passive healing is now implemented separately above; Hunger/Darkness, stations and Heart eradication remain later work. Offline journal compaction is implemented, while full native-city capacity/load-order soak remains required before prolonged production use. New saved `CROP_RULES` records require dev.22; restore the stopped backup and old jars together to roll back.
+The operator accepted this crop slice. Passive healing is now implemented separately above; Hunger/Darkness are implemented separately above; stations and Heart eradication remain later work. Offline compaction and a finite full native-city trial pass; prolonged production operations remain open. New saved `CROP_RULES` records require dev.22; restore the stopped backup and old jars together to roll back.
 
 ## Local operation
 

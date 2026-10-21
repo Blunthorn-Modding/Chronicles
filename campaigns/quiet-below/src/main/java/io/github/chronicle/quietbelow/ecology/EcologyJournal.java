@@ -66,7 +66,7 @@ public final class EcologyJournal implements AutoCloseable {
     private static final Set<String> TYPES = Set.of(
             "CONFIGURE", "INDEX", "INDEX_COMPLETE", "MODE", "GROW", "REMOVE", "OBSERVE", "CONNECT",
             "CLEANUP_MODE", "PURGE", "CLAIM_START", "CLAIM_SCAN", "CLAIM_DONE", "SPEED", "FRONTIER", "VITALITY", "VITALITY_RULES", "CROP_RULES",
-            "CHECKPOINT_BEGIN", "CHECKPOINT_CELLS", "CHECKPOINT_AIR", "CHECKPOINT_END", "RECOVERY_RULES");
+            "CHECKPOINT_BEGIN", "CHECKPOINT_CELLS", "CHECKPOINT_AIR", "CHECKPOINT_END", "RECOVERY_RULES", "COST_RULES");
     private static final Set<String> ENVELOPE_FIELDS = Set.of(
             "schema", "sequence", "type", "payload", "previousHash", "hash");
 

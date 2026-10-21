@@ -39,7 +39,7 @@ public final class EcologyCropTrial {
                 case "prepare" -> {
                     put(world,new BlockPos(-4,64,0),Blocks.REINFORCED_DEEPSLATE.getDefaultState());
                     for(int x=-3;x<=-1;x++)put(world,new BlockPos(x,64,0),Blocks.SCULK.getDefaultState());
-                    field(world);
+                    adapterBounds(world);field(world);
                 }
                 case "grown" -> {
                     require(engine.cropRules().equals(new EcologyCrops.Rules(true,2)),"wrong crop tuning");
@@ -78,6 +78,25 @@ public final class EcologyCropTrial {
             }
             s.sendFeedback(()->Text.literal("PASS crop "+verb+": native conditions, ages and campaign gating verified."),false);return 1;
         }catch(Exception e){s.sendError(Text.literal("FAIL crop "+verb+": "+e.getMessage()));return 0;}
+    }
+    private static void adapterBounds(ServerWorld w){
+        var adapter=new EcologyCropWorld(w);var crop=new BlockPos(5,65,5);var bottom=new BlockPos(5,w.getBottomY(),5);
+        var originalCrop=w.getBlockState(crop);var originalSoil=w.getBlockState(crop.down());var originalBottom=w.getBlockState(bottom);
+        var border=w.getWorldBorder();double centerX=border.getCenterX(),centerZ=border.getCenterZ(),size=border.getSize();
+        try{
+            put(w,crop.down(),Blocks.FARMLAND.getDefaultState());put(w,crop,Blocks.WHEAT.getDefaultState());
+            border.setCenter(8,8);border.setSize(14); // origin0 outside, crop5 inside the same section
+            var section=new EcologyCrops.Section(0,4,0);
+            require(!border.contains(new BlockPos(0,64,0))&&border.contains(crop),"border-straddling fixture invalid");
+            require(adapter.mayContainCrops(section),"cached palette missed border-straddling crops");
+            require(adapter.crop(new EcologyTerrain.Pos(5,65,5))!=null,"in-border native crop unreadable");
+            put(w,bottom,Blocks.WHEAT.getDefaultState());
+            var minimum=adapter.crop(new EcologyTerrain.Pos(5,w.getBottomY(),5));
+            require(minimum!=null&&!minimum.eligible(),"minimum-Y crop must have no valid soil");
+        }finally{
+            border.setCenter(centerX,centerZ);border.setSize(size);
+            put(w,crop,originalCrop);put(w,crop.down(),originalSoil);put(w,bottom,originalBottom);
+        }
     }
     private static void field(ServerWorld w){
         for(int i=0;i<NEAR.size();i++){

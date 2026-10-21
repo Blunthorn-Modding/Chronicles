@@ -307,7 +307,7 @@ public final class EcologyCityTrial {
 
     private static String stateDigest(EcologyEngine engine)throws Exception{
         MessageDigest hash=MessageDigest.getInstance("SHA-256");
-        hash.update((engine.enabled()+"/"+engine.cleanup()+"/"+engine.speedPercent()+"/"+engine.cropRules()+"/"+engine.recoveryRules()+"/"+engine.vitality().checkpointHeader()+"\n").getBytes(StandardCharsets.UTF_8));
+        hash.update((engine.enabled()+"/"+engine.cleanup()+"/"+engine.speedPercent()+"/"+engine.cropRules()+"/"+engine.recoveryRules()+"/"+engine.costRules()+"/"+engine.vitality().checkpointHeader()+"\n").getBytes(StandardCharsets.UTF_8));
         var ordered=engine.cells().stream().sorted(Comparator.comparingInt((EcologyEngine.Cell c)->c.position().x()).thenComparingInt(c->c.position().y()).thenComparingInt(c->c.position().z())).toList();
         for(var cell:ordered){
             String row=EcologyEngine.pos(cell.position())+"/"+cell.before().id()+new TreeMap<>(cell.before().properties())+"/"+cell.after().id()+new TreeMap<>(cell.after().properties())+"/"+cell.adopted()+"/"+engine.vitality().checkpointCell(cell.position())+"\n";

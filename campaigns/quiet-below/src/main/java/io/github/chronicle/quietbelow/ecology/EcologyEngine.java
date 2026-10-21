@@ -6,7 +6,7 @@ import java.util.*;
 import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 
 /** Bounded, durable campaign ecology. No clocks, players, chunk loads or Minecraft classes. */
-public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery.Network {
+public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery.Network,EcologyCosts.Network {
     public static final int MAX_CELLS=131072, MAX_AIR=524288, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
     public static final List<Integer> SPEEDS=List.of(25,50,100,200,400,800,1600);
@@ -57,6 +57,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private final EcologyVitality vitality=new EcologyVitality();
     private EcologyCrops.Rules cropRules=EcologyCrops.DEFAULT;
     private EcologyRecovery.Rules recoveryRules=EcologyRecovery.DEFAULT;
+    private EcologyCosts.Rules costRules=EcologyCosts.DEFAULT;
     private int vitalityTicks;
     private Iterator<Pos> vitalityScan;
     private boolean vitalityPending=true;
@@ -102,9 +103,11 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             JsonObject recovery=EcologyCheckpoint.object(h.get("recovery"));EcologyCheckpoint.keys(recovery,"enabled","seconds");
             recoveryRules=new EcologyRecovery.Rules(EcologyCheckpoint.bool(recovery,"enabled"),EcologyCheckpoint.integer(recovery,"seconds"));
         }
+        EcologyCosts.Rules restoredCosts=h.has("costs")?costRules(EcologyCheckpoint.object(h.get("costs"))):EcologyCosts.DEFAULT;
         EcologyVitality restored=new EcologyVitality();restored.restoreHeader(EcologyCheckpoint.object(h.get("vitality")));
         for(int n=0;n<checkpoint.cells().size();n++)restored.restoreCell(checkpoint.cells().get(n).position,checkpoint.health().get(n));
         // Copy only after every page and every value has passed validation.
+        costRules=restoredCosts;
         vitality.restoreHeader(restored.checkpointHeader());
         for(Cell c:checkpoint.cells())vitality.restoreCell(c.position,restored.checkpointCell(c.position));
         cells.clear();positions.clear();ownedChunks.clear();for(Cell c:checkpoint.cells())putCell(c.position,c);
@@ -119,7 +122,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     boolean sameCheckpointState(EcologyEngine other){
         if(!Objects.equals(setup,other.setup)||indexed!=other.indexed||enabled!=other.enabled||cleanup!=other.cleanup||speedPercent!=other.speedPercent
-                ||!cropRules.equals(other.cropRules)||!recoveryRules.equals(other.recoveryRules)||!Objects.equals(claim,other.claim)||!cursors.equals(other.cursors)
+                ||!cropRules.equals(other.cropRules)||!recoveryRules.equals(other.recoveryRules)||!costRules.equals(other.costRules)||!Objects.equals(claim,other.claim)||!cursors.equals(other.cursors)
                 ||!cells().equals(other.cells())||!air.equals(other.air)||!vitality.checkpointHeader().equals(other.vitality.checkpointHeader()))return false;
         for(Pos p:cells.keySet())if(!vitality.checkpointCell(p).equals(other.vitality.checkpointCell(p)))return false;
         return true;
@@ -135,13 +138,21 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public boolean vitalityPending(){return vitalityPending;}
     public EcologyCrops.Rules cropRules(){return cropRules;}
     public EcologyRecovery.Rules recoveryRules(){return recoveryRules;}
+    public EcologyCosts.Rules costRules(){return costRules;}
     // Extent retains its last completed bounded assessment during harmless connected additions.
     // Local power and certified topology are still checked; a cut/unload invalidates immediately.
     @Override public boolean recoveryAvailable(){return cropsAvailable()&&!vitality.extent().equals("Rooted");}
+    @Override public boolean costsAvailable(){return recoveryAvailable();}
+    @Override public boolean extensive(){return vitality.extent().equals("Extensive");}
     public void tuneRecovery(EcologyRecovery.Rules rules)throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing local healing");
         Objects.requireNonNull(rules);if(rules.equals(recoveryRules))return;
         JsonObject p=new JsonObject();p.addProperty("enabled",rules.enabled());p.addProperty("seconds",rules.seconds());record("RECOVERY_RULES",p);
+    }
+    public void tuneCosts(EcologyCosts.Rules rules)throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing local costs");
+        Objects.requireNonNull(rules);if(rules.equals(costRules))return;
+        JsonObject p=new JsonObject();p.add("hunger",costRule(rules.hunger()));p.add("darkness",costRule(rules.darkness()));record("COST_RULES",p);
     }
     @Override public Iterable<Pos> cropSources(){return positions::scan;}
     @Override public boolean cropsAvailable(){return failure==null&&enabled&&indexed&&!unresolved
@@ -668,6 +679,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             case "VITALITY_RULES" -> {requireSetup();if(!indexed)throw bad("Vitality tuning before indexing");EcologyVitality.parseRules(p);}
             case "CROP_RULES" -> {requireSetup();if(!indexed)throw bad("Crop tuning before indexing");keys(p,"enabled","seconds");new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));}
             case "RECOVERY_RULES" -> {requireSetup();if(!indexed)throw bad("Recovery tuning before indexing");keys(p,"enabled","seconds");new EcologyRecovery.Rules(bool(p,"enabled"),integer(p,"seconds"));}
+            case "COST_RULES" -> {requireSetup();if(!indexed)throw bad("Cost tuning before indexing");costRules(p);}
             case "VITALITY" -> {requireSetup();if(!indexed||!enabled)throw bad("Vitality before enable");vitality.validate(p,cells::containsKey);}
             case "FRONTIER" -> {requireSetup();keys(p,"air");if(!indexed||!enabled)throw bad("Exposure discovery before enable");validateFronts(array(p,"air",64));}
             case "CLEANUP_MODE" -> {requireSetup();keys(p,"enabled");bool(p,"enabled");if(!indexed)throw bad("Cleanup before indexing");}
@@ -727,6 +739,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             case "VITALITY_RULES" -> {vitality.applyRules(p);controlRevision++;}
             case "CROP_RULES" -> {cropRules=new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}
             case "RECOVERY_RULES" -> {recoveryRules=new EcologyRecovery.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}
+            case "COST_RULES" -> {costRules=costRules(p);controlRevision++;}
             case "VITALITY" -> {String prior=vitality.extent();vitality.apply(p);if(!prior.equals(vitality.extent()))controlRevision++;}
             case "FRONTIER" -> fronts(array(p,"air",64));
             case "PURGE" -> { }
@@ -791,6 +804,15 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     static State block(JsonElement e) {JsonObject p=object(e);keys(p,"id","properties");JsonObject props=object(p.get("properties"));Map<String,String> map=new TreeMap<>();
         props.entrySet().forEach(v->{if(!v.getValue().isJsonPrimitive()||!v.getValue().getAsJsonPrimitive().isString())throw bad("Non-string property");map.put(v.getKey(),v.getValue().getAsString());});return new State(string(p,"id"),map);}
+    private static EcologyCosts.Rules costRules(JsonObject payload){
+        keys(payload,"hunger","darkness");return new EcologyCosts.Rules(costRule(object(payload.get("hunger"))),costRule(object(payload.get("darkness"))));
+    }
+    private static JsonObject costRule(EcologyCosts.Rule rule){
+        JsonObject p=new JsonObject();p.addProperty("enabled",rule.enabled());p.addProperty("seconds",rule.seconds());return p;
+    }
+    private static EcologyCosts.Rule costRule(JsonObject payload){
+        keys(payload,"enabled","seconds");return new EcologyCosts.Rule(bool(payload,"enabled"),integer(payload,"seconds"));
+    }
     private static void keys(JsonObject p,String... expected) {if(!p.keySet().equals(Set.of(expected)))throw bad("Unexpected ecology payload fields");}
     private static JsonObject object(JsonElement p) {if(p==null||!p.isJsonObject())throw bad("Object required");return p.getAsJsonObject();}
     private static JsonArray array(JsonObject p,String key,int max) {JsonElement e=p.get(key);if(e==null||!e.isJsonArray()||e.getAsJsonArray().size()>max)throw bad("Invalid array: "+key);return e.getAsJsonArray();}

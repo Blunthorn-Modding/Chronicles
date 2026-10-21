@@ -37,7 +37,7 @@ def run(phases=None):
     import workspace as w
     import fabric_smoke as f
     default = ('initial', 'restart', 'surface', 'organic', 'vitality', 'items', 'crops', 'crops_restart')
-    allowed = default + ('city', 'city_restart', 'compact', 'recovery', 'recovery_restart')
+    allowed = default + ('city', 'city_restart', 'compact', 'recovery', 'recovery_restart', 'costs', 'costs_restart')
     phases = default if phases is None else tuple(phases)
     if not phases or any(p not in allowed for p in phases) or len(set(phases)) != len(phases):
         raise ValueError('Select distinct known ecology phases')
@@ -51,6 +51,8 @@ def run(phases=None):
         raise ValueError('Compaction requires initial, compact, restart in that order')
     if 'recovery_restart' in phases and not ('recovery' in phases and phases.index('recovery') < phases.index('recovery_restart')):
         raise ValueError('Healing restart requires an earlier recovery phase')
+    if 'costs_restart' in phases and not ('costs' in phases and phases.index('costs') < phases.index('costs_restart')):
+        raise ValueError('Local-cost restart requires an earlier costs phase')
     w.require_eula()
     w.validate_server_runtime()
     w.validate_managed_mod_names()
@@ -68,6 +70,7 @@ def run(phases=None):
     clients = []
     crop_root = None
     recovery_root = None
+    costs_root = None
     try:
         for phase in phases:
             if phase == 'compact':
@@ -82,6 +85,8 @@ def run(phases=None):
                 crop_root = f._stage(w)
             if phase == 'recovery':
                 recovery_root = f._stage(w)
+            if phase == 'costs':
+                costs_root = f._stage(w)
             phase_root = f._stage(w) if phase in ('surface', 'organic', 'vitality', 'items') else root
             if phase in ('crops', 'crops_restart'):
                 phase_root = crop_root
@@ -89,6 +94,9 @@ def run(phases=None):
             if phase in ('recovery', 'recovery_restart'):
                 phase_root = recovery_root
                 report['recovery_world'] = str(recovery_root)
+            if phase in ('costs', 'costs_restart'):
+                phase_root = costs_root
+                report['costs_world'] = str(costs_root)
             if phase in ('surface', 'organic', 'vitality', 'items'):
                 report[phase + '_world'] = str(phase_root)
             if phase in ('city', 'city_restart'):
@@ -105,6 +113,9 @@ def run(phases=None):
             if phase in ('recovery','recovery_restart'):
                 variables.update(CHRONICLE_MENU_WIDTH='640' if phase == 'recovery' else '1280',
                                  CHRONICLE_MENU_HEIGHT='480' if phase == 'recovery' else '720')
+            if phase in ('costs','costs_restart'):
+                variables.update(CHRONICLE_MENU_WIDTH='640' if phase == 'costs' else '1280',
+                                 CHRONICLE_MENU_HEIGHT='480' if phase == 'costs' else '720')
             clients = [f._client(w, launch, phase_root, reports, 'ChronicleFabricA', 'ecology-' + phase, variables)]
             f._await_clients(clients, [reports / ('ecology-' + phase + '.json')], timeout=1200 if phase in ('city', 'city_restart') else 300)
             for _, handle in clients:
@@ -120,6 +131,8 @@ def run(phases=None):
                 shutil.copytree(crop_root / 'world', crop_root / 'review-world')
             if phase == 'recovery_restart':
                 shutil.copytree(recovery_root / 'world', recovery_root / 'review-world')
+            if phase == 'costs_restart':
+                shutil.copytree(costs_root / 'world', costs_root / 'review-world')
             report['checks'].append(phase + ': native client ecology fixture passed and server saved cleanly')
         report['result'] = 'PASS'
         print('PASS: retained ecology fixture; evidence:', reports, flush=True)

@@ -57,8 +57,8 @@ Growth, network updates and services run only during ACTIVE, occupied play; paus
 | Network condition | Growth and capability | Cost |
 | --- | --- | --- |
 | **Rooted** | Surface growth crawls out from the city. Nearby eligible planted crops receive additional normal growth-age increments. | Sculk occupies actual eligible terrain; keeping the benefit tolerates a living foothold. |
-| **Established** | Wider connected growth supports catalysts/sensors and passive local healing. Healing does not require an Altar; its later station role remains to be defined. | Denser growth occupies passages and can produce short local Hunger effects. |
-| **Extensive** | A sufficiently powered, physically connected Ancient Forge supports defined enchanted-equipment recipes. Shriekers may emerge in dense growth. | Larger footprint, more reactive terrain and possible local Darkness pulses make wider growth consequential. |
+| **Established** | Wider connected growth supports catalysts/sensors and passive local healing. Healing does not require an Altar; its later station role remains to be defined. | Dense local living growth can apply short Hunger I pulses. |
+| **Extensive** | A sufficiently powered, physically connected Ancient Forge supports defined enchanted-equipment recipes. Shriekers may emerge in dense growth. | Dense local living growth can additionally apply short Darkness pulses, making wider growth consequential. |
 
 These labels describe ecological conditions, not sessions or GM unlocks. Catalysts and sensors can appear as growth develops; their density/timing and the extensive threshold for shriekers remain balance proposals. Growth itself is the evidence of power; there is no mandatory indicator block. Threshold transitions should follow measured conditions and recover/decline consistently, without flickering on every tiny change.
 
@@ -66,7 +66,7 @@ The connected ecology is the only campaign growth system: catalysts do not consu
 
 ## Benefits and their discovery
 
-**Confirmed, 21 October:** established living sculk heals nearby players passively. [Implementation](M10_PASSIVE_RECOVERY.md) adds bounded direct health pulses and saved pace controls. Crop growth is accepted. Hunger/Darkness costs and station behavior remain later work.
+**Confirmed, 21 October:** established living sculk heals nearby players passively. [Implementation](M10_PASSIVE_RECOVERY.md) adds bounded direct health pulses and saved pace controls. Crop growth is accepted. [Dev.26 local costs](M10_LOCAL_COSTS.md) are implemented: eight distinct owned, rooted, 25%+ vital cells in a four-block radius can deliver Hunger I for five seconds in Established growth, and Darkness for four seconds in Extensive growth. Their 40-eligible-second defaults and 10/20/40/60/120-second controls are independent. Existing effects are never modified, and leaving the valid ecology starts a fresh wait. Native verification passes; combined healing/cost balance feedback remains pending; station behavior remains later work.
 
 Proposed common thread: the living growth carries energy that stimulates plants and recovery and can be channelled by ancient equipment. Its exact source remains a lore decision.
 
@@ -74,7 +74,7 @@ Proposed common thread: the living growth carries energy that stimulates plants 
 
 The crop effect starts when its ecological conditions are true. If nobody plants nearby or notices until Session 3, nothing was missed and no GM reveal is required. The same principle applies to later recovery and station power: capability and player knowledge are separate.
 
-Regeneration, Hunger and Darkness are proposed short location-based effects derived from nearby living growth and density; exact ranges need specification. A named altar can focus recovery without making every beneficial/hazardous area a manually authored region. Stop refreshing effects outside their conditions. No exposure/corruption meter, species conversion or involuntary personality change. Healing already received remains; finished enchanted gear stays enchanted after disconnection or eradication. Ongoing services stop when power is lost.
+Passive recovery, Hunger and Darkness are short location-based effects derived from nearby living growth and density, without authored benefit/hazard regions. The implemented cost range is four blocks and requires eight qualifying cells; an Altar may later focus a distinct station function without taking over this ecology. Stop refreshing effects outside their conditions. No exposure/corruption meter, species conversion or involuntary personality change. Healing already received and already-applied cost pulses finish naturally; finished enchanted gear stays enchanted after disconnection or eradication. Ongoing services stop when power is lost.
 
 All bonus growth, campaign effect refreshes and crafting require ACTIVE, occupied play. Specify pause behavior for already-applied campaign effects without clearing unrelated vanilla potion effects. Test enter/leave, pause/resume and reconnect. Costs must follow actual local ecology, not destroy an unrelated house because a threshold changed. Successful containment can preserve a useful smaller network; an unavoidable final catastrophe is not required.
 

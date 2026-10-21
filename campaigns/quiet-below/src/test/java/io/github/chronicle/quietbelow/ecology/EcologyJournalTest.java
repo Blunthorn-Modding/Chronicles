@@ -65,7 +65,7 @@ class EcologyJournalTest {
         Path file = temporaryDirectory.resolve("types.jsonl");
         List<String> types = List.of("CONFIGURE", "INDEX", "INDEX_COMPLETE", "MODE", "GROW", "REMOVE", "OBSERVE", "CONNECT",
                 "CLAIM_START", "CLAIM_SCAN", "CLAIM_DONE", "CLEANUP_MODE", "PURGE", "SPEED", "FRONTIER", "VITALITY", "VITALITY_RULES", "CROP_RULES",
-                "CHECKPOINT_BEGIN", "CHECKPOINT_CELLS", "CHECKPOINT_AIR", "CHECKPOINT_END", "RECOVERY_RULES");
+                "CHECKPOINT_BEGIN", "CHECKPOINT_CELLS", "CHECKPOINT_AIR", "CHECKPOINT_END", "RECOVERY_RULES", "COST_RULES");
         try (EcologyJournal journal = new EcologyJournal(file)) {
             for (String type : types) journal.append(type, payload("type", type));
             assertEquals(types, journal.entries().stream().map(EcologyJournal.Entry::type).toList());

@@ -1,0 +1,33 @@
+# M11 station implementation preparation
+
+21 October 2026. M10 healing and approved brief Hunger/Darkness costs precede this slice. The operator has been asked to confirm the first Forge recipe and whether the Altar should initially remain decorative. Those choices are pending; this document does not authorize an invented station benefit.
+
+## Asset readiness
+
+Original user-owned exports remain in `../Blockbench`, untouched. Local JSON inspection finds native Java-block models, valid native rotation angles, and texture references needing namespaced remapping before import:
+
+| Source | Elements | Model bounds | Texture source |
+| --- | --- | --- | --- |
+| RelicHeart.json |32|0..16 high; x0..16,z0.499..15.501|relicheart.png,64x64|
+| purification_altar.json |132|x/z-3..19,y-0.001..19|purification_altar.png,128x128|
+| purification_forge.json |115|x/z-3..19,y-0.001..19|purification_forge.png,128x128|
+| purification_forge_kindling.json |115|same|purification_forge_kindling.png,128x128|
+| purification_forge_active.json |115|same|purification_forge_active.png,128x128|
+
+Heart export uses `block/texture`; Altar uses unnamespaced `purification_altar`; Forge variants reference their matching unnamespaced texture. Copy final exports/textures into the campaign resources with `quiet_below:block/...` references and a particle entry; CI/builds must not depend on the parent workspace assets. Preserve source models and attribution/provenance. The decorative overhang exceeds the base cube; verify real facing, neighboring placement, collision and held/inventory rendering rather than assuming the model bounds are the collision box. Heart's export has no display transforms; check native defaults visually.
+
+## Shared and campaign responsibilities
+
+Core retains generic location/anchor metadata and operator tools. Placed campaign stations should carry their function intrinsically; no mandatory manual registration of every Forge or Altar. A vanilla/custom decorative anchor may still be registered through Locations for campaign context. Any reusable placement-registration prompt belongs to Core, while station power/recipes and unique Heart rules belong to Quiet Below.
+
+Forge power derives from actual adjacent connected living ecology and its configured extent, with loaded-only guarded checks. It must not become a relay/node that enables growth, acquire unlimited power from a decorative copy, or require a sculk route authored by the builder. Show distinct unpowered/ready/working states using the supplied variants. No global scan of all station positions or per-sculk block entity.
+
+The illustrative recipe awaiting confirmation is one unenchanted iron pickaxe plus two amethyst shards and three XP levels for Efficiency III. Before code, define accepted tool components and preservation, exact inventory/XP mutation, rejection of existing enchantments, output delivery, Creative semantics, pause/power-loss interruption and duplicate/concurrent clicks. Prefer one server-confirmed transaction over an asynchronous process needing distributed crash recovery. Tests must include full inventory, components/durability/custom names, insufficient inputs/XP, stale state, double click, simultaneous users, interruption and restart; never silently consume without output.
+
+The Altar must not duplicate passive healing merely to reuse an asset. Its first behavior remains the operator's pending choice. Ancient Focus remains removed, and RelicShard remains optional with no mandatory Heart-destruction key.
+
+## Heart and review boundaries
+
+The unique Heart appearance can show network state, but weakening/destruction and terminal cleanup are M12. Preserve the pinned root and existing worlds; specify migration from the reinforced-deepslate test placeholder before replacement. Ordinary placing or copying a Heart model must not create a second root or bypass ending safeguards.
+
+New block/item registries and models require a matching client pack and actual rendered review. Verify schema/reader rollback with a stopped backup and matching jars; no in-place review-world upgrade without saving shutdown and backup. Batch station rendering/recipe feedback where possible. The next stop is a real product/visual decision needed to continue, not a feature being ready by itself.

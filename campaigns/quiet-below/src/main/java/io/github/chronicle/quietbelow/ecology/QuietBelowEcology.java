@@ -84,6 +84,18 @@ public final class QuietBelowEcology {
                         new GameSetupTools.Verb("reset","Reset healing tuning",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::recoveryStatus,QuietBelowEcology::recoveryAction));
+        for(var kind:EcologyCosts.Kind.values()){
+            String name=kind==EcologyCosts.Kind.HUNGER?"Local Hunger":"Local Darkness";
+            GameSetupTools.register(new GameSetupTools.Tool(kind==EcologyCosts.Kind.HUNGER?"quiet_below:hunger":"quiet_below:darkness",name,
+                    "Brief local ecological cost in dense living sculk. A fresh interval starts on entry; existing potion and Warden effects are preserved.",
+                    List.of(new GameSetupTools.Verb("enable","Enable "+name,GameSetupTools.Guard.EDIT,true),
+                            new GameSetupTools.Verb("disable","Disable "+name,GameSetupTools.Guard.OPERATOR,true),
+                            new GameSetupTools.Verb("faster","More frequent pulses",GameSetupTools.Guard.EDIT,false),
+                            new GameSetupTools.Verb("slower","Less frequent pulses",GameSetupTools.Guard.EDIT,false),
+                            new GameSetupTools.Verb("reset","Reset pulse tuning",GameSetupTools.Guard.EDIT,false),
+                            new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
+                    source->costStatus(source,kind),(source,verb)->costAction(source,verb,kind)));
+        }
         ServerChunkEvents.CHUNK_LOAD.register((world,chunk)->{
             Set<ChunkPos> loaded=LOADED.computeIfAbsent(world,k->new LinkedHashSet<>());
             Runtime r=WORLDS.get(world.getServer());
@@ -152,6 +164,9 @@ public final class QuietBelowEcology {
             if(!r.recovery.rules().equals(r.engine.recoveryRules()))r.recovery=new EcologyRecovery(r.engine.recoveryRules());
             try{r.recovery.tick(new EcologyRecoveryWorld(server,world.world,r.engine,r.recovery,()->r.rootProblem==null&&playing(server)),r.engine,r.rootProblem==null&&playing(server));}
             catch(Exception e){r.recovery.fail("Local healing held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local healing held; ecology retained",e);}
+            if(!r.costs.rules().equals(r.engine.costRules()))r.costs=new EcologyCosts(r.engine.costRules());
+            try{r.costs.tick(new EcologyCostsWorld(server,world.world,r.engine,r.costs,()->r.rootProblem==null&&playing(server)),r.engine,r.rootProblem==null&&playing(server));}
+            catch(Exception e){r.costs.fail("Local costs held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local costs held; ecology retained",e);}
             if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
         } catch(Exception e) { hold(r,e); }
         finally {r.lastTickNanos=System.nanoTime()-started;}
@@ -179,7 +194,7 @@ public final class QuietBelowEcology {
                 new Fact("How to test","Show root, then close this menu to see its private outline. Break every sculk connection to a branch; replace sculk to reconnect. Sensors are audible evidence, not a growth meter."),
                 new Fact("Surface frontier",v.frontier()+" discovered air cells"),
                 new Fact("Persistence",v.journalBytes()+" bytes; append-only history"),
-                new Fact("Review scope","Surface growth, containment, vitality/recovery and nearby crop growth. Stations, later local effects and Heart ending follow later."));
+                new Fact("Review scope","Surface growth, vitality, crops, passive healing and short local costs. Stations and Heart ending follow later."));
         Map<String,String> disabled=new HashMap<>();
         if(!v.indexed())for(String verb:List.of("slower","faster","speed_reset"))disabled.put(verb,"Complete source indexing before changing spread speed.");
         if(r.engine.speedPercent()==EcologyEngine.SPEEDS.getFirst())disabled.put("slower","Minimum speed: 0.25x.");
@@ -266,6 +281,43 @@ public final class QuietBelowEcology {
         r.engine.tuneRecovery(next);r.recovery=new EcologyRecovery(next);r.menuRevision++;
         QuietBelow.LOGGER.info("Quiet Below healing tuning {} by {}",verb,source.getName());
         return "Local healing "+(next.enabled()?"enabled":"disabled")+"; interval "+next.seconds()+" eligible seconds. Cooldowns restarted.";
+    }
+    private static GameSetupTools.Status costStatus(ServerCommandSource source,EcologyCosts.Kind kind){
+        Runtime r=runtime(source.getServer());var e=r.engine;var rule=kind==EcologyCosts.Kind.HUNGER?e.costRules().hunger():e.costRules().darkness();
+        Map<String,String> disabled=new HashMap<>();
+        if(rule.enabled())disabled.put("enable","Already enabled.");else disabled.put("disable","Already disabled.");
+        if(rule.seconds()==EcologyCosts.SECONDS.getFirst())disabled.put("faster","Minimum interval: 10 eligible seconds.");
+        if(rule.seconds()==EcologyCosts.SECONDS.getLast())disabled.put("slower","Maximum interval: 120 eligible seconds.");
+        if(rule.equals(EcologyCosts.DEFAULT.hunger())&&r.costs.failure()==null)disabled.put("reset","Pulse tuning is already at its defaults.");
+        String issue=!e.view().indexed()?"Complete source indexing before tuning local costs.":e.failure();
+        if(issue!=null)for(String verb:List.of("enable","disable","faster","slower","reset"))disabled.put(verb,issue);
+        String state=r.costs.failure()!=null?"HELD: "+r.costs.failure():!rule.enabled()?"Disabled":r.rootProblem!=null?r.rootProblem:
+                !playing(source.getServer())?"Paused; requires occupied active play":!e.costsAvailable()?"Waiting for resolved Established or Extensive living sculk":
+                kind==EcologyCosts.Kind.DARKNESS&&!e.extensive()?"Waiting for Extensive growth":"Running in dense living sculk";
+        return new GameSetupTools.Status(e.view().revision()+r.menuRevision,List.of(
+                new Fact(kind==EcologyCosts.Kind.HUNGER?"Local Hunger":"Local Darkness",state),
+                new Fact("Density","At least eight owned, rooted cells at 25%+ vitality within 4 blocks. No authored hazard region."),
+                new Fact("Pulse",kind==EcologyCosts.Kind.HUNGER?"Hunger I for 5 seconds; Established or Extensive growth.":"Darkness for 4 seconds; Extensive growth only."),
+                new Fact("Pace","At least "+rule.seconds()+" eligible seconds apart, with a full wait on first entry. Large groups can wait longer."),
+                new Fact("Players","Survival/Adventure participants in the Heart's dimension; Creative, Spectator and editing excluded."),
+                new Fact("Reset","Leaving density, lost power/eligibility, pause and restart discard waiting credit."),
+                new Fact("Existing effects","Never replaced or removed. A delivered pulse expires naturally after leaving or pausing."),
+                new Fact("Since reset",r.costs.applications()+" guarded attempts across both effects; "+r.costs.tracked()+" tracked participants.")),disabled);
+    }
+    private static String costAction(ServerCommandSource source,String verb,EcologyCosts.Kind kind)throws Exception {
+        Runtime r=runtime(source.getServer());var all=r.engine.costRules();var old=kind==EcologyCosts.Kind.HUNGER?all.hunger():all.darkness();var next=old;
+        switch(verb){
+            case "enable" -> next=new EcologyCosts.Rule(true,old.seconds());
+            case "disable" -> next=new EcologyCosts.Rule(false,old.seconds());
+            case "faster","slower" -> next=new EcologyCosts.Rule(old.enabled(),EcologyCosts.SECONDS.get(EcologyCosts.SECONDS.indexOf(old.seconds())+(verb.equals("faster")?-1:1)));
+            case "reset" -> next=EcologyCosts.DEFAULT.hunger();
+            case "refresh" -> {r.menuRevision++;return "Local cost status refreshed.";}
+            default -> throw new IllegalArgumentException("Unknown local cost action");
+        }
+        r.engine.tuneCosts(kind==EcologyCosts.Kind.HUNGER?new EcologyCosts.Rules(next,all.darkness()):new EcologyCosts.Rules(all.hunger(),next));
+        r.costs=new EcologyCosts(r.engine.costRules());r.menuRevision++;
+        QuietBelow.LOGGER.info("Quiet Below {} tuning {} by {}",kind,verb,source.getName());
+        return (kind==EcologyCosts.Kind.HUNGER?"Local Hunger":"Local Darkness")+" "+(next.enabled()?"enabled":"disabled")+"; interval "+next.seconds()+" eligible seconds. Cost cooldowns restarted; delivered effects expire naturally.";
     }
     private static String growthStatus(MinecraftServer server,Runtime r,EcologyEngine.View v) {
         if(v.hold()!=null)return "HELD: "+v.hold();
@@ -475,8 +527,8 @@ public final class QuietBelowEcology {
         if(!r.failureLogged){r.failureLogged=true;QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry: "+r.engine.failure(),e);}
     }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision,lastTickNanos;boolean failureLogged;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;
-        Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;crops=new EcologyCrops(e.cropRules());recovery=new EcologyRecovery(e.recoveryRules());}
+        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites;long menuRevision,lastTickNanos;boolean failureLogged;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;
+        Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;crops=new EcologyCrops(e.cropRules());recovery=new EcologyRecovery(e.recoveryRules());costs=new EcologyCosts(e.costRules());}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
         private Runtime find(ServerWorld w) {

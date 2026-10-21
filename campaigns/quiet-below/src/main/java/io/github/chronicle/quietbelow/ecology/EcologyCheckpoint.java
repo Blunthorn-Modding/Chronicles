@@ -21,11 +21,12 @@ final class EcologyCheckpoint {
         throw bad("Incomplete source index");
     }
     static void write(EcologyJournal target,EcologyEngine engine,List<Pos> air,String hash,long records)throws IOException {
-        List<Cell> cells=engine.cells();JsonObject h=new JsonObject();h.addProperty("format",2);
+        List<Cell> cells=engine.cells();JsonObject h=new JsonObject();h.addProperty("format",3);
         h.addProperty("sourceHash",hash);h.addProperty("sourceRecords",records);h.addProperty("cells",cells.size());h.addProperty("air",air.size());
         h.addProperty("enabled",engine.enabled());h.addProperty("cleanup",engine.cleanup());h.addProperty("speed",engine.speedPercent());
         JsonObject crops=new JsonObject();crops.addProperty("enabled",engine.cropRules().enabled());crops.addProperty("seconds",engine.cropRules().seconds());h.add("crops",crops);
         JsonObject recovery=new JsonObject();recovery.addProperty("enabled",engine.recoveryRules().enabled());recovery.addProperty("seconds",engine.recoveryRules().seconds());h.add("recovery",recovery);
+        JsonObject costs=new JsonObject();costs.add("hunger",rule(engine.costRules().hunger()));costs.add("darkness",rule(engine.costRules().darkness()));h.add("costs",costs);
         h.add("vitality",engine.vitality().checkpointHeader());h.add("claim",claim(engine.claim()));target.append("CHECKPOINT_BEGIN",h);
         for(int n=0;n<cells.size();n+=CELL_PAGE){
             JsonArray page=new JsonArray();for(int k=n;k<Math.min(cells.size(),n+CELL_PAGE);k++){
@@ -41,11 +42,13 @@ final class EcologyCheckpoint {
         target.append("CHECKPOINT_END",new JsonObject());
     }
     private static JsonObject page(int offset,JsonArray values){JsonObject p=new JsonObject();p.addProperty("offset",offset);p.add("values",values);return p;}
+    private static JsonObject rule(EcologyCosts.Rule rule){JsonObject p=new JsonObject();p.addProperty("enabled",rule.enabled());p.addProperty("seconds",rule.seconds());return p;}
     static Decoded read(List<EcologyJournal.Entry> entries,int begin){
         if(prefixEnd(entries)!=begin-1)throw bad("Checkpoint is not immediately after the source index");
         JsonObject h=entries.get(begin).payload();int format=integer(h,"format");
         if(format==1)keys(h,"format","sourceHash","sourceRecords","cells","air","enabled","cleanup","speed","crops","vitality","claim");
         else if(format==2)keys(h,"format","sourceHash","sourceRecords","cells","air","enabled","cleanup","speed","crops","recovery","vitality","claim");
+        else if(format==3)keys(h,"format","sourceHash","sourceRecords","cells","air","enabled","cleanup","speed","crops","recovery","costs","vitality","claim");
         else throw bad("Unsupported checkpoint format");
         if(!text(h,"sourceHash").matches("[0-9a-f]{64}")||natural(h,"sourceRecords")<begin)throw bad("Invalid checkpoint provenance");
         int cellCount=integer(h,"cells"),airCount=integer(h,"air");

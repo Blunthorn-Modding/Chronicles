@@ -6,6 +6,10 @@ import ecology_smoke
 
 
 class EcologySmokePhaseTests(unittest.TestCase):
+    def test_costs_restart_requires_costs_first(self):
+        for phases in [('costs_restart',), ('costs_restart', 'costs')]:
+            with self.assertRaisesRegex(ValueError, 'Local-cost restart'):
+                ecology_smoke.run(phases)
     def test_recovery_restart_requires_recovery_first(self):
         for phases in [('recovery_restart',), ('recovery_restart', 'recovery')]:
             with self.assertRaisesRegex(ValueError, 'Healing restart'):
