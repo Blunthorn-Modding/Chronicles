@@ -27,6 +27,8 @@ public final class ChronicleCoreClient implements ClientModInitializer {
         AuthoringUiClient.register();
         CoreMenuClient.register();
         ItemEnchantingClient.register();
+        OfferingScreen.register();
+        io.github.chronicle.core.client.hud.FoodHud.register();
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.View.ID,
                 (payload, context) -> context.client().execute(() -> receiveView(context.client(), payload)));
         ClientPlayNetworking.registerGlobalReceiver(ProfilePayloads.Notice.ID,

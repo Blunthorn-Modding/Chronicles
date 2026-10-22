@@ -15,6 +15,13 @@ dependencies {
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Exact official artifacts from config/hud-dependencies.lock.json. They are
+    // compile-only and are never packaged in Chronicle's jar.
+    modCompileOnly "maven.modrinth:fancymenu:wQfYaY3H"
+    modCompileOnly "maven.modrinth:spiffyhud:oZJvidU2"
+    modCompileOnly "maven.modrinth:konkrete:kLTIGlRD"
+    modCompileOnly "maven.modrinth:melody:4nd52KsY"
 }
 
 tasks.named('test') {

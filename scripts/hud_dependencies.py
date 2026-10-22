@@ -50,7 +50,7 @@ def index_entries(mods):
 
 
 def notices(mods):
-    lines = ['Chronicle HUD prototype - third-party dependencies',
+    lines = ['Chronicle client HUD - third-party dependencies',
              'Downloaded separately from the authors\' official Modrinth releases.',
              'Their code, assets and jars are not included in this pack or owned by Chronicle.',
              'FancyMenu / SpiffyHUD / Konkrete / Melody: Keksuccino and their contributors.', '']
@@ -114,7 +114,7 @@ def pack():
     return target
 
 
-def verify_pack(target, mods):
+def verify_pack(target, mods, artifacts=None):
     with zipfile.ZipFile(target) as archive:
         if archive.testzip():
             raise RuntimeError('HUD pack CRC failure')
@@ -122,7 +122,7 @@ def verify_pack(target, mods):
         for entry in index_entries(mods):
             if entry not in index['files']:
                 raise RuntimeError('Missing exact official client dependency reference')
-        expected = {'overrides/mods/' + jar.name for jar in w.artifacts()}
+        expected = {'overrides/mods/' + jar.name for jar in (w.artifacts() if artifacts is None else artifacts)}
         actual = {n for n in archive.namelist() if n.endswith('.jar')}
         if actual != expected:
             raise RuntimeError('Unexpected embedded jar: HUD dependencies must remain references')

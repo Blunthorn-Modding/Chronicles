@@ -1,5 +1,7 @@
 # HUD dependencies and distribution policy
 
+**Integration22 October:** dev30 adds an original Chronicle food element through the pinned public APIs. Actual26-food packets, native fallback without dependencies, real editor save/reload/window resize and duplicate-bar suppression pass the native Altar rehearsal. The ordinary classic pack now uses the same four official references and credit/license notice; the separate prototype remains historical. `workspace.pack` verifies Chronicle-owned jars and exact reference-only packaging. Loom is now1.12.7 for compatible normal development remapping; dependency versions remain unchanged. No third-party code/assets/jars are copied into Chronicle or pack overrides. [Implementation boundaries](CF12_LASTING_BARGAINS.md), [evidence](TEST_PLAN.md).
+
 Checked 21 October 2026. The operator selects SpiffyHUD/FancyMenu for prototyping and explicitly requires adherence to their licenses. This is the client integration foundation for CF-12, not installed Altar mechanics or completion of the expanded hunger HUD.
 
 ## Pinned releases

@@ -13,6 +13,11 @@ configure([project(':core'), project(':campaigns:quiet-below')]) {
     repositories {
         mavenCentral()
         maven { url = 'https://maven.fabricmc.net/' }
+        // Official source for the optional FancyMenu/SpiffyHUD compile-only APIs.
+        maven {
+            url = 'https://api.modrinth.com/maven'
+            content { includeGroup 'maven.modrinth' }
+        }
     }
 
     base {

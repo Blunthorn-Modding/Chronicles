@@ -32,6 +32,12 @@ class WorkspaceTests(unittest.TestCase):
                     'guiScale': '2', 'narrator': '0', 'onboardAccessibility': 'false', 'skipMultiplayerWarning': 'true'})
                 self.assertNotIn('overrides/options.txt', zipped.namelist())
                 self.assertNotIn('server-overrides/options.txt', zipped.namelist())
+                import hud_dependencies as hud
+                index=json.loads(zipped.read('modrinth.index.json'))
+                references=[entry for entry in index['files'] if entry['env']['server']=='unsupported']
+                self.assertEqual(references,hud.index_entries(hud.load_lock()))
+                self.assertEqual({name for name in zipped.namelist() if name.endswith('.jar')},{'overrides/mods/'+jar.name for jar in built})
+                self.assertIn('https://github.com/Keksuccino/SpiffyHUD/blob/main/LICENSE.md',zipped.read('client-overrides/Chronicle-THIRD-PARTY.txt').decode())
                 for jar in built:
                     self.assertEqual(zipped.read('overrides/mods/' + jar.name), jar.read_bytes())
 

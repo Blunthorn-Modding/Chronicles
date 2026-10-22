@@ -84,6 +84,8 @@ public final class ChronicleCore implements ModInitializer {
         SpawnAuthoring.register();
         AutomaticPlayerSpawns.register();
         PlayRuntime.register();
+        io.github.chronicle.core.server.OfferingStats.register();
+        io.github.chronicle.core.server.LastingBargains.register();
         io.github.chronicle.core.server.ItemEnchantingRuntime.register();
         ServerLifecycleEvents.SERVER_STARTED.register(SessionPresentation::changed);
         ServerTickEvents.START_SERVER_TICK.register(SessionPresentation::tick);

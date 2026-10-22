@@ -217,7 +217,7 @@ public final class QuietBelowEcology {
                 BlockPos at=station.offset(direction);var chunk=EcologyLoadedBlocks.chunk(world,at);
                 if(chunk!=null&&e.living(pos(at),encode(chunk.getBlockState(at))))return null;
             }
-            return "Place the Forge directly beside connected living sculk (at least25% vitality).";
+            return "Place the station directly beside connected living sculk (at least25% vitality).";
         }catch(IllegalStateException error){return "The network is unavailable: "+error.getMessage();}
     }
     private static GameSetupTools.Status status(ServerCommandSource source) {

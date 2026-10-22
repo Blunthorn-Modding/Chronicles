@@ -1,8 +1,8 @@
 # CF-12 lasting bargains
 
-**Paused by operator,21 October:** unfinished checkpoint only. Four pure model classes added; no tests run, durable store/service/native stats/food/HUD/Altar not implemented. Resume with strict storage and focused model/persistence tests. Current dev.29 runtime/pack remain unchanged.
+**Resumed22 October:** dev.30 now implements the strict ledger, authoritative stats/food, consent screen, original optional HUD element and intrinsic Altar. Verification and deployment evidence are in TEST_PLAN; the historical implementation sequence below explains the contract rather than unfinished steps.
 
-21 October2026, `feat/cf12-lasting-bargains`. Implementation contract; not installed gameplay. Existing dev.29 review and matching client pack remain available unchanged while this work is verified.
+21 October2026 contract, implemented22 October on `feat/cf12-lasting-bargains`. Review-world upgrade requires stopped verified backup and a matching client pack.
 
 Core owns an immutable offering definition, permanent purchase ledger, bounded stat projection, food capacity/regeneration mechanics and consent transactions. Quiet Below owns intrinsic Ancient Altar placement/power, the following defaults and removal when Heart eradication completes. No new sculk entities, faction/corruption mechanics or player refund command.
 
@@ -26,3 +26,17 @@ Native projection uses source-scoped persistent Chronicle modifiers for maximum 
 4. Intrinsic campaign Altar/model/power and shared consent screen: current counts, complete sacrifice/bonus, actual projected totals, irreversible confirmation, one-use/revisioned offer. Recheck participation/Survival/ACTIVE/power/distance/inputs. Full native UI/concurrency/cut/pause tests, then saving stop/verified backup/matching pack for review. No mandatory location registration.
 
 Temporary Emergency healing, Repair gear, Cave sight and Settlement harvest follow separately. Their timers/item consumption/crash semantics need their own contracts; this lasting-stat ledger must not pretend to solve item+ledger distributed transactions. Heart model/migration/eradication are M12, with reusable source closure prepared here. Feature readiness alone is not a stopping gate; continue independent work and request feedback only when needed.
+
+## Delivered boundaries
+
+Source-scoped native persistent modifiers use `chronicle_core:offerings/<source namespace>/<source path>`. Constructor/getter hooks bind each HungerManager to its actual owner; exact pinned constants change eating/fullness and both regeneration thresholds. Packet/load setters are not clamped prematurely. Food is clamped only during authoritative reconciliation/native hunger update, preserving packet order and existing saved capacity. Death validates the old player's ledger authority before fresh attributes can hide an unknown sacrifice; a held ledger retains the last persisted price and bonus on the new player.
+
+The store rechecks exact bytes before backup and ledger publication, with deterministic interleaving tests. A noncooperating external writer can still race between the final check and atomic rename: Java offers no portable compare-and-swap rename. Edit/repair world ledgers only with the server stopped; live reload is an explicit non-active organizer repair operation, never a refund command. Neither missing initialized authority nor an abandoned backup becomes an empty fallback.
+
+Placed Altars need no manual location registration. One identity-only block entity per Altar permits original-station revalidation; no inventory, block tick or sculk entity is added. Core owns a one-use, per-player, revisioned60-second consent offer; the server rechecks the campaign's actual gate before committing. Source closure rejects an already-open offer. No item/XP is charged by these two lasting trades.
+
+At exactly20 food the native bar remains unchanged. Other bounded capacities use original Chronicle rendering with native GUI sprite references; the default Altar maximum26 uses13 icons over two rows. The separately selectable `Chronicle expanded food` element is editable through SpiffyHUD/FancyMenu; native fallback remains truthful when no such element renders or optional mods are absent. Movement/save/reload/window resize are tested; no claim of arbitrary element scaling or universal HUD-mod compatibility. The normal client pack now references the four approved HUD mods from their official downloads, with credits/license links and no vendor jars/code/assets embedded.
+
+Loom1.12.7 replaces1.11.8 solely to consume those pinned mod APIs using ordinary remapping. Existing Gradle8.14.3/Java21/Minecraft1.21.10 and all four HUD versions remain pinned. [Official release](https://github.com/FabricMC/fabric-loom/releases/tag/1.12). Rehearsals exercise remapped production server jars and actual development clients; no unreviewed patched dependency artifact is distributed.
+
+**Next Heart decision confirmed22 October:** vulnerability begins after living, connected growth stays below Established for60 active seconds. Size threshold/delay are configurable; unresolved/unloaded branches prevent vulnerability. This is M12 authorization, not proof that physical Heart destruction/eradication is already implemented.

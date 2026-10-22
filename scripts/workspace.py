@@ -371,6 +371,7 @@ def client_options():
 
 
 def pack():
+    import hud_dependencies as hud
     jars = artifacts()
     versions = {validate_mod_target(jar)['version'] for jar in jars}
     if len(versions) != 1:
@@ -378,6 +379,10 @@ def pack():
     files = [{'path': 'mods/' + mod['filename'], 'hashes': {'sha1': mod['sha1'], 'sha512': mod['sha512']},
               'env': {'client': 'required', 'server': 'required'}, 'downloads': [mod['url']], 'fileSize': mod['size']}
              for mod in LOCK['mods']]
+    hud_mods = hud.load_lock()
+    files.extend(hud.index_entries(hud_mods))
+    for jar in jars:
+        hud.verify_owned_jar(jar)
     index = {'formatVersion': 1, 'game': 'minecraft', 'versionId': versions.pop() + '+mc' + LOCK['minecraft'],
              'name': f'Chronicle - The Quiet Below ({MILESTONE})', 'summary': 'Local development pack',
              'files': files, 'dependencies': {'minecraft': LOCK['minecraft'], 'fabric-loader': LOCK['loader']}}
@@ -386,8 +391,10 @@ def pack():
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as zipped:
         zipped.writestr('modrinth.index.json', json.dumps(index, indent=2))
         zipped.writestr('client-overrides/options.txt', client_options())
+        zipped.writestr('client-overrides/Chronicle-THIRD-PARTY.txt', hud.notices(hud_mods))
         for jar in jars:
             zipped.write(jar, 'overrides/mods/' + jar.name)
+    hud.verify_pack(target, hud_mods, jars)
     print(f'Modrinth client pack: {target}')
 
 

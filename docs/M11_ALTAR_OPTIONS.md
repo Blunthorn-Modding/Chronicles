@@ -1,5 +1,7 @@
 # Altar offerings: accepted direction
 
+**Implementation22 October:** dev30 delivers Extra heart and Faster movement, three independent purchases each, durable lifecycle/ending closure and a truthful food HUD. [Contract](CF12_LASTING_BARGAINS.md), [review](M11_REVIEW.md). Emergency healing/Repair/Cave sight/Settlement harvest remain direction rather than installed gameplay. The original proposed order below is historical; the confirmed stacking/death/no-reversal/eradication decisions govern the delivered trades.
+
 21 October2026. The operator wants a place of voluntary sacrifice for a concrete bonus, including the example of an extra maximum heart with a larger hunger bar and more food required before natural regeneration. The operator accepts the following options as the design direction. They are not installed gameplay; numbers remain illustrative balance defaults, and acceptance of the options does not settle every stacking, reversal or ending rule.
 
 | Option | Sacrifice / ongoing cost | Bonus | Why choose it |

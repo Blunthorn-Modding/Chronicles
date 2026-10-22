@@ -29,6 +29,7 @@ public record OfferingLedger(long revision, List<OfferingReceipt> receipts, Set<
             if (closed.contains(receipt.source())) throw new IllegalArgumentException("closed source retains offering receipts");
             if (counts.merge(receipt.player(), 1, Integer::sum) > MAX_PER_PLAYER) throw new IllegalArgumentException("player offering capacity exceeded");
         }
+        if (revision < (long) receipts.size() + closed.size()) throw new IllegalArgumentException("offering revision cannot precede its durable history");
         receipts = List.copyOf(receipts);
         closedSources = Collections.unmodifiableSet(closed);
     }
