@@ -56,20 +56,21 @@ final class EcologyCostsWorld implements EcologyCosts.World {
     }
     /** Native movement can set grounded before publishing its final collision-adjusted Y. */
     static boolean landingTransition(ServerPlayerEntity player,EcologyTerrain.Pos footing,EcologyEngine engine){
-        var world=player.getEntityWorld();var source=new BlockPos(footing.x(),footing.y(),footing.z());
+        var world=player.getEntityWorld();
         if(!livingFooting(world,footing,engine))return false;
-        var sourceState=EcologyLoadedBlocks.state(world,source);var step=player.getSteppingPos();
-        boolean same=step.equals(source)||(sourceState.isOf(Blocks.SCULK_VEIN)&&step.equals(source.down()));
-        if(!same)return false;
+        // An early grounded packet can already name another cell, or the air above a vein.
+        // It is still airborne until a collision actually reaches the sole. Retain the previous
+        // living footing irrespective of that provisional stepping position; a real clean
+        // landing (including a newly placed pillar) must fail this collision-free exception.
         var body=player.getBoundingBox();int minX=(int)Math.floor(body.minX+.000001),maxX=(int)Math.floor(body.maxX-.000001);
         int minZ=(int)Math.floor(body.minZ+.000001),maxZ=(int)Math.floor(body.maxZ-.000001),topY=(int)Math.floor(player.getY()-.00001);
         if(maxX-minX>1||maxZ-minZ>1)return false; // Bounded native-size footprint; larger bodies fail closed.
         var sole=new Box(body.minX,player.getY()-LANDING_TOLERANCE,body.minZ,body.maxX,player.getY()+.000001,body.maxZ);
         // Check every intersecting foot column, including blocks supporting only an edge.
         // Two heights include fences/walls; shape evaluation cannot acquire world chunk tickets.
-        for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++)for(int y=topY-1;y<=topY;y++){
+        for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++)for(int y=Math.max(topY-1,world.getBottomY());y<=Math.min(topY,world.getBottomY()+world.getHeight()-1);y++){
             var below=new BlockPos(x,y,z);if(EcologyLoadedBlocks.chunk(world,below)==null)return false;
-            var shape=EcologyLoadedBlocks.state(world,below).getCollisionShape(EmptyBlockView.INSTANCE,BlockPos.ORIGIN,ShapeContext.absent());
+            var shape=EcologyLoadedBlocks.state(world,below).getCollisionShape(EmptyBlockView.INSTANCE,below,ShapeContext.of(player));
             for(var part:shape.getBoundingBoxes())if(part.offset(x,y,z).intersects(sole))return false;
         }
         return true;
@@ -81,20 +82,36 @@ final class EcologyCostsWorld implements EcologyCosts.World {
     }
     static EcologyTerrain.Pos contact(ServerPlayerEntity p,EcologyEngine engine){
         if(!p.isOnGround()||!(p.getEntityWorld() instanceof ServerWorld world))return null;
-        BlockPos support=p.getSteppingPos();var box=p.getBoundingBox();
-        if(support.getX()+1<=box.minX||support.getX()>=box.maxX||support.getZ()+1<=box.minZ||support.getZ()>=box.maxZ)return null;
-        if(EcologyLoadedBlocks.chunk(world,support)==null)return null;
-        var state=EcologyLoadedBlocks.state(world,support);var at=position(support);
-        if((state.isOf(Blocks.SCULK)||state.isOf(Blocks.SCULK_CATALYST)||state.isOf(Blocks.SCULK_SENSOR)||state.isOf(Blocks.SCULK_SHRIEKER))&&engine.owns(at)&&engine.living(at)){
-            var shape=state.getCollisionShape(world,support,ShapeContext.of(p));
-            // Native movement can report grounded feet ~0.022 blocks above the surface.
-            // Stay below carpet height (1/16), so a real intervening platform remains safe.
-            if(!shape.isEmpty()&&Math.abs(p.getY()-(support.getY()+shape.getMax(Direction.Axis.Y)))<=LANDING_TOLERANCE)return at;
+        var body=p.getBoundingBox();int minX=(int)Math.floor(body.minX+.000001),maxX=(int)Math.floor(body.maxX-.000001);
+        int minZ=(int)Math.floor(body.minZ+.000001),maxZ=(int)Math.floor(body.maxZ-.000001),topY=(int)Math.floor(p.getY()-.00001);
+        if(maxX-minX>1||maxZ-minZ>1)return null;
+        var sole=new Box(body.minX,p.getY()-LANDING_TOLERANCE,body.minZ,body.maxX,p.getY()+.000001,body.maxZ);
+        // A support cache picks just one block at seams. Inspect the actual complete sole instead:
+        // at most four columns, two support heights and one floor coating per column (12 cells).
+        // Missing evidence anywhere in that footprint cannot establish a clean or living landing.
+        Map<BlockPos,net.minecraft.block.BlockState> states=new HashMap<>();
+        // Beyond the dimension's vertical limits there is no supporting block; do not mistake
+        // that known empty space for an unloaded chunk at a valid bottom/top surface.
+        for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++)for(int y=Math.max(topY-1,world.getBottomY());y<=Math.min(topY+1,world.getBottomY()+world.getHeight()-1);y++){
+            var at=new BlockPos(x,y,z);if(EcologyLoadedBlocks.chunk(world,at)==null)return null;
+            states.put(at,EcologyLoadedBlocks.state(world,at));
         }
-        // A DOWN-facing vein at floor height coats the native supporting block.
-        BlockPos feet=new BlockPos(p.getBlockX(),(int)Math.round(p.getY()),p.getBlockZ());if(Math.abs(p.getY()-feet.getY())>LANDING_TOLERANCE||EcologyLoadedBlocks.chunk(world,feet)==null)return null;
-        var coating=EcologyLoadedBlocks.state(world,feet);var coat=position(feet);
-        return coating.isOf(Blocks.SCULK_VEIN)&&coating.get(MultifaceGrowthBlock.getProperty(Direction.DOWN))&&engine.owns(coat)&&engine.living(coat)?coat:null;
+        for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++)for(int y=topY-1;y<=topY;y++){
+            var support=new BlockPos(x,y,z);var state=states.get(support);if(state==null)continue;
+            var shape=state.getCollisionShape(EmptyBlockView.INSTANCE,support,ShapeContext.of(p));
+            boolean touching=false;
+            for(var part:shape.getBoundingBoxes())if(part.offset(x,y,z).intersects(sole)
+                    &&Math.abs(p.getY()-(y+part.maxY))<=LANDING_TOLERANCE){touching=true;break;}
+            if(!touching)continue;
+            var at=position(support);
+            if((state.isOf(Blocks.SCULK)||state.isOf(Blocks.SCULK_CATALYST)||state.isOf(Blocks.SCULK_SENSOR)||state.isOf(Blocks.SCULK_SHRIEKER))&&engine.owns(at)&&engine.living(at))return at;
+            // Only a floor-facing vein attached directly to this collision support coats the
+            // surface underfoot. Side-only or nearby veins do not turn a clean pillar into sculk.
+            if(Math.abs(p.getY()-(y+1))>LANDING_TOLERANCE)continue;
+            var feet=support.up();var coating=states.get(feet);var coat=position(feet);
+            if(coating!=null&&coating.isOf(Blocks.SCULK_VEIN)&&coating.get(MultifaceGrowthBlock.getProperty(Direction.DOWN))&&engine.owns(coat)&&engine.living(coat))return coat;
+        }
+        return null;
     }
     private static EcologyTerrain.Pos position(BlockPos p){return new EcologyTerrain.Pos(p.getX(),p.getY(),p.getZ());}
 }

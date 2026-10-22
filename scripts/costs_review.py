@@ -1,4 +1,4 @@
-"""Prepare or start an authenticated, disposable combined benefits-and-costs review."""
+"""Prepare/start an authenticated disposable costs review; --contact preserves the old ending review."""
 from __future__ import annotations
 
 import argparse
@@ -205,4 +205,12 @@ def start() -> None:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['prepare', 'start'])
-    {'prepare': prepare, 'start': start}[parser.parse_args().action]()
+    parser.add_argument('--contact', action='store_true', help='Use a separate contact-regression world on 25589 (voice 24469)')
+    arguments = parser.parse_args()
+    if arguments.contact:
+        ROOTS = w.WORK / 'reviews' / 'contact'
+        REPORT = w.REPORTS / 'contact-review-latest.json'
+        PORT, VOICE_PORT = 25589, 24469
+        MARKER = '.chronicle-contact-review.json'
+        REQUIRED = dict(REQUIRED, **{'server-port': str(PORT)})
+    {'prepare': prepare, 'start': start}[arguments.action]()

@@ -35,7 +35,7 @@ public final class EcologyCostsTrial {
         String enabled=System.getenv("CHRONICLE_ECOLOGY_NATIVE_TRIAL");if(enabled==null||enabled.isBlank())return;
         CommandRegistrationCallback.EVENT.register((d,a,e)->{
             var command=literal("quiet_below_costs_trial").requires(s->s.hasPermissionLevel(2));
-            for(String verb:List.of("prepare","seal","active","remember","sustained","clear","pillar","down","cut","reconnect","creative","replace","foreign","foreign_off","serialize_owned","serialize_foreign","copy","precision","air","airborne","landed","save","restart","review"))
+            for(String verb:List.of("prepare","seal","active","remember","sustained","clear","pillar","down","cut","reconnect","creative","replace","foreign","foreign_off","serialize_owned","serialize_foreign","copy","precision","air","airborne","landed","lane","lane_end","save","restart","review"))
                 command.then(literal(verb).executes(c->run(c.getSource(),verb)));
             d.register(command);
         });
@@ -65,6 +65,8 @@ public final class EcologyCostsTrial {
                 case "air" -> {remember(player);player.teleport(world,player.getX(),player.getY()+4,player.getZ(),java.util.Set.of(),0,0,false);player.setOnGround(false);}
                 case "airborne" -> {require(!player.isOnGround(),"airborne trial already landed");sustained(player);}
                 case "landed" -> {require(player.isOnGround(),"airborne trial did not land");sustained(player);}
+                case "lane" -> {sustained(player);player.teleport(world,2.5,66,2.5,java.util.Set.of(),-90,0,false);}
+                case "lane_end" -> {require(player.getX()>8&&player.getX()<15&&player.isOnGround(),"movement did not cross the floor-vein lane");require(EcologyCostsWorld.contact(player,engine)!=null,"lane endpoint is not living footing");sustained(player);}
                 case "save" -> save(source,engine);
                 case "restart" -> restart(source,player,engine);
                 case "review" -> review(world,player,engine);
@@ -79,6 +81,12 @@ public final class EcologyCostsTrial {
         for(int x=-3;x<=-1;x++)put(world,new BlockPos(x,64,0),Blocks.SCULK.getDefaultState());
         for(int x=0;x<16;x++)for(int z=0;z<40;z++)put(world,new BlockPos(x,64,z),Blocks.SCULK.getDefaultState());
         put(world,NEAR,Blocks.SCULK.getDefaultState());
+        // Raised, indexed lane: continuous real floor veins over alternating sculk/stone.
+        // Walk/jump across it using actual client input, not server teleports between samples.
+        for(int x=2;x<=14;x++){
+            put(world,new BlockPos(x,65,2),x%2==0&&x>2?Blocks.STONE.getDefaultState():Blocks.SCULK.getDefaultState());
+            put(world,new BlockPos(x,66,2),Blocks.SCULK_VEIN.getDefaultState().with(MultifaceGrowthBlock.getProperty(Direction.DOWN),true));
+        }
         player.interactionManager.changeGameMode(GameMode.SURVIVAL);player.removeStatusEffect(StatusEffects.HUNGER);player.removeStatusEffect(StatusEffects.DARKNESS);
         near(world,player);rememberedHunger=rememberedDarkness=null;
     }
@@ -141,16 +149,38 @@ public final class EcologyCostsTrial {
         try{
             fixtureState(world,NEAR.down(),Blocks.STONE.getDefaultState());
             fixtureState(world,NEAR,Blocks.SCULK_VEIN.getDefaultState().with(MultifaceGrowthBlock.getProperty(Direction.DOWN),true));
+            require(engine.costsAvailable()&&engine.living(QuietBelowEcology.pos(NEAR)),"precision fixture invalidated the living network");
             player.setPosition(x,NEAR.getY(),z);player.setOnGround(true);player.setPosition(x,NEAR.getY()+.0216,z);
             require(EcologyCostsWorld.contact(player,engine)!=null,"floor vein rejected native landing residue");
+            player.setPosition(x+1,NEAR.getY()+.65,z+1);player.setOnGround(true);
+            require(EcologyCostsWorld.landingTransition(player,QuietBelowEcology.pos(NEAR),engine),"early grounded lateral vein transition discarded the previous footing");
+            player.setPosition(x,NEAR.getY()+.0216,z);player.setOnGround(true);
+            fixtureState(world,NEAR.down(),Blocks.AIR.getDefaultState());
+            require(EcologyCostsWorld.contact(player,engine)==null,"unsupported vein established a physical landing");
+            fixtureState(world,NEAR.down(),Blocks.STONE.getDefaultState());
             fixtureState(world,NEAR,Blocks.SCULK_VEIN.getDefaultState().with(MultifaceGrowthBlock.getProperty(Direction.NORTH),true));
             require(EcologyCostsWorld.contact(player,engine)==null,"side vein incorrectly counted as floor contact");
         }finally{
             fixtureState(world,NEAR.down(),below);fixtureState(world,NEAR,original);
             player.setPosition(x,y,z);player.setOnGround(true);
         }
+        BlockPos adjacent=NEAR.east(),coat=adjacent.up();var oldSupport=world.getBlockState(adjacent);var oldCoat=world.getBlockState(coat);
+        try{
+            fixtureState(world,adjacent,Blocks.STONE.getDefaultState());fixtureState(world,coat,Blocks.AIR.getDefaultState());
+            player.setPosition(NEAR.getX()+1.05,y,z);player.setOnGround(true);
+            require(EcologyCostsWorld.contact(player,engine)!=null,"mixed clean/sculk sole seam discarded infested support");
+            player.setPosition(NEAR.getX()+1.4,y,z);player.setOnGround(true);
+            require(EcologyCostsWorld.contact(player,engine)==null,"completely clean sole retained nearby sculk");
+        }finally{
+            fixtureState(world,adjacent,oldSupport);fixtureState(world,coat,oldCoat);player.setPosition(x,y,z);player.setOnGround(true);
+        }
     }
-    private static void fixtureState(ServerWorld world,BlockPos pos,BlockState state){try(var ignored=EcologyHooks.ownWrite()){put(world,pos,state);}}
+    private static void fixtureState(ServerWorld world,BlockPos pos,BlockState state){
+        // These synchronous geometry probes restore exact states before the next ecology tick.
+        // Suppress neighbor shape cascades as well as ownership notices: otherwise replacing a
+        // lane support drops its real vein and invalidates the network instead of testing contact.
+        try(var ignored=EcologyHooks.ownWrite()){world.setBlockState(pos,state,Block.NOTIFY_LISTENERS|Block.FORCE_STATE);}
+    }
     private static void save(ServerCommandSource s,EcologyEngine engine)throws Exception{require(engine.costRules().equals(new EcologyCosts.Rules(new EcologyCosts.Rule(true,10),new EcologyCosts.Rule(true,10))),"fast cost tuning was not saved");require(engine.spreadRules().mode()==EcologyEngine.GrowthMode.SCULK_COUNT&&engine.spreadRules().amplificationPercent()==25,"non-default spread tuning was not saved");require(engine.vitalitySummary().ready()>=512&&engine.effectiveSpeedPercent()>engine.speedPercent(),"living sculk count did not amplify spread");JsonObject data=new JsonObject();data.addProperty("hunger",engine.costRules().hunger().seconds());data.addProperty("darkness",engine.costRules().darkness().seconds());data.addProperty("mode",engine.spreadRules().mode().name());data.addProperty("amplification",engine.spreadRules().amplificationPercent());Path path=snapshot(s);Files.createDirectories(path.getParent());Files.writeString(path,data.toString());}
     private static void restart(ServerCommandSource s,ServerPlayerEntity player,EcologyEngine engine)throws Exception{JsonObject data=JsonParser.parseString(Files.readString(snapshot(s))).getAsJsonObject();require(engine.costRules().equals(new EcologyCosts.Rules(new EcologyCosts.Rule(true,data.get("hunger").getAsInt()),new EcologyCosts.Rule(true,data.get("darkness").getAsInt()))),"cost tuning did not survive restart");require(engine.spreadRules().equals(new EcologyEngine.SpreadRules(EcologyEngine.GrowthMode.valueOf(data.get("mode").getAsString()),data.get("amplification").getAsInt())),"spread mode/amplification did not survive restart");clear(player);}
     private static void review(ServerWorld world,ServerPlayerEntity player,EcologyEngine engine){require(engine.costRules().equals(EcologyCosts.DEFAULT),"reset local costs before review");player.interactionManager.changeGameMode(GameMode.SURVIVAL);player.removeStatusEffect(StatusEffects.HUNGER);player.removeStatusEffect(StatusEffects.DARKNESS);near(world,player);sign(world,new BlockPos(2,64,40),"LOCAL COSTS","Living footing only","Hunger + Darkness","40s initial delay");sign(world,new BlockPos(24,64,40),"SAFE CONTROL","Nearby is not enough","Use a glass pillar","Effects stay off");sign(world,CONTACT.up(),"CUT MARKER","Break this sculk","Contact effects clear","Replace, then wait");}
