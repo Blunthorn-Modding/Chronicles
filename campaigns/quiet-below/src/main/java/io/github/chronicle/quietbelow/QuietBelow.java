@@ -69,6 +69,15 @@ public final class QuietBelow implements ModInitializer {
             Registry.register(Registries.BLOCK_ENTITY_TYPE,id("ancient_altar"),net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
                     .create(io.github.chronicle.quietbelow.content.AncientAltarBlockEntity::new,ANCIENT_ALTAR_BLOCK).build());
 
+    public static final RegistryKey<Block> RELIC_HEART_KEY=blockKey("relic_heart");
+    public static final RegistryKey<Item> RELIC_HEART_ITEM_KEY=itemKey("relic_heart");
+    /** Mapmaker item; a placed Heart has no campaign behavior until explicitly bound. */
+    public static final Block RELIC_HEART=Registry.register(Registries.BLOCK,RELIC_HEART_KEY,
+            new io.github.chronicle.quietbelow.content.RelicHeartBlock(AbstractBlock.Settings.create().registryKey(RELIC_HEART_KEY)
+                    .strength(-1.0f, 3_600_000.0f).pistonBehavior(net.minecraft.block.piston.PistonBehavior.BLOCK).nonOpaque()));
+    public static final Item RELIC_HEART_ITEM=Registry.register(Registries.ITEM,RELIC_HEART_ITEM_KEY,
+            new BlockItem(RELIC_HEART,new Item.Settings().registryKey(RELIC_HEART_ITEM_KEY).useBlockPrefixedTranslationKey()));
+
     private static RegistryKey<Item> itemKey(String path) {
         return RegistryKey.of(RegistryKeys.ITEM, id(path));
     }
@@ -96,7 +105,7 @@ public final class QuietBelow implements ModInitializer {
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:sculk_takeover", "Sculk takeover region",
                 "Optional region to adopt existing sculk into campaign ownership. Run Take over region separately; disconnected sculk stays dormant.", AuthoringCatalog.Kind.REGION));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:relic_heart", "Relic Heart",
-                "The future unique network heart site; binding alone enables no behavior.", AuthoringCatalog.Kind.BLOCK));
+                "Unique sculk root. Assign this block site before indexing; interact with the weakened Heart to confirm permanent eradication.", AuthoringCatalog.Kind.BLOCK));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_altar", "Ancient Altar",
                 "Optional contextual Altar site. Placed Ancient Altar blocks work without this registration.", AuthoringCatalog.Kind.BLOCK));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",
@@ -127,6 +136,7 @@ public final class QuietBelow implements ModInitializer {
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RESONANCE_MARKER));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_FORGE));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_ALTAR));
+        ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RELIC_HEART_ITEM));
         ChronicleCore.events().register(new CampaignEvent("quiet_below:readiness_check",
                 "Records a framework readiness check without changing the world.", true, Map.of(),
                 state -> new EventOutcome(Map.of("quiet_below:readiness_checked", true), "The Quiet Below readiness check was recorded.")));

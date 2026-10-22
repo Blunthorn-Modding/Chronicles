@@ -1,5 +1,7 @@
 # M11 station implementation preparation
 
+**Dev.31 update, 22 October:** Forge, the two lasting Altar trades, authoritative stats/food/HUD and physical Heart ending are implemented and technically verified. [Current bundled review](M12_REVIEW.md). Earlier preparation/status paragraphs are historical; temporary Altar proposals and gameplay balance are still follow-ups.
+
 **22 October:** [dev30](CF12_LASTING_BARGAINS.md) implements/verifies/deploys the intrinsic Altar, two three-use lasting trades, Core ledger/stats/food and original editable HUD. [Current review](M11_REVIEW.md). Forge/caps remain installed. Temporary Altar options and physical Heart ending remain separate work; older preparation wording below is historical.
 
 **Current checkpoint:** intrinsic Forge and shared ingredient enchanting are implemented, verified and live in dev.29; [contract](M11_FORGE.md), [review](M11_REVIEW.md). The preparation language below is historical for Forge. Altar is next: THREE of each lasting bargain per character, independent counts, surviving death/reconnect without reversal; eradication removes bonus and sacrifice together. Its durable transactions, stat projection and truthful expanded-food HUD still require implementation and native verification.

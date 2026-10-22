@@ -72,6 +72,12 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private long vRootedHealth,vDetachedHealth;
     private int speedPercent=100;
     private SpreadRules spreadRules=DEFAULT_SPREAD;
+    private EcologyHeart.Rules heartRules=EcologyHeart.DEFAULT;
+    private int heartElapsed,heartUnflushed;
+    private boolean heartNeedsReset;
+    private UUID ending;
+    private Pos endingRoot;
+    private State endingRootState;
     private long generation;
     private long graphGeneration=-1;
     private Iterator<Pos> validation;
@@ -96,6 +102,8 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             } else replay(e.type(),e.payload());
         }
         controlRevision=journal.revision();
+        // Re-certification after a process restart cannot establish continuous weakness offline.
+        heartNeedsReset=heartElapsed>0;heartUnflushed=0;
     }
     /** Called only on a new, unexposed engine during strict startup replay. */
     private void restoreCheckpoint(EcologyCheckpoint.Decoded checkpoint){
@@ -105,6 +113,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         JsonObject h=checkpoint.header();enabled=EcologyCheckpoint.bool(h,"enabled");cleanup=EcologyCheckpoint.bool(h,"cleanup");
         speedPercent=EcologyCheckpoint.integer(h,"speed");if(!SPEEDS.contains(speedPercent))throw bad("Unsupported checkpoint speed");
         SpreadRules restoredSpread=h.has("spread")?spreadRules(EcologyCheckpoint.object(h.get("spread"))):DEFAULT_SPREAD;
+        if(h.has("heart")) restoreHeart(EcologyCheckpoint.object(h.get("heart")));
         JsonObject crop=EcologyCheckpoint.object(h.get("crops"));EcologyCheckpoint.keys(crop,"enabled","seconds");
         cropRules=new EcologyCrops.Rules(EcologyCheckpoint.bool(crop,"enabled"),EcologyCheckpoint.integer(crop,"seconds"));
         if(h.has("recovery")){
@@ -124,14 +133,14 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         claim=checkpoint.claim();generation++;
     }
     void writeCheckpoint(EcologyJournal target,String sourceHash)throws IOException {
-        healthy();requireSetup();if(!indexed||vitalityTicks!=0)throw new IllegalStateException("Checkpoint requires a completed, flushed source index");
+        if(failure!=null)throw new IllegalStateException(failure);requireSetup();if(!indexed||vitalityTicks!=0)throw new IllegalStateException("Checkpoint requires a completed, flushed source index");
         List<EcologyJournal.Entry> original=journal.entries();int end=EcologyCheckpoint.prefixEnd(original);
         for(int n=0;n<=end;n++){var entry=original.get(n);target.append(entry.type(),entry.payload());}
         EcologyCheckpoint.write(target,this,List.copyOf(air),sourceHash,journal.revision());
     }
     boolean sameCheckpointState(EcologyEngine other){
         if(!Objects.equals(setup,other.setup)||indexed!=other.indexed||enabled!=other.enabled||cleanup!=other.cleanup||speedPercent!=other.speedPercent
-                ||!cropRules.equals(other.cropRules)||!recoveryRules.equals(other.recoveryRules)||!costRules.equals(other.costRules)||!spreadRules.equals(other.spreadRules)||!Objects.equals(claim,other.claim)||!cursors.equals(other.cursors)
+                ||!heartCheckpoint().equals(other.heartCheckpoint())||!cropRules.equals(other.cropRules)||!recoveryRules.equals(other.recoveryRules)||!costRules.equals(other.costRules)||!spreadRules.equals(other.spreadRules)||!Objects.equals(claim,other.claim)||!cursors.equals(other.cursors)
                 ||!cells().equals(other.cells())||!air.equals(other.air)||!vitality.checkpointHeader().equals(other.vitality.checkpointHeader()))return false;
         for(Pos p:cells.keySet())if(!vitality.checkpointCell(p).equals(other.vitality.checkpointCell(p)))return false;
         return true;
@@ -139,9 +148,9 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public Setup setup() { return setup; }
     public List<Cell> cells() { return List.copyOf(cells.values()); }
     public boolean owns(Pos p) { return cells.containsKey(p); }
-    public boolean rooted(Pos p) { return connected.contains(p) && !unresolved && (graph==null||extending) && graphGeneration==generation; }
-    public boolean enabled() { return enabled && failure==null; }
-    public boolean living(Pos p) { return rooted(p)&&vitality.ready(p); }
+    public boolean rooted(Pos p) { return ending==null&&connected.contains(p) && !unresolved && (graph==null||extending) && graphGeneration==generation; }
+    public boolean enabled() { return enabled && failure==null && ending==null; }
+    public boolean living(Pos p) { return ending==null&&rooted(p)&&vitality.ready(p); }
     /** Constant-time local proof for station power; metadata alone cannot bless a replaced block. */
     public boolean living(Pos p,State actual) { Cell cell=cells.get(p);return cell!=null&&living(p)&&cell.after.sameOwnedShape(actual); }
     public EcologyVitality vitality(){return vitality;}
@@ -151,6 +160,77 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public EcologyRecovery.Rules recoveryRules(){return recoveryRules;}
     public EcologyCosts.Rules costRules(){return costRules;}
     public SpreadRules spreadRules(){return spreadRules;}
+    public EcologyHeart.Rules heartRules(){return heartRules;}
+    public int heartElapsed(){return heartNeedsReset?0:heartElapsed+heartUnflushed;}
+    public Pos rootPosition(){return heart;}
+    public UUID ending(){return ending;}
+    public Pos endingRoot(){return endingRoot;}
+    public State endingRootState(){return endingRootState;}
+    /** Exact finite metadata count; healthy networks stop as soon as the threshold is reached. */
+    public EcologyHeart.Proof heartProof(boolean rootValid){
+        boolean complete=ending==null&&failure==null&&enabled&&indexed&&validated&&!unresolved&&!validationUnknown
+                &&graphGeneration==generation&&(graph==null||extending);
+        int living=0,limit=heartRules.threshold(vitality.rules().established());
+        if(complete)for(Pos p:connected){
+            if(vitality.mode(p)==EcologyVitality.Mode.UNKNOWN){complete=false;break;}
+            if(vitality.ready(p,vitalityTicks)&&++living>=limit)break;
+        }
+        return new EcologyHeart.Proof(complete,rootValid,living,vitality.rules().established());
+    }
+    public boolean heartVulnerable(boolean rootValid){
+        return ending==null&&!heartNeedsReset&&heartUnflushed==0&&EcologyHeart.vulnerable(heartRules,heartElapsed,heartProof(rootValid));
+    }
+    public void heartTick(boolean rootValid,boolean playing)throws IOException {
+        if(ending!=null||failure!=null||!indexed)return;
+        if(heartNeedsReset){resetHeart();heartNeedsReset=false;}
+        int old=heartElapsed(),next=EcologyHeart.nextElapsed(heartRules,old,heartProof(rootValid),playing,1);
+        if(next==0){if(old>0)resetHeart();return;}
+        heartUnflushed=next-heartElapsed;
+        if(heartUnflushed>=20||(!playing&&heartUnflushed>0)||next==heartRules.requiredTicks())flushHeart();
+    }
+    public void flushHeart()throws IOException {
+        if(ending==null&&failure==null&&heartUnflushed>0){
+            JsonObject p=new JsonObject();p.addProperty("elapsed",heartElapsed());record("HEART_CLOCK",p);heartUnflushed=0;
+        }
+    }
+    private void resetHeart()throws IOException {
+        heartUnflushed=0;heartNeedsReset=false;if(heartElapsed>0){JsonObject p=new JsonObject();p.addProperty("elapsed",0);record("HEART_CLOCK",p);}
+    }
+    public void tuneHeart(EcologyHeart.Rules rules)throws IOException {
+        healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing first");
+        if(rules.equals(heartRules))return;record("HEART_RULES",heartRulesPayload(rules));heartUnflushed=0;
+    }
+    public void eradicate(UUID job,Pos root,State rootState,boolean rootValid)throws IOException {
+        healthy();requireSetup();Objects.requireNonNull(job);Objects.requireNonNull(rootState);
+        if(!Objects.equals(root,heart)||!heartVulnerable(rootValid))throw new IllegalStateException("The Heart is not vulnerable");
+        flushVitality();if(!heartVulnerable(rootValid))throw new IllegalStateException("The living network recovered before destruction");
+        JsonObject p=new JsonObject();p.addProperty("job",job.toString());p.add("root",pos(root));p.add("state",state(rootState));
+        record("HEART_END",p);
+    }
+    static JsonObject heartRulesPayload(EcologyHeart.Rules r){JsonObject p=new JsonObject();p.addProperty("threshold",r.threshold());p.addProperty("seconds",r.seconds());return p;}
+    private static EcologyHeart.Rules parseHeartRules(JsonObject p){keys(p,"threshold","seconds");return new EcologyHeart.Rules(integer(p,"threshold"),integer(p,"seconds"));}
+    JsonObject heartCheckpoint(){
+        JsonObject p=new JsonObject();p.add("rules",heartRulesPayload(heartRules));p.addProperty("elapsed",ending==null?0:heartRules.requiredTicks());
+        p.add("ending",ending==null?JsonNull.INSTANCE:endingPayload());return p;
+    }
+    private JsonObject endingPayload(){JsonObject p=new JsonObject();p.addProperty("job",ending.toString());p.add("root",pos(endingRoot));p.add("state",state(endingRootState));return p;}
+    private void restoreHeart(JsonObject p){
+        keys(p,"rules","elapsed","ending");heartRules=parseHeartRules(object(p.get("rules")));heartElapsed=integer(p,"elapsed");
+        if(heartElapsed>heartRules.requiredTicks())throw bad("Invalid Heart clock checkpoint");
+        if(!p.get("ending").isJsonNull()){
+            if(heartElapsed!=heartRules.requiredTicks())throw bad("Terminal checkpoint has no completed weakness wait");
+            if(enabled||cleanup)throw bad("Ended checkpoint cannot enable growth or unowned cleanup");
+            JsonObject end=object(p.get("ending"));validateEnding(end);applyEnding(end);
+        }
+    }
+    private void validateEnding(JsonObject p){
+        keys(p,"job","root","state");String id=string(p,"job");if(!UUID.fromString(id).toString().equals(id))throw bad("Invalid ending UUID");
+        position(p.get("root"));State s=block(p.get("state"));if(s.air()||s.network())throw bad("Invalid Heart target state");
+    }
+    private void applyEnding(JsonObject p){
+        ending=UUID.fromString(string(p,"job"));endingRoot=position(p.get("root"));endingRootState=block(p.get("state"));
+        enabled=false;cleanup=false;heartUnflushed=0;controlRevision++;
+    }
     // Extent retains its last completed bounded assessment during harmless connected additions.
     // Local power and certified topology are still checked; a cut/unload invalidates immediately.
     @Override public boolean recoveryAvailable(){return cropsAvailable()&&!vitality.extent().equals("Rooted");}
@@ -167,7 +247,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         JsonObject p=new JsonObject();p.add("hunger",costRule(rules.hunger()));p.add("darkness",costRule(rules.darkness()));record("COST_RULES",p);
     }
     @Override public Iterable<Pos> cropSources(){return positions::scan;}
-    @Override public boolean cropsAvailable(){return failure==null&&enabled&&indexed&&!unresolved
+    @Override public boolean cropsAvailable(){return ending==null&&failure==null&&enabled&&indexed&&!unresolved
             &&(graph==null||extending)&&graphGeneration==generation;}
     public void tuneCrops(EcologyCrops.Rules rules)throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing crop growth");
@@ -177,13 +257,13 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public void tuneVitality(EcologyVitality.Rules rules)throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing vitality");
         Objects.requireNonNull(rules);if(rules.equals(vitality.rules()))return;
-        flushVitality();record("VITALITY_RULES",EcologyVitality.rulesPayload(rules));resetVitalityScan();
+        resetHeart();flushVitality();record("VITALITY_RULES",EcologyVitality.rulesPayload(rules));resetVitalityScan();
     }
     public void flushVitality()throws IOException {
         if(vitalityTicks>0&&failure==null&&indexed){record("VITALITY",EcologyVitality.payload(vitalityTicks,new JsonArray(),-1));vitalityTicks=0;}
     }
     private void resetVitalityScan(){vitalityScan=null;vitalityPending=true;}
-    public void chunkUnloaded(int x,int z)throws IOException {if(ownedChunks.containsKey(chunk(x,z))){flushVitality();invalidateConnections();}}
+    public void chunkUnloaded(int x,int z)throws IOException {if(ending==null&&ownedChunks.containsKey(chunk(x,z))){resetHeart();flushVitality();invalidateConnections();}}
     private void putCell(Pos p,Cell cell){if(cells.put(p,cell)==null){positions.add(p);ownedChunks.merge(chunk(p.x()>>4,p.z()>>4),1,Integer::sum);}}
     public String failure() { return failure; }
     public Claim claim() { return claim; }
@@ -257,12 +337,13 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason); controlRevision++; } }
     /** A reversible missing/unloaded Heart is not a journal failure. Recertify after it returns. */
-    public void invalidateConnections() { unresolved=true;generation++;controlRevision++;contactScan=null;resetVitalityScan(); }
+    public void invalidateConnections() { if(ending!=null)return;unresolved=true;generation++;controlRevision++;contactScan=null;resetVitalityScan(); }
 
     /** Geometry comes from Core's exact saved-site revisions, never a second editable geometry store. */
     public void attach(Setup pins, Area source, Pos heart) {
         if(!Objects.equals(setup,pins)) throw new IllegalStateException("Map assignments changed; ecology setup pins no longer match");
         if(!source.contains(heart)) throw new IllegalArgumentException("Relic Heart must be within the source city");
+        if(ending!=null&&!endingRoot.equals(heart))throw bad("Terminal Heart position differs from pinned authoring root");
         if(source.equals(area)&&heart.equals(this.heart))return;
         this.area=source; this.heart=heart;
         for(var e:cursors.entrySet()) {
@@ -307,9 +388,9 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(area!=null) for(int cx=area.min.x()>>4;cx<=area.max.x()>>4;cx++) for(int cz=area.min.z()>>4;cz<=area.max.z()>>4;cz++) {
             total++; if(cursors.getOrDefault(chunk(cx,cz),0)==chunkSize(cx,cz)) done++;
         }
-        boolean uncertain=unresolved||graph!=null||graphGeneration!=generation;
-        String extent=uncertain?"Unresolved":connected.isEmpty()?"Disconnected":vitality.extent();
-        return new View(setup!=null,indexed,enabled,failure,cells.size(),connected.size(),air.size(),done,total,
+        boolean uncertain=ending==null&&(unresolved||graph!=null||graphGeneration!=generation);
+        String extent=ending!=null?"Eradicated":uncertain?"Unresolved":connected.isEmpty()?"Disconnected":vitality.extent();
+        return new View(setup!=null,indexed,enabled,failure,cells.size(),ending==null?connected.size():0,air.size(),done,total,
                 uncertain,extent,controlRevision,journal.bytes());
     }
     /** Metadata only. Explicitly initiated by configure; no world writes or force loading. */
@@ -643,6 +724,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public boolean reserveNativeLoss(){if(!enabled()||writes>=MAX_WRITES)return false;writes++;return true;}
     /** Outside writes prune ownership immediately. Physical contact scans reconnect placed sculk. */
     public void observed(Pos p,State actual) throws IOException {
+        if(ending!=null)return;
         Cell c=cells.get(p);
         if(c==null||c.after.sameOwnedShape(actual))return;
         if(c.after.vein()&&actual.vein()) {
@@ -655,11 +737,11 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         remove(p);
     }
     public void remove(Pos p) throws IOException {
-        if(!cells.containsKey(p)) return;
+        if(ending!=null||!cells.containsKey(p)) return;
         JsonObject payload=new JsonObject();payload.add("p",pos(p));record("REMOVE",payload);
     }
     private IllegalStateException capacity(String message) { fail(message+"; expansion held");return new IllegalStateException(failure); }
-    private void healthy() { if(failure!=null) throw new IllegalStateException(failure); }
+    private void healthy() { if(failure!=null) throw new IllegalStateException(failure);if(ending!=null)throw new IllegalStateException("The Relic Heart was destroyed; this network has ended permanently"); }
     private void record(String type,JsonObject payload) throws IOException {
         try { validate(type,payload);journal.append(type,payload); apply(type,payload); }
         catch(IOException|RuntimeException e) { fail("Ecology persistence/validation fault: "+e.getMessage()); throw e; }
@@ -670,6 +752,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     /** Validate the entire transition before any durable publication or in-memory mutation. */
     private void validate(String type,JsonObject p) {
+        if(ending!=null)throw bad("Ecology records after terminal Heart ending");
         switch(type) {
             case "CONFIGURE" -> {
                 keys(p,"city","cityRevision","heart","heartRevision","dimension");if(setup!=null)throw bad("Duplicate configuration");
@@ -704,6 +787,9 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
                 validateFronts(array(p,"air",6));
             }
             case "SPEED" -> {requireSetup();keys(p,"percent");if(!indexed||!SPEEDS.contains(integer(p,"percent")))throw bad("Invalid spread speed");}
+            case "HEART_RULES" -> {requireSetup();if(!indexed)throw bad("Heart tuning before indexing");parseHeartRules(p);}
+            case "HEART_CLOCK" -> {requireSetup();keys(p,"elapsed");int n=integer(p,"elapsed");if(!indexed||n>heartRules.requiredTicks()||(n!=0&&(n<=heartElapsed||n-heartElapsed>20)))throw bad("Invalid Heart clock transition");}
+            case "HEART_END" -> {requireSetup();validateEnding(p);if(!indexed||!enabled||heartElapsed!=heartRules.requiredTicks())throw bad("Ending before completed weakness wait");}
             case "SPREAD_RULES" -> {requireSetup();if(!indexed)throw bad("Spread tuning before indexing");spreadRules(p);}
             case "VITALITY_RULES" -> {requireSetup();if(!indexed)throw bad("Vitality tuning before indexing");EcologyVitality.parseRules(p);}
             case "CROP_RULES" -> {requireSetup();if(!indexed)throw bad("Crop tuning before indexing");keys(p,"enabled","seconds");new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));}
@@ -765,6 +851,9 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             case "MODE" -> { requireSetup();keys(p,"enabled");boolean on=bool(p,"enabled");if(on&&(!indexed||cells.isEmpty())) throw bad("Enabled incomplete network");enabled=on;controlRevision++; }
             case "CLEANUP_MODE" -> {cleanup=bool(p,"enabled");controlRevision++;}
             case "SPEED" -> {speedPercent=integer(p,"percent");controlRevision++;}
+            case "HEART_RULES" -> {heartRules=parseHeartRules(p);heartElapsed=0;heartNeedsReset=false;controlRevision++;}
+            case "HEART_CLOCK" -> {heartElapsed=integer(p,"elapsed");controlRevision++;}
+            case "HEART_END" -> applyEnding(p);
             case "SPREAD_RULES" -> {spreadRules=spreadRules(p);controlRevision++;}
             case "VITALITY_RULES" -> {vitality.applyRules(p);controlRevision++;}
             case "CROP_RULES" -> {cropRules=new EcologyCrops.Rules(bool(p,"enabled"),integer(p,"seconds"));controlRevision++;}

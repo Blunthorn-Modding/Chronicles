@@ -1,5 +1,7 @@
 # The Quiet Below — campaign outline
 
+**Implementation update, 22 October, dev.31:** autonomous ecology, crop/healing/contact costs, Forge, two lasting Altar trades and the Heart ending are implemented review features. [Heart rules and restoration contract](M12_HEART_ERADICATION.md), [bundled review](M12_REVIEW.md), [evidence and remaining operations limits](TEST_PLAN.md). The outline below preserves the original design discussion; statements that these delivered systems are still future implementation are historical. Temporary Altar trades, lore/balance decisions and production-map readiness remain open.
+
 Design draft, 19 October 2026; benefit decision updated 21 October. **Current campaign direction; implementation follows the engineering milestones.** The operator has tested the prototype and confirmed that its functions generally work; its fiction and event sequence did not feel coherent. This outline replaces the prototype's narrative assumptions. Existing code remains a technical experiment until it serves this design.
 
 **Campaign format:** Situation (working name for the organizers' “Happening”). See [Chronicle's formats](CAMPAIGN_FORMATS.md). No fixed factions, personal corruption or forced stay are campaign decisions, not restrictions on other formats.

@@ -17,6 +17,7 @@
     "SculkVibrationTickerMixin",
     "SculkShriekerBlockEntityMixin",
     "SculkShriekerVibrationCallbackMixin",
+    "RelicHeartPistonMixin",
     "WorldMixin"
   ],
   "injectors": {

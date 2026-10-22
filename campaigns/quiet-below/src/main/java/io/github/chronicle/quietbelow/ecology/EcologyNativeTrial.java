@@ -42,6 +42,7 @@ public final class EcologyNativeTrial {
         EcologyRecoveryTrial.register();
         EcologyCostsTrial.register();
         EcologyCityTrial.register();
+        EcologyHeartTrial.register();
         if (ENABLED == null || ENABLED.isBlank()) {
             return;
         }

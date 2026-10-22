@@ -11,12 +11,15 @@ public final class QuietBelowClient implements ClientModInitializer {
                 net.minecraft.client.render.BlockRenderLayer.CUTOUT);
         net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(QuietBelow.ANCIENT_ALTAR_BLOCK,
                 net.minecraft.client.render.BlockRenderLayer.CUTOUT);
+        net.fabricmc.fabric.api.client.rendering.v1.BlockRenderLayerMap.putBlock(QuietBelow.RELIC_HEART,
+                net.minecraft.client.render.BlockRenderLayer.CUTOUT);
         SculkAppearanceHandshakeClient.register();
         QuietBelowCompatibilitySmoke.register();
         QuietBelowContentSmoke.registerIfRequested();
         QuietBelowEcologySmoke.register();
         AncientForgeSmoke.register();
         AncientAltarSmoke.register();
+        EcologyHeartSmoke.register();
         QuietBelowRecoverySmoke.register();
         QuietBelowCostsSmoke.register();
         QuietBelowCitySmoke.register();

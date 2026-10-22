@@ -32,6 +32,16 @@ public final class EcologyVitality {
     public Mode mode(Pos p){Cell c=cells.get(p);return c==null?null:c.mode;}
     public int value(Pos p){Cell c=cells.get(p);if(c==null)return FULL;long delta=Math.min(FULL,budget(c.mode)-c.budget);return (int)Math.clamp(c.value+(c.mode==Mode.DORMANT||c.mode==Mode.SEALED?-delta:delta),0L,FULL);}
     public boolean ready(Pos p){return value(p)>=READY;}
+    /** Heart proof includes unflushed active vitality time without creating extra journal records. */
+    public boolean ready(Pos p,int pendingTicks){
+        if(pendingTicks<0||pendingTicks>CHECKPOINT)throw new IllegalArgumentException("Invalid pending vitality time");
+        Cell c=cells.get(p);if(c==null)return true;
+        long extra=switch(c.mode){case DORMANT,SEALED->(long)pendingTicks*FULL/(rules.lossMinutes*1200);
+            case SHADED->(long)pendingTicks*FULL/(rules.recoveryMinutes*1200);
+            case LIT->2*((long)pendingTicks*FULL/(rules.recoveryMinutes*1200));case UNKNOWN->0;};
+        long delta=Math.min(FULL,budget(c.mode)-c.budget+extra);
+        return c.value+(c.mode==Mode.DORMANT||c.mode==Mode.SEALED?-delta:delta)>=READY;
+    }
     public int percent(Pos p){return value(p)*100/FULL;}
     public void forget(Pos p){cells.remove(p);}
     // Offline compaction preserves the exact lazy budgets, including unknown/unresolved modes.

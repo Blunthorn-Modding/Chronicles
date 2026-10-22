@@ -9,6 +9,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Arrays;
 
 import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -56,6 +57,7 @@ class EcologyScaleTest {
 
             assertJournalBound(journal.bytes(),journal.entries().size());
             assertJournalBound(checkpointBytes,checkpointEntries);
+            JsonObject heartMetrics=heartMetadataBenchmark(engine);
             world.extra=true;engine.noticeContact(EXTRA);engine.beginTick();
             assertThrows(IllegalStateException.class,()->engine.tick(world,true));
             assertEquals(EcologyEngine.MAX_CELLS,engine.view().owned());assertFalse(engine.owns(EXTRA));
@@ -63,7 +65,7 @@ class EcologyScaleTest {
 
             System.gc();
             writeMetrics(indexCalls,settleTicks,indexMillis,settleMillis,checkpointMillis,elapsedMillis(started),heapUsed(),journal.bytes(),journal.entries().size(),
-                    checkpointBytes,checkpointEntries,engine.failure());
+                    checkpointBytes,checkpointEntries,engine.failure(),heartMetrics);
         }
     }
 
@@ -82,14 +84,33 @@ class EcologyScaleTest {
     private static long heapUsed() { return ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed(); }
 
     private static void writeMetrics(int indexCalls,int settleTicks,long indexMillis,long settleMillis,long checkpointMillis,long elapsedMillis,long heapBytes,long sourceBytes,
-                                     int sourceEntries,long checkpointBytes,int checkpointEntries,String failure) throws Exception {
+                                     int sourceEntries,long checkpointBytes,int checkpointEntries,String failure,JsonObject heartMetrics) throws Exception {
         JsonObject metrics=new JsonObject();metrics.addProperty("cells",EcologyEngine.MAX_CELLS);metrics.addProperty("indexCalls",indexCalls);
         metrics.addProperty("settleTicks",settleTicks);metrics.addProperty("indexMillis",indexMillis);metrics.addProperty("settleMillis",settleMillis);
         metrics.addProperty("checkpointMillis",checkpointMillis);metrics.addProperty("elapsedMillis",elapsedMillis);metrics.addProperty("retainedHeapBytes",heapBytes);
         metrics.addProperty("sourceJournalBytes",sourceBytes);metrics.addProperty("sourceJournalEntries",sourceEntries);
         metrics.addProperty("checkpointJournalBytes",checkpointBytes);metrics.addProperty("checkpointJournalEntries",checkpointEntries);
-        metrics.addProperty("capacityHold",failure);
+        metrics.addProperty("capacityHold",failure);metrics.add("heartMetadata",heartMetrics);
         Path report=Path.of("build","reports","ecology-scale.json");Files.createDirectories(report.getParent());Files.writeString(report,metrics+System.lineSeparator());
+    }
+
+    /** Synthetic zero-vitality census, after durability checks. No terrain/20-TPS claim. */
+    private static JsonObject heartMetadataBenchmark(EcologyEngine engine){
+        JsonObject header=engine.vitality().checkpointHeader();long budget=header.get("loss").getAsLong();
+        JsonObject cell=new JsonObject();cell.addProperty("value",0);cell.addProperty("mode","SEALED");cell.addProperty("budget",budget);
+        for(var c:engine.cells())engine.vitality().restoreCell(c.position(),cell);
+        assertTrue(engine.heartProof(true).complete());assertEquals(0,engine.heartProof(true).living());
+        assertEquals(EcologyEngine.MAX_CELLS,engine.view().connected());
+        for(int n=0;n<32;n++)assertEquals(0,engine.heartProof(true).living());
+        long[] samples=new long[256];for(int n=0;n<samples.length;n++){
+            long start=System.nanoTime();assertEquals(0,engine.heartProof(true).living());samples[n]=System.nanoTime()-start;
+        }
+        Arrays.sort(samples);JsonObject metrics=new JsonObject();metrics.addProperty("kind","pure production-loop worst-case metadata; synthetic sealed zero vitality; no native terrain or TPS claim");
+        metrics.addProperty("connected",EcologyEngine.MAX_CELLS);metrics.addProperty("living",0);metrics.addProperty("threshold",engine.heartRules().threshold(engine.vitality().rules().established()));
+        metrics.addProperty("samples",samples.length);metrics.addProperty("meanMillis",Arrays.stream(samples).average().orElseThrow()/1e6);
+        metrics.addProperty("p95Millis",samples[(int)(samples.length*.95)]/1e6);metrics.addProperty("p99Millis",samples[(int)(samples.length*.99)]/1e6);
+        metrics.addProperty("maxMillis",samples[samples.length-1]/1e6);metrics.addProperty("heapUsedBytes",heapUsed());
+        return metrics;
     }
 
     private static final class DenseTerrain implements EcologyTerrain {

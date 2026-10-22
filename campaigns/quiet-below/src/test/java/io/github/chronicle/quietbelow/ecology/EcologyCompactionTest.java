@@ -144,7 +144,7 @@ class EcologyCompactionTest {
         try(var j=new EcologyJournal(file(world))){entries=j.entries();}
         Path legacy=dir.resolve("format1.jsonl");
         try(var j=new EcologyJournal(legacy)){
-            for(var entry:entries){JsonObject p=entry.payload();if(entry.type().equals("CHECKPOINT_BEGIN")){p.addProperty("format",1);p.remove("recovery");p.remove("costs");p.remove("spread");}j.append(entry.type(),p);}
+            for(var entry:entries){JsonObject p=entry.payload();if(entry.type().equals("CHECKPOINT_BEGIN")){p.addProperty("format",1);p.remove("recovery");p.remove("costs");p.remove("heart");p.remove("spread");}j.append(entry.type(),p);}
         }
         assertEquals(EcologyRecovery.DEFAULT,load(legacy).recoveryRules());
         for(String fault:List.of("interval","enabled","extra")){

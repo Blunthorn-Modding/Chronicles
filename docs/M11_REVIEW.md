@@ -1,5 +1,7 @@
 # Forge and enchantment-cap review
 
+**Superseded deployment details:** [Dev.31 bundled review](M12_REVIEW.md) is current, including the physical Heart ending. The Forge/Altar workflows below still apply; dev.30 pack hashes and console IDs are historical.
+
 ## Current Altar bundle: dev.30,22 October
 
 Join **127.0.0.1:25588** with the refreshed `../client/Chronicle-M9-1.21.10.mrpack`. Both Chronicle jars must matchdev30: the Altar block and tracked food attribute require a matching client. The pack now also installs the four approved client HUD dependencies from official Modrinth references; none of their jars/assets/code are embedded. GUI2/narrator-off/onboarding-off/multiplayer acknowledgement defaults remain. Existing map/tuning/authentication and SchinderRenge op4 are preserved; currently PAUSED. Older dev29 workflow below still applies to Forge.
@@ -7,7 +9,7 @@ Join **127.0.0.1:25588** with the refreshed `../client/Chronicle-M9-1.21.10.mrpa
 1. While paused, use Creative to obtain/place an **Ancient Altar** directly beside living sculk in the existing Established/Extensive network. No Locations registration is necessary. No Altar was placed automatically in your map.
 2. Return to Survival/Adventure, join participation, turn editing off and resume. Right-click the Altar. Read the choice, complete sacrifice/bonus and actual resulting stats in the scrollable panel. Check **I accept the permanent trade**, then **Accept bargain**. Refresh never accepts a bargain.
 3. **Extra heart:** one maximum heart plus one extra food icon per purchase; natural regeneration needs the larger threshold. **Faster movement:** +10% base walking speed and one maximum heart sacrificed per purchase. Each can be bought three times independently. All three of both yield ten maximum hearts,13 food icons and+30% base walking speed. Buying does not fill new health/food. These are initial balance defaults for hands-on review.
-4. Death and reconnect preserve both sides and counts. There is **no player reversal**. Review purchases are real lasting changes; use the stopped predev30 world/jars backup for a full rollback. The future Heart ending will remove both sides via the verified Core source-closure primitive; physical Heart destruction is not installed yet.
+4. Death and reconnect preserve both sides and counts. There is **no player reversal**. Review purchases are real lasting changes; use a stopped pre-purchase world/jars backup for a full rollback. Dev.31's physical Heart ending removes both sides via the Core source-closure primitive; see the current bundled guide above.
 5. At26 food capacity the original native fallback shows13 icons over two rows. SpiffyHUD's editor can add **Chronicle expanded food**, move it and save the layout. This element replaces the fallback while rendering. Native hearts already reflect maximum health. At ordinary20 food, vanilla's bar is used. The editor does not own food/gameplay logic. Arbitrary element scaling and every other HUD mod are outside verified coverage.
 
 Try the powered/unpowered wording, consent readability, original supplied Altar model and hunger/health/movement tradeoffs together. A paused/cut/distant/replaced station, Creative, editing or nonparticipant cannot accept a bargain. Your existing Forge recipes, caps, contact costs, healing and ecology controls remain available.
