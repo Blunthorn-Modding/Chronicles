@@ -12,6 +12,7 @@ import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.util.ScreenshotRecorder;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -53,6 +54,8 @@ public final class AncientForgeSmoke {
     private boolean built;
     private boolean started;
     private boolean finished;
+    private java.util.concurrent.CompletableFuture<Void> packReload;
+    private List<String> originalPacks;
 
     private AncientForgeSmoke(String phase, String role, Path output, Path serverRoot) throws IOException {
         if (!List.of("initial", "restart").contains(phase)) throw new IllegalArgumentException("CHRONICLE_FORGE_PHASE must be initial or restart");
@@ -115,34 +118,65 @@ public final class AncientForgeSmoke {
         command("prepare Forge fixture", "quiet_below_forge_trial prepare", "prepare");
         delay("settle Forge preparation", 100);
         command("verify Forge fixture ready", "quiet_below_forge_trial ready", "ready");
-        command("run Forge transaction matrix", "quiet_below_forge_trial transactions", "transactions");
+        command("run Forge real-slot transaction matrix", "quiet_below_forge_trial transactions", "transactions");
         delay("settle transaction matrix", 100);
         command("recheck Forge power and station", "quiet_below_forge_trial ready", "ready");
         command("open Forge workshop offer", "quiet_below_forge_trial offer", "offer");
         step("await rendered ItemEnchantingScreen", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen, 20_000);
-        step("assert workshop fields and Sharpness I result", () -> { }, () -> {
+        step("assert empty real staging slots and supplied native inputs", () -> { }, () -> {
             if (!(client.currentScreen instanceof ItemEnchantingScreen screen)) return false;
             var view = screen.state();
-            require(view.target() != null && !view.target().isBlank(), "workshop target field is empty");
-            require(view.ingredient() != null && !view.ingredient().isBlank(), "workshop ingredient field is empty");
-            require(view.result().toLowerCase().contains("sharpness") && view.result().contains("I"), "workshop result is not Sharpness I: " + view.result());
-            require(view.recipes() != null && !view.recipes().isBlank(), "workshop recipe list is empty");
-            return true;
+            require(view.state() == io.github.chronicle.core.network.ItemEnchantingPayloads.State.EMPTY_TARGET, "empty Forge did not report an empty target");
+            require(!screen.getScreenHandler().getSlot(30).getStack().isEmpty() && !screen.getScreenHandler().getSlot(31).getStack().isEmpty(), "supplied target/material are not in the native hotbar slots");
+            return view.recipes() != null && !view.recipes().isEmpty();
         }, 10_000);
         screenshot("capture Forge workshop at 640x480", client, "forge-workshop-640x480.png");
+        step("open Forge recipe guide at 640x480", () -> require(((ItemEnchantingScreen) client.currentScreen).triggerForTest("Recipes"), "Recipes button unavailable at 640x480"), () -> client.currentScreen instanceof ItemEnchantingScreen, 5_000);
+        screenshot("capture Forge recipe guide at 640x480", client, "forge-guide-640x480.png");
+        step("return from Forge recipe guide at 640x480", () -> require(((ItemEnchantingScreen) client.currentScreen).triggerForTest("Back"), "Recipe guide back button unavailable at 640x480"), () -> client.currentScreen instanceof ItemEnchantingScreen, 5_000);
         step("resize Forge workshop to 1280x720", () -> client.getWindow().setWindowedSize(1280, 720), () -> client.getWindow().getFramebufferWidth() == 1280 && client.getWindow().getFramebufferHeight() == 720, 10_000);
         screenshot("capture Forge workshop at 1280x720", client, "forge-workshop-1280x720.png");
-        step("refresh then close Forge workshop in one client tick", () -> {
-            require(((ItemEnchantingScreen) client.currentScreen).triggerForTest("Refresh"), "Refresh button unavailable");
-            ((ItemEnchantingScreen)client.currentScreen).close();
-        }, () -> client.currentScreen == null, 5_000);
-        delay("allow closed Forge refresh response to settle", 10);
-        step("closed Forge refresh does not reopen the screen", () -> { }, () -> client.currentScreen == null, 5_000);
-        command("reopen final Forge workshop offer", "quiet_below_forge_trial offer", "offer");
-        step("await final rendered ItemEnchantingScreen", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen, 20_000);
-        step("confirm one real Forge enchant", () -> require(((ItemEnchantingScreen) client.currentScreen).triggerForTest("Enchant"), "Enchant button unavailable"), () -> ((ItemEnchantingScreen) client.currentScreen).state().completed(), 20_000);
-        command("check Forge completed transaction", "quiet_below_forge_trial check", "check");
-        step("close completed Forge workshop", () -> client.setScreen(null), () -> client.currentScreen == null, 5_000);
+        step("open same-handler recipe guide", () -> {
+            var screen = (ItemEnchantingScreen) client.currentScreen;
+            require(screen.triggerForTest("Recipes"), "Recipes button unavailable");
+        }, () -> client.currentScreen instanceof ItemEnchantingScreen screen && screen.recipePageForTest() == 0, 5_000);
+        screenshot("capture Forge recipe guide at 1280x720", client, "forge-guide-1280x720.png");
+        step("guide hides native slots and hotkeys while preserving the same handler", () -> {
+            var screen = (ItemEnchantingScreen) client.currentScreen;
+            require(screen.getScreenHandler() == client.player.currentScreenHandler, "guide replaced native handler");
+            require(screen.getScreenHandler().getSlot(0).getStack().isEmpty() && screen.getScreenHandler().getSlot(1).getStack().isEmpty(), "guide began with hidden staged inputs");
+            var click = new net.minecraft.client.gui.Click((screen.width - 176) / 2 + 49, (screen.height - 166) / 2 + 19, new net.minecraft.client.input.MouseInput(0, 0));
+            require(screen.mouseClicked(click, false), "guide did not consume hidden-slot mouse click"); screen.mouseReleased(click);
+            require(screen.keyPressed(new net.minecraft.client.input.KeyInput(49, 0, 0)), "guide did not consume hidden hotbar key");
+            require(screen.getScreenHandler().getSlot(0).getStack().isEmpty() && screen.getScreenHandler().getSlot(1).getStack().isEmpty(), "guide hidden action staged an item");
+            require(screen.triggerForTest("Back"), "Recipe guide back button unavailable");
+        }, () -> client.currentScreen instanceof ItemEnchantingScreen, 5_000);
+        resourcePack(client);
+        step("stage target and material through actual native shift-clicks", () -> {
+            var screen = (ItemEnchantingScreen) client.currentScreen;
+            client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 30, 0, net.minecraft.screen.slot.SlotActionType.QUICK_MOVE, client.player);
+            client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 31, 0, net.minecraft.screen.slot.SlotActionType.QUICK_MOVE, client.player);
+        }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
+                && screen.state().state() == io.github.chronicle.core.network.ItemEnchantingPayloads.State.READY
+                && !screen.getScreenHandler().getSlot(2).getStack().isEmpty(), 20_000);
+        step("move native cursor over result for tooltip capture", () -> {
+            var screen = (ItemEnchantingScreen) client.currentScreen;
+            double scale = client.getWindow().getScaleFactor();
+            moveCursor(client, ((screen.width - 176) / 2.0 + 137) * scale, ((screen.height - 166) / 2.0 + 42) * scale);
+        }, () -> true, 5_000);
+        screenshot("capture staged Forge result tooltip", client, "forge-result-tooltip.png");
+        step("take Forge result using its actual screen left-click", () -> {
+            var screen = (ItemEnchantingScreen) client.currentScreen;
+            var click = new net.minecraft.client.gui.Click((screen.width - 176) / 2 + 137, (screen.height - 166) / 2 + 42, new net.minecraft.client.input.MouseInput(0, 0));
+            require(screen.mouseClicked(click, false), "result screen click was unhandled");
+            screen.mouseReleased(click);
+        }, () -> client.currentScreen instanceof ItemEnchantingScreen screen && !screen.pending() && screen.getScreenHandler().getSlot(0).getStack().isEmpty() && !screen.getScreenHandler().getCursorStack().isEmpty(), 20_000);
+        command("check Forge completed real-slot transaction", "quiet_below_forge_trial check", "check");
+        step("place real cursor result into a native player inventory slot", () -> {
+            var screen = (ItemEnchantingScreen) client.currentScreen;
+            client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 30, 0, net.minecraft.screen.slot.SlotActionType.PICKUP, client.player);
+        }, () -> client.currentScreen instanceof ItemEnchantingScreen screen && screen.getScreenHandler().getCursorStack().isEmpty() && !screen.getScreenHandler().getSlot(30).getStack().isEmpty(), 10_000);
+        step("close Forge using the normal screen close path", () -> ((ItemEnchantingScreen) client.currentScreen).close(), () -> client.currentScreen == null, 5_000);
         command("render Forge facings and models", "quiet_below_forge_trial render", "render");
         screenshot("capture Forge facings and models", client, "forge-facings-models.png");
         command("render Forge held item and hotbar icon","quiet_below_forge_trial itemrender","itemrender");
@@ -155,6 +189,57 @@ public final class AncientForgeSmoke {
         command("save Forge state", "quiet_below_forge_trial save", "save");
     }
 
+    private void resourcePack(MinecraftClient client) {
+        step("load original native workstation sprite/font fixture", () -> loadPack(client),
+                () -> packReload != null && packReload.isDone() && !packReload.isCompletedExceptionally() && client.getOverlay() == null, 40_000);
+        step("native resource reload preserves workstation identity", () -> {
+            require(client.currentScreen instanceof ItemEnchantingScreen, "resource reload replaced the workstation");
+            require(client.textRenderer.getWidth("Ancient Forge") <= 160, "pack font clips workstation title");
+        }, () -> true, 5_000);
+        screenshot("capture resource-pack workstation", client, "forge-resource-pack.png");
+        step("open resource-pack guide", () -> require(((ItemEnchantingScreen) client.currentScreen).triggerForTest("Recipes"), "pack guide unavailable"), () -> true, 5_000);
+        screenshot("capture resource-pack guide", client, "forge-guide-resource-pack.png");
+        step("restore vanilla resource selection", () -> {
+            require(((ItemEnchantingScreen) client.currentScreen).triggerForTest("Back"), "pack guide back unavailable");
+            client.getResourcePackManager().setEnabledProfiles(originalPacks);
+            packReload = client.reloadResources();
+        }, () -> packReload.isDone() && !packReload.isCompletedExceptionally() && client.getOverlay() == null, 40_000);
+    }
+
+    private void loadPack(MinecraftClient client) {
+        try {
+            Path root = net.fabricmc.loader.api.FabricLoader.getInstance().getGameDir().resolve("resourcepacks/chronicle-forge-contrast");
+            Files.createDirectories(root);
+            Files.writeString(root.resolve("pack.mcmeta"), "{\"pack\":{\"min_format\":[69,0],\"max_format\":[69,0],\"description\":\"Original Chronicle workstation contrast fixture\"}}");
+            Path assets = root.resolve("assets/minecraft");
+            // Original test artwork, never copied from a third-party resource pack or distributed.
+            fixtureSprite(assets.resolve("textures/gui/container/grindstone.png"), 256, 256, 0xFFC2DFCE, 0xFF315B48);
+            fixtureSprite(assets.resolve("textures/gui/sprites/popup/background.png"), 236, 34, 0xFF14372D, 0xFF8DBCA4);
+            Files.writeString(assets.resolve("textures/gui/sprites/popup/background.png.mcmeta"), "{\"gui\":{\"scaling\":{\"type\":\"nine_slice\",\"width\":236,\"height\":34,\"border\":6}}}");
+            for (String name : List.of("button", "button_highlighted", "button_disabled"))
+                fixtureSprite(assets.resolve("textures/gui/sprites/widget/" + name + ".png"), 200, 20, name.equals("button_disabled") ? 0xFF54645C : 0xFF315B48, 0xFF8DBCA4);
+            Path font = assets.resolve("font/default.json");
+            Files.createDirectories(font.getParent());
+            Files.writeString(font, "{\"providers\":[{\"type\":\"reference\",\"id\":\"minecraft:uniform\"}]}");
+            var manager = client.getResourcePackManager();
+            originalPacks = List.copyOf(manager.getEnabledIds());
+            manager.scanPacks();
+            String id = manager.getProfiles().stream().filter(profile -> profile.getId().endsWith("chronicle-forge-contrast")).findFirst().orElseThrow().getId();
+            var enabled = new ArrayList<>(originalPacks);
+            enabled.add(id);
+            manager.setEnabledProfiles(enabled);
+            packReload = client.reloadResources();
+        } catch (IOException error) { throw new IllegalStateException(error); }
+    }
+
+    private static void fixtureSprite(Path path, int width, int height, int interior, int border) throws IOException {
+        Files.createDirectories(path.getParent());
+        var png = new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+            png.setRGB(x, y, x < 3 || y < 3 || x >= width - 3 || y >= height - 3 ? border : interior);
+        javax.imageio.ImageIO.write(png, "PNG", path.toFile());
+    }
+
     private void buildB() {
         if (!phase.equals("initial")) { step("passive restart account is not required", () -> { }, () -> true, 1_000); return; }
         step("announce passive Forge account ready", () -> writeMarker(readyMarker), () -> true, 2_000);
@@ -164,11 +249,26 @@ public final class AncientForgeSmoke {
     private void command(String name, String command, String verb) { step(name, () -> send(command), () -> received(verb), 30_000); }
     private void send(String command) { MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command); }
     private void delay(String name, int ticks) { step(name, () -> until = System.nanoTime() + ticks * 50_000_000L, () -> System.nanoTime() >= until, ticks * 50L + 5_000); }
+    private static void moveCursor(MinecraftClient client, double x, double y) {
+        GLFW.glfwFocusWindow(client.getWindow().getHandle());
+        GLFW.glfwSetCursorPos(client.getWindow().getHandle(), x, y);
+        // Concurrent native test windows may not receive a Windows cursor callback.
+        // Dispatch the same pinned native callback so the real screen renders its ordinary hover tooltip.
+        try {
+            var callback = net.minecraft.client.Mouse.class.getDeclaredMethod("onCursorPos", long.class, double.class, double.class);
+            callback.setAccessible(true);
+            callback.invoke(client.mouse, client.getWindow().getHandle(), x, y);
+        } catch (ReflectiveOperationException error) { throw new IllegalStateException("native cursor fixture callback failed", error); }
+    }
+
     private void screenshot(String name, MinecraftClient client, String filename) {
         boolean[] requested = {false};
         step(name, () -> {
             client.inGameHud.getChatHud().clear(false);
             client.getToastManager().clear();
+            if (!filename.contains("tooltip")) {
+                moveCursor(client, 0, 0);
+            }
             until = System.nanoTime() + 100_000_000L;
             requested[0] = false;
         }, () -> {

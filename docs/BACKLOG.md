@@ -1,6 +1,6 @@
 # Chronicle work tracking
 
-**Dev.35 ecology follow-up:** the operator accepts dev.34 Altar UI/functions. [Mining continuity and special-block exclusions](M10_MINING_CONTACT.md) address newly reported issues; exact verification and review deployment are in TEST_PLAN. The separate Forge UI design is next; remaining review corrections stay queued.
+**Dev.36 Forge workstation:** dedicated UI design reviewed before implementation; real temporary target/material slots, derived result pickup and a bounded same-handler recipe guide replace held/offhand confirmation. Core owns the generic handler/config/caps/transaction; Quiet Below owns intrinsic Forge power/model. Independent review and native checks pass; [hands-on Forge review](M11_FORGE_REVIEW.md) is next. Accepted Altar/ecology remain. Count-rate comparison, physical Heart/lens and configuration placement follow sequentially.
 
 Updated 22 October 2026. Stable QB/CF IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
 

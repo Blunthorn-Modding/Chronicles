@@ -74,12 +74,16 @@ public final class AncientForges {
         if(!admit(world.getServer(),forge)){player.sendMessage(Text.literal("Too many loaded Ancient Forges; unload some before using this one."),false);return;}
         update(world,forge);
         ItemEnchantingRuntime.open(player,GROUP,"Ancient Forge",new ItemEnchantingRuntime.Gate(){
-            @Override public String unavailable(ServerPlayerEntity actor){
-                if(actor.getEntityWorld()!=world||!actor.isAlive()||actor.isSpectator()||actor.squaredDistanceTo(pos.toCenterPos())>36)return "The Forge is out of reach.";
-                if(physical(world,pos)!=forge||forge.isRemoved())return "The original Forge is no longer here.";
-                if(actor.isCreative())return "Creative inspection only; use Survival or Adventure to enchant.";
-                if(!PlayRuntime.eligiblePlayers(world.getServer()).contains(actor))return "Join Chronicle participation and leave editing mode before enchanting.";
-                return QuietBelowEcology.stationPower(world,pos);
+            @Override public boolean stillPresent(ServerPlayerEntity actor){
+                return actor.getEntityWorld()==world&&actor.isAlive()&&!actor.isSpectator()&&physical(world,pos)==forge&&!forge.isRemoved();
+            }
+            @Override public io.github.chronicle.core.network.ItemEnchantingPayloads.State state(ServerPlayerEntity actor){
+                var unavailable=io.github.chronicle.core.network.ItemEnchantingPayloads.State.UNAVAILABLE;
+                var quiet=io.github.chronicle.core.network.ItemEnchantingPayloads.State.QUIET;
+                if(!stillPresent(actor)||actor.squaredDistanceTo(pos.toCenterPos())>36)return unavailable;
+                if(actor.isCreative()||!PlayRuntime.eligiblePlayers(world.getServer()).contains(actor)||!QuietBelowEcology.playing(world.getServer()))return quiet;
+                return QuietBelowEcology.stationPower(world,pos)==null?io.github.chronicle.core.network.ItemEnchantingPayloads.State.READY:
+                        io.github.chronicle.core.network.ItemEnchantingPayloads.State.UNPOWERED;
             }
             @Override public void completed(ServerPlayerEntity actor){
                 if(physical(world,pos)!=forge)return;

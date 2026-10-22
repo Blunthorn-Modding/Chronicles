@@ -1,4 +1,6 @@
-# Ancient Forge implementation contract
+# Ancient Forge original implementation contract
+
+**Historical held-item workflow:** the dev36 native workstation supersedes the player workflow and transaction/lifecycle text below. See [current workstation contract](CF11_FORGE_WORKSTATION.md) and [approved UI design](M11_FORGE_WORKSTATION.md). Recipes, power requirements and original block assets remain applicable.
 
 21 October2026. This is the next QB-12/CF-11 slice after permanent enchantment caps. Balance values are review defaults. There is no story/session unlock or authored sculk route.
 
