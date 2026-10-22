@@ -48,7 +48,7 @@ public final class AutomaticPlayerSpawns {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             var runtime = WORLDS.get(server); if (runtime != null) runtime.events.joined(handler.player.getUuid());
         });
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> {
             var runtime = WORLDS.get(server); if (runtime != null) runtime.events.disconnected(handler.player.getUuid());
         });
         ServerTickEvents.END_SERVER_TICK.register(AutomaticPlayerSpawns::tick);

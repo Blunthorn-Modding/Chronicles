@@ -68,7 +68,7 @@ public final class EnchantmentCapRuntime {
         ServerPlayConnectionEvents.JOIN.register((handler,sender,server) -> {
             queue(server,handler.player.getInventory(),handler.player); queue(server,handler.player.getEnderChestInventory(),handler.player);
         });
-        ServerPlayConnectionEvents.DISCONNECT.register((handler,server) -> runtime(server).migration.removeOwner(handler.player));
+        io.github.chronicle.core.server.ServerDisconnects.register((handler,server) -> runtime(server).migration.removeOwner(handler.player));
         net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer,player,alive) -> {
             var server=player.getEntityWorld().getServer();runtime(server).migration.removeOwner(oldPlayer);
             queue(server,player.getInventory(),player);queue(server,player.getEnderChestInventory(),player);

@@ -52,7 +52,7 @@ public final class SpawnAuthoring {
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> commands(dispatcher));
         ServerLifecycleEvents.SERVER_STARTED.register(SpawnAuthoring::start);
         ServerLifecycleEvents.SERVER_STOPPED.register(SpawnAuthoring::stop);
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> disconnected(handler.player));
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> disconnected(handler.player));
     }
     private static void start(MinecraftServer server) {
         var file = server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/spawns.json");

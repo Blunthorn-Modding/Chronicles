@@ -32,7 +32,7 @@ public final class AuthoringUi {
     private AuthoringUi() { }
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(Request.ID, (request, context) -> handle(context.player(), request));
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> {
             var contexts = CONTEXTS.get(server); if (contexts != null) contexts.remove(handler.player.getUuid());
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(CONTEXTS::remove);

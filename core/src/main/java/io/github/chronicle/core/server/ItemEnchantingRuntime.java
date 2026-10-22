@@ -6,7 +6,6 @@ import io.github.chronicle.core.menu.CoreMenuModel.Fact;
 import io.github.chronicle.core.network.ItemEnchantingPayloads;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.component.DataComponentTypes;
@@ -43,7 +42,10 @@ public final class ItemEnchantingRuntime {
         ServerLifecycleEvents.SERVER_STARTING.register(server->CATALOG.freeze());
         ServerLifecycleEvents.SERVER_STARTED.register(ItemEnchantingRuntime::start);
         ServerLifecycleEvents.SERVER_STOPPED.register(SERVERS::remove);
-        ServerPlayConnectionEvents.DISCONNECT.register((h,s)->{var r=SERVERS.get(s);if(r!=null)r.offers.remove(h.player.getUuid());});
+        io.github.chronicle.core.server.ServerDisconnects.register((h,s)->{
+            var r=SERVERS.get(s);if(r!=null){var offer=r.offers.get(h.player.getUuid());
+                if(offer!=null&&OfferIdentity.sameConnection(offer.connection,h))r.offers.remove(h.player.getUuid(),offer);}
+        });
         ServerTickEvents.END_SERVER_TICK.register(server->{
             var r=SERVERS.get(server);if(r!=null&&server.getTicks()%20==0){long now=System.nanoTime();r.offers.values().removeIf(o->now-o.created>=OFFER_NANOS);}
         });
@@ -85,8 +87,8 @@ public final class ItemEnchantingRuntime {
         if(!server.isOnThread())throw new IllegalStateException("Workshop requires server thread");
         var r=SERVERS.get(server);if(r==null)throw new IllegalStateException("Ingredient enchanting not initialized");return r;
     }
-    public static void open(ServerPlayerEntity player,String group,String title,Gate gate) {open(player,group,title,gate,"",true);}
-    private static void open(ServerPlayerEntity player,String group,String title,Gate gate,String notice,boolean opening) {
+    public static void open(ServerPlayerEntity player,String group,String title,Gate gate) {open(player,group,title,gate,"",true,null);}
+    private static void open(ServerPlayerEntity player,String group,String title,Gate gate,String notice,boolean opening,UUID parent) {
         var server=player.getEntityWorld().getServer();var r=runtime(server);
         if(!ServerPlayNetworking.canSend(player,ItemEnchantingPayloads.View.ID)){player.sendMessage(Text.literal("Install the matching Chronicle client to use this workshop."),false);return;}
         if(title==null||title.isBlank()||title.length()>80||gate==null)throw new IllegalArgumentException("Invalid workshop");
@@ -95,7 +97,8 @@ public final class ItemEnchantingRuntime {
         var preview=preview(server,r,group,target,ingredient);String blocked=gate.unavailable(player);
         if(blocked==null&&r.failure!=null)blocked=r.failure;
         if(blocked==null)blocked=preview.problem;
-        var offer=new Offer(UUID.randomUUID(),System.nanoTime(),group,title,gate,player.getInventory().getSelectedSlot(),target.copy(),ingredient.copy(),r.revision,EnchantmentCapRuntime.policy(server),opening);
+        var offer=new Offer(UUID.randomUUID(),System.nanoTime(),player.networkHandler,parent,group,title,gate,
+                player.getInventory().getSelectedSlot(),target.copy(),ingredient.copy(),r.revision,EnchantmentCapRuntime.policy(server),opening);
         r.offers.put(player.getUuid(),offer);
         String status=notice.isBlank()?(blocked==null?"Ready. Confirm to consume the offering and enchant your held item.":blocked):notice+" "+(blocked==null?"Ready.":blocked);
         send(player,offer,status,preview,blocked==null,false,r);
@@ -136,19 +139,21 @@ public final class ItemEnchantingRuntime {
     public static void act(ServerPlayerEntity player,ItemEnchantingPayloads.Action action) {
         var server=player.getEntityWorld().getServer();var r=runtime(server);var offer=r.offers.get(player.getUuid());
         // Close also cancels a just-refreshed successor whose token has not reached
-        // the client yet. It can only revoke this authenticated player's own offer.
-        if(action.action()==2){r.offers.remove(player.getUuid());return;}
-        if(offer==null||!offer.token.equals(action.token()))return;
-        r.offers.remove(player.getUuid()); // one use, including failed/stale/refresh attempts
+        // the client yet. It can only revoke the current connection's immediate successor.
+        if(action.action()==2){if(offer!=null&&OfferIdentity.accepts(offer.connection,offer.token,offer.parent,
+                player.networkHandler,action.token(),true))r.offers.remove(player.getUuid(),offer);return;}
+        if(offer==null||!OfferIdentity.accepts(offer.connection,offer.token,offer.parent,
+                player.networkHandler,action.token(),false))return;
+        r.offers.remove(player.getUuid(),offer); // one use, including failed/stale/refresh attempts
         if(System.nanoTime()-offer.created>=OFFER_NANOS){player.sendMessage(Text.literal("Workshop offer expired. Open the station again; nothing was consumed."),false);return;}
-        if(action.action()==1){open(player,offer.group,offer.title,offer.gate,"",false);return;}
+        if(action.action()==1){open(player,offer.group,offer.title,offer.gate,"",false,offer.token);return;}
         String problem=offer.gate.unavailable(player);
         var inventory=player.getInventory();var target=player.getMainHandStack();var ingredient=player.getOffHandStack();
         if(problem==null&&(r.failure!=null||r.revision!=offer.revision||!EnchantmentCapRuntime.policy(server).equals(offer.policy)))problem="The workshop configuration changed.";
         if(problem==null&&(inventory.getSelectedSlot()!=offer.slot||!ItemStack.areEqual(target,offer.target)||!ItemStack.areEqual(ingredient,offer.ingredient)))problem="Your held items changed.";
         var preview=preview(server,r,offer.group,target,ingredient);
         if(problem==null)problem=preview.problem;
-        if(problem!=null){open(player,offer.group,offer.title,offer.gate,"Nothing consumed. "+problem,false);return;}
+        if(problem!=null){open(player,offer.group,offer.title,offer.gate,"Nothing consumed. "+problem,false,offer.token);return;}
         // All validation and copies precede the two ordinary native inventory writes.
         ItemStack remainder=ingredient.copy();remainder.decrement(preview.recipe.count());
         inventory.setStack(offer.slot,preview.output);player.setStackInHand(net.minecraft.util.Hand.OFF_HAND,remainder);
@@ -163,7 +168,8 @@ public final class ItemEnchantingRuntime {
         return enchant.value().description().getString()+" "+(value.equals(key)?Integer.toString(level):value);
     }
     private record Preview(IngredientEnchantmentRecipe recipe,ItemStack output,String problem,String result) { }
-    private record Offer(UUID token,long created,String group,String title,Gate gate,int slot,ItemStack target,ItemStack ingredient,long revision,EnchantmentCaps policy,boolean opening) { }
+    private record Offer(UUID token,long created,net.minecraft.server.network.ServerPlayNetworkHandler connection,UUID parent,
+                         String group,String title,Gate gate,int slot,ItemStack target,ItemStack ingredient,long revision,EnchantmentCaps policy,boolean opening) { }
     private static final class Runtime {
         final IngredientEnchantmentConfig config;List<IngredientEnchantmentRecipe> recipes=List.of();String failure;long revision;
         final Map<UUID,Offer> offers=new HashMap<>();Runtime(IngredientEnchantmentConfig config){this.config=config;}

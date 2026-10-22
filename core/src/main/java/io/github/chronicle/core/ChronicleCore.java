@@ -86,13 +86,14 @@ public final class ChronicleCore implements ModInitializer {
         PlayRuntime.register();
         io.github.chronicle.core.server.OfferingStats.register();
         io.github.chronicle.core.server.LastingBargains.register();
+        io.github.chronicle.core.server.ActionConfirmations.register();
         io.github.chronicle.core.server.ItemEnchantingRuntime.register();
         ServerLifecycleEvents.SERVER_STARTED.register(SessionPresentation::changed);
         ServerTickEvents.START_SERVER_TICK.register(SessionPresentation::tick);
         ServerTickEvents.END_SERVER_TICK.register(AuthoringRuntime::tick);
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> SessionPresentation.joined(handler.player));
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> Profiles.disconnected(handler.player));
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> AuthoringRuntime.disconnected(handler.player));
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> Profiles.disconnected(handler.player));
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> AuthoringRuntime.disconnected(handler.player));
         ServerLifecycleEvents.SERVER_STOPPED.register(ChronicleRuntime::stop);
         ServerLifecycleEvents.SERVER_STOPPED.register(Profiles::stop);
         ServerLifecycleEvents.SERVER_STOPPED.register(AuthoringRuntime::stop);

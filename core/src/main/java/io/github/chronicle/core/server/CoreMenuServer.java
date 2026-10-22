@@ -36,7 +36,7 @@ public final class CoreMenuServer {
 
     public static void register() {
         ServerPlayNetworking.registerGlobalReceiver(Request.ID,(request,context)->handle(context.player(),request));
-        ServerPlayConnectionEvents.DISCONNECT.register((handler,server)->{var map=WORLDS.get(server);if(map!=null)map.remove(handler.player.getUuid());});
+        io.github.chronicle.core.server.ServerDisconnects.register((handler,server)->{var map=WORLDS.get(server);if(map!=null)map.remove(handler.player.getUuid());});
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
         ServerTickEvents.END_SERVER_TICK.register(server->{
             // Relevant server changes are pushed; the elapsed clock is deliberately outside Frame.

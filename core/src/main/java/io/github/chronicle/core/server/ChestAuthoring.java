@@ -74,7 +74,7 @@ public final class ChestAuthoring {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> commands(dispatcher));
         ServerLifecycleEvents.SERVER_STARTED.register(ChestAuthoring::start);
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> WORLDS.remove(server));
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> {
             Runtime runtime = WORLDS.get(server);
             if (runtime != null) runtime.previews.remove(handler.player.getUuid());
         });

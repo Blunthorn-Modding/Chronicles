@@ -5,7 +5,6 @@ import io.github.chronicle.core.network.OfferingPayloads;
 import io.github.chronicle.core.offering.OfferingDefinition;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -41,7 +40,15 @@ public final class LastingBargains {
         OfferingPayloads.register();
         ServerLifecycleEvents.SERVER_STARTING.register(server -> frozen = true);
         ServerLifecycleEvents.SERVER_STOPPED.register(OFFERS::remove);
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> { var offers = OFFERS.get(server); if (offers != null) offers.remove(handler.player.getUuid()); });
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> {
+            var offers = OFFERS.get(server);
+            if (offers != null) {
+                Offer offer = offers.get(handler.player.getUuid());
+                if (offer != null && OfferIdentity.sameConnection(offer.connection, handler)) {
+                    offers.remove(handler.player.getUuid(), offer);
+                }
+            }
+        });
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             var offers = OFFERS.get(server);
             if (offers != null && server.getTicks() % 20 == 0) offers.values().removeIf(offer -> System.nanoTime() - offer.created >= MAX_AGE);
@@ -50,10 +57,11 @@ public final class LastingBargains {
                 (payload, context) -> context.server().execute(() -> act(context.player(), payload)));
     }
     public static void open(ServerPlayerEntity player, String source, String group, String title, Gate gate) {
-        open(player, source, group, title, gate, 0, true, "Choose a bargain. Read both the sacrifice and bonus before accepting.");
+        open(player, source, group, title, gate, 0, true,
+                "Choose a bargain. Read both the sacrifice and bonus before accepting.", null);
     }
     private static void open(ServerPlayerEntity player, String source, String group, String title, Gate gate,
-                             int selected, boolean opening, String status) {
+                             int selected, boolean opening, String status, UUID parent) {
         MinecraftServer server = player.getEntityWorld().getServer();
         if (!server.isOnThread()) throw new IllegalStateException("Bargains require the server thread");
         OfferingDefinition.validId(source);
@@ -83,8 +91,8 @@ public final class LastingBargains {
                     clip(result, 256), problem == null ? "" : clip(problem, 256)));
         }
         UUID token = UUID.randomUUID();
-        Offer offer = new Offer(token, System.nanoTime(), source, group, title, gate, selected, List.copyOf(views),
-                Collections.unmodifiableList(previews));
+        Offer offer = new Offer(token, System.nanoTime(), player.networkHandler, parent, source, group, title, gate,
+                selected, List.copyOf(views), Collections.unmodifiableList(previews));
         offers.put(player.getUuid(), offer);
         send(player, offer, status, opening, false);
     }
@@ -98,21 +106,28 @@ public final class LastingBargains {
         MinecraftServer server = player.getEntityWorld().getServer();
         if (!server.isOnThread()) throw new IllegalStateException("Bargains require the server thread");
         var offers = OFFERS.get(server); if (offers == null) return;
-        if (action.action() == 3) { offers.remove(player.getUuid()); return; }
         Offer offer = offers.get(player.getUuid());
-        if (offer == null || !offer.token.equals(action.token())) return;
-        offers.remove(player.getUuid()); // Every action consumes this token, including unsuccessful attempts.
+        if (action.action() == 3) {
+            if (offer != null && OfferIdentity.accepts(offer.connection, offer.token, offer.parent,
+                    player.networkHandler, action.token(), true)) offers.remove(player.getUuid(), offer);
+            return;
+        }
+        if (offer == null || !OfferIdentity.accepts(offer.connection, offer.token, offer.parent,
+                player.networkHandler, action.token(), false)) return;
+        offers.remove(player.getUuid(), offer); // Every action consumes this token, including unsuccessful attempts.
         if (System.nanoTime() - offer.created >= MAX_AGE) { send(player, offer, "Offer expired. Open the Altar again; no bargain was accepted.", false, true); return; }
         if (action.action() == 0 || action.action() == 2) {
             int selected = action.action() == 0 ? action.selected() : offer.selected;
-            if (selected < GROUPS.get(offer.group).size()) open(player, offer.source, offer.group, offer.title, offer.gate, selected, false, "Review the complete trade. Acceptance is permanent until this campaign source ends.");
+            if (selected < GROUPS.get(offer.group).size()) open(player, offer.source, offer.group, offer.title, offer.gate,
+                    selected, false, "Review the complete trade. Acceptance is permanent until this campaign source ends.", offer.token);
             return;
         }
         if (action.selected() != offer.selected) { send(player, offer, "Selection changed. Open the Altar again.", false, true); return; }
         String problem = offer.gate.unavailable(player);
         OfferingStats.Preview expected = offer.previews.get(offer.selected);
         if (problem == null && expected == null) problem = offer.views.get(offer.selected).problem();
-        if (problem != null) { open(player, offer.source, offer.group, offer.title, offer.gate, offer.selected, false, "No bargain accepted. " + problem); return; }
+        if (problem != null) { open(player, offer.source, offer.group, offer.title, offer.gate, offer.selected, false,
+                "No bargain accepted. " + problem, offer.token); return; }
         try {
             OfferingStats.purchase(player, offer.source, GROUPS.get(offer.group).get(offer.selected).definition, offer.token, expected);
         } catch (Exception error) {
@@ -121,9 +136,11 @@ public final class LastingBargains {
             send(player, offer, "Confirmation could not finish: " + error.getMessage() + ". Reopen to check the authoritative purchase count.", false, true); return;
         }
         try { offer.gate.completed(player); } catch (Exception error) { ChronicleCore.LOGGER.error("Bargain saved; cosmetic Altar feedback failed", error); }
-        open(player, offer.source, offer.group, offer.title, offer.gate, offer.selected, false, "Bargain accepted. Both bonus and sacrifice survive death and reconnecting; there is no player reversal.");
+        open(player, offer.source, offer.group, offer.title, offer.gate, offer.selected, false,
+                "Bargain accepted. Both bonus and sacrifice survive death and reconnecting; there is no player reversal.", offer.token);
     }
     private static String clip(String value, int limit) { return value.length() <= limit ? value : value.substring(0, limit - 3) + "..."; }
-    private record Offer(UUID token, long created, String source, String group, String title, Gate gate, int selected,
+    private record Offer(UUID token, long created, net.minecraft.server.network.ServerPlayNetworkHandler connection,
+                         UUID parent, String source, String group, String title, Gate gate, int selected,
                          List<OfferingPayloads.Choice> views, List<OfferingStats.Preview> previews) { }
 }

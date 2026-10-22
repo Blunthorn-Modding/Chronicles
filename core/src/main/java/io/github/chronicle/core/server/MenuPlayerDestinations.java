@@ -35,7 +35,7 @@ public final class MenuPlayerDestinations {
         if (registered) return;
         registered = true;
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+        io.github.chronicle.core.server.ServerDisconnects.register((handler, server) -> {
             Runtime runtime = WORLDS.get(server);
             if (runtime != null) runtime.reviews.entrySet().removeIf(entry -> entry.getKey().equals(handler.player.getUuid())
                     || entry.getValue().target().equals(handler.player.getUuid()));
