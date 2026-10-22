@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ancient Altar prayer mockup</title>
+<style>
+  :root { color-scheme: dark; font-family: monospace; }
+  * { box-sizing: border-box; }
+  body { min-width: max-content; min-height: 100vh; margin: 0; padding: 56px 16px 16px; background: #151515; color: #eee; }
+  .controls { position: fixed; z-index: 2; top: 10px; left: 10px; padding: 8px; border: 2px solid #666; background: #292929; font-size: 14px; }
+  select { margin: 0 8px; border: 1px solid #999; background: #111; color: #fff; font: inherit; }
+  .canvas { position: relative; width: 640px; height: 480px; overflow: hidden; background: radial-gradient(circle, #51585d, #282c2e 70%, #111); }
+  .canvas[data-size="1280"] { width: 1280px; height: 720px; }
+  /* Geometry/copy prototype only. Production uses minecraft:popup/background through DrawContext's GUI-sprite nine-slice path and native ButtonWidget art. This deliberately does not imitate either sprite. */
+  .panel { position: absolute; width: 224px; height: 132px; transform: scale(2); transform-origin: top left; background: #303030; color: #fff; font: 9px/9px monospace; }
+  .canvas[data-size="640"] .panel { left: 96px; top: 108px; }
+  .canvas[data-size="1280"] .panel { left: 416px; top: 228px; }
+  .title, .state { position: absolute; left: 0; width: 100%; text-align: center; }
+  .title { top: 12px; font-weight: bold; }
+  .state { top: 32px; color: #e0e0e0; }
+  /* Plain semantic controls show placement only; production delegates all button pixels and focus to ButtonWidget. */
+  .prayer, .close { position: absolute; height: 20px; border: 0; background: #9a9a9a; color: #252525; font: 9px monospace; }
+  .prayer { left: 12px; width: 200px; }
+  .close { left: 62px; width: 100px; top: 104px; }
+  .prayer:hover:not(:disabled), .close:hover { background: #b8b8b8; }
+  button:focus-visible { outline: 1px solid #e8d68a; outline-offset: -2px; }
+  .prayer:disabled { background: #858585; color: #666; }
+  #life { top: 48px; } #feet { top: 74px; }
+  .panel[data-state="pending"] .state { color: #e1bb75; }
+  .panel[data-state="unavailable"] .state, .panel[data-state="exhausted"] .state { color: #e69a9a; }
+</style>
+</head>
+<body>
+<label class="controls">Canvas <select id="size"><option value="640">640 × 480</option><option value="1280">1280 × 720</option></select> State <select id="state"><option value="ready">Ready</option><option value="pending">Pending</option><option value="unavailable">Unavailable</option><option value="one-exhausted">One exhausted</option><option value="exhausted">Both exhausted</option></select></label>
+<main class="canvas" data-size="640" aria-label="Exact GUI-scale-2 prayer mockup">
+  <section class="panel" data-state="ready" aria-label="Ancient Altar prayer screen">
+    <div class="title">Ancient Altar</div>
+    <div class="state" id="stateText">The altar listens.</div>
+    <button class="prayer" id="life" type="button">Pray for more life</button>
+    <button class="prayer" id="feet" type="button">Pray for quicker feet</button>
+    <button class="close" id="close" type="button">Close</button>
+  </section>
+</main>
+<script>
+  const canvas = document.querySelector('.canvas');
+  const panel = document.querySelector('.panel');
+  const size = document.querySelector('#size');
+  const state = document.querySelector('#state');
+  const life = document.querySelector('#life');
+  const feet = document.querySelector('#feet');
+  const stateText = document.querySelector('#stateText');
+  size.onchange = () => { canvas.dataset.size = size.value; };
+  function render() {
+    const value = state.value;
+    panel.dataset.state = value;
+    life.disabled = false;
+    feet.disabled = false;
+    if (value === 'ready') stateText.textContent = 'The altar listens.';
+    if (value === 'pending') { stateText.textContent = 'The altar listens...'; life.disabled = feet.disabled = true; }
+    if (value === 'unavailable') { stateText.textContent = 'The altar is quiet.'; life.disabled = feet.disabled = true; }
+    if (value === 'one-exhausted') { stateText.textContent = 'One answer has faded.'; life.disabled = true; }
+    if (value === 'exhausted') { stateText.textContent = 'No answer comes.'; life.disabled = feet.disabled = true; }
+  }
+  life.onclick = () => { state.value = 'pending'; render(); };
+  feet.onclick = () => { state.value = 'pending'; render(); };
+  document.querySelector('#close').onclick = () => { panel.hidden = true; };
+  state.onchange = render;
+  render();
+</script>
+</body>
+</html>

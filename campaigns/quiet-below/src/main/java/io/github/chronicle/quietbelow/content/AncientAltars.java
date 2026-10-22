@@ -16,17 +16,13 @@ import java.util.List;
 /** Campaign defaults and physical power only. Core owns consent, durable receipts and native stats. */
 public final class AncientAltars {
     public static final String SOURCE = "quiet_below:network", GROUP = "quiet_below:altar";
-    public static final OfferingDefinition EXTRA_HEART = new OfferingDefinition("quiet_below:extra_heart", new OfferingTerms(2, 2, 0), 3);
+    public static final OfferingDefinition EXTRA_HEART = new OfferingDefinition("quiet_below:extra_heart", new OfferingTerms(2, 0, 0, 25), 3);
     public static final OfferingDefinition MOVEMENT = new OfferingDefinition("quiet_below:movement", new OfferingTerms(-2, 0, 10), 3);
     private AncientAltars() { }
     public static void register() {
-        LastingBargains.registerGroup(GROUP, List.of(
-                new LastingBargains.Choice(EXTRA_HEART, "Extra heart",
-                        "Bonus: one maximum heart. Sacrifice: one more food icon to fill; natural regeneration requires the larger food threshold. No immediate healing or food refill.",
-                        "+1 food icon for regeneration", "+1 maximum heart"),
-                new LastingBargains.Choice(MOVEMENT, "Faster movement",
-                        "Bonus: +10% base movement speed per purchase. Sacrifice: one maximum heart per purchase. Existing health is clamped to the resulting maximum.",
-                        "-1 maximum heart", "+10% base movement speed")));
+        LastingBargains.registerGroup(GROUP,List.of(
+                new LastingBargains.Choice(EXTRA_HEART,"Pray for more life","The altar listens."),
+                new LastingBargains.Choice(MOVEMENT,"Pray for quicker feet","The altar listens.")));
     }
     private static AncientAltarBlockEntity physical(ServerWorld world, BlockPos pos) {
         if (!world.isInBuildLimit(pos) || !world.getWorldBorder().contains(pos)) return null;
@@ -49,7 +45,16 @@ public final class AncientAltars {
                 if (!PlayRuntime.eligiblePlayers(world.getServer()).contains(actor)) return "Join participation and leave editing mode before accepting a bargain.";
                 return QuietBelowEcology.stationPower(world, pos);
             }
-            @Override public void completed(ServerPlayerEntity actor) {
+            @Override public void committed(ServerPlayerEntity actor,OfferingDefinition definition,java.util.UUID transaction) {
+                if(definition.id().equals(EXTRA_HEART.id())) {
+                    actor.setHealth(1);
+                    actor.getHungerManager().setFoodLevel(0);
+                    actor.getHungerManager().setSaturationLevel(0);
+                    actor.sendMessage(net.minecraft.text.Text.literal("You prayed, and the sculk answered. A lasting boon for a little life force... The sculk around you pulses hungrily for more."),false);
+                }else if(definition.id().equals(MOVEMENT.id())) {
+                    actor.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.SLOWNESS,9600,0));
+                    actor.sendMessage(net.minecraft.text.Text.literal("You prayed, and the sculk answered. Your feet feel light, then leaden. The sculk lingers in your steps."),false);
+                }
                 world.playSound(null, pos, SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE, SoundCategory.BLOCKS, 0.8f, 0.65f);
             }
         });

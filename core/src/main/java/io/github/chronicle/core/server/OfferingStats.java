@@ -26,11 +26,14 @@ public final class OfferingStats {
     private static final String OWNER = "chronicle_core:offerings";
     private static final String PREFIX = "offerings/";
     private static final List<RegistryEntry<EntityAttribute>> ATTRIBUTES = List.of(EntityAttributes.MAX_HEALTH,
-            OfferingAttributes.FOOD_CAPACITY, EntityAttributes.MOVEMENT_SPEED);
+            OfferingAttributes.FOOD_CAPACITY, EntityAttributes.MOVEMENT_SPEED, OfferingAttributes.EXHAUSTION_MULTIPLIER);
     private static final Map<MinecraftServer, State> SERVERS = new IdentityHashMap<>();
     private OfferingStats() { }
 
-    public record Totals(double health, int food, double speed) { }
+    public record Totals(double health,int food,double speed,double exhaustion) {
+        public Totals(double health,int food,double speed){this(health,food,speed,1);}
+    }
+    public record PurchaseResult(UUID transaction,boolean newlyCommitted) { }
     public record Preview(long revision, int count, Totals before, Totals after) { }
 
     public static void register() {
@@ -118,7 +121,7 @@ public final class OfferingStats {
     }
 
     /** Call only after the current campaign gate and one-use consent offer have been rechecked. */
-    public static void purchase(ServerPlayerEntity player, String source, OfferingDefinition definition,
+    public static PurchaseResult purchase(ServerPlayerEntity player, String source, OfferingDefinition definition,
                                 UUID transaction, Preview expected) throws IOException {
         MinecraftServer server = player.getEntityWorld().getServer(); State state = ready(server);
         for (OfferingReceipt receipt : state.service.ledger().receipts()) if (receipt.transaction().equals(transaction)) {
@@ -129,7 +132,7 @@ public final class OfferingStats {
             try {
                 // A durable grant with a lost reply is success, even after its third purchase.
                 state.service.purchase(expected.revision(), transaction, player.getUuid(), source, definition);
-                reconcile(player, state.service.ledger()); return;
+                reconcile(player, state.service.ledger()); return new PurchaseResult(transaction,false);
             } catch (IOException | RuntimeException error) { fail(server, state, error); throw error; }
         }
         Preview current = preview(player, source, definition);
@@ -137,6 +140,7 @@ public final class OfferingStats {
         try {
             OfferingLedger committed = state.service.purchase(expected.revision(), transaction, player.getUuid(), source, definition);
             reconcile(player, committed);
+            return new PurchaseResult(transaction,true);
         } catch (IOException error) { fail(server, state, error); throw error; }
         catch (RuntimeException error) {
             // Once a receipt exists, a projection error must hold instead of advertising a rollback.
@@ -205,7 +209,7 @@ public final class OfferingStats {
         Map<Identifier, EntityAttributeModifier> result = new TreeMap<>();
         for (var entry : totals.entrySet()) {
             OfferingTerms terms = entry.getValue();
-            double value = index == 0 ? terms.health() : index == 1 ? terms.food() : terms.speedPercent() / 100.0;
+            double value = switch(index){case 0->terms.health();case 1->terms.food();case 2->terms.speedPercent()/100.0;default->terms.exhaustionPercent()/100.0;};
             if (value != 0) result.put(modifierId(entry.getKey()), new EntityAttributeModifier(modifierId(entry.getKey()), value,
                     index == 2 ? EntityAttributeModifier.Operation.ADD_MULTIPLIED_BASE : EntityAttributeModifier.Operation.ADD_VALUE));
         }
@@ -224,17 +228,18 @@ public final class OfferingStats {
     }
 
     private static Totals projected(ServerPlayerEntity player, OfferingLedger ledger) {
-        Map<String, OfferingTerms> totals = ledger.totals(player.getUuid()); double[] values = new double[3];
+        Map<String, OfferingTerms> totals = ledger.totals(player.getUuid()); double[] values = new double[ATTRIBUTES.size()];
         for (int index = 0; index < ATTRIBUTES.size(); index++) {
             EntityAttributeInstance copy = new EntityAttributeInstance(ATTRIBUTES.get(index), ignored -> { });
             copy.setFrom(instance(player, ATTRIBUTES.get(index))); project(copy, desired(totals, index)); values[index] = copy.getValue();
         }
-        return new Totals(values[0], (int)Math.floor(values[1]), values[2]);
+        return new Totals(values[0], (int)Math.floor(values[1]), values[2],values[3]);
     }
 
     private static void validate(Totals totals) {
         if (!Double.isFinite(totals.health()) || !Double.isFinite(totals.speed()) || totals.health() < 2
-                || totals.food() < 2 || totals.food() > 40 || totals.speed() <= 0) throw new IllegalStateException("The resulting stats would be unsafe; no bargain was accepted.");
+                || totals.food() < 2 || totals.food() > 40 || totals.speed() <= 0
+                || !Double.isFinite(totals.exhaustion()) || totals.exhaustion()<1 || totals.exhaustion()>256) throw new IllegalStateException("The resulting stats would be unsafe; no bargain was accepted.");
     }
 
     private static void reconcile(ServerPlayerEntity player, OfferingLedger ledger) {

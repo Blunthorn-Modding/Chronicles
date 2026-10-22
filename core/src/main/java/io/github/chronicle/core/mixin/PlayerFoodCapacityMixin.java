@@ -20,7 +20,7 @@ abstract class PlayerFoodCapacityMixin {
 
     @Inject(method="createPlayerAttributes", at=@At("RETURN"), require=1, allow=1)
     private static void chronicle$foodAttribute(CallbackInfoReturnable<DefaultAttributeContainer.Builder> callback) {
-        callback.getReturnValue().add(OfferingAttributes.FOOD_CAPACITY);
+        callback.getReturnValue().add(OfferingAttributes.FOOD_CAPACITY).add(OfferingAttributes.EXHAUSTION_MULTIPLIER);
     }
 
     @Inject(method="<init>(Lnet/minecraft/world/World;Lcom/mojang/authlib/GameProfile;)V", at=@At("TAIL"), require=1, allow=1)

@@ -1,6 +1,6 @@
 # CF-12 lasting bargains
 
-**Dev.33 presentation revision:** the [Altar workstation](M11_ALTAR_WORKSTATION.md) replaces the old full-screen consent form with a native handled panel, real36-slot player inventory, typed previews and one explicit permanent-bargain action. No checkbox. Durable ledger/stat/food/source-ending semantics below remain unchanged. See the [current review](M11_ALTAR_REVIEW.md).
+**Dev.34 revision:** [Prayer design](M11_ALTAR_PRAYERS.md) replaces the worksheet with a slot-free native popup and private cryptic aftermath. New life terms are+2 maximum health/+25% exhaustion, ordinary20 food capacity, immediate1HP/empty food. Movement retains-2 maximum health/+10% base speed and adds eight minutes of vanilla Slowness I. Schema2 persists exhaustion and reads schema1 without repricing old receipts or changing its initialization sentinel. See [compatibility/failure contract](CF12_EXHAUSTION_PRICE.md) and [current review](M11_ALTAR_REVIEW.md). The dev.30 terms/UI/schema below document the historical contract and accepted legacy receipts; this revision supersedes them for new Altar prayers.
 
 **Resumed22 October:** dev.30 now implements the strict ledger, authoritative stats/food, consent screen, original optional HUD element and intrinsic Altar. Verification and deployment evidence are in TEST_PLAN; the historical implementation sequence below explains the contract rather than unfinished steps.
 

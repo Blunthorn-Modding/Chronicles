@@ -39,7 +39,9 @@ public final class LastingBargains {
         String unavailable(ServerPlayerEntity player);
         /** Temporary lack of power/eligibility leaves a readable workstation open. */
         default boolean stillPresent(ServerPlayerEntity player) { return player.isAlive()&&!player.isSpectator(); }
-        default void completed(ServerPlayerEntity player) { }
+        /** Called only for a NEW durable receipt, after projection. Never retried on refresh/replay/login.
+         * Implement gameplay aftermath before private flavor; a hard crash can omit this transient callback. */
+        default void committed(ServerPlayerEntity player,OfferingDefinition definition,UUID transaction) { }
     }
     public static void registerGroup(String id,List<Choice> choices) {
         OfferingDefinition.validId(id);
@@ -71,7 +73,7 @@ public final class LastingBargains {
             @Override public Text getDisplayName(){return Text.literal(title);}
             @Override public ScreenHandler createMenu(int syncId,PlayerInventory inventory,PlayerEntity owner){
                 Offer offer=make(player,source,group,title,gate,0,syncId,null,null,
-                        "Choose a bargain. Purchases survive death; no player reversal.",true);
+                        false,true);
                 var handler=new OfferingScreenHandler(syncId,inventory,offer.view);
                 offer=offer.bound(handler);opened[0]=offer;offers.put(player.getUuid(),offer);return handler;
             }
@@ -89,36 +91,37 @@ public final class LastingBargains {
         var offers=OFFERS.get(player.getEntityWorld().getServer());if(offers==null)return;
         Offer offer=offers.get(player.getUuid());if(offer!=null&&offer.handler==handler&&OfferIdentity.sameConnection(offer.connection,player.networkHandler))offers.remove(player.getUuid(),offer);
     }
-    private static OfferingPayloads.Stats current(ServerPlayerEntity p) {
-        return new OfferingPayloads.Stats(p.getMaxHealth(),io.github.chronicle.core.stats.FoodCapacity.capacity(p),
-                p.getAttributeValue(net.minecraft.entity.attribute.EntityAttributes.MOVEMENT_SPEED));
+    private static OfferingStats.Totals current(ServerPlayerEntity p) {
+        return new OfferingStats.Totals(p.getMaxHealth(),io.github.chronicle.core.stats.FoodCapacity.capacity(p),
+                p.getAttributeValue(net.minecraft.entity.attribute.EntityAttributes.MOVEMENT_SPEED),
+                p.getAttributeValue(io.github.chronicle.core.stats.OfferingAttributes.EXHAUSTION_MULTIPLIER));
     }
-    private static OfferingPayloads.Stats stats(OfferingStats.Totals t){return new OfferingPayloads.Stats(t.health(),t.food(),t.speed());}
     private static Offer make(ServerPlayerEntity p,String source,String group,String title,Gate gate,int selected,int syncId,
-                              UUID parent,OfferingScreenHandler handler,String status,boolean opening) {
+                              UUID parent,OfferingScreenHandler handler,boolean answered,boolean opening) {
         String station=gate.unavailable(p);long revision=-1;
         io.github.chronicle.core.offering.OfferingLedger ledger=null;
         try{ledger=OfferingStats.ledger(p.getEntityWorld().getServer());revision=ledger.revision();
-            if(ledger.closedSources().contains(source))station="This campaign source has ended.";
-        }catch(RuntimeException error){station="Bargain authority unavailable; ask an operator to check it.";}
+            if(ledger.closedSources().contains(source))station="Campaign source ended";
+        }catch(RuntimeException error){station="Bargain authority unavailable";}
         var observed=current(p);List<OfferingPayloads.Choice> views=new ArrayList<>();List<OfferingStats.Preview> previews=new ArrayList<>();
         for(Choice choice:GROUPS.get(group)){
             OfferingStats.Preview preview=null;int count=ledger==null?0:ledger.count(p.getUuid(),source,choice.definition.id());
-            String problem=station;
-            try{preview=OfferingStats.preview(p,source,choice.definition);}catch(RuntimeException error){if(problem==null)problem=error.getMessage();}
-            previews.add(preview);
-            views.add(new OfferingPayloads.Choice(choice.label,count,choice.definition.maxPurchases(),choice.description,
-                    choice.cost,choice.bonus,preview==null?observed:stats(preview.before()),preview==null?null:stats(preview.after()),problem==null?"":clip(problem,256)));
+            try{preview=OfferingStats.preview(p,source,choice.definition);}catch(RuntimeException ignored){ }
+            previews.add(preview);boolean complete=count>=choice.definition.maxPurchases();
+            views.add(new OfferingPayloads.Choice(choice.label,station==null&&preview!=null&&!complete,complete));
         }
+        var state=station!=null?OfferingPayloads.State.UNAVAILABLE:
+                views.stream().allMatch(OfferingPayloads.Choice::complete)?OfferingPayloads.State.EXHAUSTED:
+                views.stream().anyMatch(OfferingPayloads.Choice::available)?OfferingPayloads.State.READY:OfferingPayloads.State.UNAVAILABLE;
+        if(answered)state=OfferingPayloads.State.ANSWERED;
         UUID token=UUID.randomUUID();
-        var view=new OfferingPayloads.View(syncId,token,parent,title,clip(status,384),station==null,station==null?"":clip(station,384),
-                views,selected,opening,false);
+        var view=new OfferingPayloads.View(syncId,token,parent,title,state,views,opening);
         return new Offer(token,System.nanoTime(),p.networkHandler,parent,source,group,title,gate,selected,
-                Collections.unmodifiableList(previews),handler,view,revision,observed);
+                Collections.unmodifiableList(previews),handler,view,revision,observed,station);
     }
-    private static void replace(ServerPlayerEntity player,Offer previous,int selected,String status) {
+    private static void replace(ServerPlayerEntity player,Offer previous,int selected,boolean answered) {
         var offer=make(player,previous.source,previous.group,previous.title,previous.gate,selected,previous.handler.syncId,
-                previous.token,previous.handler,status,false);
+                previous.token,previous.handler,answered,false);
         OFFERS.get(player.getEntityWorld().getServer()).put(player.getUuid(),offer);offer.handler.view(offer.view);
         ServerPlayNetworking.send(player,offer.view);
     }
@@ -129,31 +132,31 @@ public final class LastingBargains {
                 player.networkHandler,action.token(),action.action()==2||action.action()==3))return;
         if(action.action()==3){offers.remove(player.getUuid(),offer);player.closeHandledScreen();return;}
         offers.remove(player.getUuid(),offer); // A packet never purchases twice, even on IO/gate failure.
-        if(action.action()==2){replace(player,offer,offer.selected,"Offer refreshed. Review the complete permanent trade.");return;}
-        if(System.nanoTime()-offer.created>=MAX_AGE||offer.view.completed()){
-            replace(player,offer,offer.selected,"Offer expired; review the refreshed trade before accepting.");return;
+        if(action.action()==2){replace(player,offer,offer.selected,false);return;}
+        if(System.nanoTime()-offer.created>=MAX_AGE||offer.view.state()==OfferingPayloads.State.EXPIRED){
+            replace(player,offer,offer.selected,false);return;
         }
-        if(action.action()==0){
-            if(action.selected()<GROUPS.get(offer.group).size())replace(player,offer,action.selected(),"Choose carefully: purchases survive death; no reversal.");
-            else replace(player,offer,offer.selected,"That bargain is unavailable.");
-            return;
+        if(action.action()==0){replace(player,offer,offer.selected,false);return;}
+        int selected=action.selected();
+        if(selected>=GROUPS.get(offer.group).size()){replace(player,offer,offer.selected,false);return;}
+        String problem=offer.gate.unavailable(player);OfferingStats.Preview expected=offer.previews.get(selected);
+        if(problem!=null||expected==null||!offer.view.choices().get(selected).available()){
+            replace(player,offer,selected,false);return;
         }
-        if(action.selected()!=offer.selected){replace(player,offer,offer.selected,"Selection changed; review the current bargain.");return;}
-        String problem=offer.gate.unavailable(player);OfferingStats.Preview expected=offer.previews.get(offer.selected);
-        if(problem==null&&expected==null)problem=offer.view.choices().get(offer.selected).problem();
-        if(problem!=null){replace(player,offer,offer.selected,"No bargain accepted. "+problem);return;}
-        try{OfferingStats.purchase(player,offer.source,GROUPS.get(offer.group).get(offer.selected).definition,offer.token,expected);}
+        OfferingDefinition definition=GROUPS.get(offer.group).get(selected).definition;
+        OfferingStats.PurchaseResult result;
+        try{result=OfferingStats.purchase(player,offer.source,definition,offer.token,expected);}
         catch(Exception error){
-            ChronicleCore.LOGGER.warn("Bargain confirmation did not complete for {}: {}",player.getUuid(),error.toString());
-            terminal(player,offer,"Could not finish confirmation. Refresh to check the authoritative purchase count.");return;
+            ChronicleCore.LOGGER.warn("Prayer commit did not finish for {}: {}",player.getUuid(),error.toString());
+            terminal(player,offer);return;
         }
-        try{offer.gate.completed(player);}catch(Exception error){ChronicleCore.LOGGER.error("Bargain saved; cosmetic Altar feedback failed",error);}
-        replace(player,offer,offer.selected,"Bargain accepted. Survives death; no player reversal.");
+        if(result.newlyCommitted())try{offer.gate.committed(player,definition,result.transaction());}
+        catch(Exception error){ChronicleCore.LOGGER.error("Prayer is durably committed; transient aftermath did not finish and will not be retried",error);}
+        replace(player,offer,selected,true);
     }
-    private static void terminal(ServerPlayerEntity player,Offer offer,String message) {
+    private static void terminal(ServerPlayerEntity player,Offer offer) {
         var old=offer.view;
-        var view=new OfferingPayloads.View(old.syncId(),old.token(),old.parent(),old.title(),message,old.stationReady(),old.stationProblem(),
-                old.choices(),old.selected(),false,true);
+        var view=new OfferingPayloads.View(old.syncId(),old.token(),old.parent(),old.title(),OfferingPayloads.State.EXPIRED,old.choices(),false);
         Offer next=offer.withView(view);OFFERS.get(player.getEntityWorld().getServer()).put(player.getUuid(),next);
         next.handler.view(view);ServerPlayNetworking.send(player,view);
     }
@@ -165,23 +168,22 @@ public final class LastingBargains {
             Offer offer=sample.get((cursor+n)%sample.size());ServerPlayerEntity player=server.getPlayerManager().getPlayer(offer.connection.player.getUuid());
             if(player==null||player.networkHandler!=offer.connection||player.currentScreenHandler!=offer.handler){offers.remove(offer.connection.player.getUuid(),offer);continue;}
             if(!offer.gate.stillPresent(player)){player.closeHandledScreen();continue;}
-            if(System.nanoTime()-offer.created>=MAX_AGE){if(!offer.view.completed())terminal(player,offer,"Offer expired. Refresh to review it again.");continue;}
+            if(System.nanoTime()-offer.created>=MAX_AGE){if(offer.view.state()!=OfferingPayloads.State.EXPIRED)terminal(player,offer);continue;}
             try{
                 String station=offer.gate.unavailable(player);var ledger=OfferingStats.ledger(server);
-                if(ledger.closedSources().contains(offer.source))station="This campaign source has ended.";
-                String oldProblem=offer.view.stationReady()?null:offer.view.stationProblem();
+                if(ledger.closedSources().contains(offer.source))station="Campaign source ended";
+                String oldProblem=offer.gateProblem;
                 if(ledger.revision()!=offer.revision||!current(player).equals(offer.observed)||!Objects.equals(station,oldProblem))
-                    replace(player,offer,offer.selected,"Station or character changed; review the current trade.");
-            }catch(RuntimeException error){if(!offer.view.completed())terminal(player,offer,"Bargain authority unavailable. Refresh after an operator repairs it.");}
+                    replace(player,offer,offer.selected,false);
+            }catch(RuntimeException error){if(offer.view.state()!=OfferingPayloads.State.EXPIRED)terminal(player,offer);}
         }
         CURSORS.put(server,(cursor+Math.min(4,sample.size()))%sample.size());
     }
     private static void thread(MinecraftServer server){if(!server.isOnThread())throw new IllegalStateException("Bargains require the server thread");}
-    private static String clip(String value,int limit){if(value==null)return "Unavailable";return value.length()<=limit?value:value.substring(0,limit-3)+"...";}
     private record Offer(UUID token,long created,net.minecraft.server.network.ServerPlayNetworkHandler connection,UUID parent,
                          String source,String group,String title,Gate gate,int selected,List<OfferingStats.Preview> previews,
-                         OfferingScreenHandler handler,OfferingPayloads.View view,long revision,OfferingPayloads.Stats observed) {
-        Offer bound(OfferingScreenHandler value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,value,view,revision,observed);}
-        Offer withView(OfferingPayloads.View value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,handler,value,revision,observed);}
+                         OfferingScreenHandler handler,OfferingPayloads.View view,long revision,OfferingStats.Totals observed,String gateProblem) {
+        Offer bound(OfferingScreenHandler value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,value,view,revision,observed,gateProblem);}
+        Offer withView(OfferingPayloads.View value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,handler,value,revision,observed,gateProblem);}
     }
 }

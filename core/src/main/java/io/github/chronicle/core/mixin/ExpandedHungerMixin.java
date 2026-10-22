@@ -1,6 +1,8 @@
 package io.github.chronicle.core.mixin;
 
 import io.github.chronicle.core.stats.FoodCapacity;
+import io.github.chronicle.core.stats.OfferingAttributes;
+import io.github.chronicle.core.stats.OfferingExhaustion;
 import net.minecraft.entity.player.HungerManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -10,13 +12,20 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Only food limits/regen thresholds change. Exhaustion, timings and starvation remain native. */
+/** Native hunger mechanics; source-owned capacity/regen and positive exhaustion price only. */
 @Mixin(HungerManager.class)
 abstract class ExpandedHungerMixin implements FoodCapacity.Owner {
     @Unique private PlayerEntity chronicle$owner;
     @Override public void chronicle$bind(PlayerEntity player) { chronicle$owner = player; }
+
+    @ModifyVariable(method="addExhaustion",at=@At("HEAD"),argsOnly=true,ordinal=0,require=1,allow=1)
+    private float chronicle$exhaustionPrice(float amount) {
+        if(!(chronicle$owner instanceof ServerPlayerEntity player)||player.isCreative()||player.isSpectator())return amount;
+        return OfferingExhaustion.scale(amount,player.getAttributeValue(OfferingAttributes.EXHAUSTION_MULTIPLIER));
+    }
 
     @ModifyConstant(method="addInternal", constant=@Constant(intValue=20), require=1, allow=1)
     private int chronicle$eatingCapacity(int vanilla) { return FoodCapacity.capacity(chronicle$owner); }

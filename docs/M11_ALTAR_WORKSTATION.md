@@ -1,5 +1,7 @@
 # Ancient Altar workstation design
 
+**Historical dev.33 design, superseded by [dev.34 prayers](M11_ALTAR_PRAYERS.md):** the operator rejected the inventory, mechanical worksheet and tooltip. Use the new slot-free native popup for the current Altar; the old terms below describe the earlier review only.
+
 **Lead approval,22 October2026:** dedicated designer revised the initial overlapping/small-font proposal before implementation. Lead rendered the final300x222 design at640x480 and1280x720 and checked movement, unpowered, maxed and pending states. Exactly36 slots exist; pending disables acceptance and refresh. Screenshots are local evidence in `../reports/altar-design-640.png` and `altar-design-1280-maxed.png`. Layout approved for implementation; native Minecraft font/input/inventory behavior remains required verification. Core owns the reusable handled offering screen and typed data; Quiet Below keeps its trades and physical gates. No Forge or other feedback is implemented in this slice.
 
 ## Decision for lead review

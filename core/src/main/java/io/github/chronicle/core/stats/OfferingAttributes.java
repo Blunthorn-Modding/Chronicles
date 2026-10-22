@@ -12,6 +12,9 @@ public final class OfferingAttributes {
     public static final RegistryEntry<EntityAttribute> FOOD_CAPACITY = Registry.registerReference(Registries.ATTRIBUTE,
             Identifier.of("chronicle_core", "food_capacity"),
             new ClampedEntityAttribute("attribute.chronicle_core.food_capacity", 20, 2, 40).setTracked(true));
+    public static final RegistryEntry<EntityAttribute> EXHAUSTION_MULTIPLIER = Registry.registerReference(Registries.ATTRIBUTE,
+            Identifier.of("chronicle_core", "exhaustion_multiplier"),
+            new ClampedEntityAttribute("attribute.chronicle_core.exhaustion_multiplier",1,1,Double.MAX_VALUE).setTracked(true));
     private OfferingAttributes() { }
     public static void initialize() { }
 }

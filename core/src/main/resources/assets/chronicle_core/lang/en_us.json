@@ -27,5 +27,6 @@
   "chronicle.session.phase.paused": "Paused",
   "chronicle.session.phase.ended": "Ended",
   "key.chronicle.authoring.open": "Open Core authoring",
-  "attribute.chronicle_core.food_capacity": "Maximum food"
+  "attribute.chronicle_core.food_capacity": "Maximum food",
+  "attribute.chronicle_core.exhaustion_multiplier": "Food exhaustion multiplier"
 }

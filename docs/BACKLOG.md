@@ -1,6 +1,6 @@
 # Chronicle work tracking
 
-**Dev.33 Altar workstation:** point2 has dedicated UI design/lead approval, implementation and independent review.315Java/70Python; final native verification recorded in TEST_PLAN. [Human Altar review](M11_ALTAR_REVIEW.md) uses existing25589 and a placed bench with matching pack. Await feedback before the separate Forge design pass; points3?6 remain queued. Completed disposable native worlds are retired, evidence retained.
+**Dev.34 Altar prayer revision:** dedicated UI design/lead approval and independent review precede the [human Altar review](M11_ALTAR_REVIEW.md). Native pack-overridable popup/widgets, no inventory or mechanical worksheet; normal-bar exhaustion price and immediate prayer aftermath. Exact checks/evidence are in TEST_PLAN. Await feedback before the separate Forge design pass; points3-6 remain queued. Completed disposable native worlds may be retired while evidence remains.
 
 Updated 22 October 2026. Stable QB/CF IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
 

@@ -32,15 +32,17 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 
-/** Strict, bounded, exclusively locked schema-1 authority for lasting offerings. */
+/** Strict, bounded, exclusively locked versioned authority for lasting offerings. */
 public final class OfferingStore implements AutoCloseable {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
+    // Stable initialization sentinel: JSON schema upgrades must not invalidate existing authority.
     private static final byte[] INITIALIZED = "chronicle-offerings-schema-1\n".getBytes(StandardCharsets.UTF_8);
     private static final Gson PRETTY_GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Set<String> ROOT_FIELDS = Set.of("schemaVersion", "revision", "receipts", "closedSources");
     private static final Set<String> RECEIPT_FIELDS = Set.of("transaction", "player", "source", "offering", "terms");
-    private static final Set<String> TERMS_FIELDS = Set.of("health", "food", "speedPercent");
+    private static final Set<String> LEGACY_TERMS_FIELDS = Set.of("health", "food", "speedPercent");
+    private static final Set<String> TERMS_FIELDS = Set.of("health", "food", "speedPercent", "exhaustionPercent");
     private static final SaveObserver NO_SAVE_OBSERVER = checkpoint -> { };
 
     enum SaveCheckpoint { BEFORE_BACKUP_PUBLISH, BEFORE_LEDGER_PUBLISH }
@@ -159,6 +161,7 @@ public final class OfferingStore implements AutoCloseable {
             terms.addProperty("health", receipt.terms().health());
             terms.addProperty("food", receipt.terms().food());
             terms.addProperty("speedPercent", receipt.terms().speedPercent());
+            terms.addProperty("exhaustionPercent", receipt.terms().exhaustionPercent());
             value.add("terms", terms);
             receipts.add(value);
         }
@@ -172,7 +175,8 @@ public final class OfferingStore implements AutoCloseable {
     static OfferingLedger decode(String source) {
         JsonObject root = object(parse(source), "offering ledger root");
         exact(root, ROOT_FIELDS, "offering ledger root");
-        if (integer(required(root, "schemaVersion"), "schemaVersion") != SCHEMA_VERSION) {
+        int schema=integer(required(root,"schemaVersion"),"schemaVersion");
+        if (schema!=1 && schema!=SCHEMA_VERSION) {
             throw new IllegalArgumentException("unsupported offering ledger schemaVersion");
         }
         long revision = number(required(root, "revision"), "revision");
@@ -183,7 +187,7 @@ public final class OfferingStore implements AutoCloseable {
             JsonObject value = object(element, "offering receipt");
             exact(value, RECEIPT_FIELDS, "offering receipt");
             JsonObject termsValue = object(required(value, "terms"), "offering terms");
-            exact(termsValue, TERMS_FIELDS, "offering terms");
+            exact(termsValue, schema==1 ? LEGACY_TERMS_FIELDS : TERMS_FIELDS, "offering terms");
             receipts.add(new OfferingReceipt(
                     uuid(required(value, "transaction"), "transaction"),
                     uuid(required(value, "player"), "player"),
@@ -191,7 +195,8 @@ public final class OfferingStore implements AutoCloseable {
                     string(required(value, "offering"), "offering"),
                     new OfferingTerms(signedInteger(required(termsValue, "health"), "health"),
                             signedInteger(required(termsValue, "food"), "food"),
-                            signedInteger(required(termsValue, "speedPercent"), "speedPercent"))));
+                            signedInteger(required(termsValue, "speedPercent"), "speedPercent"),
+                            schema==1 ? 0 : signedInteger(required(termsValue,"exhaustionPercent"),"exhaustionPercent"))));
         }
         JsonArray closedValues = array(required(root, "closedSources"), "closedSources");
         if (closedValues.size() > OfferingLedger.MAX_CLOSED_SOURCES) throw new IllegalArgumentException("too many closed offering sources");

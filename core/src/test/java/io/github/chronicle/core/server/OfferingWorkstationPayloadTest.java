@@ -2,44 +2,27 @@ package io.github.chronicle.core.server;
 
 import io.github.chronicle.core.network.OfferingPayloads;
 import org.junit.jupiter.api.Test;
+import java.util.Arrays;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.*;
 
 class OfferingWorkstationPayloadTest {
-    private static final OfferingPayloads.Stats BEFORE=new OfferingPayloads.Stats(20,20,.1);
-    private static OfferingPayloads.Choice choice(int count,OfferingPayloads.Stats after){
-        return new OfferingPayloads.Choice("Heart",count,3,"Complete trade","Food capacity +2","Health +2",BEFORE,after,"");
+    @Test void availableChoiceCannotAlsoBeComplete(){
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Choice("Prayer",true,true));
+        assertDoesNotThrow(()->new OfferingPayloads.Choice("Prayer",false,true));
     }
-    @Test void statsRejectNonfiniteAndInvalidNativeFoodRanges(){
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Stats(Double.NaN,20,.1));
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Stats(20,20,Double.POSITIVE_INFINITY));
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Stats(-1,20,.1));
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Stats(20,1,.1));
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Stats(20,41,.1));
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Stats(20,20,-.1));
+    @Test void labelsAreBoundedAndNonblank(){
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Choice(" ",false,false));
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Choice("x".repeat(65),false,false));
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Choice(null,false,false));
     }
-    @Test void nativeStatsRemainTypedAndUnrounded(){
-        var after=new OfferingPayloads.Stats(22.75,26,.1375);var c=choice(1,after);
-        assertEquals(22.75,c.after().health());assertEquals(26,c.after().food());assertEquals(.1375,c.after().speed());
-        assertEquals(BEFORE,c.before());
+    @Test void playerChoiceWireShapeHasNoMechanicsOrPurchaseCounts(){
+        assertEquals(Set.of("label","available","complete"),fields(OfferingPayloads.Choice.class));
     }
-    @Test void exhaustedCardRetainsCurrentStatsWithoutInventingAnotherPurchase(){
-        var c=choice(3,null);assertEquals(3,c.count());assertEquals(3,c.limit());assertNull(c.after());assertEquals(BEFORE,c.before());
-    }
-    @Test void unboundedTermsAndInvalidChoiceCountsAreRejected(){
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Choice("x",0,3,"details","x".repeat(33),"b",BEFORE,null,""));
-        assertThrows(IllegalArgumentException.class,()->choice(129,null));
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Choice("x",0,0,"d","c","b",BEFORE,null,""));
-        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Choice("x",0,3,"d","c","b",null,null,""));
-    }
-    @Test void compactTermsFitTheDefaultFontBudgetAndRejectNonportableGlyphs(){
-        assertDoesNotThrow(()->OfferingPayloads.term("W".repeat(32)));
-        assertThrows(IllegalArgumentException.class,()->OfferingPayloads.term(""));
-        assertThrows(IllegalArgumentException.class,()->OfferingPayloads.term("Hidden\nterms"));
-        assertThrows(IllegalArgumentException.class,()->OfferingPayloads.term("\u25a0"));
-        assertThrows(IllegalArgumentException.class,()->new LastingBargains.Choice(
-                new io.github.chronicle.core.offering.OfferingDefinition("test:heart",new io.github.chronicle.core.offering.OfferingTerms(2,2,0),3),
-                "Heart","Details","W".repeat(33),"Heart +1"));
+    @Test void playerViewWireShapeHasNoStatsTermsOrRawGateDiagnostics(){
+        assertEquals(Set.of("syncId","token","parent","title","state","choices","opening"),fields(OfferingPayloads.View.class));
     }
     @Test void actionRejectsInvalidActionsAndIndices(){
         var token=UUID.randomUUID();
@@ -47,4 +30,10 @@ class OfferingWorkstationPayloadTest {
         assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Action(token,1,16));
         assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Action(null,1,0));
     }
+    @Test void compactServerOnlyRegistrationTermsRemainBounded(){
+        assertDoesNotThrow(()->OfferingPayloads.term("x".repeat(32)));
+        assertThrows(IllegalArgumentException.class,()->OfferingPayloads.term("x".repeat(33)));
+        assertThrows(IllegalArgumentException.class,()->OfferingPayloads.term("Hidden\nterms"));
+    }
+    private static Set<String> fields(Class<?> type){return Arrays.stream(type.getRecordComponents()).map(java.lang.reflect.RecordComponent::getName).collect(Collectors.toSet());}
 }

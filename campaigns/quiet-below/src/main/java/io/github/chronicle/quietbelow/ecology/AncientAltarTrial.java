@@ -43,6 +43,8 @@ public final class AncientAltarTrial {
     private static final BlockPos ALTAR = new BlockPos(2,65,3), CONTACT = new BlockPos(-3,64,0);
     private static final Map<MinecraftServer, FoodRun> FOOD = new IdentityHashMap<>();
     private static final String PAGE_GROUP="chronicle_test:pages";
+    private static final OfferingDefinition LEGACY_HEART=new OfferingDefinition("quiet_below:extra_heart",new OfferingTerms(2,2,0),3);
+    private static int slowDuration;
     private static int checks;
     private AncientAltarTrial() { }
     public static void register() {
@@ -53,7 +55,7 @@ public final class AncientAltarTrial {
         LastingBargains.registerGroup(PAGE_GROUP,pages);
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("chronicle_bargain_trial").requires(source -> source.hasPermissionLevel(2));
-            for (String verb : List.of("identity","basic","food","prepare","safety","inventory_prepare","inventory_check","out_of_reach","return_to_altar","cut_power","restore_power","closed_check","pages","preview_foreign","preview_clean","expire","no_purchase","open","ui_check","death","respawn_check","orphan_death","orphan_respawn_repair","save","restart","corrupt","ending","ended","render","itemrender")) {
+            for (String verb : List.of("identity","basic","food","prepare","safety","proof_prepare","proof_check","life_after","feet_after","strong_slow","clear_slow","slow_timer","exhaustion","replay_prepare","replay_check","out_of_reach","return_to_altar","cut_power","restore_power","closed_check","pages","preview_foreign","preview_clean","expire","no_purchase","open","ui_check","death","respawn_check","orphan_death","orphan_respawn_repair","save","restart","corrupt","ending","ended","render","itemrender")) {
                 root.then(literal(verb).executes(context -> run(context.getSource(), verb)));
             }
             dispatcher.register(root);
@@ -71,25 +73,40 @@ public final class AncientAltarTrial {
                 case "food" -> { startFood(source); return 1; }
                 case "prepare" -> prepare(player);
                 case "safety" -> safety(player);
-                case "inventory_prepare" -> {
-                    var inventory=player.getInventory();inventory.clear();
-                    ItemStack bread=new ItemStack(Items.BREAD,7);bread.set(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,Text.literal("Workstation proof"));
-                    inventory.setStack(9,bread);inventory.setStack(1,new ItemStack(Items.IRON_INGOT,3));
-                    player.currentScreenHandler.syncState();
+                case "proof_prepare" -> {
+                    player.getInventory().clear();var bread=new ItemStack(Items.BREAD,7);
+                    bread.set(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,Text.literal("Prayer inventory proof"));
+                    player.getInventory().setStack(9,bread);player.getInventory().setStack(1,new ItemStack(Items.IRON_INGOT,3));
                 }
-                case "inventory_check" -> {
-                    var handler=player.currentScreenHandler;
-                    check(handler instanceof io.github.chronicle.core.screen.OfferingScreenHandler,"native offering handler absent");
-                    check(handler.slots.size()==36,"Altar created station storage");
-                    for(var slot:handler.slots)check(slot.inventory==player.getInventory(),"non-player slot in Altar");
-                    check(handler.getCursorStack().isEmpty(),"cursor item lost in workstation");
-                    int occupied=0;for(int i=0;i<36;i++)if(!player.getInventory().getStack(i).isEmpty())occupied++;
-                    check(occupied==2,"workstation duplicated/lost inventory stacks");
-                    ItemStack bread=player.getInventory().getStack(0),iron=player.getInventory().getStack(9);
-                    check(bread.isOf(Items.BREAD)&&bread.getCount()==7&&bread.getName().getString().equals("Workstation proof"),"shift-click/number-key lost bread/components");
-                    check(iron.isOf(Items.IRON_INGOT)&&iron.getCount()==3,"number-key failed player hotbar swap");
-                    checkNoPurchase(player,"slot interactions accepted bargain");
+                case "proof_check" -> {
+                    var bread=player.getInventory().getStack(9);var iron=player.getInventory().getStack(1);
+                    check(bread.isOf(Items.BREAD)&&bread.getCount()==7&&bread.getName().getString().equals("Prayer inventory proof"),"prayer moved or consumed inventory/components");
+                    check(iron.isOf(Items.IRON_INGOT)&&iron.getCount()==3,"prayer moved unrelated inventory");
+                    int count=0;for(int i=0;i<36;i++)if(!player.getInventory().getStack(i).isEmpty())count++;
+                    check(count==2,"prayer duplicated inventory");
                 }
+                case "life_after" -> {
+                    int n=OfferingStats.ledger(server).count(player.getUuid(),AncientAltars.SOURCE,AncientAltars.EXTRA_HEART.id());
+                    check(n>=1&&n<=3,"life count invalid");
+                    check(player.getHealth()==1&&player.getHungerManager().getFoodLevel()==0&&player.getHungerManager().getSaturationLevel()==0,"life prayer did not empty current life/food");
+                    check(FoodCapacity.capacity(player)==20,"new prayer granted food capacity");
+                    check(player.getMaxHealth()==20+n*2,"life prayer max heart incorrect");
+                    check(Math.abs(player.getAttributeValue(io.github.chronicle.core.stats.OfferingAttributes.EXHAUSTION_MULTIPLIER)-(1+.25*n))<.000001,"lasting exhaustion price incorrect");
+                }
+                case "feet_after" -> {
+                    var effect=player.getStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS);
+                    check(effect!=null,"feet prayer omitted vanilla Slowness");
+                    int n=OfferingStats.ledger(server).count(player.getUuid(),AncientAltars.SOURCE,AncientAltars.MOVEMENT.id());
+                    check(effect.getAmplifier()==(n==2?1:0),"prayer replaced stronger vanilla Slowness");
+                    if(n!=2)check(effect.getDuration()>9400&&effect.getDuration()<=9600,"feet prayer duration not eight minutes");
+                    slowDuration=effect.getDuration();
+                }
+                case "strong_slow" -> player.addStatusEffect(new net.minecraft.entity.effect.StatusEffectInstance(net.minecraft.entity.effect.StatusEffects.SLOWNESS,400,1));
+                case "clear_slow" -> player.removeStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS);
+                case "slow_timer" -> {var effect=player.getStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS);check(effect!=null&&effect.getDuration()<slowDuration&&effect.getDuration()>9000,"vanilla Slowness timer failed or was refreshed");}
+                case "exhaustion" -> exhaustion(player);
+                case "replay_prepare" -> {player.setHealth(6);player.getHungerManager().setFoodLevel(7);player.getHungerManager().setSaturationLevel(0);player.getHungerManager().addExhaustion(40);player.getHungerManager().addExhaustion(-40);}
+                case "replay_check" -> {check(player.getHealth()==6&&player.getHungerManager().getFoodLevel()==7,"late receipt replay reapplied life payment");check(OfferingStats.ledger(server).count(player.getUuid(),AncientAltars.SOURCE,AncientAltars.EXTRA_HEART.id())==1,"late replay duplicated life receipt");}
                 case "out_of_reach" -> player.teleport(world,15.5,70,15.5,Set.of(),0,0,false);
                 case "return_to_altar" -> safe(player);
                 case "cut_power" -> put(world,CONTACT,Blocks.AIR.getDefaultState());
@@ -109,7 +126,9 @@ public final class AncientAltarTrial {
                     player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).removeModifier(id);
                 }
                 case "open" -> { AncientAltars.open(player,ALTAR); check(token(player)!=null,"Altar did not issue an offer"); }
-                case "ui_check","restart","respawn_check" -> purchased(player);
+                case "ui_check","restart","respawn_check" -> {purchased(player);
+                    if(verb.equals("respawn_check"))check(!player.hasStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS),"vanilla death did not clear transient Slowness");
+                }
                 case "death" -> { purchased(player); player.kill(world); check(!player.isAlive(),"real native death failed"); }
                 case "orphan_death" -> {
                     purchased(player);pause(player);
@@ -158,16 +177,16 @@ public final class AncientAltarTrial {
         player.setHealth(15); player.getHungerManager().setFoodLevel(17); float oldHealth=player.getHealth(); int oldFood=player.getHungerManager().getFoodLevel();
         OfferingStats.Preview last=null; UUID transaction=null;
         for(int index=0;index<3;index++){
-            var preview=OfferingStats.preview(player,source,AncientAltars.EXTRA_HEART); check(preview.count()==index,"independent extra-heart count");
-            transaction=UUID.randomUUID(); last=preview; OfferingStats.purchase(player,source,AncientAltars.EXTRA_HEART,transaction,preview);
+            var preview=OfferingStats.preview(player,source,LEGACY_HEART); check(preview.count()==index,"independent extra-heart count");
+            transaction=UUID.randomUUID(); last=preview; check(OfferingStats.purchase(player,source,LEGACY_HEART,transaction,preview).newlyCommitted(),"new receipt not marked new");
             check(FoodCapacity.capacity(player)==22+index*2,"capacity did not gain one food icon");
             check(player.getMaxHealth()==26+index*2,"maximum heart delta incorrect");
             check(player.getHealth()==oldHealth && player.getHungerManager().getFoodLevel()==oldFood,"purchase refilled health or food");
         }
         long revision=OfferingStats.ledger(server).revision();
-        OfferingStats.purchase(player,source,AncientAltars.EXTRA_HEART,transaction,last);
+        check(!OfferingStats.purchase(player,source,LEGACY_HEART,transaction,last).newlyCommitted(),"receipt replay marked new");
         check(OfferingStats.ledger(server).revision()==revision,"third-purchase retry duplicated the receipt");
-        reject(()->OfferingStats.preview(player,source,AncientAltars.EXTRA_HEART),"fourth extra-heart purchase allowed");
+        reject(()->OfferingStats.preview(player,source,LEGACY_HEART),"fourth extra-heart purchase allowed");
         UUID accepted=transaction; OfferingStats.Preview acceptedPreview=last;
         reject(()->OfferingStats.purchase(player,source,AncientAltars.MOVEMENT,accepted,acceptedPreview),"mismatched transaction reuse allowed");
         for(int index=0;index<3;index++){
@@ -181,12 +200,12 @@ public final class AncientAltarTrial {
         OfferingStats.closeSource(server,source);
         check(player.getMaxHealth()==24 && FoodCapacity.capacity(player)==20,"source closure did not remove both trade sides");
         check(Math.abs(player.getAttributeValue(EntityAttributes.MOVEMENT_SPEED)-.12)<.00001,"source closure removed unrelated speed");
-        reject(()->OfferingStats.preview(player,source,AncientAltars.EXTRA_HEART),"closed source reopened");
+        reject(()->OfferingStats.preview(player,source,LEGACY_HEART),"closed source reopened");
         health.removeModifier(foreign);speed.removeModifier(foreign);
         check(player.getMaxHealth()==20,"foreign cleanup did not restore baseline");
-        var stale=OfferingStats.preview(player,"chronicle_test:stale",AncientAltars.EXTRA_HEART);
+        var stale=OfferingStats.preview(player,"chronicle_test:stale",LEGACY_HEART);
         health.addTemporaryModifier(new EntityAttributeModifier(foreign,2,EntityAttributeModifier.Operation.ADD_VALUE));
-        reject(()->OfferingStats.purchase(player,"chronicle_test:stale",AncientAltars.EXTRA_HEART,UUID.randomUUID(),stale),"changed foreign stats accepted stale preview");
+        reject(()->OfferingStats.purchase(player,"chronicle_test:stale",LEGACY_HEART,UUID.randomUUID(),stale),"changed foreign stats accepted stale preview");
         health.removeModifier(foreign);
         check(OfferingStats.ledger(server).totals(player.getUuid()).isEmpty(),"basic fixture left purchases behind");
     }
@@ -195,7 +214,7 @@ public final class AncientAltarTrial {
         check(!FOOD.containsKey(server),"food run already active");
         server.setDifficulty(net.minecraft.world.Difficulty.NORMAL,true);
         world.getGameRules().get(GameRules.DO_MOB_SPAWNING).set(false,server);
-        for(int index=0;index<3;index++) OfferingStats.purchase(player,"chronicle_test:food",AncientAltars.EXTRA_HEART,UUID.randomUUID(),OfferingStats.preview(player,"chronicle_test:food",AncientAltars.EXTRA_HEART));
+        for(int index=0;index<3;index++) OfferingStats.purchase(player,"chronicle_test:food",LEGACY_HEART,UUID.randomUUID(),OfferingStats.preview(player,"chronicle_test:food",LEGACY_HEART));
         var hunger=player.getHungerManager(); hunger.setFoodLevel(20); hunger.setSaturationLevel(0);
         new ItemStack(Items.BREAD).finishUsing(world,player); check(hunger.getFoodLevel()==25,"native food consumption still clamps at20");
         new ItemStack(Items.BREAD).finishUsing(world,player); check(hunger.getFoodLevel()==26 && !hunger.isNotFull(),"native food did not clamp at capacity26");
@@ -275,9 +294,10 @@ public final class AncientAltarTrial {
         var ledger=OfferingStats.ledger(player.getEntityWorld().getServer());
         check(ledger.count(player.getUuid(),AncientAltars.SOURCE,AncientAltars.EXTRA_HEART.id())==3,"extra-heart count did not persist");
         check(ledger.count(player.getUuid(),AncientAltars.SOURCE,AncientAltars.MOVEMENT.id())==3,"movement count did not persist");
-        check(FoodCapacity.capacity(player)==26&&player.getMaxHealth()==20,"lasting native stats did not persist");
-        check(Math.abs(player.getAttributeValue(EntityAttributes.MOVEMENT_SPEED)-.13)<.00001,"lasting movement did not persist");
-        check(player.getAttributeInstance(OfferingAttributes.FOOD_CAPACITY).getPersistentModifiers().size()==1,"native food projection duplicated modifiers");
+        check(FoodCapacity.capacity(player)==20&&player.getMaxHealth()==20,"lasting native stats did not persist");
+        check(Math.abs(player.getAttributeValue(EntityAttributes.MOVEMENT_SPEED)-expectedSpeed(player))<.00001,"lasting movement did not persist");
+        check(player.getAttributeInstance(OfferingAttributes.FOOD_CAPACITY).getPersistentModifiers().isEmpty(),"new prayer left a food capacity modifier");
+        check(player.getAttributeInstance(OfferingAttributes.EXHAUSTION_MULTIPLIER).getPersistentModifiers().size()==1&&Math.abs(player.getAttributeValue(OfferingAttributes.EXHAUSTION_MULTIPLIER)-1.75)<.00001,"lasting exhaustion price did not persist exactly");
         for(var other:player.getEntityWorld().getServer().getPlayerManager().getPlayerList()) if(other!=player&&ledger.totals(other.getUuid()).isEmpty())
             check(FoodCapacity.capacity(other)==20,"expanded capacity leaked to a different player");
     }
@@ -289,7 +309,7 @@ public final class AncientAltarTrial {
             Files.write(file,invalid);boolean failed=false;try{OfferingStats.purchase(player,"chronicle_test:corrupt",definition,UUID.randomUUID(),preview);}catch(java.io.IOException expected){failed=true;}
             check(failed&&RuntimeHolds.reason(server)!=null,"corrupt authority did not hold");
             check(Arrays.equals(Files.readAllBytes(file),invalid),"corrupt authority was replaced");
-            check(player.getMaxHealth()==20&&FoodCapacity.capacity(player)==26&&Math.abs(player.getAttributeValue(EntityAttributes.MOVEMENT_SPEED)-.13)<.00001,"corrupt authority refunded persisted modifiers");
+            check(player.getMaxHealth()==20&&FoodCapacity.capacity(player)==20&&Math.abs(player.getAttributeValue(EntityAttributes.MOVEMENT_SPEED)-expectedSpeed(player))<.00001,"corrupt authority refunded persisted modifiers");
         }finally{
             Files.write(file,original);pause(player);AuthoringRuntime.get(server).enable(player.getUuid());
             GameSetupTools.execute(player.getCommandSource(),"chronicle_core:offerings","reload");AuthoringRuntime.get(server).disable(player.getUuid());
@@ -309,9 +329,23 @@ public final class AncientAltarTrial {
         check(ledger.closedSources().contains(AncientAltars.SOURCE),"ending tombstone missing");
         check(ledger.totals(player.getUuid()).isEmpty(),"ending kept bargain receipts");
         check(player.getMaxHealth()==20&&FoodCapacity.capacity(player)==20,"ending failed to remove bonus and sacrifice");
+        check(player.getAttributeValue(io.github.chronicle.core.stats.OfferingAttributes.EXHAUSTION_MULTIPLIER)==1,"ending kept exhaustion price");
         check(Math.abs(player.getAttributeValue(EntityAttributes.MOVEMENT_SPEED)-.1)<.00001,"ending kept movement bonus");
         check(player.getHungerManager().getFoodLevel()<=20,"ending failed to clamp excess food");
         reject(()->OfferingStats.preview(player,AncientAltars.SOURCE,AncientAltars.EXTRA_HEART),"ending source reopened");
+    }
+    private static double expectedSpeed(ServerPlayerEntity player){
+        var slow=player.getStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS);
+        return .13*(slow==null?1:1-.15*(slow.getAmplifier()+1));
+    }
+    private static void exhaustion(ServerPlayerEntity player){
+        var hunger=player.getHungerManager();double multiplier=player.getAttributeValue(io.github.chronicle.core.stats.OfferingAttributes.EXHAUSTION_MULTIPLIER);
+        for(var mode:List.of(GameMode.SURVIVAL,GameMode.ADVENTURE,GameMode.CREATIVE)){
+            player.interactionManager.changeGameMode(mode);hunger.addExhaustion(40);hunger.addExhaustion(-40);hunger.addExhaustion(2);
+            check(Math.abs(exhaustionValue(hunger)-(mode==GameMode.CREATIVE?2:2*multiplier))<.00001,"native exhaustion scaled incorrectly for "+mode);
+            float before=exhaustionValue(hunger);hunger.addExhaustion(-1);check(Math.abs(exhaustionValue(hunger)-(before-1))<.00001,"negative exhaustion repriced");
+        }
+        player.interactionManager.changeGameMode(GameMode.SURVIVAL);hunger.addExhaustion(40);hunger.addExhaustion(-40);
     }
     private static void render(ServerPlayerEntity player) { player.interactionManager.changeGameMode(GameMode.CREATIVE);player.getAbilities().flying=true;player.sendAbilitiesUpdate();player.teleport(player.getEntityWorld(),12,69,18,Set.of(),180,24,false); }
     private static void safe(ServerPlayerEntity player) { player.teleport(player.getEntityWorld(),3.5,66,3.5,Set.of(),0,0,false); }
@@ -340,6 +374,10 @@ public final class AncientAltarTrial {
         }
         var constructor=offer.getClass().getDeclaredConstructor(types);constructor.setAccessible(true);
         offers.put(player.getUuid(),constructor.newInstance(values));
+    }
+    private static float exhaustionValue(net.minecraft.entity.player.HungerManager hunger){
+        var data=net.minecraft.storage.NbtWriteView.create(net.minecraft.util.ErrorReporter.EMPTY);
+        hunger.writeData(data);return data.getNbt().getFloat("foodExhaustionLevel",Float.NaN);
     }
     private static void check(boolean condition,String message) { if(!condition)throw new IllegalStateException(message);checks++; }
     private interface Throwing {void run()throws Exception;}
