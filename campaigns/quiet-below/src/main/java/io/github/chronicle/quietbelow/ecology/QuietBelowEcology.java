@@ -836,6 +836,7 @@ public final class QuietBelowEcology {
         @Override public State get(Pos p){return encode(checked(p));}
         @Override public boolean solidFace(Pos p,int face){return checked(p).isSideSolidFullSquare(world,blockPos(p),Direction.byId(FACES[face]));}
         @Override public boolean substrate(Pos p){var state=checked(p);return state.isIn(BlockTags.SCULK_REPLACEABLE)&&!state.hasBlockEntity();}
+        @Override public boolean growthExcluded(Pos p){return checked(p).isIn(EcologyGrowthExclusions.BLOCKS);}
         @Override public int light(Pos p){checked(p);return world.getLightLevel(blockPos(p));}
         @Override public boolean set(Pos p,State state){
             checked(p);

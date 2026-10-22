@@ -67,6 +67,8 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private int vitalityTicks;
     private Iterator<Pos> vitalityScan;
     private boolean vitalityPending=true;
+    private boolean vitalityAssessed;
+    private int summaryLosses;
     private EcologyVitality.Summary vitalitySummary=new EcologyVitality.Summary(0,0,0,0,0,0,0,0);
     private int vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown;
     private long vRootedHealth,vDetachedHealth;
@@ -233,9 +235,12 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     // Extent retains its last completed bounded assessment during harmless connected additions.
     // Local power and certified topology are still checked; a cut/unload invalidates immediately.
-    @Override public boolean recoveryAvailable(){return cropsAvailable()&&!vitality.extent().equals("Rooted");}
+    @Override public boolean recoveryAvailable(){return cropsAvailable()&&!currentExtent().equals("Rooted");}
     @Override public boolean costsAvailable(){return recoveryAvailable();}
-    @Override public boolean extensive(){return vitality.extent().equals("Extensive");}
+    @Override public boolean extensive(){return currentExtent().equals("Extensive");}
+    /** A certified removal cannot keep an old extent alive across its exit threshold. */
+    private String currentExtent(){return !vitalityAssessed?"Rooted":summaryLosses==0?vitality.extent():
+            EcologyVitality.nextExtent(vitality.extent(),Math.max(0,vitalitySummary.ready()-summaryLosses),vitality.rules());}
     public void tuneRecovery(EcologyRecovery.Rules rules)throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing before changing local healing");
         Objects.requireNonNull(rules);if(rules.equals(recoveryRules))return;
@@ -271,7 +276,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public int writeBudgetRemaining() { return MAX_WRITES-writes; }
     public int speedPercent() { return speedPercent; }
     /** Last bounded vitality summary only; changing the source policy is localized here. */
-    private int growthCount(){return vitalitySummary.ready();}
+    private int growthCount(){return Math.max(0,vitalitySummary.ready()-summaryLosses);}
     public int effectiveSpeedPercent(){
         return effectiveSpeed(speedPercent,growthCount(),spreadRules);
     }
@@ -464,8 +469,8 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             if(mode==EcologyVitality.Mode.SEALED)vSealed++;if(mode==EcologyVitality.Mode.UNKNOWN)vUnknown++;
         }
         if(!vitalityScan.hasNext()){
-            vitalitySummary=new EcologyVitality.Summary(vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown,vRootedHealth,vDetachedHealth);
-            vitalityPending=vUnknown>0;vitalityScan=null;
+            vitalitySummary=new EcologyVitality.Summary(vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown,vRootedHealth,vDetachedHealth);summaryLosses=0;
+            vitalityPending=vUnknown>0;vitalityAssessed=!vitalityPending;vitalityScan=null;
             if(!vitalityPending&&!EcologyVitality.nextExtent(vitality.extent(),vReady,vitality.rules()).equals(vitality.extent())){
                 record("VITALITY",EcologyVitality.payload(vitalityTicks,new JsonArray(),vReady));vitalityTicks=0;
             }
@@ -598,7 +603,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
                 for(int face:faces) {
                     if(++reads>256) return;
                     Pos backing=a.offset(face);
-                    if(!w.loaded(backing)||cells.containsKey(backing)||!w.solidFace(backing,face^1)) continue;
+                    if(!w.loaded(backing)||cells.containsKey(backing)||w.growthExcluded(backing)||!w.solidFace(backing,face^1)) continue;
                     State original=w.get(backing);
                     if(original.network()) continue; // unrelated sculk is never silently adopted
                     if(w.substrate(backing)) {
@@ -705,6 +710,10 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(!enabled()||!living(origin)||writes>=MAX_WRITES||!after.network()||!w.loaded(origin)||!w.loaded(p)) return false;
         Cell current=cells.get(p);
         if(current!=null && before.sameOwnedShape(after)) return true;
+        if(w.growthExcluded(p))return false;
+        if(after.vein())for(int face=0;face<6;face++)if(after.face(face)&&(!before.vein()||!before.face(face))){
+            Pos backing=p.offset(face);if(!w.loaded(backing)||w.growthExcluded(backing))return false;
+        }
         if(after.id().equals("minecraft:sculk_catalyst")&&(vitalityPending||vitality.extent().equals("Rooted")))return false;
         if(current==null&&!after.id().equals("minecraft:sculk")&&!before.air())return false;
         if(after.id().equals("minecraft:sculk_shrieker")&&(vitalityPending||!vitality.extent().equals("Extensive"))) return false;
@@ -883,13 +892,59 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
                 // journal never takes this shortcut because no graph is certified at startup.
                 if(extend){graphGeneration=generation;connected.add(at);visiting=connected;if(graph==null)graph=new ArrayDeque<>();graph.add(at);graphUnknown=false;extending=true;}
             }
-            case "REMOVE" -> { requireSetup();keys(p,"p");Pos at=position(p.get("p"));if(cells.remove(at)==null) throw bad("Unknown removed cell");positions.remove(at);ownedChunks.compute(chunk(at.x()>>4,at.z()>>4),(k,n)->n==1?null:n-1);vitality.forget(at);resetVitalityScan();generation++; }
-            case "OBSERVE" -> {Pos at=position(p.get("p"));Cell c=cells.get(at);cells.put(at,new Cell(at,c.before,block(p.get("after")),c.adopted));resetVitalityScan();generation++;}
+            case "REMOVE" -> {
+                requireSetup();keys(p,"p");Pos at=position(p.get("p"));boolean retain=preservesConnections(at,null);
+                if(connected.contains(at))summaryLosses=Math.min(MAX_CELLS,summaryLosses+1);
+                if(cells.remove(at)==null)throw bad("Unknown removed cell");positions.remove(at);
+                ownedChunks.compute(chunk(at.x()>>4,at.z()>>4),(k,n)->n==1?null:n-1);
+                vitality.forget(at);resetVitalityScan();generation++;
+                if(retain){connected.remove(at);graphGeneration=generation;}
+            }
+            case "OBSERVE" -> {
+                Pos at=position(p.get("p"));Cell c=cells.get(at);State after=block(p.get("after"));boolean retain=preservesConnections(at,after);
+                cells.put(at,new Cell(at,c.before,after,c.adopted));resetVitalityScan();generation++;
+                if(retain)graphGeneration=generation;
+            }
             default -> throw bad("Unsupported ecology payload type: "+type);
         }
     }
     private void fronts(JsonArray fronts) {
         for(JsonElement e:fronts) { Pos a=position(e);if(airSet.add(a)) { if(air.size()>=MAX_AIR) throw bad("Too many surface cells");air.add(a); } }
+    }
+    /**
+     * Replace every old traversal through this cell with a proven local detour. At most27
+     * metadata vertices and27*27 pair checks; no terrain reads, tickets or player work.
+     * A failed proof deliberately retains the existing full, bounded recertification path.
+     */
+    private boolean preservesConnections(Pos changed,State replacement){
+        if(ending!=null||failure!=null||(graph!=null&&!extending)||graphGeneration!=generation||unresolved||!validated||validationUnknown)return false;
+        Cell old=cells.get(changed);if(old==null)return false;
+        if(!connected.contains(changed))return true;
+        Map<Pos,State> local=new HashMap<>();Set<Pos> terminals=new HashSet<>();
+        for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)for(int dz=-1;dz<=1;dz++){
+            Pos q=changed.add(dx,dy,dz);
+            if(q.equals(changed)){
+                if(replacement!=null){local.put(q,replacement);terminals.add(q);}
+                continue;
+            }
+            State state=null;
+            if(q.equals(heart))state=SCULK;
+            else if(connected.contains(q)){Cell cell=cells.get(q);if(cell!=null)state=cell.after;}
+            if(state==null)continue;
+            local.put(q,state);
+            if(EcologyTerrain.connected(changed,old.after,q,state))terminals.add(q);
+        }
+        if(terminals.isEmpty())return replacement==null;
+        Set<Pos> reached=new HashSet<>();ArrayDeque<Pos> pending=new ArrayDeque<>();
+        Pos start=terminals.iterator().next();reached.add(start);pending.add(start);
+        while(!pending.isEmpty()){
+            Pos from=pending.removeFirst();State state=local.get(from);
+            for(var candidate:local.entrySet())if(!reached.contains(candidate.getKey())
+                    &&EcologyTerrain.connected(from,state,candidate.getKey(),candidate.getValue())){
+                reached.add(candidate.getKey());pending.add(candidate.getKey());
+            }
+        }
+        return reached.containsAll(terminals);
     }
     private static boolean addsOnly(Cell old,State after){
         if(old==null)return true;

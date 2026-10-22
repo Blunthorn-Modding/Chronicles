@@ -35,7 +35,7 @@ public final class EcologyCostsTrial {
         String enabled=System.getenv("CHRONICLE_ECOLOGY_NATIVE_TRIAL");if(enabled==null||enabled.isBlank())return;
         CommandRegistrationCallback.EVENT.register((d,a,e)->{
             var command=literal("quiet_below_costs_trial").requires(s->s.hasPermissionLevel(2));
-            for(String verb:List.of("prepare","seal","active","remember","sustained","clear","pillar","down","cut","reconnect","creative","replace","foreign","foreign_off","serialize_owned","serialize_foreign","copy","precision","air","airborne","landed","lane","lane_end","save","restart","review"))
+            for(String verb:List.of("prepare","exclusions","mine","seal","active","remember","sustained","clear","pillar","down","cut","reconnect","creative","replace","foreign","foreign_off","serialize_owned","serialize_foreign","copy","precision","air","airborne","landed","lane","lane_end","save","restart","review"))
                 command.then(literal(verb).executes(c->run(c.getSource(),verb)));
             d.register(command);
         });
@@ -45,6 +45,15 @@ public final class EcologyCostsTrial {
             requireFixture(source);var server=source.getServer();var world=source.getWorld();var player=source.getPlayerOrThrow();var engine=QuietBelowEcology.engineForTest(server);
             switch(verb){
                 case "prepare" -> prepare(world,player);
+                case "exclusions" -> exclusions(world);
+                case "mine" -> {
+                    sustained(player);BlockPos mined=new BlockPos(3,64,4);
+                    require(engine.living(QuietBelowEcology.pos(mined)),"mining target is not living sculk");
+                    require(player.interactionManager.tryBreakBlock(mined),"native Survival block break failed");
+                    require(world.getBlockState(mined).isAir()&&!engine.owns(QuietBelowEcology.pos(mined)),"native break retained its sculk cell");
+                    require(EcologyCostsWorld.contact(player,engine)!=null,"unrelated mining discarded the living footing proof");
+                    sustained(player);
+                }
                 case "seal" -> {seal(world);near(world,player);}
                 case "active" -> active(player,engine);
                 case "remember" -> remember(player);
@@ -91,6 +100,16 @@ public final class EcologyCostsTrial {
         near(world,player);rememberedHunger=rememberedDarkness=null;
     }
     private static void near(ServerWorld world,ServerPlayerEntity player){player.teleport(world,NEAR.getX()+.5,NEAR.getY()+1,NEAR.getZ()+.5,java.util.Set.of(),0,0,false);}
+    private static void exclusions(ServerWorld world){
+        var adapter=new QuietBelowEcology.Adapter(world);
+        var blocks=List.of(io.github.chronicle.quietbelow.QuietBelow.ANCIENT_ALTAR_BLOCK,
+                io.github.chronicle.quietbelow.QuietBelow.ANCIENT_FORGE_BLOCK,io.github.chronicle.quietbelow.QuietBelow.RELIC_HEART,Blocks.STONE);
+        for(int i=0;i<blocks.size();i++){
+            BlockPos at=new BlockPos(24,65,35+i);BlockState old=world.getBlockState(at);
+            try{put(world,at,blocks.get(i).getDefaultState());require(adapter.growthExcluded(QuietBelowEcology.pos(at))==(i<3),"native growth-exclusion tag mismatch");}
+            finally{put(world,at,old);}
+        }
+    }
     private static void seal(ServerWorld world){for(int x=-1;x<=1;x++)for(int y=-1;y<=1;y++)for(int z=-1;z<=1;z++){BlockPos p=HEART.add(x,y,z);if(!p.equals(HEART)&&!p.equals(CONTACT))put(world,p,Blocks.GLASS.getDefaultState());}}
     private static void active(ServerPlayerEntity player,EcologyEngine engine){
         require(engine.costRules().equals(new EcologyCosts.Rules(new EcologyCosts.Rule(true,10),new EcologyCosts.Rule(true,10))),"wrong local-cost tuning");require(engine.costsAvailable()&&engine.extensive(),"fixture is not resolved Extensive living sculk");

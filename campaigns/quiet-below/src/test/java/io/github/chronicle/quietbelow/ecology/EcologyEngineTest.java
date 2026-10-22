@@ -25,6 +25,93 @@ class EcologyEngineTest {
             ticks(e,w,true,100);assertEquals(1,e.cells().size());
         }
     }
+    @Test void redundantMiningRetainsCertifiedRootsWithoutWalkingTheWholeNetwork() throws Exception {
+        World w=new World();for(int x=0;x<16;x++)for(int z=0;z<40;z++)w.blocks.put(new Pos(x,0,z),SCULK);
+        try(var j=new EcologyJournal(dir.resolve("redundant-mining.jsonl"))){
+            EcologyEngine e=new EcologyEngine(j);
+            e.configure(PINS,new EcologyEngine.Area(HEART,new Pos(15,0,39)),HEART);index(e,w);e.mode(true);ticks(e,w,true,10);
+            assertTrue(e.rooted(SOURCE));assertTrue(e.living(SOURCE));
+            Pos mined=new Pos(10,0,10);int reads=w.reads;
+            w.blocks.put(mined,AIR);e.observed(mined,AIR);
+            assertFalse(e.owns(mined));assertFalse(e.rooted(mined));
+            assertTrue(e.rooted(SOURCE),"an unrelated redundant removal invalidated the whole network");
+            assertTrue(e.living(new Pos(15,0,39)),"a distant intact root path needs no new global walk");
+            assertEquals(reads,w.reads,"local topology proof must use certified metadata, not terrain reads");
+            e.chunkUnloaded(0,0);Pos another=new Pos(11,0,10);w.blocks.put(another,AIR);e.observed(another,AIR);
+            assertFalse(e.rooted(SOURCE),"an edit must never clear an unload's uncertainty");
+        }
+    }
+    @Test void realBridgeRemovalStillInvalidatesTheDetachedSideImmediately() throws Exception {
+        World w=new World();for(int x=0;x<=12;x++)w.blocks.put(new Pos(x,0,0),SCULK);
+        try(var j=new EcologyJournal(dir.resolve("bridge-mining.jsonl"))){
+            EcologyEngine e=new EcologyEngine(j);e.configure(PINS,new EcologyEngine.Area(HEART,new Pos(12,0,0)),HEART);
+            index(e,w);e.mode(true);ticks(e,w,true,4);assertTrue(e.living(new Pos(12,0,0)));
+            Pos bridge=new Pos(5,0,0);w.blocks.put(bridge,AIR);e.observed(bridge,AIR);
+            assertFalse(e.living(new Pos(12,0,0)),"last known connectivity must not bless a cut branch");
+            ticks(e,w,true,3);assertTrue(e.living(SOURCE));assertFalse(e.living(new Pos(12,0,0)));
+        }
+    }
+    @Test void faceLossRetainsOnlyActuallyConnectedVeins() throws Exception {
+        World w=new World();Pos vein=SOURCE.add(0,1,0);
+        State before=EcologyTerrain.vein(0).with("south","true");w.blocks.put(vein,before);
+        try(var j=new EcologyJournal(dir.resolve("vein-loss.jsonl"))){
+            EcologyEngine e=ready(j,w);ticks(e,w,true,4);assertTrue(e.living(vein));
+            State after=before.with("south","false");w.blocks.put(vein,after);e.observed(vein,after);
+            assertTrue(e.living(vein));assertTrue(e.living(SOURCE));
+        }
+        World only=new World();State two=EcologyTerrain.vein(4).with("east","true");only.blocks.put(SOURCE,two);
+        try(var j=new EcologyJournal(dir.resolve("last-vein-face.jsonl"))){
+            EcologyEngine e=ready(j,only);ticks(e,only,true,4);assertTrue(e.living(SOURCE));
+            State after=two.with("west","false");only.blocks.put(SOURCE,after);e.observed(SOURCE,after);
+            assertFalse(e.living(SOURCE),"vein retained certification after losing its only root-facing face");
+        }
+    }
+    @Test void restartDoesNotReviveAPreDeletionExtentWhileVitalityIsStillBeingAssessed() throws Exception {
+        World w=new World();for(int x=0;x<8;x++)for(int z=0;z<8;z++)w.blocks.put(new Pos(x,0,z),SCULK);
+        for(int x=100;x<150;x++)for(int z=100;z<110;z++)w.blocks.put(new Pos(x,0,z),SCULK);
+        var area=new EcologyEngine.Area(HEART,new Pos(149,0,109));Path file=dir.resolve("mining-stage-restart.jsonl");
+        try(var j=new EcologyJournal(file)){
+            EcologyEngine e=new EcologyEngine(j);e.configure(PINS,area,HEART);index(e,w);
+            e.tuneVitality(new EcologyVitality.Rules(10,5,0));e.mode(true);ticks(e,w,true,20);assertTrue(e.costsAvailable());
+            for(int x=7;x>=0;x--){Pos at=new Pos(x,0,7);w.blocks.put(at,AIR);e.observed(at,AIR);}
+            Pos at=new Pos(7,0,6);w.blocks.put(at,AIR);e.observed(at,AIR);assertFalse(e.costsAvailable());e.flushVitality();
+        }
+        try(var j=new EcologyJournal(file)){
+            EcologyEngine e=new EcologyEngine(j);e.attach(PINS,area,HEART);
+            ticks(e,w,true,5);assertTrue(e.rooted(SOURCE));assertTrue(e.vitalityPending());
+            assertFalse(e.costsAvailable(),"persisted old extent authorized effects before a fresh bounded assessment");
+            ticks(e,w,true,10);assertFalse(e.costsAvailable());assertFalse(e.extensive());
+        }
+    }
+    @Test void nativeDescendantsRespectExcludedTargetsAndNewFaceBackings() throws Exception {
+        for(int blocked=0;blocked<3;blocked++){
+            World w=new World();Pos target=SOURCE.offset(1);
+            try(var j=new EcologyJournal(dir.resolve("native-exclusion-"+blocked+".jsonl"))){
+                EcologyEngine e=ready(j,w);ticks(e,w,true,1);
+                if(blocked==1)w.excluded.add(SOURCE);if(blocked==2)w.excluded.add(target);
+                long revision=j.revision();
+                assertEquals(blocked==0,e.nativeChange(w,SOURCE,target,AIR,EcologyTerrain.vein(0)));
+                if(blocked!=0)assertEquals(revision,j.revision(),"excluded native proposal was journaled");
+            }
+        }
+    }
+    @Test void certifiedMiningCannotRetainAnExtentBelowItsExitThreshold() throws Exception {
+        World w=new World();for(int x=0;x<16;x++)for(int z=0;z<32;z++)w.blocks.put(new Pos(x,0,z),SCULK);
+        try(var j=new EcologyJournal(dir.resolve("mining-extent.jsonl"))){
+            EcologyEngine e=new EcologyEngine(j);e.configure(PINS,new EcologyEngine.Area(HEART,new Pos(15,0,31)),HEART);
+            index(e,w);e.tuneVitality(new EcologyVitality.Rules(10,5,0));e.mode(true);ticks(e,w,true,20);
+            assertTrue(e.extensive());assertTrue(e.costsAvailable());int remaining=512;
+            for(int z=31;z>=0;z--)for(int x=15;x>=0;x--){
+                if(remaining==55)return;
+                Pos mined=new Pos(x,0,z);w.blocks.put(mined,AIR);e.observed(mined,AIR);remaining--;
+                assertTrue(e.rooted(SOURCE),"peeling redundant edges should keep the remaining root certificate");
+                if(remaining==448)assertTrue(e.extensive());
+                if(remaining==447)assertFalse(e.extensive(),"stale summary retained Darkness below the Extensive exit threshold");
+                if(remaining==56)assertTrue(e.costsAvailable());
+                if(remaining==55)assertFalse(e.costsAvailable(),"stale summary retained Hunger below the Established exit threshold");
+            }
+        }
+    }
     @Test void incompleteIndexWaitsForChunksAndCannotEnable() throws Exception {
         World w=new World();w.unloaded.add(-1);try(var j=new EcologyJournal(dir.resolve("missing.jsonl"))){
             EcologyEngine e=new EcologyEngine(j);e.configure(PINS,AREA,HEART);
@@ -59,6 +146,20 @@ class EcologyEngineTest {
             ticks(e,w,false,2000);ticks(e,w,true,19);assertEquals(0,w.writes);
             ticks(e,w,true,1);assertEquals(1,w.writes);
             e.mode(false);ticks(e,w,true,1000);assertEquals(1,w.writes);
+        }
+    }
+    @Test void exclusionsPreventReplacementAndVeinAttachmentWithoutProtectingOtherSurfaces() throws Exception {
+        World w=new World();
+        for(int x=1;x<=12;x++){
+            Pos floor=new Pos(x,0,0);w.excluded.add(floor);
+            if(x%2==0)w.blocks.put(floor,WOOD);
+        }
+        try(var j=new EcologyJournal(dir.resolve("excluded.jsonl"))){
+            EcologyEngine e=ready(j,w);ticks(e,w,true,3000);
+            assertTrue(e.cells().size()>8,"other ordinary cave surfaces remain available");
+            for(Pos p:w.excluded)assertEquals(p.x()%2==0?WOOD:STONE,w.get(p));
+            for(var c:e.cells())if(c.after().vein())for(int f=0;f<6;f++)
+                if(c.after().face(f))assertFalse(w.excluded.contains(c.position().offset(f)),"vein climbed an excluded backing block");
         }
     }
     @Test void severedBranchRemainsOwnedButCannotContinueGrowing() throws Exception {
@@ -212,13 +313,14 @@ class EcologyEngineTest {
     private void index(EcologyEngine e,World w) throws Exception {for(int i=0;i<200&&!e.view().indexed();i++)e.index(w);assertTrue(e.view().indexed());}
     private static void ticks(EcologyEngine e,World w,boolean active,int count)throws Exception {for(int i=0;i<count;i++){e.beginTick();e.tick(w,active);}}
     static class World implements EcologyTerrain {
-        final Map<Pos,State> blocks=new HashMap<>();final Set<Integer> unloaded=new HashSet<>();int writes,reads;
+        final Map<Pos,State> blocks=new HashMap<>();final Set<Integer> unloaded=new HashSet<>();final Set<Pos> excluded=new HashSet<>();int writes,reads;
         World(){for(int x=-1;x<=12;x++)for(int y=1;y<=2;y++)blocks.put(new Pos(x,y,0),AIR);blocks.put(SOURCE,SCULK);blocks.put(HEART,new State("minecraft:reinforced_deepslate",Map.of()));}
         void wall(int x,boolean closed){for(int y=1;y<=2;y++)blocks.put(new Pos(x,y,0),closed?STONE:AIR);}
         public boolean loaded(Pos p){return !unloaded.contains(p.x()>>4);}
         public State get(Pos p){reads++;assertTrue(loaded(p),"unloaded read at "+p);return blocks.getOrDefault(p,STONE);}
         public boolean solidFace(Pos p,int f){State s=get(p);return !s.air()&&!s.vein();}
         public boolean substrate(Pos p){return get(p).equals(STONE);}
+        public boolean growthExcluded(Pos p){return excluded.contains(p);}
         public int light(Pos p){get(p);return 0;}
         public boolean set(Pos p,State s){get(p);writes++;blocks.put(p,s);return true;}
     }

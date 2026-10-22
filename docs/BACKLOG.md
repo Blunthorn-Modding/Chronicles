@@ -1,6 +1,6 @@
 # Chronicle work tracking
 
-**Dev.34 Altar prayer revision:** dedicated UI design/lead approval and independent review precede the [human Altar review](M11_ALTAR_REVIEW.md). Native pack-overridable popup/widgets, no inventory or mechanical worksheet; normal-bar exhaustion price and immediate prayer aftermath. Exact checks/evidence are in TEST_PLAN. Await feedback before the separate Forge design pass; points3-6 remain queued. Completed disposable native worlds may be retired while evidence remains.
+**Dev.35 ecology follow-up:** the operator accepts dev.34 Altar UI/functions. [Mining continuity and special-block exclusions](M10_MINING_CONTACT.md) address newly reported issues; exact verification and review deployment are in TEST_PLAN. The separate Forge UI design is next; remaining review corrections stay queued.
 
 Updated 22 October 2026. Stable QB/CF IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
 

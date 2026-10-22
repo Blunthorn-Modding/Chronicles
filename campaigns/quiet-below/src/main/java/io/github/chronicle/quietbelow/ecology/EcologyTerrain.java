@@ -8,6 +8,8 @@ public interface EcologyTerrain {
     State get(Pos p);
     boolean solidFace(Pos p, int face);
     boolean substrate(Pos p);
+    /** Data-driven special blocks cannot be replaced or acquire new vein faces. */
+    default boolean growthExcluded(Pos p) { return false; }
     int light(Pos p);
     boolean set(Pos p, State state);
 

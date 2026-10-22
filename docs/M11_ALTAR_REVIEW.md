@@ -1,4 +1,6 @@
-# Ancient Altar prayer review - dev.34
+# Ancient Altar prayer review - dev.34 (accepted)
+
+The operator confirms the interface and prayers work as intended. The current dev.35 pack keeps this Altar behavior; see [mining/exclusion follow-up](M10_MINING_CONTACT.md). The checklist below records the accepted dev.34 review.
 
 Join **127.0.0.1:25589** with the refreshed [dev.34 client pack](../../client/Chronicle-M9-1.21.10.mrpack). Reimport/update the pack in your launcher; this screen needs the matching client. GUI scale2 and the narrator/onboarding/multiplayer defaults are included.
 
