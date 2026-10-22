@@ -33,6 +33,8 @@ replay_pid*
 .idea/
 .vscode/
 *.iml
+.playwright-cli/
+output/playwright/
 
 # The wrapper is required for reproducible builds.
 !gradle/wrapper/gradle-wrapper.jar

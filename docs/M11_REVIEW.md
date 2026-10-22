@@ -1,5 +1,7 @@
 # Forge and enchantment-cap review
 
+**Current Altar workflow:** [dev.33 workstation review](M11_ALTAR_REVIEW.md) supersedes the Altar screen/deployment instructions below. The old scrollable form and consent checkbox are historical. Forge remains unchanged pending its separate workstation redesign.
+
 **Superseded deployment details:** [Dev.31 bundled review](M12_REVIEW.md) is current, including the physical Heart ending. The Forge/Altar workflows below still apply; dev.30 pack hashes and console IDs are historical.
 
 ## Current Altar bundle: dev.30,22 October

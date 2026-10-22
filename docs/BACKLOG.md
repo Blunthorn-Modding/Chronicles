@@ -1,8 +1,12 @@
 # Chronicle work tracking
 
+**Dev.33 Altar workstation:** point2 has dedicated UI design/lead approval, implementation and independent review.315Java/70Python; final native verification recorded in TEST_PLAN. [Human Altar review](M11_ALTAR_REVIEW.md) uses existing25589 and a placed bench with matching pack. Await feedback before the separate Forge design pass; points3?6 remain queued. Completed disposable native worlds are retired, evidence retained.
+
 Updated 22 October 2026. Stable QB/CF IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
 
 ## Current checkpoint
+
+**22 October operator acceptance:** dev.32 contact correction works as intended. Proceed to the Altar workstation, with dedicated design-agent pass and lead review before implementation. Completed test worlds may be retired when no specific follow-up needs them; retain evidence and production/handcrafted maps. Remaining feedback stays sequential in [POST_M12_REVIEW](POST_M12_REVIEW.md).
 
 **Operator review,22 October:** [Sequential corrections](POST_M12_REVIEW.md) supersede the earlier M13-ready review gate. First correct QB-09 jump/vein contact and obtain an independent review. Then dedicated UI design/lead review precedes vanilla-style Altar and Forge workstations. Count-rate comparison still needs a usable fixture. Heart destruction was accepted functionally but must become pickaxe-driven with local cryptic feedback, readable lens states and reconciled menu placement. Station block locations belong under Locations/Block sites. Do not implement all feedback concurrently. The older technical test counts below are not user acceptance of these workflows.
 

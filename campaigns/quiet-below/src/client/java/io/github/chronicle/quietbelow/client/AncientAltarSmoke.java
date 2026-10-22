@@ -47,6 +47,7 @@ public final class AncientAltarSmoke {
     private int index, baseline, maximumObservedFood;
     private long stepDeadline, until;
     private boolean connected, built, started, finished;
+    private java.util.UUID closedToken;
     private Object optionalLayout;
     private Screen optionalEditor;
     private Path optionalLayoutFile;
@@ -109,6 +110,7 @@ public final class AncientAltarSmoke {
         command("verify cross-token, pause, creative, distance, replacement, and native safety", "chronicle_bargain_trial safety", "safety");
         delay("allow physical network reconnection after the cut",120);
         command("open the real Altar offering", "chronicle_bargain_trial open", "open");
+        workstationFlows(client);
         offerChoiceZero(client);
         command("reopen Altar for movement offering", "chronicle_bargain_trial open", "open");
         offerChoiceOne(client);
@@ -168,8 +170,84 @@ public final class AncientAltarSmoke {
         screenshot("capture returned vanilla food HUD", client, "altar-food-returned.png");
     }
 
+    private void workstationFlows(MinecraftClient client) {
+        step("native handler and default-font terms fit",()->{},()->{
+            if(!(client.currentScreen instanceof OfferingScreen screen))return false;
+            require(screen.getScreenHandler()==client.player.currentScreenHandler,"native handler mismatch");
+            require(screen.getScreenHandler().slots.size()==36,"workstation does not have exactly36 player slots");
+            for(var choice:screen.state().choices()){
+                require(client.textRenderer.getWidth("Cost: "+choice.cost())<=276,"cost clipped in native font");
+                require(client.textRenderer.getWidth("Bonus: "+choice.bonus())<=276,"bonus clipped in native font");
+            }
+            return true;
+        },15_000);
+        command("supply named inventory proof stacks","chronicle_bargain_trial inventory_prepare","inventory_prepare");
+        step("wait for proof inventory sync",()->{},()->client.player.getInventory().getStack(9).getCount()==7,10_000);
+        step("real shift-click moves bread into player hotbar",()->slotClick(client,0,1),()->client.player.getInventory().getStack(0).getCount()==7&&client.player.getInventory().getStack(9).isEmpty(),10_000);
+        step("real number-key swaps player inventory slots",()->{
+            OfferingScreen screen=(OfferingScreen)client.currentScreen;
+            try{var f=net.minecraft.client.gui.screen.ingame.HandledScreen.class.getDeclaredField("focusedSlot");f.setAccessible(true);f.set(screen,screen.getScreenHandler().slots.get(0));}
+            catch(ReflectiveOperationException error){throw new IllegalStateException(error);}
+            require(screen.keyPressed(new net.minecraft.client.input.KeyInput(50,0,0)),"number-key was not handled");
+        },()->client.player.getInventory().getStack(9).isOf(net.minecraft.item.Items.IRON_INGOT)&&client.player.getInventory().getStack(1).isEmpty(),10_000);
+        step("ordinary mouse click takes named stack to cursor",()->slotClick(client,27,0),()->client.player.currentScreenHandler.getCursorStack().getCount()==7,10_000);
+        step("ordinary mouse click returns stack without Altar storage",()->slotClick(client,27,0),()->client.player.currentScreenHandler.getCursorStack().isEmpty()&&client.player.getInventory().getStack(0).getCount()==7,10_000);
+        command("server verifies exact item counts/components and no purchase","chronicle_bargain_trial inventory_check","inventory_check");
+        step("resize workstation to exact640x480 at GUI2",()->{client.options.getGuiScale().setValue(2);client.getWindow().setWindowedSize(640,480);},()->client.getWindow().getFramebufferWidth()==640&&client.getWindow().getFramebufferHeight()==480&&client.currentScreen.width==320,10_000);
+        screenshot("native workstation640x480",client,"altar-workstation-640x480.png");
+        step("resize workstation to exact1280x720 at GUI2",()->client.getWindow().setWindowedSize(1280,720),()->client.getWindow().getFramebufferWidth()==1280&&client.getWindow().getFramebufferHeight()==720&&client.currentScreen.width==640,10_000);
+        screenshot("native workstation1280x720",client,"altar-workstation-1280x720.png");
+        command("age only the opt-in offer beyond its60s limit","chronicle_bargain_trial expire","expire");
+        step("expired offer is refreshable but cannot be accepted",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().completed()&&!screen.triggerForTest("confirm"),10_000);
+        step("real R refresh obtains fresh authoritative offer",()->require(client.currentScreen.keyPressed(new net.minecraft.client.input.KeyInput(82,0,0)),"Refresh key unhandled"),()->client.currentScreen instanceof OfferingScreen screen&&!screen.pending()&&!screen.state().completed(),10_000);
+        command("expiry/refresh created no receipt","chronicle_bargain_trial no_purchase","no_purchase");
+        command("cut power while workstation remains open","chronicle_bargain_trial cut_power","cut_power");
+        step("live unpowered view prevents acceptance",()->{},()->client.currentScreen instanceof OfferingScreen screen&&!screen.state().stationReady()&&!screen.triggerForTest("confirm"),15_000);
+        screenshot("native unpowered workstation",client,"altar-workstation-unpowered.png");
+        command("restore physical Altar network","chronicle_bargain_trial restore_power","restore_power");
+        step("live power resumes without reopening",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().stationReady(),20_000);
+        command("move outside physical Altar range","chronicle_bargain_trial out_of_reach","out_of_reach");
+        step("out-of-reach keeps readable disabled workstation",()->{},()->client.currentScreen instanceof OfferingScreen screen&&!screen.state().stationReady()&&screen.state().stationProblem().contains("out of reach")&&!screen.triggerForTest("confirm"),10_000);
+        command("return to physical Altar","chronicle_bargain_trial return_to_altar","return_to_altar");
+        step("returning restores current station view",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().stationReady(),20_000);
+        step("keyboard Right selects movement via server",()->require(client.currentScreen.keyPressed(new net.minecraft.client.input.KeyInput(262,0,0)),"Right not handled"),()->selected(client,1)&&!((OfferingScreen)client.currentScreen).pending(),10_000);
+        step("Escape closes refreshed successor",()->{
+            closedToken=((OfferingScreen)client.currentScreen).state().token();
+            require(client.currentScreen.keyPressed(new net.minecraft.client.input.KeyInput(256,0,0)),"Escape not handled");
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new io.github.chronicle.core.network.OfferingPayloads.Action(closedToken,1,1));
+        },()->client.currentScreen==null,10_000);
+        command("closed token replay cannot commit","chronicle_bargain_trial closed_check","closed_check");
+        command("open registered16-choice Core group","chronicle_bargain_trial pages","pages");
+        step("native generic group has16 choices",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().choices().size()==16,10_000);
+        for(int page=1;page<8;page++)step("Core page next "+page,()->require(((OfferingScreen)client.currentScreen).triggerForTest("next"),"next page unavailable"),()->true,1_000);
+        step("last visible choice preserves server index15",()->require(((OfferingScreen)client.currentScreen).triggerForTest("choice1"),"last choice unavailable"),()->selected(client,15)&&!((OfferingScreen)client.currentScreen).pending(),10_000);
+        screenshot("native generic last page",client,"altar-workstation-page8.png");
+        step("close generic group and send late acceptance",()->{
+            closedToken=((OfferingScreen)client.currentScreen).state().token();
+            client.currentScreen.close();
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(new io.github.chronicle.core.network.OfferingPayloads.Action(closedToken,1,15));
+        },()->client.currentScreen==null,10_000);
+        delay("allow queued native server closure to settle",5);
+        command("generic group close leaves no live token","chronicle_bargain_trial closed_check","closed_check");
+        command("reopen clean workstation for purchases","chronicle_bargain_trial open","open");
+    }
+    private void slotClick(MinecraftClient client,int index,int modifiers){
+        require(client.currentScreen instanceof OfferingScreen,"workstation closed before slot click");
+        OfferingScreen screen=(OfferingScreen)client.currentScreen;var slot=screen.getScreenHandler().slots.get(index);
+        var click=new net.minecraft.client.gui.Click((screen.width-300)/2+slot.x+8,(screen.height-222)/2+slot.y+8,new net.minecraft.client.input.MouseInput(0,modifiers));
+        screen.mouseClicked(click,false);screen.mouseReleased(click);
+    }
+
     private void offerChoiceZero(MinecraftClient client) {
         step("await real OfferingScreen for food bargain", () -> { }, () -> client.currentScreen instanceof OfferingScreen, 25_000);
+        command("apply foreign modifiers during open workstation","chronicle_bargain_trial preview_foreign","preview_foreign");
+        step("server typed preview includes foreign modifiers",()->{},()->{
+            if(!(client.currentScreen instanceof OfferingScreen screen))return false;
+            var choice=screen.state().choices().get(0);
+            return choice.before().health()==24&&Math.abs(choice.before().speed()-.12)<.00001&&choice.after()!=null&&choice.after().health()==26&&Math.abs(choice.after().speed()-.12)<.00001;
+        },10_000);
+        command("remove foreign preview modifiers","chronicle_bargain_trial preview_clean","preview_clean");
+        step("live preview returns to native stats",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().choices().get(0).before().health()==20,10_000);
         screenshot("capture complete first bargain consent",client,"altar-offering-preview.png");
         for (int count = 1; count <= 3; count++) {
             int expected = count;
@@ -188,7 +266,13 @@ public final class AncientAltarSmoke {
             step("accept movement bargain " + count, () -> accept(client, "choice1"), () -> offerCount(client, 1, expected), 25_000);
         }
         step("verify three movement bargains", () -> { }, () -> Math.abs(client.player.getMovementSpeed() - .13f) < .015f, 20_000);
-        step("fourth movement acceptance is disabled", () -> { }, () -> client.currentScreen instanceof OfferingScreen screen && !screen.triggerForTest("consent"), 10_000);
+        step("fourth movement acceptance is disabled", () -> { }, () -> client.currentScreen instanceof OfferingScreen screen && !screen.triggerForTest("confirm"), 10_000);
+        screenshot("native both completed workstation",client,"altar-workstation-completed.png");
+        command("cut power after both bargain caps","chronicle_bargain_trial cut_power","cut_power");
+        step("maxed and unpowered remain independent states",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().choices().stream().allMatch(c->c.count()==3)&&!screen.state().stationReady()&&!screen.triggerForTest("confirm"),15_000);
+        screenshot("native maxed and unpowered workstation",client,"altar-workstation-completed-unpowered.png");
+        command("restore power after capped-state check","chronicle_bargain_trial restore_power","restore_power");
+        step("powered capped screen returns without purchase",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().stationReady(),20_000);
         step("close completed movement offer", () -> client.setScreen(null), () -> client.currentScreen == null, 5_000);
     }
 
@@ -197,8 +281,15 @@ public final class AncientAltarSmoke {
         OfferingScreen screen=(OfferingScreen)client.currentScreen;
         int selected = Integer.parseInt(choice.substring("choice".length()));
         require(screen.state().selected()==selected,"expected selected offering before accepting");
-        require(screen.triggerForTest("consent"), "consent unavailable");
-        require(screen.triggerForTest("confirm"), "confirm unavailable");
+        if(screen.state().choices().get(selected).count()%2==0){
+            var click=new net.minecraft.client.gui.Click((screen.width-300)/2+127,(screen.height-222)/2+118,new net.minecraft.client.input.MouseInput(0,0));
+            require(screen.mouseClicked(click,false),"accept mouse click unhandled");screen.mouseReleased(click);
+        }else{
+            var button=screen.children().stream().filter(value->value instanceof net.minecraft.client.gui.widget.ButtonWidget b&&b.getMessage().getString().equals("Make permanent bargain")).findFirst().orElseThrow();
+            screen.setFocused(button);
+            require(screen.keyPressed(new net.minecraft.client.input.KeyInput(257,0,0)),"focused accept Enter unhandled");
+        }
+        require(screen.pending(),"accept did not enter waiting state");
     }
     private boolean offerCount(MinecraftClient client, int choice, int count) { return client.currentScreen instanceof OfferingScreen screen && screen.state().choices().get(choice).count() == count; }
     private boolean selected(MinecraftClient client, int choice) { return client.currentScreen instanceof OfferingScreen screen && screen.state().selected() == choice; }

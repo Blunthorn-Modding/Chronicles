@@ -1,5 +1,7 @@
 # CF-12 lasting bargains
 
+**Dev.33 presentation revision:** the [Altar workstation](M11_ALTAR_WORKSTATION.md) replaces the old full-screen consent form with a native handled panel, real36-slot player inventory, typed previews and one explicit permanent-bargain action. No checkbox. Durable ledger/stat/food/source-ending semantics below remain unchanged. See the [current review](M11_ALTAR_REVIEW.md).
+
 **Resumed22 October:** dev.30 now implements the strict ledger, authoritative stats/food, consent screen, original optional HUD element and intrinsic Altar. Verification and deployment evidence are in TEST_PLAN; the historical implementation sequence below explains the contract rather than unfinished steps.
 
 21 October2026 contract, implemented22 October on `feat/cf12-lasting-bargains`. Review-world upgrade requires stopped verified backup and a matching client pack.

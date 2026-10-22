@@ -42,13 +42,18 @@ import static net.minecraft.server.command.CommandManager.literal;
 public final class AncientAltarTrial {
     private static final BlockPos ALTAR = new BlockPos(2,65,3), CONTACT = new BlockPos(-3,64,0);
     private static final Map<MinecraftServer, FoodRun> FOOD = new IdentityHashMap<>();
+    private static final String PAGE_GROUP="chronicle_test:pages";
     private static int checks;
     private AncientAltarTrial() { }
     public static void register() {
         if (!"true".equals(System.getenv("CHRONICLE_BARGAIN_NATIVE_TRIAL"))) return;
+        var pages=new ArrayList<LastingBargains.Choice>();
+        for(int i=0;i<16;i++)pages.add(new LastingBargains.Choice(new OfferingDefinition("chronicle_test:page_"+i,new OfferingTerms(2,2,0),3),
+                "Choice "+(i+1),"Native bounded pagination proof","+1 food icon","+1 heart"));
+        LastingBargains.registerGroup(PAGE_GROUP,pages);
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("chronicle_bargain_trial").requires(source -> source.hasPermissionLevel(2));
-            for (String verb : List.of("identity","basic","food","prepare","safety","open","ui_check","death","respawn_check","orphan_death","orphan_respawn_repair","save","restart","corrupt","ending","ended","render","itemrender")) {
+            for (String verb : List.of("identity","basic","food","prepare","safety","inventory_prepare","inventory_check","out_of_reach","return_to_altar","cut_power","restore_power","closed_check","pages","preview_foreign","preview_clean","expire","no_purchase","open","ui_check","death","respawn_check","orphan_death","orphan_respawn_repair","save","restart","corrupt","ending","ended","render","itemrender")) {
                 root.then(literal(verb).executes(context -> run(context.getSource(), verb)));
             }
             dispatcher.register(root);
@@ -66,6 +71,43 @@ public final class AncientAltarTrial {
                 case "food" -> { startFood(source); return 1; }
                 case "prepare" -> prepare(player);
                 case "safety" -> safety(player);
+                case "inventory_prepare" -> {
+                    var inventory=player.getInventory();inventory.clear();
+                    ItemStack bread=new ItemStack(Items.BREAD,7);bread.set(net.minecraft.component.DataComponentTypes.CUSTOM_NAME,Text.literal("Workstation proof"));
+                    inventory.setStack(9,bread);inventory.setStack(1,new ItemStack(Items.IRON_INGOT,3));
+                    player.currentScreenHandler.syncState();
+                }
+                case "inventory_check" -> {
+                    var handler=player.currentScreenHandler;
+                    check(handler instanceof io.github.chronicle.core.screen.OfferingScreenHandler,"native offering handler absent");
+                    check(handler.slots.size()==36,"Altar created station storage");
+                    for(var slot:handler.slots)check(slot.inventory==player.getInventory(),"non-player slot in Altar");
+                    check(handler.getCursorStack().isEmpty(),"cursor item lost in workstation");
+                    int occupied=0;for(int i=0;i<36;i++)if(!player.getInventory().getStack(i).isEmpty())occupied++;
+                    check(occupied==2,"workstation duplicated/lost inventory stacks");
+                    ItemStack bread=player.getInventory().getStack(0),iron=player.getInventory().getStack(9);
+                    check(bread.isOf(Items.BREAD)&&bread.getCount()==7&&bread.getName().getString().equals("Workstation proof"),"shift-click/number-key lost bread/components");
+                    check(iron.isOf(Items.IRON_INGOT)&&iron.getCount()==3,"number-key failed player hotbar swap");
+                    checkNoPurchase(player,"slot interactions accepted bargain");
+                }
+                case "out_of_reach" -> player.teleport(world,15.5,70,15.5,Set.of(),0,0,false);
+                case "return_to_altar" -> safe(player);
+                case "cut_power" -> put(world,CONTACT,Blocks.AIR.getDefaultState());
+                case "restore_power" -> put(world,CONTACT,Blocks.SCULK.getDefaultState());
+                case "closed_check" -> {check(token(player)==null,"Escape left a live bargain token");checkNoPurchase(player,"close committed a bargain");}
+                case "expire" -> expire(player);
+                case "no_purchase" -> checkNoPurchase(player,"expired offer committed a bargain");
+                case "pages" -> LastingBargains.open(player,"chronicle_test:pages",PAGE_GROUP,"Core pagination proof",actor->null);
+                case "preview_foreign" -> {
+                    var id=Identifier.of("chronicle_test","screen_preview");
+                    player.getAttributeInstance(EntityAttributes.MAX_HEALTH).addTemporaryModifier(new EntityAttributeModifier(id,4,EntityAttributeModifier.Operation.ADD_VALUE));
+                    player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).addTemporaryModifier(new EntityAttributeModifier(id,.2,EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+                }
+                case "preview_clean" -> {
+                    var id=Identifier.of("chronicle_test","screen_preview");
+                    player.getAttributeInstance(EntityAttributes.MAX_HEALTH).removeModifier(id);
+                    player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).removeModifier(id);
+                }
                 case "open" -> { AncientAltars.open(player,ALTAR); check(token(player)!=null,"Altar did not issue an offer"); }
                 case "ui_check","restart","respawn_check" -> purchased(player);
                 case "death" -> { purchased(player); player.kill(world); check(!player.isAlive(),"real native death failed"); }
@@ -284,6 +326,20 @@ public final class AncientAltarTrial {
             var servers=(Map<MinecraftServer,Map<UUID,?>>)field.get(null);var offers=servers.get(player.getEntityWorld().getServer());Object offer=offers==null?null:offers.get(player.getUuid());if(offer==null)return null;
             var method=offer.getClass().getDeclaredMethod("token");method.setAccessible(true);return (UUID)method.invoke(offer);
         }catch(ReflectiveOperationException error){throw new IllegalStateException("fixture cannot inspect consent token",error);}
+    }
+    /** Age only this opt-in fixture offer; production uses the unchanged monotonic60s limit. */
+    @SuppressWarnings("unchecked") private static void expire(ServerPlayerEntity player)throws Exception {
+        var field=LastingBargains.class.getDeclaredField("OFFERS");field.setAccessible(true);
+        var offers=((Map<MinecraftServer,Map<UUID,Object>>)field.get(null)).get(player.getEntityWorld().getServer());
+        Object offer=offers.get(player.getUuid());check(offer!=null,"no offer to expire");
+        var components=offer.getClass().getRecordComponents();Object[] values=new Object[components.length];
+        Class<?>[] types=new Class<?>[components.length];
+        for(int i=0;i<components.length;i++){
+            var accessor=components[i].getAccessor();accessor.setAccessible(true);types[i]=components[i].getType();
+            values[i]=components[i].getName().equals("created")?System.nanoTime()-61_000_000_000L:accessor.invoke(offer);
+        }
+        var constructor=offer.getClass().getDeclaredConstructor(types);constructor.setAccessible(true);
+        offers.put(player.getUuid(),constructor.newInstance(values));
     }
     private static void check(boolean condition,String message) { if(!condition)throw new IllegalStateException(message);checks++; }
     private interface Throwing {void run()throws Exception;}

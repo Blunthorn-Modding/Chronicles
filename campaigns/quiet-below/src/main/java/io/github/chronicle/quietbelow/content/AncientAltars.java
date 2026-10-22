@@ -22,9 +22,11 @@ public final class AncientAltars {
     public static void register() {
         LastingBargains.registerGroup(GROUP, List.of(
                 new LastingBargains.Choice(EXTRA_HEART, "Extra heart",
-                        "Bonus: one maximum heart. Sacrifice: one more food icon to fill; natural regeneration requires the larger food threshold. No immediate healing or food refill."),
+                        "Bonus: one maximum heart. Sacrifice: one more food icon to fill; natural regeneration requires the larger food threshold. No immediate healing or food refill.",
+                        "+1 food icon for regeneration", "+1 maximum heart"),
                 new LastingBargains.Choice(MOVEMENT, "Faster movement",
-                        "Bonus: +10% base movement speed per purchase. Sacrifice: one maximum heart per purchase. Existing health is clamped to the resulting maximum.")));
+                        "Bonus: +10% base movement speed per purchase. Sacrifice: one maximum heart per purchase. Existing health is clamped to the resulting maximum.",
+                        "-1 maximum heart", "+10% base movement speed")));
     }
     private static AncientAltarBlockEntity physical(ServerWorld world, BlockPos pos) {
         if (!world.isInBuildLimit(pos) || !world.getWorldBorder().contains(pos)) return null;
@@ -36,6 +38,10 @@ public final class AncientAltars {
         ServerWorld world = player.getEntityWorld(); BlockPos pos = position.toImmutable();
         AncientAltarBlockEntity altar = physical(world, pos); if (altar == null) return;
         LastingBargains.open(player, SOURCE, GROUP, "Ancient Altar", new LastingBargains.Gate() {
+            @Override public boolean stillPresent(ServerPlayerEntity actor) {
+                return actor.getEntityWorld()==world&&actor.isAlive()&&!actor.isSpectator()
+                        &&physical(world,pos)==altar&&!altar.isRemoved();
+            }
             @Override public String unavailable(ServerPlayerEntity actor) {
                 if (actor.getEntityWorld() != world || !actor.isAlive() || actor.isSpectator() || actor.squaredDistanceTo(pos.toCenterPos()) > 36) return "The Altar is out of reach.";
                 if (physical(world, pos) != altar || altar.isRemoved()) return "The original Altar is no longer here.";
