@@ -99,6 +99,11 @@ def _client(w, launch, root, reports, name, label, variables):
     directory = root / ('client-' + label)
     directory.mkdir()
     render_distance = 8 if variables.get('CHRONICLE_STAGE_PHASE') == 'pilot' else 3
+    import client_defaults
+    for relative_name, contents in client_defaults.payloads(w.WORK, w.LOCK['minecraft_protocol']).items():
+        destination = directory / relative_name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(contents)
     (directory / 'options.txt').write_text(w.client_options() + '\n' + '\n'.join([
         f'renderDistance:{render_distance}', 'simulationDistance:3', 'maxFps:30', 'enableVsync:false',
         'tutorialStep:none', 'lang:en_us', 'pauseOnLostFocus:false',

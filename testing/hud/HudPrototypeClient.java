@@ -41,21 +41,55 @@ public final class HudPrototypeClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
     }
 
+    private void checkClientDefaults(MinecraftClient client) throws Exception {
+        Object options=Class.forName("de.keksuccino.fancymenu.FancyMenu").getMethod("getOptions").invoke(null);
+        Object welcome=options.getClass().getField("showWelcomeScreen").get(options);
+        require(Boolean.FALSE.equals(welcome.getClass().getMethod("getValue").invoke(welcome)),"FancyMenu ignored the supplied option");
+        checks.add("fresh FancyMenu startup reached Title without welcome bypass or documentation browser");
+        Path preset=FabricLoader.getInstance().getConfigDir().resolve("chronicle/client-servers.json");
+        String original=Files.readString(preset);
+        var definitions=com.google.gson.JsonParser.parseString(original).getAsJsonObject().getAsJsonArray("servers");
+        require(!definitions.isEmpty(),"review preset discovery omitted the running local review");
+        var list=new net.minecraft.client.option.ServerList(client);list.loadFile();
+        for(var entry:definitions)require(list.get(entry.getAsJsonObject().get("address").getAsString())!=null,"startup did not seed review server");
+        String address=definitions.get(0).getAsJsonObject().get("address").getAsString();
+        var first=list.get(address);list.remove(first);
+        String alias=address.replace("127.0.0.1:","localhost:");
+        var renamed=new ServerInfo("My renamed review",alias,ServerInfo.ServerType.OTHER);
+        renamed.setResourcePackPolicy(ServerInfo.ResourcePackPolicy.DISABLED);
+        list.add(renamed,true);
+        list.add(new ServerInfo("My existing server","127.0.0.1:25670",ServerInfo.ServerType.OTHER),false);list.saveFile();
+        io.github.chronicle.core.client.ClientServerPresets.apply(client);
+        var merged=new net.minecraft.client.option.ServerList(client);merged.loadFile();
+        require(merged.size()==definitions.size()+1,"merge created a duplicate or removed an existing server");
+        require(merged.get(alias)!=null&&merged.get(alias).name.equals("My renamed review"),"merge renamed a user entry");
+        require(merged.get(alias).getResourcePackPolicy()==ServerInfo.ResourcePackPolicy.DISABLED,"merge replaced resource-pack preference");
+        require(merged.get("127.0.0.1:25670")!=null,"merge removed an unrelated entry");
+        require(merged.get(definitions.size()-1).address.equals("127.0.0.1:25670")&&merged.get(definitions.size()).address.equals(alias),"merge changed native entry order");
+        checks.add("native server-list merge preserves custom entries/names/pack policy and unhides loopback alias without duplicate");
+        Path serverFile=FabricLoader.getInstance().getGameDir().resolve("servers.dat");byte[] before=Files.readAllBytes(serverFile);
+        io.github.chronicle.core.client.ClientServerPresets.apply(client);
+        require(java.util.Arrays.equals(before,Files.readAllBytes(serverFile)),"idempotent merge rewrote server list");
+        try {
+            Files.writeString(preset,"{invalid");io.github.chronicle.core.client.ClientServerPresets.apply(client);
+            require(java.util.Arrays.equals(before,Files.readAllBytes(serverFile)),"bad preset overwrote native server list");
+            Files.writeString(preset,"{\"version\":1,\"servers\":[{\"name\":\"Remote\",\"address\":\"example.invalid:25565\"}]}");
+            io.github.chronicle.core.client.ClientServerPresets.apply(client);
+            require(java.util.Arrays.equals(before,Files.readAllBytes(serverFile)),"remote preset modified native server list");
+            Files.writeString(preset,original);Files.writeString(serverFile,"invalid existing list");
+            io.github.chronicle.core.client.ClientServerPresets.apply(client);
+            require(Files.readString(serverFile).equals("invalid existing list"),"corrupt native list was overwritten");
+        } finally {Files.writeString(preset,original);Files.write(serverFile,before);}
+        checks.add("idempotent startup and malformed preset/native-list recovery preserve existing bytes");
+    }
+
     private void tick(MinecraftClient client) {
         if (finished) return;
         try {
             require(System.nanoTime() < deadline, "HUD prototype timed out at " + step);
             if (client.player == null) {
-                // This is an introductory documentation screen, not a license
-                // or account agreement. Use its normal close action in this
-                // disposable test instead of opening an external browser.
-                if (client.currentScreen != null && client.currentScreen.getClass().getName().equals("de.keksuccino.fancymenu.WelcomeScreen")) {
-                    Object options = Class.forName("de.keksuccino.fancymenu.FancyMenu").getMethod("getOptions").invoke(null);
-                    Object welcomeOption = options.getClass().getField("showWelcomeScreen").get(options);
-                    welcomeOption.getClass().getMethod("setValue", Object.class).invoke(welcomeOption, false);
-                    client.currentScreen.close();
-                    checks.add("disabled introductory documentation welcome in this private test profile and closed it normally");
-                }
+                require(client.currentScreen == null || !client.currentScreen.getClass().getName().equals("de.keksuccino.fancymenu.WelcomeScreen"),
+                        "FancyMenu welcome appeared despite the shipped startup defaults");
                 if (++idleTicks % 100 == 0)
                     System.out.println("Chronicle HUD waiting: screen=" + (client.currentScreen == null ? "none" : client.currentScreen.getClass().getName())
                             + ", overlay=" + (client.getOverlay() == null ? "none" : client.getOverlay().getClass().getName()));
@@ -75,6 +109,7 @@ public final class HudPrototypeClient implements ClientModInitializer {
                         require(FabricLoader.getInstance().isModLoaded(mod), "Missing " + mod);
                     require(client.options.getGuiScale().getValue() == 2, "GUI scale must remain 2");
                     checks.add("all four pinned HUD mods loaded alongside Chronicle; GUI scale 2");
+                    checkClientDefaults(client);
                     client.player.networkHandler.sendChatCommand("attribute @s minecraft:max_health base set 22");
                     client.player.networkHandler.sendChatCommand("gamemode survival @s");
                 }

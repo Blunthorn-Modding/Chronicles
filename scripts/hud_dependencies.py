@@ -13,6 +13,7 @@ from urllib.parse import urlsplit, unquote
 import zipfile
 
 import workspace as w
+import client_defaults
 
 LOCK_PATH = w.REPO / 'config/hud-dependencies.lock.json'
 PROJECTS = {'spiffyhud': 'wtOPHICQ', 'fancymenu': 'Wq5SjeWM',
@@ -106,6 +107,8 @@ def pack():
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr('modrinth.index.json', json.dumps(index, indent=2))
         archive.writestr('client-overrides/options.txt', w.client_options())
+        for name, contents in client_defaults.payloads(w.WORK, w.LOCK['minecraft_protocol']).items():
+            archive.writestr('client-overrides/' + name, contents)
         archive.writestr('client-overrides/Chronicle-THIRD-PARTY.txt', notices(mods))
         for jar in jars:
             archive.write(jar, 'overrides/mods/' + jar.name)
@@ -127,7 +130,9 @@ def verify_pack(target, mods, artifacts=None):
         if actual != expected:
             raise RuntimeError('Unexpected embedded jar: HUD dependencies must remain references')
         # Also reject renamed/copied vendor classes or assets outside jars.
-        allowed = expected | {'modrinth.index.json', 'client-overrides/options.txt',
+        defaults = {name: archive.read('client-overrides/' + name) for name in (client_defaults.FANCY_PATH, client_defaults.SERVERS_PATH)}
+        client_defaults.validate_payloads(defaults)
+        allowed = expected | {'client-overrides/' + name for name in defaults} | {'modrinth.index.json', 'client-overrides/options.txt',
                               'client-overrides/Chronicle-THIRD-PARTY.txt'}
         if set(archive.namelist()) != allowed:
             raise RuntimeError('Unexpected pack override; review provenance before distributing')

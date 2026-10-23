@@ -372,6 +372,7 @@ def client_options():
 
 def pack():
     import hud_dependencies as hud
+    import client_defaults
     jars = artifacts()
     versions = {validate_mod_target(jar)['version'] for jar in jars}
     if len(versions) != 1:
@@ -391,6 +392,8 @@ def pack():
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as zipped:
         zipped.writestr('modrinth.index.json', json.dumps(index, indent=2))
         zipped.writestr('client-overrides/options.txt', client_options())
+        for name, contents in client_defaults.payloads(WORK, LOCK['minecraft_protocol']).items():
+            zipped.writestr('client-overrides/' + name, contents)
         zipped.writestr('client-overrides/Chronicle-THIRD-PARTY.txt', hud.notices(hud_mods))
         for jar in jars:
             zipped.write(jar, 'overrides/mods/' + jar.name)

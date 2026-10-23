@@ -23,6 +23,7 @@ public final class ChronicleCoreClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        ClientServerPresets.register();
         AuthoringPreviewRenderer.register();
         AuthoringUiClient.register();
         CoreMenuClient.register();
