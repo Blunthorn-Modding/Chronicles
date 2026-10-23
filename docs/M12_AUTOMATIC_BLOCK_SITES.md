@@ -1,5 +1,18 @@
 # Automatic block sites — lead approved
 
+
+## Next implementation: separate limits from locations
+
+Operator feedback, 23 October, for implementation on 24 October. This supersedes the dev.46 placement of limit controls; it is a recorded design correction, not an installed update.
+
+- **Game setup** owns one **Block limits** entry for configuring the registered block types. Keep this global policy separate from location registration.
+- Remove **Block limits** from both the top of Locations/Block sites and the selected-block detail. Remove links, redirects and return-to-limits shortcuts from placed-block entries; do not replace the duplicates with another Locations submenu.
+- **Locations / Block sites** showcases physical registered locations and their normal location actions. For limits, display information only: current count/cap and whether capacity is available, the limit is reached, or the type is already over limit.
+- Keep existing server-owned limits, permission/revision checks, persisted configuration, default caps, fixed Heart rule and conservative unloaded accounting. This is a presentation/routing correction, not a new quota system.
+- Verify that both former Locations entry points are absent, policy edits work through Game setup, and read-only location status updates after placement/removal or a policy change.
+
+No code, server, world or pack change is requested tonight. The remaining document records the original design except for the revised count-configuration destination below.
+
 ## Decision
 
 **Locations → Block sites** becomes one flat list of actual instances: automatically managed supplied campaign blocks and optional manual vanilla anchors. Remove the Block-sites **Game bindings** selector, **Manage game bindings**, manual BLOCK requirement picker, naming prompt, and assign/clear route.
@@ -31,7 +44,9 @@ The empty state says `No managed blocks or manual block sites.` and shows **Bind
 
 ## Count configuration
 
-Limits are server policy, not geometry. **Block limits…** from the Block sites page opens a paginated picker of registered managed block types. Selecting one opens the existing right-hand detail: type label, current active count, current cap, and **Set limit…** typed-integer prompt, plus **Back to block sites**. Core supplies this generically from registered managed types; it has no Altar/Forge-specific fields or multi-field form.
+Limits are server policy, not geometry. **Game setup > Block limits** is the sole configuration entry. Operators choose a registered managed type and edit its limit through the normal configuration controls. Core provides this generically; no Altar/Forge-specific configuration branches are needed. Locations has no policy editor, policy submenu or link back to this entry. A placed block reports current capacity/limit status only.
+
+This destination is the operator's next requested correction. The installed dev.46 build still has the former Locations controls until implementation on 24 October.
 
 The structural Relic Heart entry says `Fixed: 1` and is read-only. JSON/server configuration remains the authoritative persistent policy and can configure the same limits. Lowering a cap below the current active count is allowed: existing blocks stay, the type/detail says `Over limit`, and new placements are denied until reconciliation brings the active count within the cap. No limit operation deletes or unbinds a block.
 

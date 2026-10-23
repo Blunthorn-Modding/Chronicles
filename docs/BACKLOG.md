@@ -1,5 +1,8 @@
 # Chronicle work tracking
 
+**Next CF-14 UI correction, for 24 October:** configure Block limits only through Game setup. Remove the duplicated Locations controls and all placed-block policy links; keep the registry informational, with count/cap and limit-status indicators. [Updated placement design](M12_AUTOMATIC_BLOCK_SITES.md#next-implementation-separate-limits-from-locations). Notes only tonight; include alongside the stronger Heart burst below.
+
+
 **Next QB-13 correction, for 24 October:** operator confirms dev.46 works but requests a much stronger final Heart growth burst: at least a5x5 area of sculk/veins suited to available terrain. [Acceptance criteria](M12_HEART_LAST_STAND.md#next-implementation-stronger-final-burst). Recorded only; implementation and runtime remain unchanged tonight.
 
 
