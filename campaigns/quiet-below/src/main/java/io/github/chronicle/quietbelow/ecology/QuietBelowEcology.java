@@ -10,15 +10,14 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
-import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
 import io.github.chronicle.quietbelow.content.AncientAltars;
+import io.github.chronicle.quietbelow.content.RelicHeartBlock;
 import net.minecraft.block.*;
 import net.minecraft.registry.*;
 import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.world.ServerWorld;
@@ -28,6 +27,7 @@ import net.minecraft.util.Identifier;
 import io.github.chronicle.quietbelow.content.SculkAppearance;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.*;
+import net.minecraft.world.GameMode;
 import java.io.IOException;
 import java.util.*;
 import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
@@ -42,17 +42,12 @@ public final class QuietBelowEcology {
 
     public static void register() {
         EcologyEradication.register();
-        UseBlockCallback.EVENT.register((player,world,hand,hit)->{
-            if(!(world instanceof ServerWorld w)||!protectsRoot(w,hit.getBlockPos()))return ActionResult.PASS;
-            if(hand==Hand.MAIN_HAND&&player instanceof ServerPlayerEntity actor)openHeart(actor,hit.getBlockPos());
-            return ActionResult.SUCCESS;
-        });
         PlayerBlockBreakEvents.BEFORE.register((world,player,p,state,be)->{
             if(!(world instanceof ServerWorld w)||!protectsRoot(w,p))return true;
-            player.sendMessage(Text.literal("Interact with the Relic Heart to inspect its weakness and confirm destruction."),false);return false;
+            if(player instanceof ServerPlayerEntity actor)destroyHeart(actor,w,p);return false;
         });
         registerTool(new GameSetupTools.Tool("quiet_below:heart","Relic Heart",
-                "Below the living sculk threshold, the Heart weakens during active play. Interact with the actual bound Heart to confirm permanent destruction. Unloaded branches prevent vulnerability. Cleanup restores recorded terrain as chunks naturally load.",
+                "Below the living sculk threshold, the Heart weakens during active play. A participating Survival or Adventure player can mine the vulnerable bound Heart with a pickaxe. Unloaded branches prevent vulnerability. Cleanup restores recorded terrain as chunks naturally load.",
                 List.of(new GameSetupTools.Verb("follow_extent","Follow Established threshold",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("threshold_lower","Lower weakness threshold",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("threshold_higher","Raise weakness threshold",GameSetupTools.Guard.EDIT,false),
@@ -203,7 +198,9 @@ public final class QuietBelowEcology {
         }
     }
     private static void tick(MinecraftServer server) {
-        Runtime r=WORLDS.get(server);if(r==null||r.engine.failure()!=null||r.engine.setup()==null){EcologyCostEffects.clear(server);return;}
+        Runtime r=WORLDS.get(server);if(r==null){EcologyCostEffects.clear(server);return;}
+        if(r.engine.failure()!=null){heartRestingAppearance(server,r);EcologyCostEffects.clear(server);return;}
+        if(r.engine.setup()==null){EcologyCostEffects.clear(server);return;}
         long started=System.nanoTime();
         try {
             if(r.engine.ending()!=null){endingTick(server,r);EcologyCostEffects.clear(server);return;}
@@ -211,7 +208,7 @@ public final class QuietBelowEcology {
             Adapter world=adapter(server,r.engine.setup().dimension());
             // Indexing is explicit preparation, never starts from simply registering a role.
             if(!r.engine.view().indexed()) {
-                EcologyCostEffects.clear(server);
+                EcologyCostEffects.clear(server);projectHeartAppearance(world.world,r,RelicHeartBlock.Lens.RESTING,false);
                 // Explicit metadata preparation needs the exact pins and loaded source chunks,
                 // not the Heart chunk. Otherwise walking a large city can never finish its edges.
                 if(ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.index(world);
@@ -655,48 +652,74 @@ public final class QuietBelowEcology {
     static EcologyEradication endingForTest(MinecraftServer server){return runtime(server).eradication;}
     static long tickNanosForTest(MinecraftServer server){return runtime(server).lastTickNanos;}
     public static boolean protectsRoot(ServerWorld world,BlockPos at){
-        Runtime r=WORLDS.get(world.getServer());return r!=null&&r.engine.ending()==null&&r.engine.setup()!=null
-                &&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString())&&pos(at).equals(r.engine.rootPosition());
+        Runtime r=WORLDS.get(world.getServer());
+        if(r==null)return assignedRoot(world,at);
+        if(r.engine.setup()==null||!r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString())||!pos(at).equals(r.engine.rootPosition()))return false;
+        return r.engine.ending()==null||r.eradication==null||!r.eradication.rootComplete();
+    }
+    private static boolean assignedRoot(ServerWorld world,BlockPos at){
+        try{
+            AuthoringSite site=MapSiteAssignments.resolve(world.getServer(),"quiet_below:relic_heart").orElse(null);
+            var chunk=EcologyLoadedBlocks.chunk(world,at);if(chunk==null)return false;
+            String actual=Registries.BLOCK.getId(chunk.getBlockState(at).getBlock()).toString();
+            return matchesAssignedHeart(site,world.getRegistryKey().getValue().toString(),pos(at),actual);
+        }catch(RuntimeException unavailable){return false;}
+    }
+    static boolean matchesAssignedHeart(AuthoringSite site,String dimension,Pos at,String actual){
+        return site instanceof AuthoringSite.Anchor anchor&&anchor.dimension().equals(dimension)
+                &&new Pos(anchor.position().x(),anchor.position().y(),anchor.position().z()).equals(at)
+                &&anchor.expectedBlock().equals(actual);
+    }
+    private static void heartRestingAppearance(MinecraftServer server,Runtime r){
+        try{
+            if(r.engine.setup()==null||r.engine.rootPosition()==null)return;
+            ServerWorld world=server.getWorld(RegistryKey.of(RegistryKeys.WORLD,Identifier.of(r.engine.setup().dimension())));
+            if(world!=null)projectHeartAppearance(world,r,RelicHeartBlock.Lens.RESTING,false);
+        }catch(RuntimeException failure){
+            if(!r.appearanceFailureLogged){r.appearanceFailureLogged=true;QuietBelow.LOGGER.warn("Could not refresh resting Heart appearance; ecology remains held",failure);}
+        }
     }
     private static void heartAppearance(ServerWorld world,Runtime r){
-        if(r.rootProblem!=null||r.engine.rootPosition()==null)return;
-        var at=blockPos(r.engine.rootPosition());var chunk=EcologyLoadedBlocks.chunk(world,at);if(chunk==null)return;
-        boolean weak=r.engine.heartVulnerable(true);var state=chunk.getBlockState(at);
-        var property=io.github.chronicle.quietbelow.content.RelicHeartBlock.VULNERABLE;
-        if(state.contains(property)&&state.get(property)!=weak){
-            try(var own=EcologyHooks.ownWrite()){world.setBlockState(at,state.with(property,weak),Block.NOTIFY_LISTENERS);}
+        if(r.engine.rootPosition()==null)return;
+        var proof=r.engine.heartProof(r.rootProblem==null);boolean weak=r.engine.heartVulnerable(r.rootProblem==null);
+        projectHeartAppearance(world,r,heartLens(proof,r.engine.heartRules(),weak),weak);
+    }
+    private static void projectHeartAppearance(ServerWorld world,Runtime r,RelicHeartBlock.Lens lens,boolean weak){
+        var at=blockPos(r.engine.rootPosition());var chunk=EcologyLoadedBlocks.chunk(world,at);if(chunk==null)return;var state=chunk.getBlockState(at);
+        if(state.contains(RelicHeartBlock.VULNERABLE)&&state.contains(RelicHeartBlock.LENS)
+                &&(state.get(RelicHeartBlock.VULNERABLE)!=weak||state.get(RelicHeartBlock.LENS)!=lens)){
+            try(var own=EcologyHooks.ownWrite()){world.setBlockState(at,state.with(RelicHeartBlock.VULNERABLE,weak).with(RelicHeartBlock.LENS,lens),Block.NOTIFY_LISTENERS);}
         }
         if(weak&&playing(world.getServer()))world.spawnParticles(net.minecraft.particle.ParticleTypes.SCULK_SOUL,
                 at.getX()+.5,at.getY()+1.05,at.getZ()+.5,3,.25,.12,.25,.015);
     }
-    private static void openHeart(ServerPlayerEntity player,BlockPos position){
-        MinecraftServer server=player.getEntityWorld().getServer();Runtime r=runtime(server);var e=r.engine;
-        ServerWorld world=player.getEntityWorld();BlockPos at=position.toImmutable();EcologyEngine.Setup original=e.setup();
-        ActionConfirmations.open(player,"Destroy the Relic Heart?",
-                "This permanently ends this campaign's sculk network, including detached branches. All Altar bonuses AND sacrifices are removed. Campaign sculk is removed as chunks load; grown terrain is restored where recorded. This cannot be reversed. Remaining blocks stop providing benefits or costs immediately. No drops are produced.",
-                "Destroy Heart",actor->heartGate(actor,world,at,original),
-                (actor,token)->{
-                    String issue=heartGate(actor,world,at,original);if(issue!=null)throw new IllegalStateException(issue);
-                    var chunk=EcologyLoadedBlocks.chunk(world,at);if(chunk==null)throw new IllegalStateException("Heart is unloaded");
-                    e.eradicate(token,pos(at),encode(chunk.getBlockState(at)),true);
-                    OfferingStats.closeSource(server,AncientAltars.SOURCE);r.sourceClosed=true;
-                    EcologyCostEffects.clear(server);
-                    // Terrain writes belong to END_SERVER_TICK, never the between-tick packet task.
-
-                });
+    static RelicHeartBlock.Lens heartLens(EcologyHeart.Proof proof,EcologyHeart.Rules rules,boolean vulnerable){
+        if(!proof.complete()||!proof.rootValid())return RelicHeartBlock.Lens.RESTING;
+        if(proof.living()>=rules.threshold(proof.established()))return RelicHeartBlock.Lens.PROTECTED;
+        return vulnerable?RelicHeartBlock.Lens.VULNERABLE:RelicHeartBlock.Lens.WEAKENING;
     }
-    private static String heartGate(ServerPlayerEntity actor,ServerWorld world,BlockPos at,EcologyEngine.Setup original){
-        Runtime r=runtime(world.getServer());var e=r.engine;
-        if(e.ending()!=null)return heartDescription(r);
-        if(!Objects.equals(original,e.setup())||actor.getEntityWorld()!=world||!actor.isAlive()||actor.isSpectator()||actor.squaredDistanceTo(at.toCenterPos())>36)return "The original Heart is out of reach.";
-        if(actor.isCreative())return "Creative inspection only; use Survival or Adventure to destroy the Heart.";
-        if(!PlayRuntime.eligiblePlayers(world.getServer()).contains(actor))return "Join participation and leave editing mode first.";
-        if(!playing(world.getServer()))return "Heart destruction requires occupied active play without an operation hold.";
-        try{attach(world.getServer(),r);}catch(Exception error){return "The original Heart bindings cannot be verified.";}
-        if(r.rootProblem!=null)return r.rootProblem;
-        if(!pos(at).equals(e.rootPosition()))return "This is not the bound Relic Heart.";
-        if(!e.heartVulnerable(true))return heartDescription(r);
-        return null;
+    private static void destroyHeart(ServerPlayerEntity actor,ServerWorld world,BlockPos position){
+        Runtime r=WORLDS.get(world.getServer());if(r==null||r.engine.ending()!=null)return;
+        try{
+            GameMode mode=actor.interactionManager.getGameMode();
+            if(actor.getEntityWorld()!=world||!actor.isAlive()||actor.isSpectator()||(mode!=GameMode.SURVIVAL&&mode!=GameMode.ADVENTURE)
+                    ||AuthoringRuntime.isAuthor(actor)||!PlayRuntime.eligiblePlayers(world.getServer()).contains(actor)||!playing(world.getServer())
+                    ||actor.squaredDistanceTo(position.toCenterPos())>36||!actor.getMainHandStack().isIn(ItemTags.PICKAXES))return;
+            attach(world.getServer(),r);Pins pins=visibleRoot(world.getServer(),r);var e=r.engine;
+            if(r.rootProblem!=null||!pos(position).equals(pins.heart)||!pos(position).equals(e.rootPosition())||!e.heartVulnerable(true))return;
+            var chunk=EcologyLoadedBlocks.chunk(world,position);if(chunk==null)return;BlockState actual=chunk.getBlockState(position);
+            if(!Registries.BLOCK.getId(actual.getBlock()).toString().equals(pins.heartBlock))return;
+            e.eradicate(UUID.randomUUID(),pos(position),encode(actual),true);
+            try{OfferingStats.closeSource(world.getServer(),AncientAltars.SOURCE);r.sourceClosed=true;}
+            catch(IOException|RuntimeException failure){QuietBelow.LOGGER.error("Heart ended durably; Altar source closure will retry during cleanup",failure);}
+            EcologyCostEffects.clear(world.getServer());
+            for(var witness:world.getServer().getPlayerManager().getPlayerList())if(witness.getEntityWorld()==world&&witness.squaredDistanceTo(position.toCenterPos())<=25)
+                witness.sendMessage(Text.literal("The Heart gives way. Something vast falls silent."),false);
+            // The durable END_SERVER_TICK receipt removes the root without vanilla drops.
+        }catch(Exception failure){
+            if(r.engine.ending()==null)hold(r,failure);
+            else QuietBelow.LOGGER.error("Heart ended durably; follow-up feedback failed and cleanup will continue",failure);
+        }
     }
     private static void endingTick(MinecraftServer server,Runtime r){
         try{
@@ -720,7 +743,7 @@ public final class QuietBelowEcology {
         if(r.rootProblem!=null)return r.rootProblem;
         var proof=e.heartProof(true);if(!proof.complete())return "Weakness cannot be verified: finish indexing, enable ecology and load all tracked branches.";
         if(proof.living()>=e.heartRules().threshold(proof.established()))return "Heart protected: living network is at or above the weakness threshold.";
-        if(e.heartVulnerable(true))return "Heart vulnerable. Interact with the bound block to confirm permanent destruction.";
+        if(e.heartVulnerable(true))return "Heart vulnerable. Mine the bound block with a pickaxe during active play.";
         return "Heart weakening: "+(e.heartElapsed()/20)+" / "+e.heartRules().seconds()+" active seconds below threshold.";
     }
     private static GameSetupTools.Status heartStatus(ServerCommandSource source){
@@ -738,7 +761,7 @@ public final class QuietBelowEcology {
         return new GameSetupTools.Status(e.view().revision()+r.menuRevision,List.of(
                 new Fact("Heart status",heartDescription(r)),new Fact("Weakness threshold",rules.threshold()==0?"Follows Established: fewer than "+rules.threshold(e.vitality().rules().established())+" living connected cells.":"Fewer than "+rules.threshold()+" living connected cells."),
                 new Fact("Weakness delay",rules.seconds()+" active seconds. Unknown or unloaded branches reset the wait; known pauses preserve it. Restart requires a new wait."),
-                new Fact("Ending","Interact with the actual bound Heart and explicitly confirm. Bonuses and sacrifices end together; disconnected sculk is included."),
+                new Fact("Ending","Mine the vulnerable bound Heart with a pickaxe during occupied active play. Bonuses and sacrifices end together; disconnected sculk is included."),
                 new Fact("Cleanup","Loaded chunks only, with saved chunk receipts. Later replacements are preserved; pending unloaded areas remain dormant.")),disabled);
     }
     private static String heartAction(ServerCommandSource source,String verb)throws Exception {
@@ -767,7 +790,7 @@ public final class QuietBelowEcology {
         if(!r.failureLogged){r.failureLogged=true;QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry: "+r.engine.failure(),e);}
     }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites,endingWorkTick=Integer.MIN_VALUE;long menuRevision,lastTickNanos;boolean failureLogged;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;EcologyEradication eradication;boolean sourceClosed,endingHeld;String endingProblem,lastEndingHold;
+        final EcologyEngine engine;final EcologyJournal journal;int settlingWrites,endingWorkTick=Integer.MIN_VALUE;long menuRevision,lastTickNanos;boolean failureLogged,appearanceFailureLogged;String rootProblem,claimProblem;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;EcologyEradication eradication;boolean sourceClosed,endingHeld;String endingProblem,lastEndingHold;
         Runtime(EcologyEngine e,EcologyJournal j){engine=e;journal=j;crops=new EcologyCrops(e.cropRules());recovery=new EcologyRecovery(e.recoveryRules());costs=new EcologyCosts(e.costRules());}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
@@ -775,7 +798,7 @@ public final class QuietBelowEcology {
             Runtime r=WORLDS.get(w.getServer());
             return r!=null&&r.engine.setup()!=null&&r.engine.setup().dimension().equals(w.getRegistryKey().getValue().toString())?r:null;
         }
-        @Override public boolean owns(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&(r.engine.owns(pos(p))||protectsRoot(w,p));}
+        @Override public boolean owns(ServerWorld w,BlockPos p){Runtime r=find(w);return (r!=null&&r.engine.owns(pos(p)))||protectsRoot(w,p);}
         @Override public void cropWrite(ServerWorld w,BlockPos p,BlockState state){
             Runtime r=find(w);if(r!=null&&EcologyCropWorld.supported(state)){
                 if(((CropBlock)state.getBlock()).getAge(state)==0)r.crops.planted(pos(p));else r.crops.notice(pos(p));
@@ -801,8 +824,8 @@ public final class QuietBelowEcology {
         @Override public void unownedNetworkWrite(ServerWorld w,BlockPos p){Runtime r=find(w);if(r==null)return;r.engine.noticeContact(pos(p));if(cleanupWorld(w,r))try{r.cleanup.changed(pos(p));}catch(Exception e){hold(r,e);}}
         @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.rootProblem==null&&r.engine.enabled()&&r.engine.living(pos(p))&&playing(w.getServer());}
         @Override public BlockState beforeWrite(ServerWorld w,BlockPos p,BlockState before,BlockState proposed,int flags) {
-            Runtime r=find(w);if(r==null)return proposed;
             if(protectsRoot(w,p)&&!before.equals(proposed))return null;
+            Runtime r=find(w);if(r==null)return proposed;
             if(r.engine.ending()!=null)return proposed;
             if(r.engine.owns(pos(p))&&before.getBlock()==proposed.getBlock()&&before.contains(SculkAppearance.VITALITY))
                 proposed=proposed.with(SculkAppearance.VITALITY,before.get(SculkAppearance.VITALITY));
@@ -833,7 +856,7 @@ public final class QuietBelowEcology {
     }
     public static Pos pos(BlockPos p){return new Pos(p.getX(),p.getY(),p.getZ());}
     public static BlockPos blockPos(Pos p){return new BlockPos(p.x(),p.y(),p.z());}
-    public static State encode(BlockState state){Map<String,String> properties=new TreeMap<>();state.getEntries().forEach((p,v)->{if(!p.equals(SculkAppearance.VITALITY))properties.put(p.getName(),propertyName(p,v));});return new State(Registries.BLOCK.getId(state.getBlock()).toString(),properties);}
+    public static State encode(BlockState state){Map<String,String> properties=new TreeMap<>();state.getEntries().forEach((p,v)->{if(!p.equals(SculkAppearance.VITALITY)&&!p.equals(RelicHeartBlock.LENS))properties.put(p.getName(),propertyName(p,v));});return new State(Registries.BLOCK.getId(state.getBlock()).toString(),properties);}
     @SuppressWarnings({"rawtypes","unchecked"}) private static String propertyName(Property p,Comparable v){return p.name(v);}
     public static BlockState decode(State encoded){
         Block block=Registries.BLOCK.getOptionalValue(Identifier.of(encoded.id())).orElseThrow(()->new IllegalStateException("Unknown recorded block: "+encoded.id()));
@@ -842,6 +865,7 @@ public final class QuietBelowEcology {
             Property<?> p=block.getStateManager().getProperty(e.getKey());if(p==null)throw new IllegalStateException("Unknown recorded property");state=with(state,p,e.getValue());
         }
         int cosmetic=state.contains(SculkAppearance.VITALITY)&&!encoded.properties().containsKey(EcologyAppearance.PROPERTY)?1:0;
+        if(state.contains(RelicHeartBlock.LENS)&&!encoded.properties().containsKey(RelicHeartBlock.LENS.getName()))cosmetic++;
         if(state.getProperties().size()-cosmetic!=encoded.properties().size())throw new IllegalStateException("Recorded state omits block properties: "+encoded.id());
         return state;
     }

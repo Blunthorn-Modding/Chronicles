@@ -75,7 +75,7 @@ public final class QuietBelow implements ModInitializer {
     /** Mapmaker item; a placed Heart has no campaign behavior until explicitly bound. */
     public static final Block RELIC_HEART=Registry.register(Registries.BLOCK,RELIC_HEART_KEY,
             new io.github.chronicle.quietbelow.content.RelicHeartBlock(AbstractBlock.Settings.create().registryKey(RELIC_HEART_KEY)
-                    .strength(-1.0f, 3_600_000.0f).pistonBehavior(net.minecraft.block.piston.PistonBehavior.BLOCK).nonOpaque()));
+                    .strength(3.5f, 3_600_000.0f).requiresTool().pistonBehavior(net.minecraft.block.piston.PistonBehavior.BLOCK).nonOpaque()));
     public static final Item RELIC_HEART_ITEM=Registry.register(Registries.ITEM,RELIC_HEART_ITEM_KEY,
             new BlockItem(RELIC_HEART,new Item.Settings().registryKey(RELIC_HEART_ITEM_KEY).useBlockPrefixedTranslationKey()));
 
@@ -106,7 +106,7 @@ public final class QuietBelow implements ModInitializer {
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:sculk_takeover", "Sculk takeover region",
                 "Optional region to adopt existing sculk into campaign ownership. Run Take over region separately; disconnected sculk stays dormant.", AuthoringCatalog.Kind.REGION));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:relic_heart", "Relic Heart",
-                "Unique sculk root. Assign this block site before indexing; interact with the weakened Heart to confirm permanent eradication.", AuthoringCatalog.Kind.BLOCK));
+                "Unique sculk root. Assign this block site before indexing; mine the weakened Heart with a pickaxe during active play to end the network.", AuthoringCatalog.Kind.BLOCK));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_altar", "Ancient Altar",
                 "Optional contextual Altar site. Placed Ancient Altar blocks work without this registration.", AuthoringCatalog.Kind.BLOCK));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",

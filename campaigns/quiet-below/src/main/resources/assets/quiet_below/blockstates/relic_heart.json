@@ -1,10 +1,12 @@
 {
   "variants": {
-    "vulnerable=false": {
-      "model": "quiet_below:block/relic_heart"
-    },
-    "vulnerable=true": {
-      "model": "quiet_below:block/relic_heart_vulnerable"
-    }
+    "lens=resting,vulnerable=false": { "model": "quiet_below:block/relic_heart_resting" },
+    "lens=resting,vulnerable=true": { "model": "quiet_below:block/relic_heart_resting" },
+    "lens=protected,vulnerable=false": { "model": "quiet_below:block/relic_heart_protected" },
+    "lens=protected,vulnerable=true": { "model": "quiet_below:block/relic_heart_protected" },
+    "lens=weakening,vulnerable=false": { "model": "quiet_below:block/relic_heart_weakening" },
+    "lens=weakening,vulnerable=true": { "model": "quiet_below:block/relic_heart_weakening" },
+    "lens=vulnerable,vulnerable=false": { "model": "quiet_below:block/relic_heart_vulnerable" },
+    "lens=vulnerable,vulnerable=true": { "model": "quiet_below:block/relic_heart_vulnerable" }
   }
 }

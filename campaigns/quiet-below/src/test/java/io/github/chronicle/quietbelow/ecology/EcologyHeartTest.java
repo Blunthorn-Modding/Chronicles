@@ -1,5 +1,8 @@
 package io.github.chronicle.quietbelow.ecology;
 
+import io.github.chronicle.core.authoring.AuthoringSite;
+import io.github.chronicle.core.authoring.BlockPosition;
+import io.github.chronicle.quietbelow.content.RelicHeartBlock;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,6 +68,31 @@ class EcologyHeartTest {
         EcologyHeart.Rules rules = new EcologyHeart.Rules(64, 15);
         assertEquals(300, EcologyHeart.nextElapsed(rules, 295, WEAK, true, 20));
         assertEquals(300, EcologyHeart.nextElapsed(rules, 300, WEAK, true, 20));
+    }
+
+    @Test void lensDistinguishesUnknownProtectedWeakeningAndVulnerableProofs() {
+        EcologyHeart.Rules rules = EcologyHeart.DEFAULT;
+        assertEquals(RelicHeartBlock.Lens.RESTING,
+                QuietBelowEcology.heartLens(new EcologyHeart.Proof(false, true, 31, 64), rules, false));
+        assertEquals(RelicHeartBlock.Lens.RESTING,
+                QuietBelowEcology.heartLens(new EcologyHeart.Proof(true, false, 31, 64), rules, true));
+        assertEquals(RelicHeartBlock.Lens.PROTECTED,
+                QuietBelowEcology.heartLens(new EcologyHeart.Proof(true, true, 64, 64), rules, true));
+        assertEquals(RelicHeartBlock.Lens.WEAKENING, QuietBelowEcology.heartLens(WEAK, rules, false));
+        assertEquals(RelicHeartBlock.Lens.VULNERABLE, QuietBelowEcology.heartLens(WEAK, rules, true));
+    }
+
+    @Test void fallbackProtectionRequiresTheExactCurrentAnchorDimensionPositionAndBlock() {
+        AuthoringSite.Anchor anchor = new AuthoringSite.Anchor("heart", "minecraft:overworld", 1,
+                new BlockPosition(3, 64, -2), "quiet_below:relic_heart");
+        EcologyTerrain.Pos position = new EcologyTerrain.Pos(3, 64, -2);
+        assertTrue(QuietBelowEcology.matchesAssignedHeart(anchor, "minecraft:overworld", position, "quiet_below:relic_heart"));
+        assertFalse(QuietBelowEcology.matchesAssignedHeart(anchor, "minecraft:the_nether", position, "quiet_below:relic_heart"));
+        assertFalse(QuietBelowEcology.matchesAssignedHeart(anchor, "minecraft:overworld", new EcologyTerrain.Pos(4, 64, -2), "quiet_below:relic_heart"));
+        assertFalse(QuietBelowEcology.matchesAssignedHeart(anchor, "minecraft:overworld", position, "minecraft:stone"));
+        assertFalse(QuietBelowEcology.matchesAssignedHeart(
+                new AuthoringSite.Location("heart", "minecraft:overworld", 1, 3, 64, -2, 0, 0),
+                "minecraft:overworld", position, "quiet_below:relic_heart"));
     }
 
     @Test void validatesRulesProofAndClockBoundsWhileOfferingRecommendedChoices() {

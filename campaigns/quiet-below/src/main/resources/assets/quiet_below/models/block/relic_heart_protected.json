@@ -1,0 +1,6 @@
+{
+  "parent": "quiet_below:block/relic_heart",
+  "textures": {
+    "lens": "minecraft:block/sculk"
+  }
+}

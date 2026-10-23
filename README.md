@@ -1,5 +1,11 @@
 # Chronicle
 
+The operator accepted dev.40. The [count-rate comparison](docs/M11_COUNT_RATE_VERIFICATION.md)
+is independently verified; [physical Heart mining and lens states](docs/M12_PHYSICAL_HEART.md)
+are the next sequential correction. These will share one review client after
+configuration placement is corrected. The current authenticated review remains
+dev.40 at **127.0.0.1:25589** until that combined deployment.
+
 **Combined correction review, dev.40:** covered Heart-connected sculk stays nourished beneath stations and other sculk; surface exposure still governs growth. The approved Forge layout now accepts one item per offering, consumes wrong pairs, and returns only unchanged equipment for valid already-maxed pairs. The refreshed [matching pack](../client/Chronicle-M9-1.21.10.mrpack) suppresses FancyMenu's welcome/documentation prompt and adds the running review server without overwriting an existing server list. One authenticated review at **127.0.0.1:25589** is **PAUSED**, with the current world, tuning and both accepted prayers retained after a verified stopped backup. [Review all three together](docs/M11_COMBINED_REVIEW.md), [implementation contract](docs/M11_COVERED_SCULK_AND_OFFERINGS.md), [Core transactions](docs/CF11_FORGE_WORKSTATION.md) and [exact checks/limits](docs/TEST_PLAN.md). Other [corrections](docs/POST_M12_REVIEW.md) remain sequential. Earlier deployments below are historical.
 
 **Sequential feedback correction, dev.32:** the first correction addresses Hunger/Darkness continuity through jumping and walking over floor veins. [Contact review and separate server](docs/M10_CONTACT_REVIEW.md). The [remaining feedback queue](docs/POST_M12_REVIEW.md) is tracked one item at a time; Altar/Forge workstation screens will receive a dedicated design-agent pass before implementation. Earlier dev.31 ending-review details below describe the preserved prior world.

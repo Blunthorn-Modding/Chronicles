@@ -3,6 +3,7 @@
   "values": [
     "quiet_below:resonance_marker",
     "quiet_below:ancient_forge",
-    "quiet_below:ancient_altar"
+    "quiet_below:ancient_altar",
+    "quiet_below:relic_heart"
   ]
 }

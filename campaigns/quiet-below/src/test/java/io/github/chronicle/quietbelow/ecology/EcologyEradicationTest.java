@@ -59,6 +59,22 @@ class EcologyEradicationTest {
         assertEquals(stone, targets.get(grown.position()).restore());
     }
 
+    @Test void rootProtectionEndsOnlyAfterTheDurableRootReceiptIsObserved() {
+        EcologyEngine.Cell local = cell(new EcologyTerrain.Pos(1, 64, 0), EcologyTerrain.SCULK, EcologyTerrain.AIR, false);
+        EcologyEradication eradication = new EcologyEradication(JOB, ROOT, HEART, List.of(local));
+        EcologyEradication.ChunkPlan plan = eradication.plansForTest().getFirst();
+        assertEquals(ROOT, plan.targets().getFirst().position());
+        assertFalse(eradication.rootComplete());
+
+        EcologyEradication.Marker marker = EcologyEradication.Marker.empty(JOB, plan.identity(), plan.targets().size())
+                .complete(1, false);
+        eradication.observeForTest(plan, marker);
+        assertFalse(eradication.rootComplete(), "later cleanup cannot release the root before its receipt");
+
+        eradication.observeForTest(plan, marker.complete(0, false));
+        assertTrue(eradication.rootComplete());
+    }
+
     @Test void markerRoundTripsImmutableProgressAndChecksum() {
         String plan = "1".repeat(64);
         BitSet done = new BitSet(); done.set(0); done.set(3);

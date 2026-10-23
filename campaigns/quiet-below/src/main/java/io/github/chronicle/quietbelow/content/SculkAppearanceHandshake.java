@@ -14,11 +14,11 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 /**
- * Configuration-phase compatibility gate for the vanilla sculk block-state layout.
+ * Configuration-phase compatibility gate for sculk and campaign block-state layouts.
  * A mismatch must never reach PLAY because numeric block-state palettes would differ.
  */
 public final class SculkAppearanceHandshake {
-    public static final int LAYOUT_VERSION = 1;
+    public static final int LAYOUT_VERSION = 2;
     private static final ServerPlayerConfigurationTask.Key TASK_KEY =
             new ServerPlayerConfigurationTask.Key("quiet_below:sculk_appearance_v1");
 

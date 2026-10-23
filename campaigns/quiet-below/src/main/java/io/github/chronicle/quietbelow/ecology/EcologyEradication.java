@@ -199,6 +199,8 @@ public final class EcologyEradication {
     public int completed() { return completedCount; }
     public int conflicts() { return conflictCount; }
     public int pendingChunks() { return pendingPlanCount; }
+    /** The root stays protected until its durable chunk receipt observes completion. */
+    public boolean rootComplete() { return observedDone.get(0); }
     public String failure() { return failure; }
 
     List<ChunkPlan> plansForTest() { return plans; }

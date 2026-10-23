@@ -100,8 +100,13 @@ def run() -> None:
         _run(w, fabric_smoke, launch, root, reports)
         import shutil
         shutil.copyfile(root / "world" / "heart-cleanup-measured.json", reports / "cleanup-performance.json")
+        pending = json.loads((root / "world" / "heart-pending-proof.json").read_text(encoding="utf-8"))
+        if pending.get("result") != "PASS":
+            raise RuntimeError("Native pre-cleanup root protection did not pass")
+        shutil.copyfile(root / "world" / "heart-pending-proof.json", reports / "pending-root-proof.json")
+        report["pending_root"] = pending
         report["result"] = "PASS"; report["phases"] = [{"phase": "initial", "roles": ["A", "B"]}, {"phase": "restart", "roles": ["A", "B"]}]
-        report["checks"].append("disposable two-player Heart confirmation and restart rehearsal passed")
+        report["checks"].append("disposable two-player physical Heart mining and restart rehearsal passed")
         print("PASS: Relic Heart native smoke; evidence:", reports, flush=True)
     except BaseException as error:
         report["error"] = str(error); raise

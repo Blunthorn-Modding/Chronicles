@@ -1,5 +1,19 @@
 # Bootstrap validation
 
+## Physical Heart - 23 October 2026, dev.42
+
+[Contract and complete evidence/limits](M12_PHYSICAL_HEART.md). Full build29s
+passes355Java (178Core/177QB), no failures/skips;77Python pass. Native
+`python scripts/heart_smoke.py`:153426391119 PASS30A/3B initial,2A/1B restart,
+four proof-driven lens screenshots inspected, real pickaxe/no UI/no drops,
+pre-END-tick root protection, exact runtime-absent fallback, terminal cleanup and
+online/offline bargain removal.4098targets/1025ticks/max4writes/20TPS; synthetic
+4096-cell fixture only. Independent review clear. First153147 run failed an
+obsolete22-food harness assertion, corrected to accepted20food+1.25exhaustion.
+Final exception containment is source-reviewed and full-build tested; native
+fault injection and simultaneous near/far witness audience are not claimed.
+One combined human review follows configuration placement, no standalone pack.
+
 ## Count-rate comparison - 23 October 2026, dev.41
 
 `fix/qb08-count-rate-review`; [contract and matrix](M11_COUNT_RATE_VERIFICATION.md).

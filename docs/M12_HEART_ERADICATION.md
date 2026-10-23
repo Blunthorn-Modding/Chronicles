@@ -1,5 +1,10 @@
 # M12 / QB-13: weakening and destroying the Heart
 
+> 23 October correction: [Physical Heart and lens](M12_PHYSICAL_HEART.md)
+> supersedes the right-click confirmation and binary appearance described below.
+> Weakness, terminal intent and bounded chunk-receipt cleanup remain. Core keeps
+> its reusable confirmation service for other features; the Heart stops using it.
+
 Implementation contract, 22 October 2026. The operator approved the initial rule: fewer living Heart-connected cells than the Established threshold for 60 active seconds. Both threshold and delay are configurable; unresolved or unloaded branches prevent vulnerability.
 
 ## Behavior and ownership
