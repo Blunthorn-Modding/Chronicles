@@ -1,5 +1,8 @@
 # Chronicle work tracking
 
+**24 October functional queue and later polish:** add the Core pause/stop/build-session issue (placement, eating, damage and hunger continue while frozen); inspect VSMP's actual state/build handling before designing the correction. Keep movement/card editing and intentional builder permissions distinct. After main functionality, separately address transient ACTIVE status, optional Editor Debug Mode, Altar-style options presentation and clearer UI copy. [Consolidated follow-up queue](POST_DEV46_FOLLOWUPS.md). Documentation only on23October.
+
+
 **Next CF-14 UI correction, for 24 October:** configure Block limits only through Game setup. Remove the duplicated Locations controls and all placed-block policy links; keep the registry informational, with count/cap and limit-status indicators. [Updated placement design](M12_AUTOMATIC_BLOCK_SITES.md#next-implementation-separate-limits-from-locations). Notes only tonight; include alongside the stronger Heart burst below.
 
 
