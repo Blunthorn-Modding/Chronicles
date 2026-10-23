@@ -1,5 +1,8 @@
 # Chronicle work tracking
 
+**Next QB-13 correction, for 24 October:** operator confirms dev.46 works but requests a much stronger final Heart growth burst: at least a5x5 area of sculk/veins suited to available terrain. [Acceptance criteria](M12_HEART_LAST_STAND.md#next-implementation-stronger-final-burst). Recorded only; implementation and runtime remain unchanged tonight.
+
+
 **Dev.46 correction follow-up:** [Heart last stand](M12_HEART_LAST_STAND.md), [single Regions workflow](M12_REGIONS_WORKFLOW.md), and [automatic block sites/limits](M12_MANAGED_BLOCK_IMPLEMENTATION.md) implement the latest operator corrections. Core owns generic accounting/UI, Quiet Below owns the Heart policy. One [combined review](M12_COMBINED_REVIEW.md) precedes M13; earlier checkpoints below are historical.
 
 

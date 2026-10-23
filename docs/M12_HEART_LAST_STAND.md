@@ -1,5 +1,19 @@
 # Heart last stand
 
+
+## Next implementation: stronger final burst
+
+Operator feedback, 23 October, for implementation on 24 October: dev.46 works, but a single new vein is too weak. Replace the small final growth attempt with a visibly explosive burst covering **at least a 5x5 area** where suitable surfaces exist. Use sculk blocks or veins according to the available blocks and geometry, spreading outward from the Heart rather than placing disconnected decoration.
+
+Acceptance criteria:
+
+- An open fixture with sufficient eligible terrain visibly receives at least a 5x5 patch in the final attempt; a single seed or a count of unsuccessful attempts does not satisfy this.
+- The burst adapts to actual surfaces and available substrate. Retain connected growth, special-block exclusions, journaled restoration, loaded-only access and bounded work. Do not manufacture floating support or cut through a sealed solid shell to meet the area target.
+- Deliver the growth rapidly enough to read as one forceful last stand; it may use a short bounded queue rather than an unbounded synchronous write.
+- Keep the existing sixty-second weakness rule, one direct Warden and persisted ten occupied ACTIVE-minute cooldown. Test reconnect/recut suppression and restart alongside the larger burst.
+
+This is a recorded follow-up, not an installed change. No code, server, world or client-pack update is requested tonight. The behavior below describes the current implementation.
+
 The Heart retains its normal 60 occupied ACTIVE seconds of weakening below the Established threshold. Zero connected sculk still requires the full wait. Incomplete or unloaded proof resets that wait; known pauses preserve it and restart requires a fresh wait. See [the saved-world diagnosis](M12_HEART_DIAGNOSIS.md).
 
 During an eligible weakening phase, the Heart gives local sculk-soul particles and catalyst-like pulses. At five sixths of the wait (50 seconds by default), it makes one bounded final growth attempt and directly summons one Warden if a loaded, clear column with solid footing is available. It never loads chunks, replaces obstacles to fit the creature or retries failed spawning. Peaceful prevents the summon. The Warden has ordinary vanilla behavior and despawning; this event does not advance player warning counters. Campaign shriekers retain their existing vanilla warning rules.
