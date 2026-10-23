@@ -47,6 +47,23 @@ class EcologyHeartEngineTest {
             ticks(e,w,1200,true);assertFalse(e.heartVulnerable(true));assertEquals(0,e.heartElapsed());
         }
     }
+    @Test void removingLastConnectedCellAllowsEmptyNetworkToCompleteDefaultWait()throws Exception {
+        Path file=dir.resolve("empty.jsonl");var w=world();
+        try(var j=new EcologyJournal(file)){
+            var e=ready(j,w);ticks(e,w,40,true);
+            w.blocks.put(SOURCE,AIR);e.observed(SOURCE,AIR);ticks(e,w,1,true);
+            assertTrue(e.cells().isEmpty());assertTrue(e.heartProof(true).complete());
+            assertEquals(0,e.heartProof(true).living());assertFalse(e.heartVulnerable(true));
+        }
+        // Replay the genuinely empty indexed network, not a manually assembled proof.
+        try(var j=new EcologyJournal(file)){
+            var e=new EcologyEngine(j);e.attach(PINS,AREA,ROOT);
+            assertEquals(0,e.heartElapsed());assertFalse(e.heartVulnerable(true));
+            ticks(e,w,1199,true);assertEquals(1199,e.heartElapsed());assertFalse(e.heartVulnerable(true));
+            ticks(e,w,1,true);assertTrue(e.heartVulnerable(true));
+            e.eradicate(UUID.randomUUID(),ROOT,ROOT_STATE,true);assertNotNull(e.ending());
+        }
+    }
     @Test void restartCannotReuseElapsedOrProduceDiscontinuousJournalClocks()throws Exception {
         Path file=dir.resolve("restart.jsonl");var w=world();
         try(var j=new EcologyJournal(file)){var e=ready(j,w);ticks(e,w,1200,true);assertTrue(e.heartVulnerable(true));}
