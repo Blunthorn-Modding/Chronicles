@@ -1,4 +1,12 @@
-# Ancient Forge presentation review - dev.37
+# Ancient Forge - current review status, dev.38
+
+**Presentation hold:** the operator rejected dev.37's layout and recipe/status
+text. Review the new [ritual proposal](M11_FORGE_RITUAL_DESIGN.md) and
+[interactive mockup](design/forge-ritual.html) before runtime implementation.
+The checklist below describes the still-current dev.37 UI, not an approved final
+design. Dev.38 only fixes [station support feeding](M11_STATION_FEEDING.md).
+On the preserved world, the exhausted support needs roughly75 active seconds
+plus assessment time to recover naturally before it powers the Forge again.
 
 Join **127.0.0.1:25589** with the updated [client pack](../../client/Chronicle-M9-1.21.10.mrpack). Reimport/update it in your launcher for the new Forge screen and light behavior. GUI scale2 and the narrator/startup/multiplayer defaults remain included.
 

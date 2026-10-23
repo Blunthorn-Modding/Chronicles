@@ -1,6 +1,6 @@
 # Chronicle work tracking
 
-**Dev.37 Forge presentation:** the operator accepts the transactions. A dedicated design-agent proposal was lead-approved before implementing original Minecraft-style220x212 chrome with horizontal real slots and five replaceable sprites. QB uses off below halfway, kindling from half Established, and sustained active/light12 when powered. Independent review,340Java/70Python and actual native model/light/UI checks pass; [presentation review](M11_FORGE_REVIEW.md) is next. Accepted Altar/ecology remain. Count-rate comparison, physical Heart/lens and configuration placement follow sequentially.
+**Dev.38 station feeding / Forge design review:** fix the supplied station sealing and starving its own living contact; [contract](M11_STATION_FEEDING.md).344Java/70Python, two-client/native aged repeated crafts and independent review pass. Dev.37's UI was rejected; the new [Altar-style ritual proposal](M11_FORGE_RITUAL_DESIGN.md) and [mockup](design/forge-ritual.html) await operator approval BEFORE runtime/animation/salvage changes. Future recipe books belong in loot, replacing the in-menu browser. Count-rate comparison, physical Heart/lens and configuration placement remain sequential.
 
 Updated 22 October 2026. Stable QB/CF IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
 

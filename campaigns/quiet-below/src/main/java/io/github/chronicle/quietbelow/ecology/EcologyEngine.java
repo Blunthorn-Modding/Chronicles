@@ -489,6 +489,16 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             Pos a=localPosition(p,DIRECTIONS[f][0],DIRECTIONS[f][1],DIRECTIONS[f][2]);if(a==null){unknown=true;continue;}
             if(!w.loaded(a)){unknown=true;continue;}State s=w.get(a);
             if(s.air()||(owns(a)&&s.vein()&&!"true".equals(s.properties().get("waterlogged")))){exposed=true;if(w.light(a)>7)return EcologyVitality.Mode.LIT;}
+            else if(w.feedingPassage(a)){
+                // Open station models must not seal their own support. One loaded-only hop
+                // passes ambient air, never station light, sculk connectivity or growth.
+                for(int side=0;side<6;side++){
+                    Pos outlet=localPosition(a,DIRECTIONS[side][0],DIRECTIONS[side][1],DIRECTIONS[side][2]);
+                    if(p.equals(outlet))continue;
+                    if(outlet==null||!w.loaded(outlet)){unknown=true;continue;}
+                    if(w.get(outlet).air()){exposed=true;break;}
+                }
+            }
         }
         return exposed?EcologyVitality.Mode.SHADED:unknown?EcologyVitality.Mode.UNKNOWN:EcologyVitality.Mode.SEALED;
     }

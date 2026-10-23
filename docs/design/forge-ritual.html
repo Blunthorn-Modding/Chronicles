@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ancient Forge ritual mockup</title>
+<style>
+  :root { color-scheme:dark; font-family:monospace; }
+  * { box-sizing:border-box; } body { min-width:max-content; min-height:100vh; margin:0; padding:58px 16px 16px; background:#151515; color:#eee; }
+  .controls { position:fixed; z-index:3; top:10px; left:10px; padding:8px; border:2px solid #666; background:#292929; font-size:14px; }
+  select { margin-left:7px; border:1px solid #999; background:#111; color:#fff; font:inherit; }
+  .canvas { position:relative; width:640px; height:480px; overflow:hidden; background:radial-gradient(circle,#51585d,#282c2e 70%,#111); }
+  .canvas[data-size="1280"] { width:1280px; height:720px; }
+  /* Local review extraction only: ../../../reports/forge-ritual-preview-assets contains pinned vanilla 1.21.10 assets and is deliberately outside Git. Production uses these IDs through DrawContext/item rendering, never these relative paths. */
+  .panel { position:absolute; width:224px; height:176px; transform:scale(2); transform-origin:top left; color:white; font:9px/9px monospace; }
+  .panel::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; border:6px solid transparent;
+    border-image:url('../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/gui/sprites/popup/background.png') 6 fill stretch; }
+  .canvas[data-size="640"] .panel { left:96px; top:64px; }.canvas[data-size="1280"] .panel { left:416px; top:184px; }
+  .title { position:absolute; top:12px; left:0; width:100%; height:9px; text-align:center; }
+  .slot { position:absolute; width:18px; height:18px; padding:1px; border:0; background:transparent url('../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/gui/sprites/container/slot.png') center/18px 18px no-repeat; }
+  .item { display:block; width:16px; height:16px; image-rendering:pixelated; }.input-a{left:48px;top:32px}.input-b{left:158px;top:32px}.outcome{left:104px;top:60px}
+  .bowl { position:absolute; left:102px; top:31px; width:20px; height:20px; padding:2px; cursor:pointer; background:transparent; border:0; }
+  .bowl::before { content:'';position:absolute;inset:0;pointer-events:none;z-index:-1;border:3px solid transparent;
+    border-image:url('../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/gui/sprites/widget/button.png') 3 fill stretch; }
+  .bowl:hover:not(:disabled)::before,.bowl:focus-visible::before { border-image-source:url('../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/gui/sprites/widget/button_highlighted.png'); }.bowl:focus-visible{outline:1px solid white;outline-offset:1px}.bowl:active{filter:brightness(.85)}.bowl:disabled::before{border:1px solid transparent;border-image:url('../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/gui/sprites/widget/button_disabled.png') 1 fill stretch}.bowl:disabled{cursor:default}
+  .inventory,.hotbar{position:absolute;left:31px;display:grid;grid-template-columns:repeat(9,18px);gap:0}.inventory{top:88px;grid-template-rows:repeat(3,18px)}.hotbar{top:146px}.inventory .slot,.hotbar .slot{position:relative;left:auto;top:auto}
+  .panel[data-state="idle"] .input-a .item,.panel[data-state="idle"] .input-b .item{visibility:hidden}.panel[data-state="working"] .input-a,.panel[data-state="working"] .input-b{filter:brightness(.72)}
+  .panel[data-state="staged"] .bowl,.panel[data-state="working"] .bowl{box-shadow:0 0 0 1px #74caca,0 0 4px 1px #4e7982}.panel[data-state="working"] .bowl{animation:breathe 1s steps(3,end) infinite;pointer-events:none}.panel[data-state="success"] .input-a,.panel[data-state="success"] .input-b{visibility:hidden}.panel[data-state="failed"] .input-a,.panel[data-state="failed"] .input-b{visibility:hidden}@keyframes breathe{0%,100%{box-shadow:0 0 0 1px #527b80}50%{box-shadow:0 0 0 2px #9ce0df,0 0 6px 2px #558f8d}}
+  .outcome[data-result="success"]{box-shadow:inset 0 0 0 1px #c878df,0 0 2px #a55cc2}.tooltip{position:absolute;left:126px;top:52px;display:none;padding:3px 5px;background:#130c17;border:1px solid #573a63;color:#fff;z-index:2;white-space:nowrap}.bowl:hover+.tooltip,.bowl:focus+.tooltip{display:block}.bowl:disabled+.tooltip{display:none}.note{max-width:650px;margin-top:10px;color:#bbb;font-size:13px}
+  .panel:is([data-state="success"],[data-state="failed"]) :is(.input-a,.input-b){visibility:visible}
+  .panel:is([data-state="success"],[data-state="failed"]) :is(.input-a,.input-b) .item{visibility:hidden}
+</style>
+</head>
+<body>
+<label class="controls">Canvas <select id="size"><option value="640">640 x 480</option><option value="1280">1280 x 720</option></select> Visual state <select id="state"><option value="idle">Idle</option><option value="staged">Staged</option><option value="working">Working</option><option value="success">Successful result</option><option value="failed">Failed / salvage</option><option value="unavailable">Unavailable</option></select></label>
+<main class="canvas" data-size="640" aria-label="GUI scale 2 Ancient Forge ritual mockup"><section class="panel" data-state="idle" aria-label="Ancient Forge">
+  <canvas class="title" id="title" width="224" height="9" aria-label="Ancient Forge"></canvas>
+  <div class="slot input-a" aria-label="First offering"><img class="item" src="../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/item/iron_sword.png" alt=""></div>
+  <button class="bowl" type="button" aria-label="Offer" title="Offer"><img class="item" src="../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/item/bowl.png" alt=""></button><span class="tooltip">Offer</span>
+  <div class="slot input-b" aria-label="Second offering"><img class="item" src="../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/item/echo_shard.png" alt=""></div>
+  <div class="slot outcome" aria-label="Outcome"><img class="item" id="outcome" alt=""></div>
+  <div class="inventory" aria-label="Player inventory"></div><div class="hotbar" aria-label="Hotbar"></div>
+</section></main>
+<p class="note">Controls are outside the game canvas. The local preview uses extracted native popup, slot and item textures; the actual Forge contains no labels, status prose, recipe listing or hover preview.</p>
+<script>
+  const root='../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/';
+  const items=['item/bread.png','block/torch.png','item/book.png','block/cobblestone.png','item/amethyst_shard.png','item/bow.png','item/leather.png','item/diamond.png','block/oak_log.png'];
+  const canvas=document.querySelector('.canvas'),panel=document.querySelector('.panel'),size=document.querySelector('#size'),state=document.querySelector('#state'),bowl=document.querySelector('.bowl'),outcome=document.querySelector('#outcome');
+  for(const area of document.querySelectorAll('.inventory,.hotbar')){const count=area.classList.contains('hotbar')?9:27;for(let i=0;i<count;i++){const slot=document.createElement('div');slot.className='slot';if(i%3!==2){const image=document.createElement('img');image.className='item';image.src=root+items[i%items.length];image.alt='';slot.append(image);}area.append(slot);}}
+  function render(){const value=state.value;panel.dataset.state=value;bowl.disabled=value!=='staged';const success=value==='success';outcome.parentElement.dataset.result=success?'success':'';outcome.hidden=!success&&value!=='failed';if(!outcome.hidden)outcome.src=root+(success?'item/iron_sword.png':'item/iron_ingot.png');}
+  size.onchange=()=>canvas.dataset.size=size.value;state.onchange=render;bowl.onclick=()=>{if(state.value==='staged'){state.value='working';render();setTimeout(()=>{if(state.value==='working'){state.value='success';render();}},1500);}};
+  const parameters=new URLSearchParams(location.search);if(['640','1280'].includes(parameters.get('size')))size.value=parameters.get('size');if(['idle','staged','working','success','failed','unavailable'].includes(parameters.get('state')))state.value=parameters.get('state');
+  canvas.dataset.size=size.value;
+  // Advances measured from the pinned local ASCII bitmap; no file-origin pixel reads.
+  const advances={'A':6,'n':6,'c':6,'i':2,'e':6,'t':4,' ':4,'F':6,'o':6,'r':6,'g':6};
+  const font=new Image();font.src=root+'font/ascii.png';font.onload=()=>{const ctx=document.querySelector('#title').getContext('2d'),value='Ancient Forge',width=[...value].reduce((sum,char)=>sum+advances[char],0);ctx.imageSmoothingEnabled=false;let left=Math.floor((224-width)/2);for(const char of value){const code=char.charCodeAt(0);ctx.drawImage(font,(code%16)*8,Math.floor(code/16)*8,8,8,left,0,8,8);left+=advances[char];}};render();
+</script>
+</body>
+</html>

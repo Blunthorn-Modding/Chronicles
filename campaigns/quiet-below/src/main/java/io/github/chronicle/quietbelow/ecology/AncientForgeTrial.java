@@ -72,7 +72,7 @@ public final class AncientForgeTrial {
         if (!"true".equals(System.getenv("CHRONICLE_FORGE_NATIVE_TRIAL"))) return;
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("quiet_below_forge_trial").requires(source -> source.hasPermissionLevel(2));
-            for (String verb : List.of("prepare", "ready", "offer", "transactions", "check", "save", "restart", "render", "itemrender", "model_off", "model_kindling", "model_active", "model_cut", "model_reconnect", "model_pause", "model_resume", "model_disable", "model_enable", "model_isolated", "model_adjacent", "model_saturated_pause", "model_check"))
+            for (String verb : List.of("prepare", "ready", "offer", "transactions", "check", "save", "restart", "render", "itemrender", "model_off", "model_kindling", "model_active", "model_cut", "model_reconnect", "model_pause", "model_resume", "model_disable", "model_enable", "model_isolated", "model_adjacent", "model_saturated_pause", "model_check", "feeding_age"))
                 root.then(literal(verb).executes(context -> run(context.getSource(), verb)));
             dispatcher.register(root);
         });
@@ -89,6 +89,7 @@ public final class AncientForgeTrial {
                 case "model_off", "model_kindling", "model_active", "model_cut", "model_reconnect", "model_pause", "model_resume", "model_disable", "model_enable", "model_isolated", "model_adjacent", "model_saturated_pause" -> model(world, player, verb);
                 case "model_check" -> modelCheck(world);
                 case "ready" -> ready(world);
+                case "feeding_age" -> feedingAge(world, player);
                 case "offer" -> offer(world, player);
                 case "transactions" -> transactions(world, player);
                 case "check" -> checkCompleted(world, player);
@@ -136,6 +137,33 @@ public final class AncientForgeTrial {
     }
 
     private static void ready(ServerWorld world) { check(QuietBelowEcology.stationPower(world, FORGE) == null, "Forge is not physically powered: " + QuietBelowEcology.stationPower(world, FORGE)); }
+
+    private static void feedingAge(ServerWorld world, ServerPlayerEntity player) throws Exception {
+        var engine=QuietBelowEcology.engineForTest(world.getServer());var rules=engine.vitality().rules();int speed=engine.speedPercent();
+        BlockPos support=FORGE.down();
+        check(world.getBlockState(support).isOf(Blocks.SCULK),"missing single Forge support");
+        for(Direction direction:Direction.values())if(direction!=Direction.UP)
+            check(!world.getBlockState(support.offset(direction)).isAir(),"support has a direct air outlet; regression invalid");
+        ready(world);
+        var first=staged(world,player,blade(),new ItemStack(Items.ECHO_SHARD));
+        ItemEnchantingRuntime.take(player,take(first,first.view(),0,0));
+        check(sharpness(world,first.getCursorStack())==1,"first real Forge enchant failed");close(player);
+        try {
+            engine.speed(25);engine.tuneVitality(new EcologyVitality.Rules(1,1,rules.extentPreset()));
+            var terrain=new QuietBelowEcology.Adapter(world);
+            // Accelerate ecology time only: this exceeds a full support loss duration.
+            for(int n=0;n<1500;n++){engine.beginTick();engine.tick(terrain,true);}
+            engine.flushVitality();
+            check(engine.vitality().mode(QuietBelowEcology.pos(support))==EcologyVitality.Mode.SHADED,"open Forge sealed or lit its support");
+            check(engine.living(QuietBelowEcology.pos(support)),"Forge starved its own support after one craft");
+            check(engine.vitality().percent(QuietBelowEcology.pos(support))==100,"open Forge support lost vitality");
+            ready(world);
+            var second=staged(world,player,blade(),new ItemStack(Items.ECHO_SHARD));
+            ItemEnchantingRuntime.take(player,take(second,second.view(),0,0));
+            check(sharpness(world,second.getCursorStack())==1,"second real Forge enchant failed after aged support");close(player);
+            check(QuietBelowEcology.stationPower(world,FORGE)==null,"second craft consumed station power");
+        } finally {close(player);engine.tuneVitality(rules);engine.speed(speed);}
+    }
 
     /** Real ecology-driven model changes, not posed heat values. Only disposable native worlds register these commands. */
     private static void model(ServerWorld world, ServerPlayerEntity player, String verb) throws Exception {

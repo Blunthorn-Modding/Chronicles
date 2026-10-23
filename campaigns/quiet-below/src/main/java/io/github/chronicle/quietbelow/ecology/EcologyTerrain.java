@@ -10,6 +10,8 @@ public interface EcologyTerrain {
     boolean substrate(Pos p);
     /** Data-driven special blocks cannot be replaced or acquire new vein faces. */
     default boolean growthExcluded(Pos p) { return false; }
+    /** A supplied open station can pass ambient air to adjacent sculk, never growth or light. */
+    default boolean feedingPassage(Pos p) { return false; }
     int light(Pos p);
     boolean set(Pos p, State state);
 

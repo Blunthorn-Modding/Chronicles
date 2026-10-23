@@ -854,6 +854,7 @@ public final class QuietBelowEcology {
         @Override public boolean solidFace(Pos p,int face){return checked(p).isSideSolidFullSquare(world,blockPos(p),Direction.byId(FACES[face]));}
         @Override public boolean substrate(Pos p){var state=checked(p);return state.isIn(BlockTags.SCULK_REPLACEABLE)&&!state.hasBlockEntity();}
         @Override public boolean growthExcluded(Pos p){return checked(p).isIn(EcologyGrowthExclusions.BLOCKS);}
+        @Override public boolean feedingPassage(Pos p){var state=checked(p);return state.isOf(QuietBelow.ANCIENT_FORGE_BLOCK)||state.isOf(QuietBelow.ANCIENT_ALTAR_BLOCK);}
         @Override public int light(Pos p){checked(p);return world.getLightLevel(blockPos(p));}
         @Override public boolean set(Pos p,State state){
             checked(p);

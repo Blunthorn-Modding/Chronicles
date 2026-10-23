@@ -123,6 +123,7 @@ public final class AncientForgeSmoke {
         delay("settle Forge preparation", 100);
         command("verify Forge fixture ready", "quiet_below_forge_trial ready", "ready");
         readinessModels(client);
+        command("Forge remains powered after a real craft and full support loss duration", "quiet_below_forge_trial feeding_age", "feeding_age");
         command("run Forge real-slot transaction matrix", "quiet_below_forge_trial transactions", "transactions");
         delay("settle transaction matrix", 100);
         command("recheck Forge power and station", "quiet_below_forge_trial ready", "ready");

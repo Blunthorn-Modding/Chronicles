@@ -1,5 +1,69 @@
 # Bootstrap validation
 
+## QB-12 station support feeding / ritual design hold - 23 October 2026, dev.38
+
+Branch `fix/qb12-forge-power-and-ritual-design`, based on dev.37 `21e308c`.
+The operator reports one enchant then persistent UNPOWERED/dark Forge, and rejects
+the UI. This slice fixes only the [station support problem](M11_STATION_FEEDING.md).
+The new [ritual design](M11_FORGE_RITUAL_DESIGN.md) is a dedicated-agent proposal,
+lead-reviewed and awaiting final operator approval before runtime UI changes.
+Core UI/transactions, recipes, caps and salvage behavior remain unchanged.
+
+Evidence: after saving shutdown of the actual review, an isolated journal replay
+and native-region read at `../reports/forge-power-diagnosis` finds support
+`10,64,23` owned/connected but at0 vitality and `SEALED`, with the Forge above
+and five solid/sculk neighbors. All other Forge neighbors are air/unowned.
+The wider loaded replay resolves2,497 connected /2,471 ready cells; no owned
+block IDs disagree with saved terrain. This is elapsed support starvation, not
+ecology consumption in `ItemEnchantingRuntime.take`. Initial tests missed it
+because they did not age the support past its decay interval.
+
+The focused station tests were run before the repair and reproduced the failure.
+Four tests now pass: exposed Forge/Altar retain their only support after1,500
+ticks, buried/ordinary blocks still seal it, unloaded outlets are unknown and
+never read, and exhausted support recovers while physical detachment still wins.
+Bright fixture light still yields SHADED through the station: emitted light is
+not relayed. No unknown/default block becomes an ambient passage.
+
+`python scripts/workspace.py build`: **PASS 344 Java** (177Core /167QB), no
+failures/errors/skips, final26seconds. `python -m unittest discover -s scripts
+-p 'test_*.py' -q`: **70 PASS**. Independent `forge_presentation_review` source
+audit: no material findings. `git diff --check`: PASS. An initial fixture helper
+name typo caused a compile failure and was corrected before native startup.
+
+`python scripts/forge_smoke.py`: **PASS**,
+[native report](../../reports/forge-smoke-20261023T092022069614Z/report.json),
+**76A /2B initial and2A restart steps**. New `feeding_age` performs an actual
+campaign-gated enchant,1,500 accelerated ecology ticks with a one-minute loss
+interval, then a second actual enchant. It asserts SHADED/100%/living support
+and retained power (21fixture checks). This accelerates ecology time, not full
+Minecraft world ticks. Existing85transaction assertions, actual model/light,
+cut/reconnect/isolation, pause/disable, full tracker and saved item recovery pass.
+The earlier death/isolated stop and exhaustive drag/pickup-all hardening gaps
+remain; no broader crash-atomicity claim is added.
+
+Design verification: `python scripts/forge_design_preview.py` extracts25 explicit
+assets from the pinned local Minecraft jar into the external reports folder;
+no upstream bitmap enters Git. HTML parses, and installed headless Edge renders
+both GUI2 canvas sizes and staged/working/success/salvage/unavailable states.
+Lead visual review caught the initial bowl position, border offsets and wide
+font spacing; these were corrected. Native widget/popup/slot/item art and bitmap
+font now supply the local preview. Title advances are measured from the pinned
+bitmap without browser file-origin pixel reads. This is an HTML design proof,
+not a claim that the new UI runs in Minecraft. A new ritual lifecycle, owned
+output, animation and target-consuming salvage still require approval and tests.
+
+Deployment: save-stopped existing authenticated review, CRC/hash backup
+`../backups/forge-pre-dev38.zip`,61 protected world/config/auth files exact during
+jar swap; accepted prayers remain exact. Same25589/voice24469 runs dev.38,
+PAUSED, console71120, no forced chunks/startup errors. Client pack CRC, owned
+jars, default options and official HUD references/notices verified; server
+property values unchanged apart from native header timestamp. Existing exhausted
+support recovers naturally (roughly75 active seconds to25% at current five-minute
+recovery), without resetting vitality/tuning/world. Report:
+`../reports/qb12-station-feeding-deployment.json`. The completed isolated native
+world can be retired; retain reports and the concrete saved-world diagnosis.
+
 ## QB-12 / CF-11 Forge presentation and readiness - 23 October 2026, dev.37
 
 Branch `feat/qb12-forge-readiness-presentation`, based on accepted dev.36
