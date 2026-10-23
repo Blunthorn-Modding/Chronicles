@@ -78,6 +78,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private EcologyHeart.Rules heartRules=EcologyHeart.DEFAULT;
     private int heartElapsed,heartUnflushed;
     private boolean heartNeedsReset;
+    private boolean heartLastEffortSpent;
     private UUID ending;
     private Pos endingRoot;
     private State endingRootState;
@@ -183,13 +184,31 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public boolean heartVulnerable(boolean rootValid){
         return ending==null&&!heartNeedsReset&&heartUnflushed==0&&EcologyHeart.vulnerable(heartRules,heartElapsed,heartProof(rootValid));
     }
-    public void heartTick(boolean rootValid,boolean playing)throws IOException {
-        if(ending!=null||failure!=null||!indexed)return;
+    public EcologyHeart.Transition heartTick(boolean rootValid,boolean playing)throws IOException {
+        if(ending!=null||failure!=null||!indexed)return EcologyHeart.transition(heartRules,heartElapsed(),heartElapsed());
         if(heartNeedsReset){resetHeart();heartNeedsReset=false;}
         int old=heartElapsed(),next=EcologyHeart.nextElapsed(heartRules,old,heartProof(rootValid),playing,1);
-        if(next==0){if(old>0)resetHeart();return;}
+        if(next==0){if(old>0)resetHeart();return EcologyHeart.transition(heartRules,0,0);}
         heartUnflushed=next-heartElapsed;
         if(heartUnflushed>=20||(!playing&&heartUnflushed>0)||next==heartRules.requiredTicks())flushHeart();
+        return EcologyHeart.transition(heartRules,old,next);
+    }
+
+    /**
+     * Makes the Heart's single final growth attempt for this continuous weakness cycle. Normal
+     * living networks reuse the ordinary bounded surface grower. A genuinely empty network may
+     * seed one exposed cell touching the Heart; it never scans or loads beyond that local shell.
+     */
+    public boolean heartLastEffort(EcologyTerrain w,boolean rootValid,EcologyHeart.Transition transition)throws IOException {
+        Objects.requireNonNull(w);Objects.requireNonNull(transition);
+        boolean authenticCrossing=EcologyHeart.transition(heartRules,transition.previous(),transition.current()).lastEffort();
+        if(heartLastEffortSpent||!transition.lastEffort()||!authenticCrossing||transition.current()!=heartElapsed()||writes>=MAX_WRITES)return false;
+        EcologyHeart.Proof proof=heartProof(rootValid);
+        if(!EcologyHeart.eligible(heartRules,proof)||heartElapsed()>=heartRules.requiredTicks())return false;
+        heartLastEffortSpent=true;
+        int before=writes;
+        if(proof.living()==0)seedFromHeart(w);else grow(w);
+        return writes>before;
     }
     public void flushHeart()throws IOException {
         if(ending==null&&failure==null&&heartUnflushed>0){
@@ -197,7 +216,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         }
     }
     private void resetHeart()throws IOException {
-        heartUnflushed=0;heartNeedsReset=false;if(heartElapsed>0){JsonObject p=new JsonObject();p.addProperty("elapsed",0);record("HEART_CLOCK",p);}
+        heartUnflushed=0;heartNeedsReset=false;heartLastEffortSpent=false;if(heartElapsed>0){JsonObject p=new JsonObject();p.addProperty("elapsed",0);record("HEART_CLOCK",p);}
     }
     public void tuneHeart(EcologyHeart.Rules rules)throws IOException {
         healthy();requireSetup();if(!indexed)throw new IllegalStateException("Complete source indexing first");
@@ -640,6 +659,37 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             }
         }
     }
+    /** Empty-network fallback for the Heart's one final effort. Fixed local work: six adjacent
+     * candidates, each with at most six exposure/backing checks, and at most one terrain write. */
+    private void seedFromHeart(EcologyTerrain w)throws IOException {
+        if(heart==null||!w.loaded(heart)||cells.size()>=MAX_CELLS)return;
+        for(int direction=0;direction<6&&writes<MAX_WRITES;direction++){
+            Pos candidate=heart.offset(direction);
+            if(!w.loaded(candidate)||w.growthExcluded(candidate))continue;
+            State original=w.get(candidate);
+            if(original.network())continue;
+            if(w.substrate(candidate)){
+                for(int face=0;face<6;face++){
+                    Pos exposed=candidate.offset(face);
+                    if(exposed.equals(heart)||!w.loaded(exposed)||!w.get(exposed).air())continue;
+                    if(EcologyTerrain.connected(heart,SCULK,candidate,SCULK))change(w,candidate,original,SCULK,List.of(exposed));
+                    return;
+                }
+            }else if(original.air()){
+                for(int face=0;face<6;face++){
+                    Pos backing=candidate.offset(face);
+                    if(backing.equals(heart)||!w.loaded(backing)||w.growthExcluded(backing))continue;
+                    State backingState=w.get(backing);
+                    if(backingState.network()||!w.solidFace(backing,face^1))continue;
+                    State vein=EcologyTerrain.vein(face);
+                    if(EcologyTerrain.connected(heart,SCULK,candidate,vein)){
+                        change(w,candidate,original,vein,List.of(candidate));
+                        return;
+                    }
+                }
+            }
+        }
+    }
     private static void shuffle(SplittableRandom random,int[] values) {
         for(int i=values.length-1;i>0;i--){int j=random.nextInt(i+1),v=values[i];values[i]=values[j];values[j]=v;}
     }
@@ -884,7 +934,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             case "MODE" -> { requireSetup();keys(p,"enabled");boolean on=bool(p,"enabled");if(on&&(!indexed||cells.isEmpty())) throw bad("Enabled incomplete network");enabled=on;controlRevision++; }
             case "CLEANUP_MODE" -> {cleanup=bool(p,"enabled");controlRevision++;}
             case "SPEED" -> {speedPercent=integer(p,"percent");controlRevision++;}
-            case "HEART_RULES" -> {heartRules=parseHeartRules(p);heartElapsed=0;heartNeedsReset=false;controlRevision++;}
+            case "HEART_RULES" -> {heartRules=parseHeartRules(p);heartElapsed=0;heartNeedsReset=false;heartLastEffortSpent=false;controlRevision++;}
             case "HEART_CLOCK" -> {heartElapsed=integer(p,"elapsed");controlRevision++;}
             case "HEART_END" -> applyEnding(p);
             case "SPREAD_RULES" -> {spreadRules=spreadRules(p);controlRevision++;}

@@ -29,6 +29,13 @@ public final class EcologyHeart {
 
     public static final Rules DEFAULT = new Rules(0, 60);
 
+    /** A pure description of one weakness-clock step. */
+    public record Transition(int previous, int current, boolean pulse, boolean lastEffort) {
+        public Transition {
+            if (previous < 0 || current < previous) throw new IllegalArgumentException("Invalid Heart clock transition");
+        }
+    }
+
     /** Complete means every relevant branch is resolved and loaded for this proof. */
     public record Proof(boolean complete, boolean rootValid, int living, int established) {
         public Proof {
@@ -64,7 +71,29 @@ public final class EcologyHeart {
         return eligible(rules, proof) && elapsed >= rules.requiredTicks();
     }
 
-    private static boolean eligible(Rules rules, Proof proof) {
+    /**
+     * Weakening signals cross a bounded set of clock milestones. The regular pulse is at most
+     * once per active second for very short configured delays and six times for the default wait.
+     */
+    public static Transition transition(Rules rules, int previous, int current) {
+        Objects.requireNonNull(rules, "Heart rules");
+        validateElapsed(rules, previous);
+        validateElapsed(rules, current);
+        if (current < previous) throw new IllegalArgumentException("Heart clock cannot move backwards within a transition");
+        int interval = Math.max(20, rules.requiredTicks() / 6);
+        boolean pulse = current > previous && (current / interval > previous / interval
+                || current == rules.requiredTicks());
+        int effort = lastEffortTick(rules);
+        return new Transition(previous, current, pulse, previous < effort && current >= effort);
+    }
+
+    /** Five sixths of the configured active-play wait: 50 seconds for the default rules. */
+    public static int lastEffortTick(Rules rules) {
+        Objects.requireNonNull(rules, "Heart rules");
+        return Math.max(1, rules.requiredTicks() * 5 / 6);
+    }
+
+    static boolean eligible(Rules rules, Proof proof) {
         return proof.complete() && proof.rootValid() && proof.living() < rules.threshold(proof.established());
     }
 

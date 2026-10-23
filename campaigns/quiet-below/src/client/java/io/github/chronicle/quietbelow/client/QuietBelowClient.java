@@ -21,6 +21,7 @@ public final class QuietBelowClient implements ClientModInitializer {
         AncientAltarSmoke.register();
         EcologyHeartSmoke.register();
         EcologyHeartReproSmoke.register();
+        EcologyHeartDefianceSmoke.register();
         QuietBelowRecoverySmoke.register();
         QuietBelowCostsSmoke.register();
         QuietBelowCitySmoke.register();

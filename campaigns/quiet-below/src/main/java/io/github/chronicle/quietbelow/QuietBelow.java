@@ -93,6 +93,7 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        io.github.chronicle.quietbelow.ecology.EcologyHeartDefianceTrial.register();
         io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
                 new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));
         io.github.chronicle.quietbelow.content.SculkAppearanceHandshake.register();
