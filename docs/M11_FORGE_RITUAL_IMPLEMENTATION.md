@@ -1,5 +1,9 @@
 # Sequential Forge implementation - dev.39
 
+Dev.40 [offering corrections](M11_COVERED_SCULK_AND_OFFERINGS.md) supersede the
+whole-stack, invalid-pair and maxed-pair behavior below; the layout remains approved.
+The current [Core contract](CF11_FORGE_WORKSTATION.md) is authoritative.
+
 The operator approves the revised ritual layout on23 October2026. This replaces
 the design-only hold for the screen and sequential offering flow. The approved
 [design](M11_FORGE_RITUAL_DESIGN.md) and [mockup](design/forge-ritual.html) define

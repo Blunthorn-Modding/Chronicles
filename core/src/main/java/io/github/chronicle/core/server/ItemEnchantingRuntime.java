@@ -86,10 +86,11 @@ public final class ItemEnchantingRuntime {
     private static void reload(MinecraftServer server,Runtime r)throws Exception{
         try{var next=r.config.loadOrCreate(List.copyOf(CATALOG.recipes().values()));validate(server,next);r.recipes=List.copyOf(next);r.failure=null;r.revision++;
             ChronicleCore.LOGGER.info("Ingredient enchanting ready: {} configured recipes",next.size());
-        }catch(Exception error){r.failure="Recipes unavailable; repair ingredient-enchantments.json and reload.";r.revision++;throw error;}
+        }catch(Exception error){r.failure="Recipes unavailable: "+(error.getMessage()==null?"repair ingredient-enchantments.json and reload":error.getMessage());r.revision++;throw error;}
         finally{for(var b:List.copyOf(r.open.values()))refresh(b.handler.owner(),b.handler,true);}
     }
     private static void validate(MinecraftServer server,List<IngredientEnchantmentRecipe> recipes){
+        validateSingleItemRecipes(recipes);
         Set<String> groups=new HashSet<>();CATALOG.recipes().values().forEach(r->groups.add(r.group()));
         var enchantments=server.getRegistryManager().getOrThrow(RegistryKeys.ENCHANTMENT);
         for(var recipe:recipes){
@@ -97,6 +98,10 @@ public final class ItemEnchantingRuntime {
             if(!Registries.ITEM.containsId(Identifier.of(recipe.ingredient()))||Identifier.of(recipe.ingredient()).equals(Identifier.ofVanilla("air")))throw new IllegalArgumentException("Unknown/non-item ingredient: "+recipe.ingredient());
             if(!enchantments.containsId(Identifier.of(recipe.enchantment())))throw new IllegalArgumentException("Unknown recipe enchantment: "+recipe.enchantment());
         }
+    }
+    static void validateSingleItemRecipes(List<IngredientEnchantmentRecipe> recipes){
+        for(var recipe:recipes)if(recipe.enabled()&&recipe.count()!=1)
+            throw new IllegalArgumentException("Enabled workshop recipe "+recipe.id()+" must use the single-item ingredient count of 1");
     }
     private static Runtime runtime(MinecraftServer server){
         if(!server.isOnThread())throw new IllegalStateException("Workshop requires server thread");var r=SERVERS.get(server);if(r==null)throw new IllegalStateException("Ingredient enchanting not initialized");return r;
@@ -153,7 +158,7 @@ public final class ItemEnchantingRuntime {
         sync(actor,b,available,force);
     }
     private static void sync(ServerPlayerEntity actor,Binding b,boolean available,boolean force){
-        var handler=b.handler;boolean offerable=available&&(b.phase==Phase.EMPTY||b.phase==Phase.OFFERED)&&!handler.entry().isEmpty()&&handler.output().isEmpty();
+        var handler=b.handler;boolean offerable=available&&(b.phase==Phase.EMPTY||b.phase==Phase.OFFERED)&&singleEntry(handler)&&handler.output().isEmpty();
         boolean expired=System.nanoTime()-b.tokenCreated>=ACTION_NANOS;
         boolean entryChanged=!ItemStack.areEqual(b.observedEntry,handler.entry());
         var old=handler.view();
@@ -172,15 +177,17 @@ public final class ItemEnchantingRuntime {
                 ||System.nanoTime()-b.tokenCreated>=ACTION_NANOS||!view.available()||!view.offerable())return;
         var policy=EnchantmentCapRuntime.policy(server);
         if(b.phase==Phase.EMPTY){
-            ItemStack offered=removeEntry(b.handler);if(offered.isEmpty())return;
+            ItemStack offered=removeSingleEntry(b.handler);if(offered.isEmpty())return;
             b.first=offered;b.firstSnapshot=offered.copy();b.transactionRevision=r.revision;b.transactionPolicy=policy;b.phase=Phase.OFFERED;
             sync(actor,b,true,true);return;
         }
         if(b.phase!=Phase.OFFERED||r.revision!=b.transactionRevision||!policy.equals(b.transactionPolicy)){recoverAll(actor,b);b.phase=Phase.EMPTY;sync(actor,b,view.available(),true);return;}
-        ItemStack offered=removeEntry(b.handler);if(offered.isEmpty())return;
+        ItemStack offered=removeSingleEntry(b.handler);if(offered.isEmpty())return;
         b.second=offered;b.secondSnapshot=offered.copy();b.deadlineTick=(long)server.getTicks()+WORK_TICKS;b.phase=Phase.WORKING;sync(actor,b,true,true);
     }
-    private static ItemStack removeEntry(ItemEnchantingScreenHandler handler){
+    private static boolean singleEntry(ItemEnchantingScreenHandler handler){return !handler.entry().isEmpty()&&handler.entry().getCount()==1;}
+    private static ItemStack removeSingleEntry(ItemEnchantingScreenHandler handler){
+        if(!singleEntry(handler))return ItemStack.EMPTY;
         ItemStack[] offered={ItemStack.EMPTY};handler.mutate(()->offered[0]=handler.takeEntry());return offered[0];
     }
 
@@ -193,8 +200,10 @@ public final class ItemEnchantingRuntime {
         Proposal direct=proposal(server,r,b.group,b.first,b.second,policy,1,2);
         Proposal reverse=proposal(server,r,b.group,b.second,b.first,policy,2,1);
         Selection selection=select(direct,reverse);
+        if(selection==Selection.NONE){clearPrivate(b);b.phase=Phase.EMPTY;sync(actor,b,true,true);return;}
+        if(selection==Selection.AMBIGUOUS){recoverPrivate(actor,b);b.phase=Phase.EMPTY;sync(actor,b,true,true);return;}
         Proposal accepted=selection==Selection.FIRST?direct:selection==Selection.SECOND?reverse:null;
-        if(accepted==null){recoverPrivate(actor,b);b.phase=Phase.EMPTY;sync(actor,b,true,true);return;}
+        if(accepted==null)throw new IllegalStateException("Workshop selection lost its proposal");
 
         ItemStack firstRemainder=remainder(b.first,accepted.consumeFirst),secondRemainder=remainder(b.second,accepted.consumeSecond);
         ItemStack result=accepted.output.copy();clearPrivate(b);
@@ -205,17 +214,17 @@ public final class ItemEnchantingRuntime {
     }
 
     private static Proposal proposal(MinecraftServer server,Runtime runtime,String group,ItemStack target,ItemStack material,EnchantmentCaps policy,int targetPosition,int materialPosition){
-        if(target.isEmpty()||target.getCount()!=1||material.isEmpty())return null;
+        if(target.isEmpty()||target.getCount()!=1||material.isEmpty()||material.getCount()!=1)return null;
         String item=Registries.ITEM.getId(material.getItem()).toString();
         var recipe=runtime.recipes.stream().filter(v->v.enabled()&&v.group().equals(group)&&v.ingredient().equals(item)).findFirst().orElse(null);
-        if(recipe==null||material.getCount()<recipe.count())return null;
+        if(recipe==null||recipe.count()!=1)return null;
         var enchant=enchantment(server,recipe.enchantment());boolean book=target.isOf(Items.BOOK)||target.isOf(Items.ENCHANTED_BOOK);
         if(!book&&!enchant.value().isAcceptableItem(target))return null;
         int level=Math.min(recipe.level(),policy.cap(recipe.enchantment(),enchant.value().getMaxLevel()));
         var type=book?DataComponentTypes.STORED_ENCHANTMENTS:DataComponentTypes.ENCHANTMENTS;var old=target.getOrDefault(type,ItemEnchantmentsComponent.DEFAULT);
-        if(old.getLevel(enchant)>=level)return null;
         for(var component:List.of(target.getOrDefault(DataComponentTypes.ENCHANTMENTS,ItemEnchantmentsComponent.DEFAULT),target.getOrDefault(DataComponentTypes.STORED_ENCHANTMENTS,ItemEnchantmentsComponent.DEFAULT)))
             for(var existing:component.getEnchantments())if(!existing.equals(enchant)&&!Enchantment.canBeCombined(existing,enchant))return null;
+        if(old.getLevel(enchant)>=level)return new Proposal(target.copy(),1,1);
         ItemStack output=target.isOf(Items.BOOK)?target.copyComponentsToNewStack(Items.ENCHANTED_BOOK,1):target.copy();
         var builder=new ItemEnchantmentsComponent.Builder(old);builder.set(enchant,level);output.set(type,builder.build());EnchantmentStacks.normalize(output,policy);
         int consumeFirst=targetPosition==1?1:recipe.count(),consumeSecond=materialPosition==2?recipe.count():1;
@@ -245,7 +254,7 @@ public final class ItemEnchantingRuntime {
     private static boolean hasPrivate(Binding b){return !b.first.isEmpty()||!b.second.isEmpty();}
     private static boolean privateIntact(Binding b){return !b.first.isEmpty()&&!b.second.isEmpty()&&ItemStack.areEqual(b.first,b.firstSnapshot)&&ItemStack.areEqual(b.second,b.secondSnapshot);}
     private static void recoverAll(ServerPlayerEntity actor,Binding b){
-        ItemStack entry=removeEntry(b.handler);recoverPrivate(actor,b);returnStack(actor,entry);
+        ItemStack[] entry={ItemStack.EMPTY};b.handler.mutate(()->entry[0]=b.handler.takeEntry());recoverPrivate(actor,b);returnStack(actor,entry[0]);
     }
     private static void recoverPrivate(ServerPlayerEntity actor,Binding b){
         ItemStack first=b.first.copy(),second=b.second.copy();clearPrivate(b);returnStack(actor,first);returnStack(actor,second);

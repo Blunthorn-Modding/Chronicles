@@ -38,6 +38,8 @@ public final class ItemEnchantingScreenHandler extends ScreenHandler {
         addSlot(new Slot(entry,0,ENTRY_X,ENTRY_Y){
             @Override public boolean canInsert(ItemStack stack){return canStage();}
             @Override public boolean canTakeItems(PlayerEntity player){return phase()!=ItemEnchantingPayloads.Phase.WORKING;}
+            @Override public int getMaxItemCount(){return 1;}
+            @Override public int getMaxItemCount(ItemStack stack){return 1;}
         });
         addSlot(new Slot(output,0,OUTPUT_X,OUTPUT_Y){
             @Override public boolean canInsert(ItemStack stack){return false;}
@@ -90,7 +92,9 @@ public final class ItemEnchantingScreenHandler extends ScreenHandler {
         Slot slot=slots.get(index);if(!slot.hasStack())return ItemStack.EMPTY;
         ItemStack stack=slot.getStack(),copy=stack.copy();
         if(index==ENTRY_SLOT||index==OUTPUT_SLOT){if(!insertItem(stack,PLAYER_START,PLAYER_END,true))return ItemStack.EMPTY;}
-        else if(canStage()&&!getSlot(ENTRY_SLOT).hasStack()&&insertItem(stack,ENTRY_SLOT,ENTRY_SLOT+1,false)){ }
+        else if(canStage()){
+            if(getSlot(ENTRY_SLOT).hasStack()||!insertItem(stack,ENTRY_SLOT,ENTRY_SLOT+1,false))return ItemStack.EMPTY;
+        }
         else if(index<29){if(!insertItem(stack,29,PLAYER_END,false))return ItemStack.EMPTY;}
         else if(!insertItem(stack,PLAYER_START,29,false))return ItemStack.EMPTY;
         if(stack.isEmpty())slot.setStack(ItemStack.EMPTY);else slot.markDirty();slot.onTakeItem(player,stack);return copy;

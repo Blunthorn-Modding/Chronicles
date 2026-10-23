@@ -112,10 +112,14 @@ public final class AncientForgeSmoke {
             command("restart saved Forge state", "quiet_below_forge_trial restart", "restart");
             step("client receives dormant Forge state after restart",()->{},()->{
                 var state=client.world.getBlockState(new net.minecraft.util.math.BlockPos(2,65,3));
+                modelObservation=" [restart: "+state+", luminance="+state.getLuminance()+", block light="+client.world.getLightLevel(net.minecraft.world.LightType.BLOCK,new net.minecraft.util.math.BlockPos(2,66,3))+"]";
                 return state.isOf(io.github.chronicle.quietbelow.QuietBelow.ANCIENT_FORGE_BLOCK)
                         &&state.get(io.github.chronicle.quietbelow.content.AncientForgeBlock.HEAT)==0
                         &&state.getLuminance()==0
-                        &&client.world.getLightLevel(net.minecraft.world.LightType.BLOCK,new net.minecraft.util.math.BlockPos(2,66,3))==0;
+                        // Native ecology may grow a luminous catalyst nearby. Its ambient
+                        // light is legitimate; a still-emitting Forge would yield 11 here.
+                        &&client.world.getLightLevel(net.minecraft.world.LightType.BLOCK,new net.minecraft.util.math.BlockPos(2,66,3))
+                            <=net.minecraft.block.Blocks.SCULK_CATALYST.getDefaultState().getLuminance();
             },20_000);return;
         }
         step("wait for passive Forge account", () -> { }, () -> Files.isRegularFile(readyMarker), 30_000);
@@ -142,11 +146,20 @@ public final class AncientForgeSmoke {
         step("resize Forge workshop to 1280x720", () -> client.getWindow().setWindowedSize(1280, 720), () -> client.getWindow().getFramebufferWidth() == 1280 && client.getWindow().getFramebufferHeight() == 720, 10_000);
         screenshot("capture Forge workshop at 1280x720", client, "forge-workshop-1280x720.png");
         resourcePack(client);
+        step("pick up the shard stack with an ordinary native click", () -> clickSlot((ItemEnchantingScreen)client.currentScreen,30), () -> client.currentScreen instanceof ItemEnchantingScreen screen
+                && screen.getScreenHandler().getCursorStack().getCount()==3,10_000);
+        step("ordinary entry click admits just one shard", () -> clickSlot((ItemEnchantingScreen)client.currentScreen,ItemEnchantingScreenHandler.ENTRY_SLOT), () -> client.currentScreen instanceof ItemEnchantingScreen screen
+                && screen.getScreenHandler().entry().getCount()==1&&screen.getScreenHandler().getCursorStack().getCount()==2,10_000);
+        step("return unoffered cursor shards to their original slot", () -> clickSlot((ItemEnchantingScreen)client.currentScreen,30), () -> client.currentScreen instanceof ItemEnchantingScreen screen
+                && screen.getScreenHandler().getCursorStack().isEmpty()&&screen.getScreenHandler().getSlot(30).getStack().getCount()==2,10_000);
+        step("recover the single staged shard without offering it", () -> {
+            var screen=(ItemEnchantingScreen)client.currentScreen;client.interactionManager.clickSlot(screen.getScreenHandler().syncId,ItemEnchantingScreenHandler.ENTRY_SLOT,0,net.minecraft.screen.slot.SlotActionType.QUICK_MOVE,client.player);
+        }, () -> client.currentScreen instanceof ItemEnchantingScreen screen&&screen.getScreenHandler().entry().isEmpty()&&screen.getScreenHandler().getSlot(30).getStack().getCount()==3,10_000);
         step("stage first offering through a native entry shift-click", () -> {
             var screen = (ItemEnchantingScreen) client.currentScreen;
             client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 29, 0, net.minecraft.screen.slot.SlotActionType.QUICK_MOVE, client.player);
         }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
-                && !screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.ENTRY_SLOT).getStack().isEmpty(), 20_000);
+                && screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.ENTRY_SLOT).getStack().getCount()==1, 20_000);
         screenshot("capture Forge first offering at 1280x720", client, "forge-first-staged-1280x720.png");
         step("offer first stack through actual Forge hotspot", () -> clickForge((ItemEnchantingScreen) client.currentScreen), () -> client.currentScreen instanceof ItemEnchantingScreen screen
                 && !screen.pending() && screen.state().phase() == io.github.chronicle.core.network.ItemEnchantingPayloads.Phase.OFFERED
@@ -156,7 +169,8 @@ public final class AncientForgeSmoke {
             var screen = (ItemEnchantingScreen) client.currentScreen;
             client.interactionManager.clickSlot(screen.getScreenHandler().syncId, 30, 0, net.minecraft.screen.slot.SlotActionType.QUICK_MOVE, client.player);
         }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
-                && !screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.ENTRY_SLOT).getStack().isEmpty(), 20_000);
+                && screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.ENTRY_SLOT).getStack().getCount()==1
+                && screen.getScreenHandler().getSlot(30).getStack().getCount()==2, 20_000);
         step("offer second stack through actual Forge hotspot", () -> clickForge((ItemEnchantingScreen) client.currentScreen), () -> client.currentScreen instanceof ItemEnchantingScreen screen
                 && !screen.pending() && screen.state().phase() == io.github.chronicle.core.network.ItemEnchantingPayloads.Phase.WORKING
                 && screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.ENTRY_SLOT).getStack().isEmpty(), 20_000);
@@ -182,23 +196,28 @@ public final class AncientForgeSmoke {
         delay("allow physical sculk reconnection to be certified",20);
         command("recheck aged real ecology after a completed Forge ritual", "quiet_below_forge_trial feeding_age", "feeding_age");
         command("begin invalid sequential Forge pair", "quiet_below_forge_trial invalid_begin", "invalid_begin");
-        step("await invalid pair recovery after actual ritual ticks", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
+        step("await invalid pair consumption after actual ritual ticks", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
                 && screen.state().phase() == io.github.chronicle.core.network.ItemEnchantingPayloads.Phase.EMPTY
                 && screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.ENTRY_SLOT).getStack().isEmpty(), 15_000);
-        command("check invalid pair conservation", "quiet_below_forge_trial invalid_check", "invalid_check");
+        command("check invalid pair disappearance", "quiet_below_forge_trial invalid_check", "invalid_check");
         command("begin maxed sequential Forge pair", "quiet_below_forge_trial maxed_begin", "maxed_begin");
-        step("await maxed pair recovery after actual ritual ticks", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
-                && screen.state().phase() == io.github.chronicle.core.network.ItemEnchantingPayloads.Phase.EMPTY
-                && screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.ENTRY_SLOT).getStack().isEmpty(), 15_000);
-        command("check maxed pair conservation", "quiet_below_forge_trial maxed_check", "maxed_check");
-        command("begin reverse-order stack-three Forge pair", "quiet_below_forge_trial reverse_begin", "reverse_begin");
+        step("await unchanged owned equipment for a maxed pair", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
+                && screen.state().phase() == io.github.chronicle.core.network.ItemEnchantingPayloads.Phase.RESULT
+                && !screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.OUTPUT_SLOT).getStack().isEmpty(), 15_000);
+        command("check maxed equipment return and ingredient consumption", "quiet_below_forge_trial maxed_check", "maxed_check");
+        command("begin reversed maxed pair", "quiet_below_forge_trial maxed_reverse_begin", "maxed_reverse_begin");
+        step("await unchanged owned equipment for reversed maxed pair", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
+                && screen.state().phase() == io.github.chronicle.core.network.ItemEnchantingPayloads.Phase.RESULT
+                && !screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.OUTPUT_SLOT).getStack().isEmpty(),15_000);
+        command("check reversed maxed equipment and ingredient consumption", "quiet_below_forge_trial maxed_check", "maxed_check");
+        command("begin reverse-order single offerings with two unoffered shards", "quiet_below_forge_trial reverse_begin", "reverse_begin");
         step("await reverse-order real Forge resolution", () -> { }, () -> client.currentScreen instanceof ItemEnchantingScreen screen
                 && screen.state().phase() == io.github.chronicle.core.network.ItemEnchantingPayloads.Phase.RESULT
                 && !screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.OUTPUT_SLOT).getStack().isEmpty(), 15_000);
         step("collect reverse-order owned output natively", () -> {
             var screen=(ItemEnchantingScreen)client.currentScreen;var click=slotClick(screen,ItemEnchantingScreenHandler.OUTPUT_SLOT);require(screen.mouseClicked(click,false),"reverse output click unhandled");screen.mouseReleased(click);
         }, () -> client.currentScreen instanceof ItemEnchantingScreen screen && screen.getScreenHandler().getSlot(ItemEnchantingScreenHandler.OUTPUT_SLOT).getStack().isEmpty()&&!screen.getScreenHandler().getCursorStack().isEmpty(), 10_000);
-        command("check reverse order and exact shard remainder", "quiet_below_forge_trial reverse_check", "reverse_check");
+        command("check reverse order and unchanged unoffered inventory shards", "quiet_below_forge_trial reverse_check", "reverse_check");
         step("close recovered Forge", () -> ((ItemEnchantingScreen) client.currentScreen).close(), () -> client.currentScreen == null, 5_000);
         command("begin owned-output close recovery", "quiet_below_forge_trial owned_close_begin", "owned_close_begin");
         delay("wait forty actual ticks for the owned-output close case",40);
@@ -331,6 +350,9 @@ public final class AncientForgeSmoke {
         var slot = screen.getScreenHandler().getSlot(index);
         return new net.minecraft.client.gui.Click((screen.width - ItemEnchantingScreenHandler.WIDTH) / 2 + slot.x + 8,
                 (screen.height - ItemEnchantingScreenHandler.HEIGHT) / 2 + slot.y + 8, new net.minecraft.client.input.MouseInput(0, 0));
+    }
+    private static void clickSlot(ItemEnchantingScreen screen,int index){
+        var click=slotClick(screen,index);require(screen.mouseClicked(click,false),"ordinary slot click was unhandled");screen.mouseReleased(click);
     }
 
     /** Exercises the rendered Forge affordance; it deliberately does not call the test-only Offer helper. */

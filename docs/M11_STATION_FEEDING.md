@@ -1,5 +1,10 @@
 # Forge and Altar support feeding - dev.38
 
+Dev.40 additionally nourishes covered sculk through directly joined, certified
+Heart-connected sculk, including fully enclosed station support and interiors.
+See [the correction contract](M11_COVERED_SCULK_AND_OFFERINGS.md). The original
+one-hop open-station rule below remains, but covered connected support no longer drains.
+
 The operator reported that one enchant worked, then the Forge became unpowered.
 The saved review world supplies the reproduction: Forge `(10,65,23)` has exactly
 one adjacent campaign sculk cell, below it at `(10,64,23)`. That cell is still

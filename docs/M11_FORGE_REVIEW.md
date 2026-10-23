@@ -1,4 +1,4 @@
-# Ancient Forge - ritual review, dev.39
+# Ancient Forge - ritual review, dev.40
 
 The operator approved the [design](M11_FORGE_RITUAL_DESIGN.md). This replaces the
 old horizontal Target/Material/Result screen and recipe browser. The review
@@ -10,8 +10,10 @@ and exact automated evidence are recorded in the newest [TEST_PLAN](TEST_PLAN.md
 The supplied Forge is **10,65,23**, beside the accepted Altar. Materials are in
 the barrel at **11,65,25**. Use `/tp @s 10.5 65 26.5` if needed. Preserve the same
 world, tuning and accepted prayers. The exhausted support from the previous
-review may need roughly 75 active seconds plus assessment time to recover;
-[station support feeding](M11_STATION_FEEDING.md) fixes its previous self-sealing.
+review may need roughly 75 active seconds plus assessment time to recover.
+Covered sculk now stays nourished through directly joined Heart-connected
+sculk, including beneath stations and other sculk. Detachment still stops growth
+and drains vitality; reconnecting allows natural recovery from zero.
 
 1. Join participation (`/chronicle join`), use Survival or Adventure, turn editing
    off and resume using Session. Right-click the Forge once the network settles.
@@ -26,9 +28,11 @@ review may need roughly 75 active seconds plus assessment time to recover;
    labels, power/status paragraphs or Recipes button.
 4. Try amethyst -> Unbreaking I, prismarine -> Protection I, flint -> Power I,
    feather -> Feather Falling I, or a plain book. One configured ingredient is
-   consumed; the remainder returns. Incompatible/already-maxed combinations
-   return unchanged after the same brief ritual. Destructive salvage is pending
-   a separate decision; future discovery books belong in loot.
+   consumed. Only one item enters the slot: shift-clicking a stack leaves the
+   rest in its inventory slot. Wrong pairs such as bone + arrow disappear after
+   the same brief ritual. For a valid pair at its enchantment limit, only the
+   unchanged equipment comes back; the ingredient is consumed. Try both orders.
+   Future discovery books belong in loot.
 5. Close after one offering or during work: all inputs must return once. Pause
    or disconnect the network before completion: input recovery must remain
    safe. After completion, a power loss must leave the owned result collectable.

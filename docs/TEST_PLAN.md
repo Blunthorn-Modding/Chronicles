@@ -1,5 +1,89 @@
 # Bootstrap validation
 
+## Covered sculk, client defaults and Forge offerings - 23 October 2026, dev.40
+
+Branch `fix/qb12-client-feeding-offerings`, based `4f881e1`. All three slices
+were implemented sequentially and independently reviewed, then deployed as one
+combined pack/server. [Contract](M11_COVERED_SCULK_AND_OFFERINGS.md),
+[combined human review](M11_COMBINED_REVIEW.md).
+
+- `python scripts/workspace.py build`: PASS, final 24 seconds; 178 Core cases
+  (177 pass, one existing Windows symbolic-link assumption skip), 172 Quiet
+  Below cases pass. No failed/error cases. The covered 3D regression first failed
+  SEALED instead of SHADED, then passed; detached/isolated/unloaded behavior,
+  physical reconnection from zero/restart, bright LIT priority and bounded
+  read/projection checks remain. Temporary-directory AccessDenied failures in an
+  earlier sandboxed campaign run passed with normal filesystem access.
+- `python -m unittest discover -s scripts -p 'test_*.py' -q`: PASS, 74 tests,
+  including live authenticated review discovery, strict client payloads and the
+  launcher username-shadow regression.
+- `python scripts/hud_smoke.py`: PASS,
+  `../reports/hud-prototype-20261023T133521539497Z/report.json`. Seven native
+  checks cover fresh FancyMenu startup without welcome dismissal/bypass,
+  native server-list seeding/preserving labels, order, pack preferences and
+  hidden localhost history, idempotence and malformed/remote data rejection,
+  plus original HUD edit/save/reload/resize coverage. The first private attempt
+  `133153450719Z` caught a launcher variable shadow; it was fixed with a test.
+- `python scripts/forge_smoke.py`: final PASS,
+  `../reports/forge-smoke-20261023T141028819905Z/report.json`: 105 A / 2 B initial
+  steps, 2 A restart steps, 46 initial and one restart server proof commands,
+  13 PNGs. Actual ordinary cursor clicks and shift-clicks stage exactly one;
+  remaining shards stay in their original inventory slot. Direct oversized
+  first/second entries cannot enter escrow and recover exactly on close.
+  Bone + arrow disappears after 30 actual server ticks. Compatible maxed gear
+  returns component-identical in the owned exit, ingredient consumed, both
+  orders. New enchantment/reverse order, session/nonce/connection authority,
+  close/range/replacement/config/cap invalidation, output after power loss,
+  full inventory and disconnect/save/restart recovery remain exercised.
+  Enabled count-two recipes reject with a recipe ID and leave JSON unchanged.
+  Full-covered Forge/Altar support and a stacked interior retain 100% vitality
+  through two 1,500-ecology-tick age checks and completed crafts. Initial clean
+  off/kindling/active/cut lighting, GUI scale 2 at both sizes, supplied art,
+  resource-pack components and native tooltip checks remain.
+- Native `135841045454Z` caught real shift-click remainder relocation: vanilla
+  QUICK_MOVE retries hit hotbar/main fallback after filling the entry. Saved
+  NBT and `shift-click-diagnosis.json` establish the cause. The handler now
+  returns EMPTY on a full entry while staging is allowed; the exact unchanged
+  native assertion passes. `140306213208Z` passed all initial gameplay checks,
+  then failed a fixture-invalid global zero-light assertion. A nearby native
+  catalyst contributes exactly light 1; the diagnostic at
+  `../reports/forge-restart-diagnostic-dev40` confirms Forge HEAT 0/luminance 0.
+  No production lighting change was made. The restart check keeps exact off
+  state/luminance and allows the controlled native catalyst ambient ceiling;
+  initial clean propagated-light checks remain exact. It does not independently
+  exclude hypothetical stale traces below six light.
+- Final independent source reviews clear all slices and the quick-move
+  correction. `git diff --check`: PASS. Own artifacts and pack provenance/CRC
+  verified. FancyMenu uses its [documented setting](https://docs.fancymenu.net/docs/en-US/modpacks),
+  not modified vendor code; all six third-party jars remain official pinned
+  download references, only the two Chronicle jars are embedded. No new world
+  schema, prayer migration, growth route or chunk-loading policy.
+
+The old dev.39 owned-output timeout at `112453818581Z` remains unexplained and
+retained; the new full-inventory passes do not establish a fix. Isolated death,
+SERVER_STOPPING before connected-client disconnect, action-token expiry,
+complete multi-slot drag/pickup-all and an ambiguous recipe pair are not all
+separately rehearsed natively (ambiguity has focused matcher coverage). The
+historical forty-tick client delay is wall-clock two seconds; server timing
+probes, not that delay label, prove ritual deadlines. Normal native persistence
+is not a crash-atomic escrow ledger.
+
+Deployment: save-flushed/stopped the same authenticated review, CRC backup
+`../backups/forge-pre-dev40.zip`; all 61 protected world/config/auth files match
+exactly during jar swap. Both current prayer receipts and tuning are retained;
+startup configuration/auth hashes and semantic server properties verified. The
+server runs **127.0.0.1:25589**, voice 24469, **PAUSED**, console **75772**, no forced
+chunks. Pack was regenerated only after listening, so the current review preset
+is present; native server-list import never overwrites existing entries. Pack
+`../client/Chronicle-M9-1.21.10.mrpack`, SHA256
+`3a182f1f6d955b670395ce0ac8ed2ad0c8fc3a4da4616275e02f8e057eca30c0`.
+Deployment details: `../reports/qb12-client-feeding-offerings-deployment.json`.
+Five completed or diagnosed dev.40 test worlds were retired after saved-stop,
+exclusive lock and path/reparse checks; all evidence remains. Retirement report:
+`../reports/dev40-test-world-retirement.json`. The unexplained dev.39 reproduction
+is retained. Human review of all three corrections is next; no main merge or
+handcrafted-map change. Earlier dated evidence below remains historical.
+
 ## QB-12 sequential Forge ritual - 23 October 2026, dev.39
 
 Branch `feat/qb12-forge-ritual`, based `ac7b8a9`. The operator approved the

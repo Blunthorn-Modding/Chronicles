@@ -39,7 +39,7 @@ it fixed without diagnosis. Existing death/isolated shutdown/token-expiry/drag
 native coverage limits remain unless new evidence closes them. Save-stop and
 CRC-check a backup before deployment, preserve current world/config/prayers,
 refresh matching client pack, start authenticated/paused; scoped commit/push,
-no main merge. This document records the plan, not completed validation.
+no main merge. The scope above records the plan; completed evidence and delivery follow below.
 
 ## Slice 1 evidence
 
@@ -53,7 +53,7 @@ Only the authenticated review at 25589 was listening during discovery.
 Independent `forge_presentation_review` is clear after mirroring loopback-only
 validation in Core. The first private run (`133153450719Z`) failed because a
 launcher loop shadowed the username argument; the variable and regression test
-are corrected. No final review pack has been deployed yet.
+are corrected. At that checkpoint the combined review pack had not yet been deployed.
 
 ## Slice 2 nourishment and evidence
 
@@ -75,4 +75,49 @@ AccessDenied failures; the same persistence tests and full suite passed with
 normal filesystem access. Existing isolated-seal/unload behavior, station
 support, disconnection/recovery/restart and bounded projection/read limits are
 retained. Independent source review is clear. Native layered/station evidence
-will run with the Forge slice before the combined deployment.
+ran with the Forge slice before the combined deployment, as recorded below.
+
+## Slice 3 implementation and native correction
+
+The entry Slot caps both native APIs at one, and Core independently rejects an
+oversized entry before either private escrow stage. Valid maxed pairs preserve
+the exact equipment components in the owned exit and consume the ingredient;
+unrelated pairs clear both offerings after the normal server deadline. Ambiguous
+proposals still recover both. Enabled `count != 1` recipes fail with the recipe
+ID and single-item requirement, preserving the JSON; disabled legacy entries
+remain readable. The current human review has five enabled count-one defaults.
+No layout, art or protocol was changed.
+
+Independent source review cleared the slice. The first native run at
+`../reports/forge-smoke-20261023T135841045454Z` passed covered station/interior
+aging, oversized inputs/config recovery and ordinary single-item clicks, then
+caught shift-click remainder relocation. Vanilla repeats QUICK_MOVE while the
+source item remains. A second handler pass saw the full entry and fell through
+to hotbar/main-inventory routing. Saved player NBT confirmed the unoffered shards
+moved to main slot 9. The handler now terminates with EMPTY when staging is
+allowed but entry is full; working/result inventory routing remains unchanged.
+The reviewer cleared this correction. The same native assertion was retained
+and passes in the final full run; this is distinct from the old unexplained dev.39 timeout.
+
+The corrected shift-click native run (`140306213208Z`) passed all 105 initial
+A steps and both B steps. Its restart failed an invalid global `block light == 0`
+assumption: a campaign-grown catalyst at 0,65,1 emits six light, yielding exactly
+one at 2,66,3. A separate saved-world diagnostic confirmed Forge HEAT 0 and
+luminance 0. No production lighting change was made. The restart check now keeps
+exact off-state/luminance assertions and permits the controlled native catalyst
+ambient ceiling; the initial clean off/active/off propagated-light checks remain
+exact. Independent review accepts the cause and correction. This ceiling does
+not independently exclude hypothetical stale traces below six light.
+
+## Combined delivery
+
+Final native `141028819905Z` passes (105 A / 2 B / 2 restart steps, 47 server
+proof commands, 13 PNGs). Final build: 349 Java cases pass plus one existing
+Windows symlink skip; Python 74 pass. One authenticated preserved review at
+127.0.0.1:25589 is running PAUSED with the combined dev.40 pack, after stopped
+CRC backup `forge-pre-dev40.zip` and exact preservation of all 61 protected
+world/config/auth files during the jar swap. Both current prayer receipts and
+all tuning remain. The pack is generated after server readiness and includes
+its preset. Follow [the combined review](M11_COMBINED_REVIEW.md); exact evidence,
+failed attempts and remaining limits are in the newest TEST_PLAN entry. This
+correction batch is implemented; human feedback is still pending.

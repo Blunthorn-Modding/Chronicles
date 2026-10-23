@@ -1,9 +1,11 @@
 package io.github.chronicle.core.server;
 
+import io.github.chronicle.core.enchanting.IngredientEnchantmentRecipe;
 import io.github.chronicle.core.network.ItemEnchantingPayloads.*;
 import io.github.chronicle.core.screen.ItemEnchantingScreenHandler;
 import net.minecraft.util.Identifier;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -57,5 +59,13 @@ class ItemEnchantingWorkstationPayloadTest {
                 "same item with different components must be ambiguous");
         assertEquals(ItemEnchantingRuntime.Selection.AMBIGUOUS,ItemEnchantingRuntime.select(true,1,1,true,2,1,true),
                 "same output with different consumption must be ambiguous");
+    }
+
+    @Test void enabledRecipesRequireSingleItemOfferingsWithoutRepricingDisabledLegacyEntries(){
+        var enabled=new IngredientEnchantmentRecipe("chronicle_core:bulk","chronicle_core:forge","minecraft:echo_shard","minecraft:sharpness",1,2,true);
+        var failure=assertThrows(IllegalArgumentException.class,()->ItemEnchantingRuntime.validateSingleItemRecipes(List.of(enabled)));
+        assertTrue(failure.getMessage().contains(enabled.id()));assertTrue(failure.getMessage().contains("single-item ingredient count of 1"));
+        var disabled=new IngredientEnchantmentRecipe("chronicle_core:legacy_bulk","chronicle_core:forge","minecraft:echo_shard","minecraft:sharpness",1,64,false);
+        assertDoesNotThrow(()->ItemEnchantingRuntime.validateSingleItemRecipes(List.of(disabled)));
     }
 }
