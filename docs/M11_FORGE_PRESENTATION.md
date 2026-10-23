@@ -1,5 +1,10 @@
 # Ancient Forge presentation design
 
+**Historical dev.37 screen:** the operator subsequently approved the
+[dev.39 ritual design](M11_FORGE_RITUAL_DESIGN.md), replacing the horizontal
+labels, preview and Recipes browser below. The readiness/model/light contract
+remains applicable. [Current review](M11_FORGE_REVIEW.md).
+
 ## Lead decision - approved before implementation
 
 Replace dev.36's literal Grindstone background with an original Minecraft-style

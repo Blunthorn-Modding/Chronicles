@@ -1,26 +1,50 @@
-# Ancient Forge - current review status, dev.38
+# Ancient Forge - ritual review, dev.39
 
-**Presentation hold:** the operator rejected dev.37's layout and recipe/status
-text. Review the new [ritual proposal](M11_FORGE_RITUAL_DESIGN.md) and
-[interactive mockup](design/forge-ritual.html) before runtime implementation.
-The checklist below describes the still-current dev.37 UI, not an approved final
-design. Dev.38 only fixes [station support feeding](M11_STATION_FEEDING.md).
-On the preserved world, the exhausted support needs roughly75 active seconds
-plus assessment time to recover naturally before it powers the Forge again.
+The operator approved the [design](M11_FORGE_RITUAL_DESIGN.md). This replaces the
+old horizontal Target/Material/Result screen and recipe browser. The review
+server is **127.0.0.1:25589**, initially **PAUSED**. Reimport/update the
+[matching client pack](../../client/Chronicle-M9-1.21.10.mrpack). GUI scale 2 and
+the narrator/startup/multiplayer defaults remain included. Deployment readiness
+and exact automated evidence are recorded in the newest [TEST_PLAN](TEST_PLAN.md).
 
-Join **127.0.0.1:25589** with the updated [client pack](../../client/Chronicle-M9-1.21.10.mrpack). Reimport/update it in your launcher for the new Forge screen and light behavior. GUI scale2 and the narrator/startup/multiplayer defaults remain included.
+The supplied Forge is **10,65,23**, beside the accepted Altar. Materials are in
+the barrel at **11,65,25**. Use `/tp @s 10.5 65 26.5` if needed. Preserve the same
+world, tuning and accepted prayers. The exhausted support from the previous
+review may need roughly 75 active seconds plus assessment time to recover;
+[station support feeding](M11_STATION_FEEDING.md) fixes its previous self-sealing.
 
-The supplied Forge is **10,65,23**, beside the accepted Altar. A materials barrel is **11,65,25**. Use `/tp @s 10.5 65 26.5` if needed. The same test world, tuning and accepted prayers are retained; the server starts PAUSED.
+1. Join participation (`/chronicle join`), use Survival or Adventure, turn editing
+   off and resume using Session. Right-click the Forge once the network settles.
+2. Put either a sword or echo shards in the **top slot**, then click the Forge
+   illustration. The slot clears and its opening stirs gently. Place the other
+   item in the same top slot, then click the Forge again. After a short working
+   animation the enchanted sword appears in the **bottom slot**. Collect it
+   normally or with shift-click. Offering order should make no difference.
+3. Check the anchored inventory tray, normal-sized items and tooltips at your
+   normal window size. The ready Forge illustration is kindling, unavailable is
+   dark, working is active. Offered items stay hidden inside it. There are no
+   labels, power/status paragraphs or Recipes button.
+4. Try amethyst -> Unbreaking I, prismarine -> Protection I, flint -> Power I,
+   feather -> Feather Falling I, or a plain book. One configured ingredient is
+   consumed; the remainder returns. Incompatible/already-maxed combinations
+   return unchanged after the same brief ritual. Destructive salvage is pending
+   a separate decision; future discovery books belong in loot.
+5. Close after one offering or during work: all inputs must return once. Pause
+   or disconnect the network before completion: input recovery must remain
+   safe. After completion, a power loss must leave the owned result collectable.
+   Closing with a result also recovers it; a full inventory may drop items at
+   your feet. Removing/replacing the Forge closes the old interaction.
+6. Outside the menu, the existing powered Forge model remains active and emits
+   light between crafts. Half the Established threshold shows kindling; below
+   that or disconnected/dormant is off. The model tracker can take up to 128
+   ticks when full; the recipe always checks power synchronously.
 
-1. Join participation (`/chronicle join`), use Survival or Adventure, turn editing off and resume using Session. Give the living network a moment to settle, then right-click the Forge.
-2. Put a sword in **Target** and an echo shard in **Material**, across the top row. The right **Result** slot previews the same sword with Sharpness I. Hover the result to inspect it, then take it. One shard is consumed, with no XP price. Try shift-clicking inputs/result and closing with unused material still staged.
-3. Open **Recipes** to see the material, amount and resulting enchantment. Back/Escape returns to the same workstation and retains staged inputs. Check readability and ordinary item tooltips with your resource pack.
-4. Try the other supplied targets/materials: amethyst -> Unbreaking I, prismarine -> Protection I, flint -> Power I, feather -> Feather Falling I. Plain books also work. Incompatible/already enchanted targets consume nothing.
-5. Pause or sever the marked network connection at -3,64,0 while the Forge is open: output should disappear and real inputs remain recoverable. Resume/reconnect restores power after the network settles. Creative/nonparticipation/editing/distance cannot bypass the gate. Removing/replacing the Forge closes the old interaction.
-6. Outside the menu, a powered Forge should stay in its **active** model and emit light, even between crafts. Pausing or disconnecting it makes it **off**. A living network halfway to the configured Established threshold shows **kindling**; below halfway stays off. The preserved large network is suitable for active/off checks; exact small/halfway boundaries were separately verified with the native test fixture. At a full tracker, model updates can take up to128 ticks; crafting always checks power immediately.
+Core owns [transactions and native inventory](CF11_FORGE_WORKSTATION.md);
+Quiet Below supplies the original model-derived artwork and existing gate.
+The native popup, slot and font components, Core tray sprite and three campaign
+Forge GUI sprites can be replaced by resource packs. No third-party artwork is
+bundled. Normal Minecraft persistence applies; this is not a crash-atomic ledger.
 
-The dev.36 Forge functions are accepted. Please review the **original Minecraft-style layout, model readiness and emitted light**. The Altar remains accepted. The size-rate comparison, physical pickaxe Heart/lens changes and configuration placement follow separately in [the review queue](POST_M12_REVIEW.md).
-
-The [approved presentation design and resource-pack paths](M11_FORGE_PRESENTATION.md) describe the five original Core sprites. Normal Minecraft font, item rendering, tooltips and widgets remain native; the screen no longer borrows a whole vanilla workstation bitmap.
-
-The reusable Core [transaction contract](CF11_FORGE_WORKSTATION.md) owns temporary slots, recipes, caps and exact output delivery. Quiet Below owns intrinsic block identity/power and original models. Closing/disconnecting uses native inventory return/drop rules; a full inventory may drop unused staged inputs at your feet. Ordinary vanilla persistence applies; there is no separate crash-atomic item ledger.
+Please review the complete sequential interaction and appearance together. The
+Altar remains accepted. Count-rate comparison, physical pickaxe Heart/lens and
+configuration placement follow separately in [the review queue](POST_M12_REVIEW.md).

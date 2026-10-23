@@ -1,6 +1,6 @@
 # Ancient Forge original implementation contract
 
-**Historical held-item workflow:** the native workstation supersedes the player workflow and transaction/lifecycle text below. See [current workstation contract](CF11_FORGE_WORKSTATION.md) and [approved dev.37 UI/model presentation](M11_FORGE_PRESENTATION.md). Recipes, power requirements and original block assets remain applicable. Dev.37 replaces transient post-craft heat with sustained readiness: off below halfway, kindling from half Established, active/light12 when powered.
+**Historical held-item workflow:** the native workstation supersedes the player workflow and transaction/lifecycle text below. See [current workstation contract](CF11_FORGE_WORKSTATION.md) and [current ritual UI](M11_FORGE_RITUAL_DESIGN.md) and [retained model/readiness contract](M11_FORGE_PRESENTATION.md). Recipes, power requirements and original block assets remain applicable. Dev.37 replaces transient post-craft heat with sustained readiness: off below halfway, kindling from half Established, active/light12 when powered.
 
 21 October2026. This is the next QB-12/CF-11 slice after permanent enchantment caps. Balance values are review defaults. There is no story/session unlock or authored sculk route.
 

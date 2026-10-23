@@ -15,8 +15,9 @@ enchantment preview or default Minecraft bowl.
 
 The three top-down Forge views are original views derived from the project's
 existing Forge model/texture: `forge-top-idle.svg`, `forge-top-kindling.svg`,
-and `forge-top-active.svg`. They are mock-up references for eventual
-resource-packable Forge art, not new gameplay assets.
+and `forge-top-active.svg`. They remain mockup references. Dev.39 renders the same original models/atlases
+into three resource-packable GUI PNGs with `scripts/forge_workshop_art.py`;
+see [implementation](M11_FORGE_RITUAL_IMPLEMENTATION.md).
 
 ## Geometry
 
@@ -48,15 +49,16 @@ explanatory text.
 1. Place either a target **or** an ingredient in the shared entry.
 2. Click the Forge view (`Offer` is its only tooltip/narration). The server
    lodges the first stack privately and empties the entry without consuming it.
-   The Forge switches from idle to kindling; it does not show the lodged item.
+   The kindling Forge begins stirring gently; it does not show the lodged item.
 3. Place the other item in the same entry and click the Forge view again.
-4. The server considers both orientations of the exact pair and starts an
-   unambiguous matching ritual. Identical output and consumption proposals can
-   be coalesced; conflicting recipes cannot be chosen by offering order. The active Forge has a
-   small contained stirring animation inside its opening, while neither input
-   item is rendered in the Forge.
-5. The server resolves once after the proposed duration of30 server ticks. A real owned
-   output or approved salvage appears in the exit. A new pair cannot begin
+4. The server starts the ritual without exposing a recipe or item role. At
+   resolution it considers both orientations of the exact pair. Identical output
+   and consumption proposals coalesce; conflicting recipes cannot be chosen by
+   offering order. The active Forge has a small contained stirring animation
+   inside its opening, while neither input item is rendered in the Forge.
+5. The server resolves once after 30 server ticks. A real owned
+   output appears in the exit. Invalid/maxed pairs return unchanged until a
+   separate salvage policy is approved. A new pair cannot begin
    until that exit is collected.
 
 If both orientations match different recipes, the server rejects the ambiguous
@@ -79,7 +81,7 @@ a first offered item; no extra in-game field or explanation is added.
 | Second item staged | second item in entry; Forge kindling | empty |
 | Working | entry empty; active Forge stirs inside opening | empty |
 | Success | quiet Forge kindling visual | real component-preserving item with cosmetic glint rim |
-| Salvage | quiet Forge kindling visual | real configured salvage |
+| Invalid/maxed pair | quiet Forge kindling visual | empty; both offerings return unchanged |
 | Unavailable | any staged entries stay recoverable; Forge off/inert | empty |
 
 The mock-up supports both target-first and ingredient-first orders through

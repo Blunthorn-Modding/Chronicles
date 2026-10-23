@@ -1,5 +1,100 @@
 # Bootstrap validation
 
+## QB-12 sequential Forge ritual - 23 October 2026, dev.39
+
+Branch `feat/qb12-forge-ritual`, based `ac7b8a9`. The operator approved the
+final dedicated-agent design before runtime implementation. The lead inspected
+the real native screen; independent `forge_presentation_review` found no
+material source or final fixture issue. [Implementation](M11_FORGE_RITUAL_IMPLEMENTATION.md)
+and [current transaction contract](CF11_FORGE_WORKSTATION.md).
+
+Core now has one visible entry, private unordered offering escrow and one owned
+exit. The second Offer starts a deadline of 30 actual server ticks. Both recipe
+orientations are evaluated at commitment; exact duplicates coalesce and
+conflicting proposals return unchanged. No derived preview, custom Take,
+recipe catalog, visible lodged items, status prose or Recipes browser remains.
+Native controls own actual entry/output/player inventory. Invalid/maxed pairs
+return unchanged; destructive salvage is still a separate decision. Config,
+cap, gate and station interruption recover staged items once. The client uses
+the approved 224x220 popup, shared inventory tray, supplied top-down Forge art
+and contained warm stirring. Three 64px sprites are reproducible projections
+of the user's unchanged original Blockbench models/atlases; no new dependency
+or external artwork is bundled.
+
+Commands and outcomes:
+
+* `python scripts/workspace.py build` - PASS in 23 seconds. XML totals: Core
+  177 discovered (176 pass, one existing skipped Windows symlink-prerequisite
+  case), Quiet Below 167 pass: **343 passing Java tests, one skip**. The skip is
+  `EnchantmentCapConfigTest.preservesSymlinkInsteadOfFollowingIt()`.
+* `python -m unittest discover -s scripts -p 'test_*.py' -q` - **70 PASS**.
+* Generate the three sprites into a temporary directory and compare to checked-in
+  PNGs - byte-for-byte reproducible. Workshop localization JSON/used keys and
+  current documentation UTF-8 checks pass. `git diff --check` passes.
+* `python scripts/forge_smoke.py` - **two complete final PASS runs**, reports
+  `../reports/forge-smoke-20261023T112824981624Z/report.json` and
+  `../reports/forge-smoke-20261023T113237527806Z/report.json`. Each has
+  **98 active-client steps, 2 passive-client steps, 2 restart steps**, 44 server
+  proof commands and 13 native PNG captures. This replaces the obsolete Take
+  matrix; do not reuse dev.36's 85-transaction-assertion count for this flow.
+
+Native evidence covers actual single-entry shift-clicks and Forge hotspot
+mouse clicks, EMPTY/OFFERED/WORKING/RESULT, ordinary owned-output mouse pickup,
+component-preserving named/damaged output, either order and exact stack-three
+remainder, invalid/maxed recovery, duplicate/stale sync/session/token/foreign
+actor requests, config/cap/range/cut/replacement cancellation, first/working
+close and full-inventory escrow drops. A committed output survives power loss.
+A full inventory refuses native output quick-move without erasing it; closing
+then drops exactly one real component-preserving result. The timing probe
+observes first transition out of WORKING at END_SERVER_TICK and checks at least
+30 elapsed server ticks for invalid/maxed/reverse/owned-result cases. It does
+not advance the server clock. The additional pre-check delay is wall-clock
+2 seconds; the following server assertion is the authoritative timing proof.
+
+Actual ecology proves off/kindling/active/light readiness, cut/reconnect,
+isolation, disabled ecology and bounded saturated tracker refresh. A completed
+craft is followed by 1,500 ecology ticks of support-aging assessment and another
+completed craft. The Forge support remains SHADED/living/powered. The lead
+inspected 640x480 and 1280x720 GUI-scale-2 screenshots, offered/working/result
+states, native inventory and ordinary item tooltip. The contrast resource pack
+replaces native popup/slot/font, Core tray and supplied Forge art paths; actual
+screenshots visibly prove the active overrides. This was manual visual QA,
+not automated pixel grading of every art state.
+
+The first three retained failures were fixture sequencing/bookkeeping defects:
+`111505360563Z` attempted a craft before reconnection certification;
+`111858268727Z` demanded power inside the reconnect command;
+`112133306439Z` left the verified dropped result behind before teleporting to
+save. Those sequences are repaired with ordinary settling and reclamation of
+the exact previously checked entity, not a manufactured replacement.
+
+One additional run, `112453818581Z`, timed out waiting for the owned result
+with a full inventory. Its cause is **not established**. The final fixture adds
+client/server state diagnostics and a read-only server result checkpoint; no
+production gate was relaxed or commit forced. Both complete final runs pass,
+but that does not establish the timeout is fixed. Retain that stopped runtime
+and evidence for follow-up. Isolated death, SERVER_STOPPING before client
+disconnect, action-token expiry and full multi-slot drag/pickup-all sequences
+remain native hardening limits. The restart rehearsal proves **disconnect then
+save/stop/restart** exact-once return-or-drop of a private first offering,
+including saved ground entities; it does not isolate the shutdown callback.
+Death/removal/disconnect recovery was source-audited against pinned 1.21.10
+native return/drop behavior. Abrupt process failure retains vanilla workstation
+persistence limits; there is no crash-atomic escrow ledger.
+
+Deployment: the empty authenticated dev.38 review was saved/stopped, and
+`../backups/forge-pre-dev39.zip` was CRC checked before replacing the two managed
+jars. **61 world/config/auth files were identical during the swap**. Exact
+accepted prayer ledger/hash (two receipts), all configuration/access files and
+semantic server-property values survive startup. The refreshed pack contains
+both exact dev.39 jars, requested client defaults and existing HUD license
+notices. Report: `../reports/qb12-forge-ritual-deployment.json`. Same review
+**127.0.0.1:25589**, voice 24469, **PAUSED**, console **43152**, no forced chunks.
+The current human world is preserved; disposable completed worlds are retired
+only after save/stop and lock/path checks, while the unexplained-timeout world
+remains available. No main merge. Hands-on [ritual review](M11_FORGE_REVIEW.md)
+is next; later feedback points stay sequential.
+
 ## QB-12 idle distinction and inventory tray - 23 October 2026, design only
 
 Branch `design/qb12-forge-inventory`, based on `1258434`. Dedicated UI agent

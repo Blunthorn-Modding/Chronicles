@@ -1,15 +1,56 @@
-# Core workstation transaction contract - dev.37
+# Core workstation transaction contract - dev.39
 
-The operator accepts dev.36 transactions but requests an original Minecraft-style composition. A dedicated UI agent proposes the revised layout and the lead approves it before runtime implementation. Core now owns a220x212 horizontal Target/Material/Result layout and five original resource-packable sprites; [geometry and design](M11_FORGE_PRESENTATION.md). The native slots, font, widgets, tooltips and same-handler guide remain. This presentation revision leaves the transaction contract below, Altar/Heart/count-rate/menu placement, recipes and caps unchanged. Quiet Below separately maps verified network readiness to its original Forge models and emitted light.
+This replaces the dev.36/37 derived-preview and custom Take protocol. The
+operator approved the [vertical ritual design](M11_FORGE_RITUAL_DESIGN.md) on
+23 October. [Implementation boundary](M11_FORGE_RITUAL_IMPLEMENTATION.md).
 
-Use a native39-slot handler: target0 (max1), material1 (native stack capacity), derived preview2 (never an independently owned item), player inventory3..38. Both inputs are real per-player temporary handler inventory, never station storage. Native slot operations stage/recover inputs. Result pickup is the sole craft gesture. Standard player/handler closure returns inputs with vanilla offer-or-drop handling; never return/drop the derived preview. Settlement is idempotent, including orderly server stop before player save. This is normal vanilla inventory persistence, not a separate crash-atomic escrow ledger; abrupt process failure follows vanilla workstation limits.
+Core owns a native 38-slot handler: entry 0, owned output 1, player inventory
+2..37. Both offerings use the same entry sequentially. Offer removes the whole
+entry stack into private server escrow; after the first, the empty entry accepts
+the second. No client payload or handler slot exposes the private stacks. The
+client receives only the phase, availability, action identity and supplied art
+IDs. No recipes, target/material roles or prospective output are transmitted.
 
-The old held/offhand form, Action payload and act entry point are retired. The result never commits through native Slot.onTakeItem: vanilla can transfer items before that callback. A bounded new Take request binds actual syncId, connection, handler-session UUID and one-use preview UUID. Client result interaction sends that request before any local/native result mutation. Native result-slot click/quickMove/pickup-all/drag paths cannot grant it. Server checks current handler/connection/session/token/expiry, immutable input snapshots, current config/cap and physical/participation/power gate, then recomputes the exact result. Consume the token before any attempt. Rejected or stale requests consume no items and publish a fresh preview.
+The second Offer starts a 30-server-tick deadline. At completion, evaluate both
+orientations against the current recipes, native compatibility and universal
+caps. Identical exact output/consumption proposals coalesce; conflicting ones
+are rejected. A valid pair consumes one target and the configured ingredient
+count, returns unused ingredient remainder and creates one actual output in the
+exit. Invalid, already-maxed or ambiguous pairs return unchanged; destructive
+salvage is pending a separate decision. Neither order receives priority.
 
-Only after destination preflight may the server replace the target with empty, decrement an exact material copy and deliver one exact component-preserving output. Left/right pickup requires an empty or compatible nonfull cursor; shift-result needs one exact inventory destination; number-key/offhand output requires an empty destination; explicit drop delivers one item through vanilla after the inventory commit. No destinations outside those native affordances. A full inventory with empty cursor can still craft; no space on shift leaves both inputs unchanged. Cosmetic campaign feedback occurs after commit and cannot advertise rollback. All work runs on the server thread; a repeated token cannot grant again.
+Each Offer binds the connection, actual current handler/sync ID, session UUID,
+rotating one-use action UUID and exact observed entry stack. Tokens expire after
+30 seconds and rotate on stack/state changes. Before committing, recheck the
+exact escrow snapshots, unchanged recipe revision and cap policy, eligibility,
+power, physical station identity and current connection/handler. All work runs
+on the server thread. Four live bindings are checked per tick, at most 256 open
+handlers. The work deadline uses actual server ticks rather than visits to the
+bounded checker, so load can delay completion but never accelerate it.
 
-Transient power/eligibility/range failures keep inputs recoverable and suppress output; physical station replacement/removal/unload or invalid player closes the handler. Four bounded live checks per tick for at most256 open handlers; every take rechecks synchronously. Input/policy/gate changes rotate preview authority; updates retain native handler identity and carry a monotonic presentation revision plus a stable session UUID. Recipe catalog is bounded256 and sent only at opening or catalog/cap changes. The client recipe guide is a local same-handler modal with no staging/craft action.
+Clear private ownership before returning stacks or publishing output. Native
+slot updates and inventory transfers remain authoritative. Working locks the
+entry; output cannot be inserted into and can only be taken in RESULT. Once
+committed, native pickup, shift-click, cursor, number-key and drop behavior act
+on an owned output; collecting it cannot repeat the recipe. Power or policy
+loss after commitment does not erase it. A new pair waits for output collection.
 
-Core owns registry/config/preview/transactions/handler/protocol and native UI. Quiet Below owns typed readiness, exact block-entity identity, current network power, original model/sound and the existing mappings. Strict JSON and universal permanent cap behavior remain, including native compatibility, books, level maxima and unrelated component preservation. No duplicate prices, recipe policy or Forge block storage is introduced.
+Before commitment, config/cap/gate invalidation returns private offerings and
+any staged entry exactly once. Physical replacement/unload, invalid player,
+disconnect, close and orderly server stop settle the handler, including entry,
+output and vanilla cursor recovery. A full inventory uses vanilla item drops.
+This is normal Minecraft persistence, not a separate crash-atomic escrow
+ledger. Abrupt process failure retains vanilla workstation limitations.
 
-Verification covers real native slot controls/guide/resource-pack skins and fonts, exact item/count/components/XP conservation, destination failures, stale/duplicate/foreign authority, direct result actions, input shift-clicks, config/cap/power/range changes, physical replacement, two players, close/disconnect/restart. Death and standalone SERVER_STOPPING settlement are source-reviewed; their isolated native rehearsals and complete multi-slot drag/pickup-all sequences remain follow-up hardening checks. Test worlds are disposable; retain evidence and concrete follow-up fixtures only. Preserve current authenticated review world/prayer receipts/config during deployment and prepare a supplied powered Forge bench with matching client pack before human review.
+The breaking payloads have new IDs: `workshop_ritual_view_v1` and
+`workshop_ritual_offer_v1`. Capability checking happens before opening the
+handler; use matching dev.39 clients and server. No world, JSON recipe/cap or
+accepted prayer migration is needed.
+
+Core owns recipe configuration, private transaction state, handler, protocol,
+native controls and the generic screen. Campaigns supply three resource-packable
+art IDs, their gate and cosmetic completion feedback. Quiet Below retains its
+intrinsic station identity, existing network power rule, Forge models and sound.
+No block storage, crafting price, recipe discovery book or diagnostic prose is
+added by this change. Completed verification and remaining limits are recorded
+in the newest [TEST_PLAN](TEST_PLAN.md) entry.

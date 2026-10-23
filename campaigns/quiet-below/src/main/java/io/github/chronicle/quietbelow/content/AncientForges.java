@@ -73,7 +73,11 @@ public final class AncientForges {
         if(forge==null)return;
         if(!admit(world.getServer(),forge)){player.sendMessage(Text.literal("Too many loaded Ancient Forges; unload some before using this one."),false);return;}
         update(world,forge);
-        ItemEnchantingRuntime.open(player,GROUP,"Ancient Forge",new ItemEnchantingRuntime.Gate(){
+        var artwork=new io.github.chronicle.core.network.ItemEnchantingPayloads.Artwork(
+                net.minecraft.util.Identifier.of("quiet_below","workshop/forge_off"),
+                net.minecraft.util.Identifier.of("quiet_below","workshop/forge_idle"),
+                net.minecraft.util.Identifier.of("quiet_below","workshop/forge_working"));
+        ItemEnchantingRuntime.open(player,GROUP,"Ancient Forge",artwork,new ItemEnchantingRuntime.Gate(){
             @Override public boolean stillPresent(ServerPlayerEntity actor){
                 return actor.getEntityWorld()==world&&actor.isAlive()&&!actor.isSpectator()&&physical(world,pos)==forge&&!forge.isRemoved();
             }

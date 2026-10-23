@@ -15,85 +15,92 @@ import net.minecraft.screen.slot.SlotActionType;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 
-/** Two real temporary inputs, a non-owning derived result and the native player inventory. */
+/** One visible entry, one real owned output and the native player inventory. */
 public final class ItemEnchantingScreenHandler extends ScreenHandler {
-    public static final int WIDTH=220;
-    public static final int HEIGHT=212;
-    public static final int TARGET_X=44;
-    public static final int MATERIAL_X=88;
-    public static final int RESULT_X=160;
-    public static final int INPUT_Y=42;
-    public static final int INVENTORY_X=29;
-    public static final int INVENTORY_Y=130;
-    public static final int PLAYER_START=3;
-    public static final int PLAYER_END=39;
+    public static final int WIDTH=224,HEIGHT=220;
+    public static final int ENTRY_SLOT=0,OUTPUT_SLOT=1,PLAYER_START=2,PLAYER_END=38;
+    public static final int ENTRY_X=105,ENTRY_Y=29,OUTPUT_X=105,OUTPUT_Y=108;
+    public static final int INVENTORY_X=32,INVENTORY_Y=136;
     public static final ExtendedScreenHandlerType<ItemEnchantingScreenHandler,ItemEnchantingPayloads.View> TYPE=Registry.register(
             Registries.SCREEN_HANDLER,Identifier.of("chronicle_core","item_workshop"),new ExtendedScreenHandlerType<>(ItemEnchantingScreenHandler::new,ItemEnchantingPayloads.View.CODEC));
-    private final SimpleInventory inputs=new SimpleInventory(2){@Override public void markDirty(){super.markDirty();changed();}};
-    private final SimpleInventory result=new SimpleInventory(1);
+
+    private final SimpleInventory entry=new SimpleInventory(1){@Override public void markDirty(){super.markDirty();changed();}};
+    private final SimpleInventory output=new SimpleInventory(1){@Override public void markDirty(){super.markDirty();changed();}};
     private final PlayerInventory playerInventory;
     private final ServerPlayerEntity owner;
     private ItemEnchantingPayloads.View view;
     private boolean mutating,settled,clientPending;
+
     public static void register(){ }
     public ItemEnchantingScreenHandler(int syncId,PlayerInventory inventory,ItemEnchantingPayloads.View opening){
         super(TYPE,syncId);playerInventory=inventory;owner=inventory.player instanceof ServerPlayerEntity actor?actor:null;view=opening;
         if(opening.syncId()!=syncId)throw new IllegalArgumentException("Workshop opening identity mismatch");
-        addSlot(new Slot(inputs,0,TARGET_X,INPUT_Y){@Override public int getMaxItemCount(){return 1;}});
-        addSlot(new Slot(inputs,1,MATERIAL_X,INPUT_Y){@Override public boolean canInsert(ItemStack stack){return ingredient(stack);}});
-        addSlot(new Slot(result,0,RESULT_X,INPUT_Y){
+        addSlot(new Slot(entry,0,ENTRY_X,ENTRY_Y){
+            @Override public boolean canInsert(ItemStack stack){return canStage();}
+            @Override public boolean canTakeItems(PlayerEntity player){return phase()!=ItemEnchantingPayloads.Phase.WORKING;}
+        });
+        addSlot(new Slot(output,0,OUTPUT_X,OUTPUT_Y){
             @Override public boolean canInsert(ItemStack stack){return false;}
-            @Override public boolean canTakeItems(PlayerEntity player){return owner==null&&view.state()==ItemEnchantingPayloads.State.READY&&!clientPending;}
+            @Override public boolean canTakeItems(PlayerEntity player){return phase()==ItemEnchantingPayloads.Phase.RESULT;}
         });
         addPlayerSlots(inventory,INVENTORY_X,INVENTORY_Y);
     }
+
     public ServerPlayerEntity owner(){return owner;}
     public boolean settled(){return settled;}
     public ItemEnchantingPayloads.View view(){return view;}
+    public ItemEnchantingPayloads.Phase phase(){return view.phase();}
     public void view(ItemEnchantingPayloads.View next){
-        if(next.syncId()!=syncId||!next.session().equals(view.session()))throw new IllegalArgumentException("Workshop view identity mismatch");
-        view=next.recipes()==null?next.withRecipes(view.recipes()):next;
+        if(next.syncId()!=syncId||!next.sessionId().equals(view.sessionId()))throw new IllegalArgumentException("Workshop view identity mismatch");
+        view=next;
     }
-    public ItemStack target(){return inputs.getStack(0);}
-    public ItemStack material(){return inputs.getStack(1);}
-    public void result(ItemStack stack){result.setStack(0,stack);}
+    public ItemStack entry(){return entry.getStack(0);}
+    public ItemStack output(){return output.getStack(0);}
+    public ItemStack takeEntry(){return entry.removeStack(0);}
+    public void output(ItemStack stack){output.setStack(0,stack);}
     public void mutate(Runnable action){boolean previous=mutating;mutating=true;try{action.run();}finally{mutating=previous;}}
-    public void consume(int count){inputs.setStack(0,ItemStack.EMPTY);ItemStack remainder=material().copy();remainder.decrement(count);inputs.setStack(1,remainder);}
     public void clientPending(boolean pending){clientPending=pending;}
+
+    private boolean canStage(){return !settled&&!clientPending&&view.available()&&(phase()==ItemEnchantingPayloads.Phase.EMPTY||phase()==ItemEnchantingPayloads.Phase.OFFERED)&&output().isEmpty();}
     private void changed(){if(owner!=null&&!mutating&&!settled)ItemEnchantingRuntime.changed(owner,this);}
-    private boolean ingredient(ItemStack stack){
-        if(stack.isEmpty())return false;
-        if(owner!=null)return ItemEnchantingRuntime.ingredient(owner,this,stack);
-        String id=Registries.ITEM.getId(stack.getItem()).toString();return view.recipes()!=null&&view.recipes().stream().anyMatch(r->r.ingredient().equals(id));
-    }
     @Override public boolean canUse(PlayerEntity player){return !settled&&(owner==null||player==owner&&ItemEnchantingRuntime.canUse(owner,this));}
+
     @Override public void onSlotClick(int index,int button,SlotActionType type,PlayerEntity player){
-        if(settled||index==2||owner==null&&clientPending)return;
-        if(owner!=null&&(player!=owner||!ItemEnchantingRuntime.canUse(owner,this)))return;
+        if(settled||owner!=null&&(player!=owner||!ItemEnchantingRuntime.canUse(owner,this)))return;
+        if(index==ENTRY_SLOT&&(clientPending||phase()==ItemEnchantingPayloads.Phase.WORKING))return;
+        if(index==OUTPUT_SLOT&&phase()!=ItemEnchantingPayloads.Phase.RESULT)return;
         mutate(()->super.onSlotClick(index,button,type,player));changed();
     }
-    @Override public boolean canInsertIntoSlot(ItemStack stack,Slot slot){return slot.id!=2&&super.canInsertIntoSlot(stack,slot);}
-    @Override public boolean canInsertIntoSlot(Slot slot){return slot.id!=2&&super.canInsertIntoSlot(slot);}
+    @Override public boolean canInsertIntoSlot(ItemStack stack,Slot slot){
+        if(slot.id==OUTPUT_SLOT||slot.id==ENTRY_SLOT&&!canStage())return false;
+        return super.canInsertIntoSlot(stack,slot);
+    }
+    @Override public boolean canInsertIntoSlot(Slot slot){
+        if(slot.id==OUTPUT_SLOT||slot.id==ENTRY_SLOT&&!canStage())return false;
+        return super.canInsertIntoSlot(slot);
+    }
     @Override public ItemStack quickMove(PlayerEntity player,int index){
         if(owner!=null&&(player!=owner||!ItemEnchantingRuntime.canUse(owner,this)))return ItemStack.EMPTY;
+        if(index==ENTRY_SLOT&&(clientPending||phase()==ItemEnchantingPayloads.Phase.WORKING)
+                ||index==OUTPUT_SLOT&&phase()!=ItemEnchantingPayloads.Phase.RESULT)return ItemStack.EMPTY;
         ItemStack[] moved={ItemStack.EMPTY};mutate(()->moved[0]=move(player,index));changed();return moved[0];
     }
     private ItemStack move(PlayerEntity player,int index){
-        if(settled||index<0||index>=slots.size()||index==2)return ItemStack.EMPTY;
+        if(settled||index<0||index>=slots.size())return ItemStack.EMPTY;
         Slot slot=slots.get(index);if(!slot.hasStack())return ItemStack.EMPTY;
         ItemStack stack=slot.getStack(),copy=stack.copy();
-        if(index<2){if(!insertItem(stack,PLAYER_START,PLAYER_END,true))return ItemStack.EMPTY;}
-        else if(ingredient(stack)&&insertItem(stack,1,2,false)){ }
-        else if(!getSlot(0).hasStack()&&insertItem(stack,0,1,false)){ }
-        else if(index<30){if(!insertItem(stack,30,39,false))return ItemStack.EMPTY;}
-        else if(!insertItem(stack,3,30,false))return ItemStack.EMPTY;
+        if(index==ENTRY_SLOT||index==OUTPUT_SLOT){if(!insertItem(stack,PLAYER_START,PLAYER_END,true))return ItemStack.EMPTY;}
+        else if(canStage()&&!getSlot(ENTRY_SLOT).hasStack()&&insertItem(stack,ENTRY_SLOT,ENTRY_SLOT+1,false)){ }
+        else if(index<29){if(!insertItem(stack,29,PLAYER_END,false))return ItemStack.EMPTY;}
+        else if(!insertItem(stack,PLAYER_START,29,false))return ItemStack.EMPTY;
         if(stack.isEmpty())slot.setStack(ItemStack.EMPTY);else slot.markDirty();slot.onTakeItem(player,stack);return copy;
     }
+
     @Override public void onClosed(PlayerEntity player){
         if(settled||owner!=null&&player!=owner)return;settled=true;
         if(owner!=null){
             ItemEnchantingRuntime.closed(owner,this);
-            mutate(()->{result.clear();super.onClosed(player);dropInventory(player,inputs);});
+            mutate(()->{super.onClosed(player);dropInventory(player,entry);dropInventory(player,output);});
             playerInventory.markDirty();owner.playerScreenHandler.syncState();
         }else super.onClosed(player);
     }
