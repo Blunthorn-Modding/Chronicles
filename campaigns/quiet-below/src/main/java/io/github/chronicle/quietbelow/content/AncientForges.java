@@ -23,6 +23,7 @@ import java.util.*;
 public final class AncientForges {
     public static final String GROUP="quiet_below:forge";
     private static final int MAX_LOADED=1024,MODEL_CHECKS=8;
+    public static final int MAX_REFRESH_TICKS=(MAX_LOADED+MODEL_CHECKS-1)/MODEL_CHECKS;
     private static final Map<MinecraftServer,LinkedHashSet<AncientForgeBlockEntity>> LOADED=new IdentityHashMap<>();
     private AncientForges() { }
     public static void register() {
@@ -32,7 +33,7 @@ public final class AncientForges {
         ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((block,world)->{if(block instanceof AncientForgeBlockEntity forge)admit(world.getServer(),forge);});
         ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.register((block,world)->{var loaded=LOADED.get(world.getServer());if(loaded!=null)loaded.remove(block);});
         ServerChunkEvents.CHUNK_LOAD.register((world,chunk)->{
-            // Transient art must not survive a save/reload, even beyond tracker capacity.
+            // Saved readiness must be revalidated after chunk load, even beyond tracker capacity.
             // Use the callback's actual chunk; World.getChunk/markDirty may self-wait here.
             for(var block:chunk.getBlockEntities().values())if(block instanceof AncientForgeBlockEntity forge){
                 var state=chunk.getBlockState(forge.getPos());
@@ -62,8 +63,7 @@ public final class AncientForges {
         return chunk.getBlockEntities().get(pos) instanceof AncientForgeBlockEntity forge?forge:null;
     }
     private static void update(ServerWorld world,AncientForgeBlockEntity forge){
-        String blocked=QuietBelowEcology.stationPower(world,forge.getPos());
-        int heat=blocked!=null?0:world.getServer().getTicks()<forge.workingUntil?2:1;
+        int heat=QuietBelowEcology.forgeHeat(world,forge.getPos());
         var state=forge.getCachedState();
         if(state.isOf(QuietBelow.ANCIENT_FORGE_BLOCK)&&state.get(AncientForgeBlock.HEAT)!=heat)
             world.setBlockState(forge.getPos(),state.with(AncientForgeBlock.HEAT,heat),Block.NOTIFY_LISTENERS);
@@ -87,7 +87,7 @@ public final class AncientForges {
             }
             @Override public void completed(ServerPlayerEntity actor){
                 if(physical(world,pos)!=forge)return;
-                forge.workingUntil=(long)world.getServer().getTicks()+20;update(world,forge);
+                update(world,forge);
                 world.playSound(null,pos,SoundEvents.BLOCK_ENCHANTMENT_TABLE_USE,SoundCategory.BLOCKS,0.8f,0.8f);
             }
         });

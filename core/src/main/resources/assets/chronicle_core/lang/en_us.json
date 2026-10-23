@@ -28,5 +28,22 @@
   "chronicle.session.phase.ended": "Ended",
   "key.chronicle.authoring.open": "Open Core authoring",
   "attribute.chronicle_core.food_capacity": "Maximum food",
-  "attribute.chronicle_core.exhaustion_multiplier": "Food exhaustion multiplier"
+  "attribute.chronicle_core.exhaustion_multiplier": "Food exhaustion multiplier",
+  "screen.chronicle.item_workshop.target": "Target",
+  "screen.chronicle.item_workshop.material": "Material",
+  "screen.chronicle.item_workshop.result": "Result",
+  "screen.chronicle.item_workshop.inventory": "Inventory",
+  "screen.chronicle.item_workshop.recipes": "Recipes",
+  "screen.chronicle.item_workshop.back": "Back",
+  "screen.chronicle.item_workshop.status.forging": "Forging...",
+  "screen.chronicle.item_workshop.status.reopen": "Reopen the Forge",
+  "screen.chronicle.item_workshop.status.ready": "Forge ready",
+  "screen.chronicle.item_workshop.status.empty_target": "Add a target",
+  "screen.chronicle.item_workshop.status.empty_material": "Add a material",
+  "screen.chronicle.item_workshop.status.short_material": "More material needed",
+  "screen.chronicle.item_workshop.status.unchanged": "Already enchanted",
+  "screen.chronicle.item_workshop.status.quiet": "Forge is quiet",
+  "screen.chronicle.item_workshop.status.unpowered": "Forge is unpowered",
+  "screen.chronicle.item_workshop.status.incompatible": "Cannot bind",
+  "screen.chronicle.item_workshop.status.unavailable": "Forge unavailable"
 }

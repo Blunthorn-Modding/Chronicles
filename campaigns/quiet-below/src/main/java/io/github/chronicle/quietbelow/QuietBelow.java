@@ -52,7 +52,8 @@ public final class QuietBelow implements ModInitializer {
     public static final RegistryKey<Block> ANCIENT_FORGE_KEY=blockKey("ancient_forge");
     public static final RegistryKey<Item> ANCIENT_FORGE_ITEM_KEY=itemKey("ancient_forge");
     public static final Block ANCIENT_FORGE_BLOCK=Registry.register(Registries.BLOCK,ANCIENT_FORGE_KEY,
-            new io.github.chronicle.quietbelow.content.AncientForgeBlock(AbstractBlock.Settings.create().registryKey(ANCIENT_FORGE_KEY).strength(3.5f,8).requiresTool().nonOpaque()));
+            new io.github.chronicle.quietbelow.content.AncientForgeBlock(AbstractBlock.Settings.create().registryKey(ANCIENT_FORGE_KEY).strength(3.5f,8).requiresTool().nonOpaque()
+                    .luminance(state -> state.get(io.github.chronicle.quietbelow.content.AncientForgeBlock.HEAT) == 2 ? 12 : 0)));
     public static final Item ANCIENT_FORGE=Registry.register(Registries.ITEM,ANCIENT_FORGE_ITEM_KEY,
             new BlockItem(ANCIENT_FORGE_BLOCK,new Item.Settings().registryKey(ANCIENT_FORGE_ITEM_KEY).useBlockPrefixedTranslationKey()));
     public static final net.minecraft.block.entity.BlockEntityType<io.github.chronicle.quietbelow.content.AncientForgeBlockEntity> FORGE_BLOCK_ENTITY=

@@ -61,6 +61,10 @@ public final class AncientForgeTrial {
     private static final String SOURCE = "forge_trial_source", ROOT = "forge_trial_heart";
     private static final Pattern RUN = Pattern.compile("[0-9]{8}T[0-9]{12,}Z");
     private static int checks;
+    private static int expectedHeat;
+    private static long saturatedAt;
+    private static final java.util.Map<BlockPos, net.minecraft.block.BlockState> isolatedNeighbors = new java.util.LinkedHashMap<>();
+    private static java.util.LinkedHashSet<AncientForgeBlockEntity> savedModelTracker;
 
     private AncientForgeTrial() { }
 
@@ -68,7 +72,7 @@ public final class AncientForgeTrial {
         if (!"true".equals(System.getenv("CHRONICLE_FORGE_NATIVE_TRIAL"))) return;
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("quiet_below_forge_trial").requires(source -> source.hasPermissionLevel(2));
-            for (String verb : List.of("prepare", "ready", "offer", "transactions", "check", "save", "restart", "render", "itemrender"))
+            for (String verb : List.of("prepare", "ready", "offer", "transactions", "check", "save", "restart", "render", "itemrender", "model_off", "model_kindling", "model_active", "model_cut", "model_reconnect", "model_pause", "model_resume", "model_disable", "model_enable", "model_isolated", "model_adjacent", "model_saturated_pause", "model_check"))
                 root.then(literal(verb).executes(context -> run(context.getSource(), verb)));
             dispatcher.register(root);
         });
@@ -82,6 +86,8 @@ public final class AncientForgeTrial {
             ServerPlayerEntity player = source.getPlayerOrThrow();
             switch (verb) {
                 case "prepare" -> prepare(source, world, player);
+                case "model_off", "model_kindling", "model_active", "model_cut", "model_reconnect", "model_pause", "model_resume", "model_disable", "model_enable", "model_isolated", "model_adjacent", "model_saturated_pause" -> model(world, player, verb);
+                case "model_check" -> modelCheck(world);
                 case "ready" -> ready(world);
                 case "offer" -> offer(world, player);
                 case "transactions" -> transactions(world, player);
@@ -130,6 +136,84 @@ public final class AncientForgeTrial {
     }
 
     private static void ready(ServerWorld world) { check(QuietBelowEcology.stationPower(world, FORGE) == null, "Forge is not physically powered: " + QuietBelowEcology.stationPower(world, FORGE)); }
+
+    /** Real ecology-driven model changes, not posed heat values. Only disposable native worlds register these commands. */
+    private static void model(ServerWorld world, ServerPlayerEntity player, String verb) throws Exception {
+        close(player);
+        var engine = QuietBelowEcology.engineForTest(world.getServer());
+        var actor = new Actor(player.getName().getString(), player.getUuidAsString());
+        switch (verb) {
+            case "model_off", "model_kindling", "model_active" -> {
+                int preset = verb.equals("model_off") ? 4 : verb.equals("model_kindling") ? 3 : 0;
+                var rules = engine.vitality().rules();
+                engine.tuneVitality(new EcologyVitality.Rules(rules.lossMinutes(), rules.recoveryMinutes(), preset));
+                expectedHeat = verb.equals("model_off") ? 0 : verb.equals("model_kindling") ? 1 : 2;
+                if (verb.equals("model_off")) {
+                    engine.speed(25);
+                    world.setTimeOfDay(18000);
+                    put(world, new BlockPos(7, 65, 9), Blocks.STONE.getDefaultState());
+                    player.teleport(world, 7.5, 66, 9.5, java.util.Set.of(), 140, 18, false);
+                }
+            }
+            case "model_cut" -> { put(world, CONTACT, Blocks.AIR.getDefaultState()); expectedHeat = 0; }
+            case "model_reconnect" -> { put(world, CONTACT, Blocks.SCULK.getDefaultState()); expectedHeat = 2; }
+            case "model_isolated" -> {
+                isolatedNeighbors.clear();
+                for (Direction direction : Direction.values()) {
+                    BlockPos at = FORGE.offset(direction); isolatedNeighbors.put(at, world.getBlockState(at));
+                    put(world, at, Blocks.GLASS.getDefaultState());
+                }
+                expectedHeat = 0;
+            }
+            case "model_adjacent" -> {
+                for (var entry : isolatedNeighbors.entrySet()) put(world, entry.getKey(), entry.getValue());
+                isolatedNeighbors.clear(); expectedHeat = 2;
+            }
+            case "model_disable" -> { engine.mode(false); expectedHeat = 0; }
+            case "model_enable" -> { engine.mode(true); expectedHeat = 2; }
+            case "model_saturated_pause" -> {
+                var trackers = modelTrackers();
+                var queue = trackers.computeIfAbsent(world.getServer(), server -> new java.util.LinkedHashSet<>());
+                savedModelTracker = new java.util.LinkedHashSet<>(queue);
+                var forge = (AncientForgeBlockEntity) world.getBlockEntity(FORGE);
+                check(forge != null && world.getBlockState(FORGE).get(AncientForgeBlock.HEAT) == 2, "saturated test requires an actual active Forge");
+                queue.clear();
+                // Unloaded identities exercise the bounded queue/pruning path without placing extra blocks or loading chunks.
+                for (int i = 0; i < 1023; i++) queue.add(new AncientForgeBlockEntity(new BlockPos(10000 + i, 65, 10000), QuietBelow.ANCIENT_FORGE_BLOCK.getDefaultState()));
+                queue.add(forge);
+                saturatedAt = world.getServer().getTicks();
+                ChronicleRuntime.service(world.getServer()).pause(actor); expectedHeat = 0;
+            }
+            case "model_pause" -> { ChronicleRuntime.service(world.getServer()).pause(actor); expectedHeat = 0; }
+            case "model_resume" -> {
+                ChronicleRuntime.service(world.getServer()).resume(actor); expectedHeat = 2;
+                world.setTimeOfDay(1000);
+                player.teleport(world, 3.5, 66, 3.5, java.util.Set.of(), 0, 0, false);
+            }
+            default -> throw new IllegalArgumentException("Unknown model fixture");
+        }
+        check(engine.setup() != null, "model fixture lost source setup");
+    }
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<MinecraftServer, java.util.LinkedHashSet<AncientForgeBlockEntity>> modelTrackers() throws ReflectiveOperationException {
+        var field = AncientForges.class.getDeclaredField("LOADED"); field.setAccessible(true);
+        return (java.util.Map<MinecraftServer, java.util.LinkedHashSet<AncientForgeBlockEntity>>) field.get(null);
+    }
+    private static void modelCheck(ServerWorld world) throws Exception {
+        var state = world.getBlockState(FORGE);
+        check(state.isOf(QuietBelow.ANCIENT_FORGE_BLOCK), "model fixture lost the Forge");
+        check(state.get(AncientForgeBlock.HEAT) == expectedHeat, "real block model did not follow readiness");
+        check(QuietBelowEcology.forgeHeat(world, FORGE) == expectedHeat, "appearance disagrees with the physical readiness proof");
+        check((QuietBelowEcology.stationPower(world, FORGE) == null) == (expectedHeat == 2), "model readiness and crafting power disagree");
+        check(state.getLuminance() == (expectedHeat == 2 ? 12 : 0), "wrong Forge luminance");
+        int light = world.getLightLevel(net.minecraft.world.LightType.BLOCK, FORGE.up());
+        check(expectedHeat == 2 ? light >= 10 : light == 0, "native block light did not update with the model: " + light);
+        if (savedModelTracker != null) {
+            long elapsed = world.getServer().getTicks() - saturatedAt;
+            check(elapsed >= 100 && elapsed <= AncientForges.MAX_REFRESH_TICKS + 40, "saturated model refresh exceeded its bounded poll/delivery window: " + elapsed);
+            var queue = modelTrackers().get(world.getServer()); queue.clear(); queue.addAll(savedModelTracker); savedModelTracker = null;
+        }
+    }
 
     /** Opens an empty station. The known hotbar inputs let the real client exercise native staging. */
     private static void offer(ServerWorld world, ServerPlayerEntity player) {

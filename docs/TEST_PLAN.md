@@ -1,5 +1,72 @@
 # Bootstrap validation
 
+## QB-12 / CF-11 Forge presentation and readiness - 23 October 2026, dev.37
+
+Branch `feat/qb12-forge-readiness-presentation`, based on accepted dev.36
+`c86e012`. Scope: original Minecraft-style Forge UI and truthful persistent
+idle/kindling/active models with emitted light. The dedicated `forge_ui_design`
+proposal was revised and lead-approved before runtime implementation. The
+operator confirms kindling at half the configured Established threshold.
+Independent `forge_presentation_review` final pass has no material findings.
+See [presentation design](M11_FORGE_PRESENTATION.md) and
+[human review](M11_FORGE_REVIEW.md). Recipes, caps, transaction authority, Altar
+receipts, count-rate behavior and the queued Heart/menu corrections are unchanged.
+
+`python scripts/workspace.py build`: **PASS 340 Java** (177 Core / 163 QB),
+zero failures/errors/skips, final25 seconds. Five new engine regressions cover
+31/32/63/64 living cells at Established64, configured128/256 thresholds,
+detached cells and real cuts, conservative certified losses, restart uncertainty
+and disabled ecology. `python -m unittest discover -s scripts -p 'test_*.py' -q`:
+**70 PASS**. The six original sprite/metadata files reproduce byte-for-byte from
+`python scripts/workshop_assets.py` in a temporary directory.
+
+Final `python scripts/forge_smoke.py`: **PASS**,
+[native report](../../reports/forge-smoke-20261023T081403267600Z/report.json),
+**75A / 2B initial and 2A restart recorded steps**. These are fixture step counts,
+not independent scenario counts; the existing transaction command contains85
+assertions. Real ecology drives native client/server off/kindling/active state,
+block luminance0/0/12 and neighboring `LightType.BLOCK` checks. Actual cuts,
+reconnection, six-neighbor isolation/restoration, disabled/enabled ecology,
+pause/resume and restart pass. The full1024-entry tracker fixture puts the actual
+active Forge last and verifies it extinguishes within100..168 server ticks
+(128 production poll bound plus40 delivery allowance), then restores the tracker.
+Crafting's synchronous proof remains independent of delayed appearance polling.
+
+Root inspected actual640x480/1280x720 GUI2 screenshots, native staged result
+tooltip, same-handler recipe guide and original model scenes. A resource-pack
+fixture replaces all five Core sprites plus native popup/buttons/uniform font;
+its screenshot verifies the original chrome can be reskinned. The active nighttime
+scene visibly emits light. The first off capture may precede delivery of the
+nighttime packet, so screenshots alone are not a controlled day/night comparison;
+native block-light assertions supply that evidence. Modal isolation, actual
+shift-click/cursor/result interactions, two clients and saved item recovery pass.
+The earlier isolated death/stop settlement and exhaustive multistep drag/pickup-all
+native limitations remain; this revision does not claim to close them.
+
+Earlier runs: `080013196448` passed the UI/transaction suite before adding the
+network-state scenarios. A pinned-API compile error was corrected before any
+runtime launched. `081038207969` timed out at the isolation fixture: only the
+support block had been replaced, while natural growth supplied a second adjacent
+sculk block. Saved region inspection confirmed valid production adjacency.
+The fixture now replaces all six neighbors with glass and restores their exact
+states; the final full run passes. These resolved test worlds can be retired,
+retaining logs, screenshots and source. Earlier retained snapshots remain untouched.
+
+Deployment: the old dev.36 process was already absent overnight. Recorded PIDs,
+free loopback ports and an exclusive world lock were checked before archiving the
+saved on-disk runtime and removing its stale marker. Dev.36 was then started,
+validated with both receipts, paused and save-stopped. CRC/hash-verified backups
+`../backups/forge-pre-recovery-dev36.zip` and `../backups/forge-pre-dev37.zip`
+preserve the respective baselines. Only two managed jars changed; **61 protected
+world/config/auth files** remained byte-identical during the stopped swap.
+Authenticated25589/voice24469 runs dev.37, **PAUSED**, console76887, both prayer
+receipts exact, no forced chunks, no startup errors, status1.21.10/protocol773.
+Startup-critical files remain exact apart from Minecraft's normal properties
+header timestamp rewrite; all66 property values match. The matching pack's CRC,
+embedded jars, GUI2/narrator/onboarding/multiplayer options, official HUD download
+references and notices are verified. Evidence:
+`../reports/qb12-forge-presentation-deployment.json`.
+
 ## QB-12 / CF-11 native Forge workstation -22 October2026, dev.36
 
 Branch `feat/qb12-forge-workstation`, based on accepted dev35 `c976f60`. Dedicated UI design was revised and lead-approved before implementation: reject the unused anvil rename strip; use native grindstone target/material/result geometry. The [Core contract](CF11_FORGE_WORKSTATION.md), [UI design](M11_FORGE_WORKSTATION.md) and [operator review](M11_FORGE_REVIEW.md) describe the new real-slot workflow. Altar/ecology, recipe defaults/caps, original Forge assets and later feedback points remain unchanged.

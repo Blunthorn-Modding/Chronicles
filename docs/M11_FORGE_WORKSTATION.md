@@ -1,5 +1,7 @@
 # Ancient Forge workstation — design for review
 
+**Historical dev.36 design:** its transactions were accepted, but the operator requested original Minecraft-style chrome rather than literal grindstone artwork. The approved [dev.37 presentation](M11_FORGE_PRESENTATION.md) supersedes the geometry and visual direction below; the real-slot workflow remains.
+
 ## Lead-review decision (approved before implementation)
 
 Use a real vanilla-style `HandledScreen` based on the native grindstone container background. The Forge is an ordinary three-slot workstation: vertically stacked **Target** and **Ingredient** inputs feed a right-hand **Result** slot. The normal player inventory below is present because it supplies, receives, shift-clicks, and recovers the actual inputs. This replaces the held-main-hand/offhand text form.

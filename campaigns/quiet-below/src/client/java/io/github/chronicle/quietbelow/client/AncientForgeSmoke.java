@@ -3,6 +3,7 @@ package io.github.chronicle.quietbelow.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.github.chronicle.core.client.ItemEnchantingScreen;
+import io.github.chronicle.core.screen.ItemEnchantingScreenHandler;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
@@ -56,6 +57,7 @@ public final class AncientForgeSmoke {
     private boolean finished;
     private java.util.concurrent.CompletableFuture<Void> packReload;
     private List<String> originalPacks;
+    private String modelObservation = "";
 
     private AncientForgeSmoke(String phase, String role, Path output, Path serverRoot) throws IOException {
         if (!List.of("initial", "restart").contains(phase)) throw new IllegalArgumentException("CHRONICLE_FORGE_PHASE must be initial or restart");
@@ -102,7 +104,7 @@ public final class AncientForgeSmoke {
             if (!started) { baseline = messages.size(); stepDeadline = System.nanoTime() + step.timeoutMillis * 1_000_000L; step.start.run(); started = true; }
             if (step.done.getAsBoolean()) { checks.add(step.name); index++; started = false; stepDeadline = 0; }
             else require(System.nanoTime() < stepDeadline, "timed out: " + step.name);
-        } catch (Throwable error) { finish(client, false, error.getClass().getSimpleName() + ": " + error.getMessage()); }
+        } catch (Throwable error) { finish(client, false, error.getClass().getSimpleName() + ": " + error.getMessage() + modelObservation); }
     }
 
     private void buildA(MinecraftClient client) {
@@ -111,13 +113,16 @@ public final class AncientForgeSmoke {
             step("client receives dormant Forge state after restart",()->{},()->{
                 var state=client.world.getBlockState(new net.minecraft.util.math.BlockPos(2,65,3));
                 return state.isOf(io.github.chronicle.quietbelow.QuietBelow.ANCIENT_FORGE_BLOCK)
-                        &&state.get(io.github.chronicle.quietbelow.content.AncientForgeBlock.HEAT)==0;
+                        &&state.get(io.github.chronicle.quietbelow.content.AncientForgeBlock.HEAT)==0
+                        &&state.getLuminance()==0
+                        &&client.world.getLightLevel(net.minecraft.world.LightType.BLOCK,new net.minecraft.util.math.BlockPos(2,66,3))==0;
             },20_000);return;
         }
         step("wait for passive Forge account", () -> { }, () -> Files.isRegularFile(readyMarker), 30_000);
         command("prepare Forge fixture", "quiet_below_forge_trial prepare", "prepare");
         delay("settle Forge preparation", 100);
         command("verify Forge fixture ready", "quiet_below_forge_trial ready", "ready");
+        readinessModels(client);
         command("run Forge real-slot transaction matrix", "quiet_below_forge_trial transactions", "transactions");
         delay("settle transaction matrix", 100);
         command("recheck Forge power and station", "quiet_below_forge_trial ready", "ready");
@@ -145,7 +150,7 @@ public final class AncientForgeSmoke {
             var screen = (ItemEnchantingScreen) client.currentScreen;
             require(screen.getScreenHandler() == client.player.currentScreenHandler, "guide replaced native handler");
             require(screen.getScreenHandler().getSlot(0).getStack().isEmpty() && screen.getScreenHandler().getSlot(1).getStack().isEmpty(), "guide began with hidden staged inputs");
-            var click = new net.minecraft.client.gui.Click((screen.width - 176) / 2 + 49, (screen.height - 166) / 2 + 19, new net.minecraft.client.input.MouseInput(0, 0));
+            var click = slotClick(screen, 0);
             require(screen.mouseClicked(click, false), "guide did not consume hidden-slot mouse click"); screen.mouseReleased(click);
             require(screen.keyPressed(new net.minecraft.client.input.KeyInput(49, 0, 0)), "guide did not consume hidden hotbar key");
             require(screen.getScreenHandler().getSlot(0).getStack().isEmpty() && screen.getScreenHandler().getSlot(1).getStack().isEmpty(), "guide hidden action staged an item");
@@ -162,12 +167,12 @@ public final class AncientForgeSmoke {
         step("move native cursor over result for tooltip capture", () -> {
             var screen = (ItemEnchantingScreen) client.currentScreen;
             double scale = client.getWindow().getScaleFactor();
-            moveCursor(client, ((screen.width - 176) / 2.0 + 137) * scale, ((screen.height - 166) / 2.0 + 42) * scale);
+            moveCursor(client, ((screen.width - ItemEnchantingScreenHandler.WIDTH) / 2.0 + screen.getScreenHandler().getSlot(2).x + 8) * scale, ((screen.height - ItemEnchantingScreenHandler.HEIGHT) / 2.0 + screen.getScreenHandler().getSlot(2).y + 8) * scale);
         }, () -> true, 5_000);
         screenshot("capture staged Forge result tooltip", client, "forge-result-tooltip.png");
         step("take Forge result using its actual screen left-click", () -> {
             var screen = (ItemEnchantingScreen) client.currentScreen;
-            var click = new net.minecraft.client.gui.Click((screen.width - 176) / 2 + 137, (screen.height - 166) / 2 + 42, new net.minecraft.client.input.MouseInput(0, 0));
+            var click = slotClick(screen, 2);
             require(screen.mouseClicked(click, false), "result screen click was unhandled");
             screen.mouseReleased(click);
         }, () -> client.currentScreen instanceof ItemEnchantingScreen screen && !screen.pending() && screen.getScreenHandler().getSlot(0).getStack().isEmpty() && !screen.getScreenHandler().getCursorStack().isEmpty(), 20_000);
@@ -187,6 +192,37 @@ public final class AncientForgeSmoke {
         delay("finish native Forge held-item equip animation",10);
         screenshot("capture Forge held item and hotbar icon",client,"forge-held-item.png");
         command("save Forge state", "quiet_below_forge_trial save", "save");
+    }
+
+    private void readinessModels(MinecraftClient client) {
+        modelStep(client, "model_off", 0, "small network is off");
+        screenshot("capture actual off Forge at night", client, "forge-off-network.png");
+        modelStep(client, "model_kindling", 1, "halfway network shows kindling");
+        screenshot("capture actual kindling Forge at night", client, "forge-kindling-network.png");
+        modelStep(client, "model_active", 2, "powered Forge stays active and emits light");
+        screenshot("capture actual active Forge light at night", client, "forge-active-light.png");
+        modelStep(client, "model_cut", 0, "cut roots remove power and light");
+        modelStep(client, "model_reconnect", 2, "physical reconnection restores active light");
+        modelStep(client, "model_isolated", 0, "healthy remote sculk cannot power an isolated Forge");
+        modelStep(client, "model_adjacent", 2, "restored physical adjacency restores power");
+        modelStep(client, "model_disable", 0, "disabled ecology cannot warm the Forge");
+        modelStep(client, "model_enable", 2, "enabled ecology restores active readiness");
+        modelStep(client, "model_saturated_pause", 0, "full bounded tracker extinguishes its final Forge");
+        modelStep(client, "model_resume", 2, "resuming returns to the active Forge");
+    }
+    private void modelStep(MinecraftClient client, String verb, int expected, String description) {
+        command(description + " request", "quiet_below_forge_trial " + verb, verb);
+        step(description + " native state/light", () -> { }, () -> {
+            var at = new net.minecraft.util.math.BlockPos(2, 65, 3);
+            var state = client.world.getBlockState(at);
+            modelObservation = " [" + verb + ": " + state + ", block light=" + client.world.getLightLevel(net.minecraft.world.LightType.BLOCK, at.up()) + "]";
+            if (!state.isOf(io.github.chronicle.quietbelow.QuietBelow.ANCIENT_FORGE_BLOCK)
+                    || state.get(io.github.chronicle.quietbelow.content.AncientForgeBlock.HEAT) != expected
+                    || state.getLuminance() != (expected == 2 ? 12 : 0)) return false;
+            int light = client.world.getLightLevel(net.minecraft.world.LightType.BLOCK, at.up());
+            return expected == 2 ? light >= 10 : light == 0;
+        }, 25_000);
+        command(description + " server proof", "quiet_below_forge_trial model_check", "model_check");
     }
 
     private void resourcePack(MinecraftClient client) {
@@ -213,7 +249,13 @@ public final class AncientForgeSmoke {
             Files.writeString(root.resolve("pack.mcmeta"), "{\"pack\":{\"min_format\":[69,0],\"max_format\":[69,0],\"description\":\"Original Chronicle workstation contrast fixture\"}}");
             Path assets = root.resolve("assets/minecraft");
             // Original test artwork, never copied from a third-party resource pack or distributed.
-            fixtureSprite(assets.resolve("textures/gui/container/grindstone.png"), 256, 256, 0xFFC2DFCE, 0xFF315B48);
+            Path workshop = root.resolve("assets/chronicle_core/textures/gui/sprites/workshop");
+            fixtureSprite(workshop.resolve("panel.png"), 24, 24, 0xFFC2DFCE, 0xFF315B48, 2);
+            Files.writeString(workshop.resolve("panel.png.mcmeta"), "{\"gui\":{\"scaling\":{\"type\":\"nine_slice\",\"width\":24,\"height\":24,\"border\":2}}}");
+            fixtureSprite(workshop.resolve("slot.png"), 18, 18, 0xFF9BBCAF, 0xFF315B48);
+            fixtureSprite(workshop.resolve("result.png"), 18, 18, 0xFF9BBCAF, 0xFF547A68);
+            fixtureSprite(workshop.resolve("plus.png"), 10, 10, 0xFF284B3D, 0xFF59846D);
+            fixtureSprite(workshop.resolve("arrow.png"), 28, 14, 0xFF284B3D, 0xFF59846D);
             fixtureSprite(assets.resolve("textures/gui/sprites/popup/background.png"), 236, 34, 0xFF14372D, 0xFF8DBCA4);
             Files.writeString(assets.resolve("textures/gui/sprites/popup/background.png.mcmeta"), "{\"gui\":{\"scaling\":{\"type\":\"nine_slice\",\"width\":236,\"height\":34,\"border\":6}}}");
             for (String name : List.of("button", "button_highlighted", "button_disabled"))
@@ -233,10 +275,13 @@ public final class AncientForgeSmoke {
     }
 
     private static void fixtureSprite(Path path, int width, int height, int interior, int border) throws IOException {
+        fixtureSprite(path, width, height, interior, border, 3);
+    }
+    private static void fixtureSprite(Path path, int width, int height, int interior, int border, int borderWidth) throws IOException {
         Files.createDirectories(path.getParent());
         var png = new java.awt.image.BufferedImage(width, height, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
-            png.setRGB(x, y, x < 3 || y < 3 || x >= width - 3 || y >= height - 3 ? border : interior);
+            png.setRGB(x, y, x < borderWidth || y < borderWidth || x >= width - borderWidth || y >= height - borderWidth ? border : interior);
         javax.imageio.ImageIO.write(png, "PNG", path.toFile());
     }
 
@@ -249,6 +294,12 @@ public final class AncientForgeSmoke {
     private void command(String name, String command, String verb) { step(name, () -> send(command), () -> received(verb), 30_000); }
     private void send(String command) { MinecraftClient.getInstance().player.networkHandler.sendChatCommand(command); }
     private void delay(String name, int ticks) { step(name, () -> until = System.nanoTime() + ticks * 50_000_000L, () -> System.nanoTime() >= until, ticks * 50L + 5_000); }
+    private static net.minecraft.client.gui.Click slotClick(ItemEnchantingScreen screen, int index) {
+        var slot = screen.getScreenHandler().getSlot(index);
+        return new net.minecraft.client.gui.Click((screen.width - ItemEnchantingScreenHandler.WIDTH) / 2 + slot.x + 8,
+                (screen.height - ItemEnchantingScreenHandler.HEIGHT) / 2 + slot.y + 8, new net.minecraft.client.input.MouseInput(0, 0));
+    }
+
     private static void moveCursor(MinecraftClient client, double x, double y) {
         GLFW.glfwFocusWindow(client.getWindow().getHandle());
         GLFW.glfwSetCursorPos(client.getWindow().getHandle(), x, y);

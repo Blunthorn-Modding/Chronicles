@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Ancient Forge presentation</title>
+<style>
+  :root { color-scheme: dark; font-family: monospace; background:#171717; color:#eee; }
+  body { margin:24px; display:grid; gap:22px; } h1,h2,p { margin:0; max-width:920px; }
+  .proof { display:flex; gap:26px; flex-wrap:wrap; align-items:end; }
+  .window { background:#0b0b0b; border:1px solid #555; position:relative; overflow:hidden; }
+  .small { width:640px; height:480px; transform:scale(.52); transform-origin:bottom left; margin-right:-300px; }
+  .large { width:1280px; height:720px; transform:scale(.4); transform-origin:bottom left; margin-right:-768px; }
+  .caption { font-size:14px; color:#bdbdbd; }
+  .forge { position:absolute; width:440px; height:424px; box-sizing:border-box; color:#404040; background:#c6c6c6;
+    border:4px solid #202020; border-top-color:#f0f0f0; border-left-color:#f0f0f0; outline:2px solid #111; image-rendering:pixelated; }
+  .surface { position:absolute; inset:8px; border:2px solid #202020; border-top-color:#8b8b8b; border-left-color:#8b8b8b; }
+  .title,.label,.status,.inventory { position:absolute; font-size:18px; line-height:18px; z-index:2; }
+  .title{left:18px;top:16px}.target{left:72px;top:52px}.material{left:144px;top:52px}.result{left:304px;top:52px}
+  .status{left:18px;top:152px}.inventory{left:58px;top:236px}
+  .slot { position:absolute; width:36px; height:36px; box-sizing:border-box; z-index:2; background:#8b8b8b;
+    border:4px solid #202020; border-top-color:#eee; border-left-color:#eee; box-shadow:inset 0 0 0 2px #555; }
+  .slot span { display:block; margin:4px; width:16px; height:16px; background:linear-gradient(135deg,#bbb 0 40%,#303030 41% 48%,#b2d5f0 49% 72%,#5e4080 73%); }
+  .target-slot{left:88px;top:84px}.material-slot{left:176px;top:84px}.result-slot{left:320px;top:84px;box-shadow:inset 0 0 0 2px #688c95}
+  .plus{position:absolute;left:144px;top:92px;font-size:28px;color:#686868;z-index:2}.arrow{position:absolute;left:240px;top:88px;font-size:30px;color:#686868;z-index:2}
+  .button { position:absolute;left:300px;top:188px;width:124px;height:40px;box-sizing:border-box;color:#fff;background:#777;
+    border:4px solid #202020;border-top-color:#eee;border-left-color:#eee;text-align:center;line-height:32px;font-size:16px;z-index:2 }
+  .divider{position:absolute;left:18px;right:18px;top:258px;height:2px;background:#555;border-bottom:2px solid #eee;z-index:2}
+  .grid { position:absolute;left:58px;top:260px;display:grid;grid-template-columns:repeat(9,36px);gap:0;z-index:2 }.grid.hotbar{top:376px}
+  .grid .slot{position:relative;left:auto;top:auto}.guide{width:608px;height:416px;box-sizing:border-box;margin:8px;background:#262026;border:4px solid #0d0a0e;outline:2px solid #625064;padding:24px;color:#fff}
+  .guide .row{height:48px;border-bottom:2px solid #5b4d60;display:flex;align-items:center;gap:12px;font-size:16px}.guide .row .slot{position:relative;flex:none;left:auto;top:auto}.guide .controls{margin-top:12px;display:flex;justify-content:space-between}
+</style>
+<h1>Ancient Forge &#8212; original Minecraft-style composition</h1>
+<p>The panel is original chrome: light bevels, recessed slots and native-like controls. It is not a transplanted vanilla workstation.</p>
+<section class="proof">
+  <div><div class="window small"><div class="forge" style="left:100px;top:28px"><div class="surface"></div><div class="title">Ancient Forge</div><div class="label target">Target</div><div class="label material">Material</div><div class="label result">Result</div><div class="slot target-slot"><span></span></div><div class="slot material-slot"><span></span></div><div class="plus">+</div><div class="arrow">&#8250;</div><div class="slot result-slot"><span></span></div><div class="status">Forge ready</div><div class="button">Recipes</div><div class="divider"></div><div class="inventory">Inventory</div><div class="grid"></div><div class="grid hotbar"></div></div></div><p class="caption">640 &#215; 480, GUI scale 2 &#8212; physical panel at 100,28</p></div>
+  <div><div class="window large"><div class="forge" style="left:420px;top:148px"><div class="surface"></div><div class="title">Ancient Forge</div><div class="label target">Target</div><div class="label material">Material</div><div class="label result">Result</div><div class="slot target-slot"><span></span></div><div class="slot material-slot"><span></span></div><div class="plus">+</div><div class="arrow">&#8250;</div><div class="slot result-slot"><span></span></div><div class="status">Forge ready</div><div class="button">Recipes</div><div class="divider"></div><div class="inventory">Inventory</div><div class="grid"></div><div class="grid hotbar"></div></div></div><p class="caption">1280 &#215; 720, GUI scale 2 &#8212; physical panel at 420,148</p></div>
+</section>
+<h2>Recipe guide remains a dark native modal</h2>
+<div class="guide"><strong>Forge recipes</strong><div class="row"><div class="slot"><span></span></div><div>Echo Shard &#215; 1<br>Sharpness I</div></div><div class="row"><div class="slot"><span></span></div><div>Amethyst Shard &#215; 1<br>Unbreaking I</div></div><div class="row"><div class="slot"><span></span></div><div>Prismarine &#215; 1<br>Protection I</div></div><div class="controls"><div>&#8249; Back</div><div>1 / 1</div><div>Next &#8250;</div></div></div>
+<script>
+  for (const grid of document.querySelectorAll('.grid:not(.hotbar)')) for (let i=0;i<27;i++) { const s=document.createElement('div'); s.className='slot'; grid.append(s); }
+  for (const grid of document.querySelectorAll('.grid.hotbar')) for (let i=0;i<9;i++) { const s=document.createElement('div'); s.className='slot'; grid.append(s); }
+</script>

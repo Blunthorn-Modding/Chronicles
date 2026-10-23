@@ -236,6 +236,12 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     // Extent retains its last completed bounded assessment during harmless connected additions.
     // Local power and certified topology are still checked; a cut/unload invalidates immediately.
     @Override public boolean recoveryAvailable(){return cropsAvailable()&&!currentExtent().equals("Rooted");}
+    /** Metadata-only Forge appearance; local physical adjacency and play gates are checked by the adapter. */
+    public int forgeHeat() {
+        if (!cropsAvailable() || !vitalityAssessed) return 0;
+        if (recoveryAvailable()) return 2;
+        return growthCount() >= (vitality.rules().established() + 1) / 2 ? 1 : 0;
+    }
     @Override public boolean costsAvailable(){return recoveryAvailable();}
     @Override public boolean extensive(){return currentExtent().equals("Extensive");}
     /** A certified removal cannot keep an old extent alive across its exit threshold. */

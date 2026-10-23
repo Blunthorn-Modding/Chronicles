@@ -17,7 +17,16 @@ import net.minecraft.util.Identifier;
 
 /** Two real temporary inputs, a non-owning derived result and the native player inventory. */
 public final class ItemEnchantingScreenHandler extends ScreenHandler {
-    public static final int WIDTH=176,HEIGHT=166,PLAYER_START=3,PLAYER_END=39;
+    public static final int WIDTH=220;
+    public static final int HEIGHT=212;
+    public static final int TARGET_X=44;
+    public static final int MATERIAL_X=88;
+    public static final int RESULT_X=160;
+    public static final int INPUT_Y=42;
+    public static final int INVENTORY_X=29;
+    public static final int INVENTORY_Y=130;
+    public static final int PLAYER_START=3;
+    public static final int PLAYER_END=39;
     public static final ExtendedScreenHandlerType<ItemEnchantingScreenHandler,ItemEnchantingPayloads.View> TYPE=Registry.register(
             Registries.SCREEN_HANDLER,Identifier.of("chronicle_core","item_workshop"),new ExtendedScreenHandlerType<>(ItemEnchantingScreenHandler::new,ItemEnchantingPayloads.View.CODEC));
     private final SimpleInventory inputs=new SimpleInventory(2){@Override public void markDirty(){super.markDirty();changed();}};
@@ -30,13 +39,13 @@ public final class ItemEnchantingScreenHandler extends ScreenHandler {
     public ItemEnchantingScreenHandler(int syncId,PlayerInventory inventory,ItemEnchantingPayloads.View opening){
         super(TYPE,syncId);playerInventory=inventory;owner=inventory.player instanceof ServerPlayerEntity actor?actor:null;view=opening;
         if(opening.syncId()!=syncId)throw new IllegalArgumentException("Workshop opening identity mismatch");
-        addSlot(new Slot(inputs,0,49,19){@Override public int getMaxItemCount(){return 1;}});
-        addSlot(new Slot(inputs,1,49,40){@Override public boolean canInsert(ItemStack stack){return ingredient(stack);}});
-        addSlot(new Slot(result,0,129,34){
+        addSlot(new Slot(inputs,0,TARGET_X,INPUT_Y){@Override public int getMaxItemCount(){return 1;}});
+        addSlot(new Slot(inputs,1,MATERIAL_X,INPUT_Y){@Override public boolean canInsert(ItemStack stack){return ingredient(stack);}});
+        addSlot(new Slot(result,0,RESULT_X,INPUT_Y){
             @Override public boolean canInsert(ItemStack stack){return false;}
             @Override public boolean canTakeItems(PlayerEntity player){return owner==null&&view.state()==ItemEnchantingPayloads.State.READY&&!clientPending;}
         });
-        addPlayerSlots(inventory,8,84);
+        addPlayerSlots(inventory,INVENTORY_X,INVENTORY_Y);
     }
     public ServerPlayerEntity owner(){return owner;}
     public boolean settled(){return settled;}

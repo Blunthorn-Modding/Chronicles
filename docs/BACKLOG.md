@@ -1,6 +1,6 @@
 # Chronicle work tracking
 
-**Dev.36 Forge workstation:** dedicated UI design reviewed before implementation; real temporary target/material slots, derived result pickup and a bounded same-handler recipe guide replace held/offhand confirmation. Core owns the generic handler/config/caps/transaction; Quiet Below owns intrinsic Forge power/model. Independent review and native checks pass; [hands-on Forge review](M11_FORGE_REVIEW.md) is next. Accepted Altar/ecology remain. Count-rate comparison, physical Heart/lens and configuration placement follow sequentially.
+**Dev.37 Forge presentation:** the operator accepts the transactions. A dedicated design-agent proposal was lead-approved before implementing original Minecraft-style220x212 chrome with horizontal real slots and five replaceable sprites. QB uses off below halfway, kindling from half Established, and sustained active/light12 when powered. Independent review,340Java/70Python and actual native model/light/UI checks pass; [presentation review](M11_FORGE_REVIEW.md) is next. Accepted Altar/ecology remain. Count-rate comparison, physical Heart/lens and configuration placement follow sequentially.
 
 Updated 22 October 2026. Stable QB/CF IDs are repository work items, not claims that GitHub Issues or a GitHub Projects board have been created. Branches/commits reference these IDs. Technical milestone history stays in [TEST_PLAN](TEST_PLAN.md).
 

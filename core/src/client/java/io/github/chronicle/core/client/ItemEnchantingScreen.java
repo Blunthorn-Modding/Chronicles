@@ -23,12 +23,28 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Native grindstone geometry, real slots and a same-handler recipe guide. */
+/** Original Forge geometry, real slots and a same-handler recipe guide. */
 public final class ItemEnchantingScreen extends HandledScreen<ItemEnchantingScreenHandler> {
-    private static final Identifier BACKGROUND = Identifier.ofVanilla("textures/gui/container/grindstone.png");
     private static final Identifier POPUP = Identifier.ofVanilla("popup/background");
-    private static final Identifier ERROR = Identifier.ofVanilla("container/grindstone/error");
-    private static final int INK = 0xFF404040, GUIDE_WIDTH = 304, GUIDE_HEIGHT = 208;
+    private static final Identifier PANEL = Identifier.of("chronicle_core", "workshop/panel");
+    private static final Identifier SLOT = Identifier.of("chronicle_core", "workshop/slot");
+    private static final Identifier RESULT_SLOT = Identifier.of("chronicle_core", "workshop/result");
+    private static final Identifier PLUS = Identifier.of("chronicle_core", "workshop/plus");
+    private static final Identifier ARROW = Identifier.of("chronicle_core", "workshop/arrow");
+    private static final int INK = 0xFF404040;
+    private static final int GUIDE_WIDTH = 304;
+    private static final int GUIDE_HEIGHT = 208;
+    private static final int SLOT_FRAME_SIZE = 18;
+    private static final int SLOT_FRAME_OFFSET = 1;
+    private static final int LABEL_Y = 26;
+    private static final int STATUS_X = 9;
+    private static final int STATUS_Y = 76;
+    private static final int STATUS_WIDTH = 202;
+    private static final int RECIPES_X = 150;
+    private static final int RECIPES_Y = 94;
+    private static final int RECIPES_WIDTH = 62;
+    private static final int INVENTORY_LABEL_X = 29;
+    private static final int INVENTORY_LABEL_Y = 118;
     private final Map<String, ButtonWidget> buttons = new LinkedHashMap<>();
     private ItemEnchantingPayloads.View state;
     private boolean guide, timedOut;
@@ -59,18 +75,20 @@ public final class ItemEnchantingScreen extends HandledScreen<ItemEnchantingScre
     @Override protected void init() {
         super.init();
         buttons.clear();
-        button("Recipes", "Recipes", x + 120, y + 60, 48, () -> { guide = true; setFocused(null); updateWidgets(); });
+        button("Recipes", text("recipes"), x + RECIPES_X, y + RECIPES_Y, RECIPES_WIDTH,
+                () -> { guide = true; setFocused(null); updateWidgets(); });
         int left = guideLeft(), top = guideTop();
-        button("Back", "Back", left + 116, top + 182, 72, this::back);
-        button("Previous", "<", left + 12, top + 182, 24, () -> { page--; updateWidgets(); });
-        button("Next", ">", left + 268, top + 182, 24, () -> { page++; updateWidgets(); });
+        button("Back", text("back"), left + 116, top + 182, 72, this::back);
+        button("Previous", Text.literal("<"), left + 12, top + 182, 24, () -> { page--; updateWidgets(); });
+        button("Next", Text.literal(">"), left + 268, top + 182, 24, () -> { page++; updateWidgets(); });
         updateWidgets();
     }
 
-    private void button(String id, String label, int left, int top, int width, Runnable action) {
-        buttons.put(id, addDrawableChild(ButtonWidget.builder(Text.literal(label), ignored -> action.run())
+    private void button(String id, Text label, int left, int top, int width, Runnable action) {
+        buttons.put(id, addDrawableChild(ButtonWidget.builder(label, ignored -> action.run())
                 .dimensions(left, top, width, 20).build()));
     }
+    private static Text text(String suffix) { return Text.translatable("screen.chronicle.item_workshop." + suffix); }
     private List<ItemEnchantingPayloads.RecipeHint> recipes() { return state.recipes(); }
     private int pages() { return Math.max(1, (recipes().size() + 5) / 6); }
     private int guideLeft() { return (width - GUIDE_WIDTH) / 2; }
@@ -86,30 +104,43 @@ public final class ItemEnchantingScreen extends HandledScreen<ItemEnchantingScre
         buttons.get("Previous").active = page > 0;
         buttons.get("Next").active = page + 1 < pages();
     }
-    private String status() {
-        if (pending()) return "Forging...";
-        if (timedOut) return "Reopen the Forge";
+    private Text status() {
+        if (pending()) return text("status.forging");
+        if (timedOut) return text("status.reopen");
         return switch (state.state()) {
-            case READY -> "Forge ready";
-            case EMPTY_TARGET -> "Add a target";
-            case EMPTY_MATERIAL -> "Add a material";
-            case SHORT_MATERIAL -> "More material needed";
-            case UNCHANGED -> "Already enchanted";
-            case QUIET -> "Forge is quiet";
-            case UNPOWERED -> "Forge is unpowered";
-            case INCOMPATIBLE -> "Cannot bind";
-            case UNAVAILABLE -> "Forge unavailable";
+            case READY -> text("status.ready");
+            case EMPTY_TARGET -> text("status.empty_target");
+            case EMPTY_MATERIAL -> text("status.empty_material");
+            case SHORT_MATERIAL -> text("status.short_material");
+            case UNCHANGED -> text("status.unchanged");
+            case QUIET -> text("status.quiet");
+            case UNPOWERED -> text("status.unpowered");
+            case INCOMPATIBLE -> text("status.incompatible");
+            case UNAVAILABLE -> text("status.unavailable");
         };
     }
     @Override protected void drawBackground(DrawContext context, float delta, int mouseX, int mouseY) {
-        context.drawTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND, x, y, 0f, 0f,
-                backgroundWidth, backgroundHeight, 256, 256);
-        if (handler.getSlot(0).hasStack() && handler.getSlot(1).hasStack() && state.state() != ItemEnchantingPayloads.State.READY)
-            context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, ERROR, x + 92, y + 31, 28, 21);
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, PANEL, x, y, backgroundWidth, backgroundHeight);
+        for (int index = 0; index < ItemEnchantingScreenHandler.PLAYER_END; index++) {
+            Slot slot = handler.getSlot(index);
+            Identifier sprite = index == 2 ? RESULT_SLOT : SLOT;
+            context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, sprite,
+                    x + slot.x - SLOT_FRAME_OFFSET, y + slot.y - SLOT_FRAME_OFFSET,
+                    SLOT_FRAME_SIZE, SLOT_FRAME_SIZE);
+        }
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, PLUS, x + 72, y + 46, 10, 10);
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, ARROW, x + 120, y + 44, 28, 14);
     }
     @Override protected void drawForeground(DrawContext context, int mouseX, int mouseY) {
-        context.drawText(textRenderer, title, 8, 6, INK, false);
-        context.drawText(textRenderer, textRenderer.trimToWidth(status(), 108), 8, 72, INK, false);
+        context.drawText(textRenderer, title, 9, 8, INK, false);
+        drawCentered(context, text("target"), 53, LABEL_Y);
+        drawCentered(context, text("material"), 97, LABEL_Y);
+        drawCentered(context, text("result"), 169, LABEL_Y);
+        context.drawText(textRenderer, textRenderer.trimToWidth(status().getString(), STATUS_WIDTH), STATUS_X, STATUS_Y, INK, false);
+        context.drawText(textRenderer, text("inventory"), INVENTORY_LABEL_X, INVENTORY_LABEL_Y, INK, false);
+    }
+    private void drawCentered(DrawContext context, Text value, int center, int top) {
+        context.drawText(textRenderer, value, center - textRenderer.getWidth(value) / 2, top, INK, false);
     }
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         if (guide) { renderGuide(context, mouseX, mouseY, delta); return; }
@@ -118,13 +149,13 @@ public final class ItemEnchantingScreen extends HandledScreen<ItemEnchantingScre
         for (int index = 0; index < 2; index++) {
             Slot slot = handler.getSlot(index);
             if (!slot.hasStack() && inside(mouseX, mouseY, x + slot.x, y + slot.y, 16, 16))
-                context.drawTooltip(textRenderer, Text.literal(index == 0 ? "Target" : "Material"), mouseX, mouseY);
+                context.drawTooltip(textRenderer, text(index == 0 ? "target" : "material"), mouseX, mouseY);
         }
     }
     private void renderGuide(DrawContext context, int mouseX, int mouseY, float delta) {
         int left = guideLeft(), top = guideTop();
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, left, top, GUIDE_WIDTH, GUIDE_HEIGHT);
-        context.drawTextWithShadow(textRenderer, "Forge recipes", left + 12, top + 12, 0xFFFFFFFF);
+        context.drawTextWithShadow(textRenderer, text("recipes"), left + 12, top + 12, 0xFFFFFFFF);
         context.drawTextWithShadow(textRenderer, (page + 1) + "/" + pages(), left + 256, top + 12, 0xFFFFFFFF);
         ItemEnchantingPayloads.RecipeHint hovered = null;
         for (int row = 0; row < 6 && page * 6 + row < recipes().size(); row++) {
