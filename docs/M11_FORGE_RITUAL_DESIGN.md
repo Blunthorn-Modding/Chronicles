@@ -31,12 +31,17 @@ extent is `448 x 440`; the smaller canvas retains a ten-pixel logical margin.
 | Entry | actual shared input slot at `104,28` | receives one offering at a time; normal item tooltip |
 | Forge view | `88,51`, `48 x 48` | actual Forge from above, no item render inside it |
 | Exit | actual owned outcome slot at `104,107` | empty until resolution; normal item tooltip and collection |
+| Inventory tray | `24,128`, `176 x 86` | one recessed, non-interactive backing for inventory and hotbar |
 | Main inventory | actual slots 3--29 from `31,135`, `9 x 3` | native 18px pitch |
 | Hotbar | actual slots 30--38 from `31,193`, `9 x 1` | native 18px pitch |
 
-The hotbar ends at y=211, leaving nine pixels inside the popup. The Forge view
-is deliberately square and centred, so the entry -> Forge -> exit rhythm reads
-without explanatory text.
+The tray reuses the Core workshop panel as a 2px nine-slice. Its `x=24` outer
+edge makes the slots a consistent seven pixels inset, and it continues behind
+the four-pixel inventory/hotbar gap. It is visual-only and does not capture
+clicks. The hotbar ends at y=211, leaving three pixels before the tray ends at
+y=214 and six further pixels inside the popup. The Forge view is deliberately
+square and centred, so the entry -> Forge -> exit rhythm reads without
+explanatory text.
 
 ## Sequential, order-independent flow
 
@@ -68,14 +73,14 @@ a first offered item; no extra in-game field or explanation is added.
 
 | State | Entry / Forge view | Exit |
 | --- | --- | --- |
-| Idle | empty; top-down Forge idle | empty |
-| First item | one item in entry; Forge idle | empty |
+| Idle | empty; Forge kindling/booting visual, no stirring | empty |
+| First item | one item in entry; quiet Forge kindling visual | empty |
 | First lodged | entry empty; Forge kindling | empty |
 | Second item staged | second item in entry; Forge kindling | empty |
 | Working | entry empty; active Forge stirs inside opening | empty |
-| Success | Forge idle | real component-preserving item with cosmetic glint rim |
-| Salvage | Forge idle | real configured salvage |
-| Unavailable | any staged entries stay recoverable; Forge idle/inert | empty |
+| Success | quiet Forge kindling visual | real component-preserving item with cosmetic glint rim |
+| Salvage | quiet Forge kindling visual | real configured salvage |
+| Unavailable | any staged entries stay recoverable; Forge off/inert | empty |
 
 The mock-up supports both target-first and ingredient-first orders through
 outside controls and clickable sample inventory items. Both routes end in the

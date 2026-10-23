@@ -1,5 +1,22 @@
 # Bootstrap validation
 
+## QB-12 idle distinction and inventory tray - 23 October 2026, design only
+
+Branch `design/qb12-forge-inventory`, based on `1258434`. Dedicated UI agent
+makes a narrow HTML/spec refinement: unavailable uses the off Forge image,
+available idle uses its kindling/booting image, and working remains active.
+Stirring begins only after an offering; no new status text is introduced.
+One176x86 Core panel nine-slice at24,128 anchors the main inventory and hotbar.
+The native18px slot positions and all JavaScript offering logic stay unchanged.
+
+Root inspected actual idle/unavailable640x480 renders and rendered the large
+1280x720 staged view. The light-grey beveled tray encloses both grids without
+covering the slots or capturing pointer events. Actual headless DOM interaction
+still passes both sequential offering orders and output collection/reset.
+`git diff --check` passes. Evidence:
+`../reports/forge-ritual-preview-assets/tray-*.png` and `flow-check-result.json`.
+No Java/pack/config/server change or mod test rerun for this design-only update.
+
 ## QB-12 actual Forge view and unordered offerings - 23 October 2026, design only
 
 Branch `design/qb12-topdown-forge`, based on `08d717d`. The operator retains the

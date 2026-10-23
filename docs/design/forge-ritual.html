@@ -34,8 +34,8 @@
     .forge:hover + .forge-tooltip, .forge:focus-visible + .forge-tooltip { display: block; }
     .forge:disabled:hover + .forge-tooltip { display: none; }
     .forge-view { position: absolute; inset: 0; background: center / 48px 48px no-repeat; pointer-events: none; }
-    .panel[data-state="idle"] .forge-view, .panel[data-state="first"] .forge-view, .panel[data-state="success"] .forge-view, .panel[data-state="salvage"] .forge-view, .panel[data-state="unavailable"] .forge-view { background-image: url('forge-top-idle.svg'); }
-    .panel[data-state="lodged"] .forge-view, .panel[data-state="staged"] .forge-view { background-image: url('forge-top-kindling.svg'); }
+    .panel[data-state="unavailable"] .forge-view { background-image: url('forge-top-idle.svg'); }
+    .panel[data-state="idle"] .forge-view, .panel[data-state="first"] .forge-view, .panel[data-state="lodged"] .forge-view, .panel[data-state="staged"] .forge-view, .panel[data-state="success"] .forge-view, .panel[data-state="salvage"] .forge-view { background-image: url('forge-top-kindling.svg'); }
     .panel[data-state="working"] .forge-view { background-image: url('forge-top-active.svg'); }
     .stir { position: absolute; left: 105px; top: 68px; width: 14px; height: 14px; pointer-events: none; display: none; overflow: hidden; }
     .panel[data-state="lodged"] .stir, .panel[data-state="staged"] .stir, .panel[data-state="working"] .stir { display: block; }
@@ -44,7 +44,8 @@
     .stir::after { left: 7px; top: 7px; background: #f0a651; box-shadow: -4px 2px 0 #7a3527; animation: gentle-stir 2.4s steps(4, end) infinite reverse; }
     .panel[data-state="working"] .stir::before, .panel[data-state="working"] .stir::after { animation-duration: .55s; }
     @keyframes gentle-stir { to { transform: rotate(90deg); } }
-    .inventory { position: absolute; left: 31px; top: 135px; width: 162px; display: grid; grid-template-columns: repeat(9, 18px); grid-auto-rows: 18px; }
+    .inventory-tray { position: absolute; left: 24px; top: 128px; box-sizing: border-box; width: 176px; height: 86px; z-index: 0; pointer-events: none; border: 2px solid transparent; border-image: url('../../core/src/main/resources/assets/chronicle_core/textures/gui/sprites/workshop/panel.png') 2 fill stretch; }
+    .inventory { position: absolute; left: 31px; top: 135px; z-index: 1; width: 162px; display: grid; grid-template-columns: repeat(9, 18px); grid-auto-rows: 18px; }
     .hotbar { top: 193px; }
     .inventory button { cursor: pointer; }
     .inventory .slot { position: relative; left: auto; top: auto; }
@@ -70,6 +71,7 @@
       <button class="forge" aria-label="Offer"><span class="forge-view"></span></button><span class="forge-tooltip" role="tooltip">Offer</span>
       <span class="stir" aria-hidden="true"></span>
       <button class="slot exit" aria-label="Exit"><img alt=""></button>
+      <div class="inventory-tray" aria-hidden="true"></div>
       <div class="inventory main" aria-label="Inventory"></div>
       <div class="inventory hotbar" aria-label="Hotbar"></div>
     </section>
