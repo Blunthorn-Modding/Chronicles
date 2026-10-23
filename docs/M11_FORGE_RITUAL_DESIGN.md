@@ -1,120 +1,117 @@
-# Ancient Forge ritual design — sequential offering proposal
+# Ancient Forge ritual design — order-independent sequential offering
 
 ## Intent
 
-The Forge now follows one vertical ritual path: **one entry**, an illustrated
-**basin**, then **one exit**. A player adds two items sequentially through the
-same entry. It uses the Ancient Altar's compact native popup, normal Minecraft
-font and normal item/slot scale; it has no labels, status prose, recipe browser,
+The Forge is a vertical ritual: **one entry**, the actual Ancient Forge viewed
+from above, then **one exit**. Two items are offered sequentially through the
+same entry. The Forge itself never displays either item. Instead, its opening
+subtly comes alive after the first offering and stirs only inside that opening
+while the ritual works.
+
+The player screen retains the accepted Altar language: native
+`minecraft:popup/background`, normal Minecraft bitmap font, 16px items and
+18px slots. It has no target/material labels, status text, recipe browser,
 enchantment preview or default Minecraft bowl.
 
-The basin is original Forge illustration, not an item and not a copied vanilla
-workstation. Its pixel geometry is in
-[`design/forge-basin.svg`](design/forge-basin.svg). Future production art can
-be a resource-packable bespoke basin sprite; this SVG is a design mock-up only.
+The three top-down Forge views are original views derived from the project's
+existing Forge model/texture: `forge-top-idle.svg`, `forge-top-kindling.svg`,
+and `forge-top-active.svg`. They are mock-up references for eventual
+resource-packable Forge art, not new gameplay assets.
 
-Recipe books may later appear as written chest loot clues. They are outside this
-screen design and are not a menu codex.
+## Geometry
 
-## Compact native layout
-
-The panel is `224 x 212`, using the same `minecraft:popup/background`
-nine-slice path as the accepted Altar. Entry, exit and player inventory use the
-native `minecraft:container/slot` art at 18px, with unscaled 16px item renders.
-The compact vertical sequence leaves room for a normal-sized inventory.
+Use a `224 x 220` popup. Its outer position is `(48,10)` logical / `(96,20)`
+physical in the `640 x 480` GUI-scale-2 window, and `(208,70)` logical /
+`(416,140)` physical in the `1280 x 720` GUI-scale-2 window. Its physical
+extent is `448 x 440`; the smaller canvas retains a ten-pixel logical margin.
 
 | Element | Panel-local geometry | Player-facing behaviour |
 | --- | ---: | --- |
-| Popup | `224 x 212` | dark native popup surface |
 | Title | centred baseline `y=12` | `Ancient Forge`, normal bitmap font |
-| Entry | actual shared input slot at `104,30` | accepts one item at a time; normal item tooltip |
-| Basin | `80,56`, `64 x 32` | original illustrated stone/sculk/ember basin; click tooltip/narration says only `Offer` |
-| Lodged target | `104,64`, rendered over basin | noninteractive normal 16px item render after first offer |
-| Exit | actual owned outcome slot at `104,96` | empty until resolution; then normal item tooltip and collection |
-| Main inventory | actual slots 3--29 from `31,126`, `9 x 3` | normal 18px pitch |
-| Hotbar | actual slots 30--38 from `31,184`, `9 x 1` | normal 18px pitch |
+| Entry | actual shared input slot at `104,28` | receives one offering at a time; normal item tooltip |
+| Forge view | `88,51`, `48 x 48` | actual Forge from above, no item render inside it |
+| Exit | actual owned outcome slot at `104,107` | empty until resolution; normal item tooltip and collection |
+| Main inventory | actual slots 3--29 from `31,135`, `9 x 3` | native 18px pitch |
+| Hotbar | actual slots 30--38 from `31,193`, `9 x 1` | native 18px pitch |
 
-There is no inventory label: the native grid is immediately recognisable. The
-hotbar ends at panel-local y=202, leaving ten pixels above the popup's bottom.
-At GUI scale 2, this is `(48,14)` logical / `(96,28)` physical in a `640 x
-480` window and `(208,74)` logical / `(416,148)` physical in a `1280 x 720`
-window. The popup extent is `448 x 424` physical pixels in both cases.
+The hotbar ends at y=211, leaving nine pixels inside the popup. The Forge view
+is deliberately square and centred, so the entry -> Forge -> exit rhythm reads
+without explanatory text.
 
-## Sequential ritual flow
+## Sequential, order-independent flow
 
-1. Place a target in the single **entry** slot.
-2. Click the basin. The server validates and lodges that target in the basin;
-   it is not consumed. The entry becomes empty and the target visibly rests in
-   the basin.
-3. Place an ingredient in the **same entry** slot.
-4. Click the basin again. Only then does the server start the ritual. It locks
-   the lodged target and entry offering, and no result is predicted.
-5. After the authoritative resolution, the real owned final item or salvage
-   appears in the **exit** slot. Until that exit is collected, the entry cannot
-   accept a new pair.
+1. Place either a target **or** an ingredient in the shared entry.
+2. Click the Forge view (`Offer` is its only tooltip/narration). The server
+   lodges the first stack privately and empties the entry without consuming it.
+   The Forge switches from idle to kindling; it does not show the lodged item.
+3. Place the other item in the same entry and click the Forge view again.
+4. The server considers both orientations of the exact pair and starts an
+   unambiguous matching ritual. Identical output and consumption proposals can
+   be coalesced; conflicting recipes cannot be chosen by offering order. The active Forge has a
+   small contained stirring animation inside its opening, while neither input
+   item is rendered in the Forge.
+5. The server resolves once after the proposed duration of30 server ticks. A real owned
+   output or approved salvage appears in the exit. A new pair cannot begin
+   until that exit is collected.
+
+If both orientations match different recipes, the server rejects the ambiguous
+pair and returns both stacks unchanged. There is no arrival priority, implicit
+"first means target" rule, or client-selected recipe. A correct eligible recipe
+never receives a random failure.
 
 Closing, disconnecting, power/range/session loss, station replacement, death or
-server stop before commitment returns both the lodged target and the entry item
-exactly once via the handler's native recovery route. The initial design offers
-no extra "take back" control: closing is the deliberate, safe way to recover a
-lodged target before the second offering. This avoids a third interactive field
-and keeps roles clear through item location.
+server stop before commitment returns the private first stack and entry stack
+exactly once through native recovery. Close is the initial safe way to retrieve
+a first offered item; no extra in-game field or explanation is added.
 
 ## Visual states
 
-| State | Entry / basin | Exit |
+| State | Entry / Forge view | Exit |
 | --- | --- | --- |
-| Idle | empty entry; quiet basin | empty |
-| First item | target in entry | empty |
-| Target lodged | entry empty; target item rests in basin | empty |
-| Second item staged | lodged target plus ingredient in entry | empty |
-| Working | both items locked; basin pulses with bounded light | empty |
-| Success | basin clear | real component-preserving target in exit, with cosmetic glint rim |
-| Salvage | basin clear | real configured salvage in exit |
-| Unavailable | existing items remain recoverable; basin is inert | empty |
+| Idle | empty; top-down Forge idle | empty |
+| First item | one item in entry; Forge idle | empty |
+| First lodged | entry empty; Forge kindling | empty |
+| Second item staged | second item in entry; Forge kindling | empty |
+| Working | entry empty; active Forge stirs inside opening | empty |
+| Success | Forge idle | real component-preserving item with cosmetic glint rim |
+| Salvage | Forge idle | real configured salvage |
+| Unavailable | any staged entries stay recoverable; Forge idle/inert | empty |
 
-The basin's click target has only the native-tooltip/narration word `Offer`.
-All ordinary items retain their normal tooltip/narration. There is no visual
-text explaining a state or disclosing a recipe.
+The mock-up supports both target-first and ingredient-first orders through
+outside controls and clickable sample inventory items. Both routes end in the
+same sample correct output. The only in-game tooltip is `Offer` on the Forge
+view; ordinary entry, exit and inventory item tooltips remain native.
 
-## Authority and outcome proposal
+## Authority and pending policy
 
 The existing server identity, exact stack/component, station, cap and one-use
-checks remain authoritative. First offer must generate a separate bounded
-"lodged target" authority; second offer binds that target and its entry offering
-to the later commit. Client clicks never choose a result or submit item data.
+checks remain authoritative. First offer needs bounded private lodged-stack
+state; the second offer binds that stack and entry to a one-time action. The
+client sends no item roles, recipe identity, output or coordinate authority.
 
-The proposed working duration remains 30 server ticks. At resolution, correct
-eligible recipes preserve the current component/cap behaviour and produce a
-**real owned stack** in the exit, never a derived preview. Closing after commit
-recovers/delivers that exit stack exactly once.
+At resolution, a correct recipe preserves existing component/cap behaviour and
+creates a **real owned stack** in the exit, never a derived preview. Exit close
+recovery/delivery occurs exactly once.
 
-The previously proposed deterministic target-plus-material salvage policy stays
-pending operator approval: a deliberate wrong pairing consumes the lodged target
-and required ingredient count, then yields a result from an explicit server
-salvage table. Unknown targets have no offer path. The edge policy for maxed or
-incompatible mapped recipes remains pending review; this design does not settle
-it. Correct eligible recipes never receive a random failure.
+The deterministic target-plus-material salvage policy remains pending operator
+approval, as does the maxed/incompatible mapped-pair edge policy. This design
+does not choose which first item is a target; roles are deferred until the pair
+is evaluated in both orientations.
 
-## Ownership and non-goals
+## Non-goals and review
 
-**Core** would own the sequential handler state, lodged-target recovery, exit
-ownership, compact popup/slot screen and client-only basin animation. **Quiet
-Below** continues to provide only a typed physical Forge/readiness gate; world
-models and light are separate work.
+This design does not implement recipe books, a codex, random outcomes, player
+diagnostics, default bowl art, new runtime/configuration/salvage rules, or
+Forge world-model/light changes.
 
-This design does not implement new recipes, recipe books, a codex, scrap
-balance, random outcomes, player-facing diagnostics, default bowl art, world
-model/light changes or the outstanding salvage policy.
-
-## Review checks
-
-* The HTML mock-up exposes idle, first item, target lodged, second item staged,
-  working, success, salvage and unavailable states via controls outside the
-  game canvas. `?state=staged&size=640` selects the staged review view.
-* Click-through in the mock-up mirrors the sequential rhythm: sample inventory
-  item -> entry -> basin -> lodged -> sample inventory item -> entry -> basin.
-* The `224 x 212` panel fits both GUI-scale-2 canvases with true 16px items and
-  18px slot frames. The original basin is 64x32 and no default bowl appears.
-* `python scripts/forge_design_preview.py` recreates the external pinned vanilla
-  assets used only by the local HTML preview; no upstream artwork is committed.
+* `?state=staged&size=640` renders the second-offering review state. The HTML
+  controls outside the game canvas cover all eight visual states and two orders.
+* No state renders an item inside the top-down Forge; stirring stays contained
+  within its central opening.
+* `python scripts/forge_design_preview.py` still recreates only the external,
+  pinned vanilla preview assets. The Forge top-down SVGs are repository-owned
+  original design material.
+* `python scripts/forge_topdown_preview.py` reproducibly projects103 up faces
+  per Forge state, depth-sorted from the original axis-aligned Blockbench model.
+  The generated SVGs embed the unchanged original campaign texture so they work
+  as local browser images without fetching external resources.

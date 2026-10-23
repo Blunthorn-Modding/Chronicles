@@ -1,5 +1,40 @@
 # Bootstrap validation
 
+## QB-12 actual Forge view and unordered offerings - 23 October 2026, design only
+
+Branch `design/qb12-topdown-forge`, based on `08d717d`. The operator retains the
+single vertical entry/exit but replaces the blue illustration with the actual
+Forge viewed from above. Offered items must stay concealed; stirring indicates
+activity. Either sequential offering order must work. The dedicated UI agent
+revises HTML/spec; the lead reviews the real rendered results before handoff.
+
+`scripts/forge_topdown_preview.py` projects103 up faces per state from the
+original axis-aligned model, in height order, using unchanged original Forge
+textures. The three generated SVG views reproduce byte-for-byte. They contain
+no invented Forge texture or upstream Minecraft workstation artwork. Existing
+popup/slot/font/item assets remain local external preview extracts. The obsolete
+blue basin SVG is removed. Geometry is224x220, entry104,28, Forge88,51 at48x48,
+exit104,107, inventory31,135/hotbar31,193. There is no stored-item renderer inside
+the Forge; contained warm embers stir gently after the first offering and faster
+while working.
+
+HTML/three SVGs parse; `node --check` and `git diff --check` pass. Installed
+headless Edge renders the actual top-down three-state gallery, target-first and
+ingredient-first staged views, first-held/working states and both GUI2 sizes.
+The lead corrects missing preview paths, native grid positioning, bitmap font
+file-origin reads and unwanted canvas downscaling during visual verification.
+A real DOM click-through checks both sequential orders, clearing the entry,
+same final sword, hidden held-item content and result collection/reset: PASS.
+Evidence: `../reports/forge-ritual-preview-assets/top-ui-*.png`,
+`topdown-gallery.png`, and `flow-check-result.json`.
+
+This changes design documents, prototype HTML and its rendering helper only.
+No runtime, client pack, configuration or server change, and no mod test rerun:
+dev.38 remains the last verified runtime baseline. Final operator design approval
+still precedes UI/ritual implementation. Unordered matching must reject conflicting
+outcomes without choosing an arrival-order recipe; salvage/maxed-item policy
+remains pending.
+
 ## QB-12 vertical sequential Forge proposal - 23 October 2026, design only
 
 Branch `design/qb12-sequential-forge`, based on `b132f4f`. The operator requests
