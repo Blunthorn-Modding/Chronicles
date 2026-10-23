@@ -407,7 +407,7 @@ public final class CoreMenuScreen extends Screen {
         if (input.equals("EVENT_DRAFT")) { saveEvent(); return; }
         if (input.equals("POSITION1")) { prompt(control.action(), detailId(), "1:"); return; }
         if (input.equals("POSITION2")) { prompt(control.action(), detailId(), "2:"); return; }
-        if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS")) {
+        if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS") || input.equals("REGION_PURPOSE") || input.equals("REGION_BOUND")) {
             beginPicker(new PendingPicker(control.action(), detailId(), input)); return;
         }
         prompt(control.action(), detailId(), "");
@@ -552,6 +552,8 @@ public final class CoreMenuScreen extends Screen {
             case CHEST_UNBIND -> "Remove this chest binding. Its current contents stay in the chest.";
             case SETUP_ASSIGN -> "Assign existing site " + argument + " to this requirement. This references its saved revision; geometry is not copied.";
             case SETUP_CLEAR -> "Clear this requirement's assignment. The saved site stays available.";
+            case REGION_ASSIGN -> "Use this saved region for " + argument + ". This pins its current revision; bounds are not copied.";
+            case REGION_UNASSIGN -> "Clear this use from the selected saved region. The region stays available.";
             case EVENT_RUN -> "Deliver this event to the reviewed live audience.\n" + eventPreview;
             case EVENT_RESET -> "Allow this event to run again. Its configured timer delay starts again; nothing is delivered now.";
             case STARTING_RESET -> "Permit another automatic starting-position attempt for this player. This may move them on the next eligible join.";

@@ -61,7 +61,7 @@ def run() -> None:
     w.require_eula()
     w.validate_server_runtime()
     w.validate_managed_mod_names()
-    w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':campaigns:quiet-below:writeSmokeClientLaunch'])
+    w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':core:remapJar', ':campaigns:quiet-below:remapJar', ':campaigns:quiet-below:writeSmokeClientLaunch'])
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text(encoding='utf-8'))
     root = fabric_smoke._stage(w)
     fabric_smoke._loot_fixture(root)

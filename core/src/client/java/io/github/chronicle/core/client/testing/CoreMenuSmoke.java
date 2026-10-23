@@ -153,6 +153,7 @@ public final class CoreMenuSmoke {
     }
 
     private void driveOperator(MinecraftClient client) {
+        if(step>=210){driveRegionUses(client);return;}
         if(step>=110){driveBlockBindings(client);return;}
         switch (step) {
             case 0 -> { openMenu(client); advance("operator opened the native menu"); }
@@ -270,13 +271,13 @@ public final class CoreMenuSmoke {
             }
             case 48 -> awaitView(() -> !sameSnapshot("loot before add", lootFile) && fileContains(lootFile, "minecraft:gold_ingot"),
                     "whole loot table save persists registry item without filling a chest");
-            case 49 -> { require(press(screen(client), "Game setup"), "Game setup navigation unavailable"); waitingFor = viewCount; step++; }
-            case 50 -> awaitView(() -> screen(client).state().page() == Page.SETUP, "opened Game setup");
-            case 51 -> { screen(client).selectForTest("quiet_below:source_city"); waitingFor = viewCount; step++; }
-            case 52 -> awaitView(() -> screen(client).state().detail() != null, "selected typed setup requirement");
-            case 53 -> { require(press(screen(client), "Choose existing site…"), "setup assignment picker unavailable"); waitingFor = viewCount; step++; }
-            case 54 -> awaitView(() -> screen(client).state().picker() != null && "REGION".equals(screen(client).state().picker().kind()), "setup only offers matching region sites");
-            case 55 -> { screen(client).selectForTest("menu_smoke_region"); require(screen(client).triggerForTest("Confirm: Choose existing site…"), "setup assignment review unavailable"); waitingFor = viewCount; step++; }
+            case 49 -> { require(press(screen(client), "Regions"), "Regions navigation unavailable"); waitingFor = viewCount; step++; }
+            case 50 -> awaitView(() -> screen(client).state().page() == Page.REGIONS, "opened the sole region workflow");
+            case 51 -> { screen(client).selectForTest("menu_smoke_region"); waitingFor = viewCount; step++; }
+            case 52 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().selected().equals("menu_smoke_region"), "selected saved geometry for a typed use");
+            case 53 -> { require(press(screen(client), "Use for\u2026"), "region use picker unavailable"); waitingFor = viewCount; step++; }
+            case 54 -> awaitView(() -> screen(client).state().picker() != null && "REGION_PURPOSE".equals(screen(client).state().picker().kind()) && screen(client).state().picker().entries().stream().allMatch(e->e.kind().equals("PURPOSE")), "region only offers registered matching purposes");
+            case 55 -> { screen(client).selectForTest("quiet_below:source_city"); require(screen(client).triggerForTest("Confirm: Use for\u2026"), "region use review unavailable"); waitingFor = viewCount; step++; }
             case 56 -> awaitView(() -> Files.isRegularFile(assignmentsFile) && fileContains(assignmentsFile, "menu_smoke_region"),
                     "setup assigns an existing region without copying geometry");
             case 57 -> {
@@ -448,7 +449,7 @@ public final class CoreMenuSmoke {
             case 191 -> navigate(client,"Game setup",Page.SETUP);
             case 192 -> {
                 var entries=screen(client).state().entries();require(entries.stream().noneMatch(e->e.kind().equals("BLOCK")||e.id().equals("quiet_below:relic_heart")),"block requirement remains duplicated in Game setup");
-                require(entries.stream().anyMatch(e->e.id().equals("quiet_below:source_city")),"Source city area removed from Game setup");
+                require(entries.stream().noneMatch(e->e.kind().equals("AREA")||e.kind().equals("REGION")||e.id().equals("quiet_below:source_city")||e.id().equals("quiet_below:claim_region")),"region requirement remains duplicated in Game setup");
                 require(entries.stream().anyMatch(e->e.id().equals("tool:quiet_below:heart")&&e.label().equals("Heart weakness")),"Heart global tool not distinctly named");
                 screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;advance("global settings and area references remain separate from block bindings");
             }
@@ -464,6 +465,45 @@ public final class CoreMenuSmoke {
             case 202 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("legacy inspect binding",assignmentsFile),"legacy raw setup-inspect command remains private and read only");
             case 203 -> {client.player.networkHandler.sendChatCommand("chronicles setup clear \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
             case 204 -> awaitView(()->!boundHeart()&&fileContains(authoringFile,"menu_smoke_block"),"legacy raw setup-clear command retains saved geometry");
+            case 205 -> step=210;
+            default -> finish(client,true,"completed "+checks.size()+" native operator checks");
+        }
+    }
+    private void driveRegionUses(MinecraftClient client){
+        switch(step){
+            case 210 -> navigate(client,"Regions",Page.REGIONS);
+            case 211 -> {screen(client).selectForTest("menu_smoke_region");waitingFor=viewCount;step++;}
+            case 212 -> awaitView(()->screen(client).state().selected().equals("menu_smoke_region")&&fact(client,"Used by").contains("Current"),"region usage is contextual and current");
+            case 213 -> {snapshot("region clear cancelled",assignmentsFile);require(press(screen(client),"Clear use\u2026"),"clear region use unavailable");waitingFor=viewCount;step++;}
+            case 214 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("REGION_BOUND")&&screen(client).state().picker().entries().size()==1,"clear picker contains only the selected region's assigned purpose");
+            case 215 -> {require(press(screen(client),"Cancel selection"),"region picker cancel unavailable");waitingFor=viewCount;step++;}
+            case 216 -> awaitView(()->screen(client).state().picker()==null&&sameSnapshot("region clear cancelled",assignmentsFile),"cancelled region-use picker preserves assignment");
+            case 217 -> {require(press(screen(client),"Clear use\u2026"),"clear region use unavailable");waitingFor=viewCount;step++;}
+            case 218 -> awaitView(()->screen(client).state().picker()!=null,"reopened region clear picker");
+            case 219 -> {screen(client).selectForTest("quiet_below:source_city");require(screen(client).triggerForTest("Confirm: Clear use\u2026"),"clear region use review unavailable");waitingFor=viewCount;step++;}
+            case 220 -> awaitView(()->!fileContains(assignmentsFile,"quiet_below:source_city")&&fileContains(authoringFile,"menu_smoke_region"),"clearing a use retains the saved region");
+            case 221 -> {snapshot("forged region purpose",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.REGION_ASSIGN,Page.REGIONS,"menu_smoke_region","quiet_below:relic_heart",screen(client).state().token(),0,"",""));step++;}
+            case 222 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged region purpose",assignmentsFile),"forged block purpose rejected by live region kind validation");
+            case 223 -> {require(press(screen(client),"Use for\u2026"),"region use unavailable after denied packet");waitingFor=viewCount;step++;}
+            case 224 -> awaitView(()->screen(client).state().picker()!=null,"reopened purpose picker after denied packet");
+            case 225 -> {screen(client).selectForTest("quiet_below:source_city");require(screen(client).triggerForTest("Confirm: Use for\u2026"),"region reassignment review unavailable");waitingFor=viewCount;step++;}
+            case 226 -> awaitView(()->fact(client,"Used by").contains("Current"),"explicit region reassignment restores current pin");
+            case 227 -> {snapshot("region old pin",assignmentsFile);snapshot("region old bounds",authoringFile);require(press(screen(client),"Edit region"),"existing region edit unavailable");waitingFor=viewCount;step++;}
+            case 228 -> awaitView(()->screen(client).state().detail().region()!=null,"existing region opens its current draft");
+            case 229 -> {require(press(screen(client),"Set corner 1"),"single-corner editor unavailable");step++;}
+            case 230 -> {screen(client).textForTest("2 64 1");require(screen(client).triggerForTest("Send"),"single-corner position submit unavailable");waitingFor=viewCount;step++;}
+            case 231 -> awaitView(()->screen(client).state().detail().region()!=null&&screen(client).state().detail().region().first().equals("2 64 1"),"one corner changes without rebuilding the region");
+            case 232 -> {require(press(screen(client),"Save region changes"),"region update save unavailable");waitingFor=viewCount;step++;}
+            case 233 -> awaitView(()->!sameSnapshot("region old bounds",authoringFile)&&sameSnapshot("region old pin",assignmentsFile)&&fact(client,"Used by").contains("Stale"),"changed bounds leave the prior assignment explicitly stale");
+            case 234 -> {require(press(screen(client),"Use for\u2026"),"stale region update unavailable");waitingFor=viewCount;step++;}
+            case 235 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().entries().stream().anyMatch(e->e.id().equals("quiet_below:source_city")&&e.description().contains("Stale here")),"purpose picker identifies the selected region's stale pin");
+            case 236 -> {screen(client).selectForTest("quiet_below:source_city");require(screen(client).triggerForTest("Confirm: Use for\u2026"),"stale region update review unavailable");waitingFor=viewCount;step++;}
+            case 237 -> awaitView(()->!sameSnapshot("region old pin",assignmentsFile)&&fact(client,"Used by").contains("Current"),"explicit use updates only the selected purpose to the saved revision");
+            case 238 -> {capture(client,"menu-regions-usage.png");advance("captured the single-list Regions workflow");}
+            case 239 -> {snapshot("forged setup region clear",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_CLEAR,Page.SETUP,"quiet_below:source_city","",screen(client).state().token(),0,"",""));step++;}
+            case 240 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged setup region clear",assignmentsFile),"raw Game setup packet cannot mutate a region use");
+            case 241 -> {client.player.networkHandler.sendChatCommand("chronicles setup inspect \"quiet_below:source_city\"");waitingFor=viewCount;step++;}
+            case 242 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("forged setup region clear",assignmentsFile),"explicit legacy region inspect remains compatible and read only");
             default -> finish(client,true,"completed "+checks.size()+" native operator checks");
         }
     }

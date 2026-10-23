@@ -66,8 +66,20 @@ public final class CoreMenuServer {
         var c=WORLDS.computeIfAbsent(source.getServer(),s->new HashMap<>()).computeIfAbsent(player.getUuid(),u->new Context());
         c.page=page;c.selected=id;c.filter="POINT";
         if(!source.hasPermissionLevel(2))c.selected=player.getUuidAsString();
-        try{String result=act(player,new Request(action,page,c.selected,argument,Math.max(0,c.token),0,c.filter,""),c);c.token=0;send(player,c,result,true,false,false);source.sendFeedback(()->Text.literal(result),false);return 1;}
+        try{String result=page==Page.SETUP&&(action==Action.SETUP_ASSIGN||action==Action.SETUP_CLEAR||action==Action.SHOW)
+                    ?legacySetupCommand(source,action,id,argument)
+                    :act(player,new Request(action,page,c.selected,argument,Math.max(0,c.token),0,c.filter,""),c);
+            c.token=0;send(player,c,result,true,false,false);source.sendFeedback(()->Text.literal(result),false);return 1;}
         catch(Exception e){source.sendError(Text.literal(Objects.requireNonNullElse(e.getMessage(),"Action failed; inspect the server log.")));return 0;}
+    }
+
+    /** Compatibility for explicit setup commands only; network requests use their geometry page. */
+    private static String legacySetupCommand(ServerCommandSource source,Action action,String requirement,String site)throws Exception {
+        if(ChronicleCore.authoring().get(requirement).isEmpty())throw new IllegalArgumentException("Choose a registered game requirement.");
+        if(action==Action.SETUP_ASSIGN){MapSiteAssignments.assign(source,requirement,site);return "Requirement assigned to the existing saved site. No coordinates copied, growth enabled or player moved.";}
+        if(action==Action.SETUP_CLEAR){MapSiteAssignments.clear(source,requirement);return "Assignment cleared; the saved site itself is retained.";}
+        var saved=MapSiteAssignments.resolve(source.getServer(),requirement).orElseThrow(()->new IllegalStateException("Choose a saved site first."));
+        AuthoringRuntime.get(source.getServer()).preview(source.getPlayerOrThrow(),saved);return "Private assigned-site outline shown.";
     }
 
     private static void handle(ServerPlayerEntity player,Request request) {
@@ -178,6 +190,8 @@ public final class CoreMenuServer {
             }
             case REGION_CONTINUE -> {requireSelectedDraft(player,id);AuthoringRuntime.get(server).resumeRegionDraft(player);AuthoringRuntime.get(server).previewRegionDraft(player);player.sendMessage(Text.literal("Stand at the first corner: /chronicles author region pos1"),false);player.sendMessage(Text.literal("Stand at the other corner: /chronicles author region pos2. Reopen Regions to save."),false);return "Region editing is active and the private outline is on. Select positions, then reopen Regions.";}
             case REGION_CREATE,REGION_SAVE -> {requireSelectedDraft(player,id);var saved=AuthoringRuntime.get(server).saveRegionDraft(player);c.selected=saved.id();return "Region saved under the same ID. Existing revision-pinned consumers must be deliberately revalidated after bounds changes.";}
+            case REGION_ASSIGN -> {String purpose=regionPurpose(c,arg);requireSelectedRegion(server,id);MapSiteAssignments.assign(source,purpose,id);return "Region use saved at its current revision. Its bounds were not copied or changed.";}
+            case REGION_UNASSIGN -> {String purpose=regionPurpose(c,arg);requireSelectedRegion(server,id);var binding=MapSiteAssignments.bindings(server).get(purpose);if(binding==null||!binding.siteId().equals(id))throw new IllegalStateException("This purpose is not assigned to the selected region.");MapSiteAssignments.clear(source,purpose);return "Region use cleared; the saved region is retained.";}
             case POINT_CREATE,POINT_UPDATE,BLOCK_CREATE,BLOCK_UPDATE -> {
                 boolean point=request.action()==Action.POINT_CREATE||request.action()==Action.POINT_UPDATE;
                 boolean update=request.action()==Action.POINT_UPDATE||request.action()==Action.BLOCK_UPDATE;
@@ -257,7 +271,7 @@ public final class CoreMenuServer {
             }
             case SETUP -> {
                 var result=new ArrayList<Entry>();
-                ChronicleCore.authoring().roles().stream().filter(r->!r.id().startsWith("chronicle_core:")&&r.kind()!=AuthoringCatalog.Kind.BLOCK).forEach(r->{String kind=r.kind()==AuthoringCatalog.Kind.REGION?"AREA":"POINT";result.add(entry(r.id(),(kind.equals("AREA")?"Area · ":"Point · ")+r.label(),r.description(),kind,r.id(),0));});
+                ChronicleCore.authoring().roles().stream().filter(r->!r.id().startsWith("chronicle_core:")&&r.kind()==AuthoringCatalog.Kind.LOCATION).forEach(r->result.add(entry(r.id(),"Point · "+r.label(),r.description(),"POINT",r.id(),0)));
                 GameSetupTools.tools().forEach(tool->result.add(entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)));
                 yield result;
             }
@@ -376,9 +390,11 @@ public final class CoreMenuServer {
                 title="Regions";description="Select positions in the world, then review and save. Continue in world activates this draft and private bounding box automatically.";
                 var draft=canEdit?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null;
                 controls.add(control(Action.REGION_NEW,"Create region…",canEdit,editReason,draft!=null,"ID"));
+                var unassigned=ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->!MapSiteAssignments.bindings(server).containsKey(role.id())).map(AuthoringCatalog.Role::label).toList();
+                if(!unassigned.isEmpty())facts.add(new Fact("Unassigned purposes",summary(unassigned,3800)+". Create or select a region, then use Use for…"));
                 if(!id.isBlank()&&sites(server).get(id) instanceof AuthoringSite.Region saved) {
-                    title=saved.id();facts.add(new Fact("Saved bounds",saved.min()+" to "+saved.max()));facts.add(new Fact("Used by",references(server,id)));
-                    controls.add(control(Action.SHOW,"Show region",true,"",false,""));controls.add(control(Action.REGION_EDIT,"Edit region",canEdit,editReason,draft!=null&&!draft.id().equals(id),""));controls.add(control(Action.SITE_DELETE,"Delete region",canEdit,editReason,true,""));
+                    title=saved.id();facts.add(new Fact("Saved bounds",saved.min()+" to "+saved.max()));facts.add(regionUsage(server,id));facts.add(new Fact("Other references",nonRegionReferences(server,id)));
+                    controls.add(control(Action.SHOW,"Show region",true,"",false,""));controls.add(control(Action.REGION_EDIT,"Edit region",canEdit,editReason,draft!=null&&!draft.id().equals(id),""));controls.add(control(Action.SITE_DELETE,"Delete region",canEdit,editReason,true,""));controls.add(control(Action.REGION_ASSIGN,"Use for…",canEdit,editReason,true,"REGION_PURPOSE"));if(regionUsageCount(server,id)>0)controls.add(control(Action.REGION_UNASSIGN,"Clear use…",canEdit,editReason,true,"REGION_BOUND"));
                 }
                 if(draft!=null&&draft.id().equals(id)) {
                     title="Region draft · "+draft.id();region=new RegionForm(draft.id(),draft.dimension(),draft.baseRevision(),coordinates(draft.first()),coordinates(draft.second()));
@@ -410,7 +426,7 @@ public final class CoreMenuServer {
                 facts.add(new Fact("Behavior",block?"Placed mod stations work independently of this saved reference; this site is only a reference.":"Saving moves nobody. Coordinates, dimension and facing are retained; destinations are opt-in under Players."));
             }
             case SETUP -> {
-                title="Game setup";description="Assign this game's Areas and Points to existing saved geometry. Block bindings are under Locations → Block sites. This registers references; it enables no ecology, event or player move.";
+                title="Game setup";description="Global settings and point requirements. Region assignments are under Regions; block bindings are under Locations → Block sites. This registers references; it enables no ecology, event or player move.";
                 if(id.startsWith("tool:")) {
                     var tool=GameSetupTools.get(toolId(id)).orElse(null);
                     if(tool!=null) {
@@ -429,8 +445,8 @@ public final class CoreMenuServer {
                     }
                 } else {
                     var role=ChronicleCore.authoring().get(id).orElse(null);
-                    if(role!=null&&role.kind()!=AuthoringCatalog.Kind.BLOCK){title=role.label();facts.add(new Fact("Purpose",role.description()));facts.add(new Fact("Geometry",role.kind()==AuthoringCatalog.Kind.REGION?"Area":"Point"));var binding=MapSiteAssignments.bindings(server).get(id);facts.add(new Fact("Assigned site",binding==null?"Unassigned":binding.siteId()+" · revision "+binding.siteRevision()));if(binding!=null){try{MapSiteAssignments.resolve(server,id);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
-                        String kind=role.kind()==AuthoringCatalog.Kind.REGION?"REGION":"POINT";controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,kind));}
+                    if(role!=null&&role.kind()==AuthoringCatalog.Kind.LOCATION){title=role.label();facts.add(new Fact("Purpose",role.description()));facts.add(new Fact("Geometry","Point"));var binding=MapSiteAssignments.bindings(server).get(id);facts.add(new Fact("Assigned site",binding==null?"Unassigned":binding.siteId()+" · revision "+binding.siteRevision()));if(binding!=null){try{MapSiteAssignments.resolve(server,id);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
+                        controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,"POINT"));}
                     facts.add(new Fact("Scope","Only installed game requirements appear. Hidden-faction voting, Journey chapters and future campaign tools are not required here."));
                 }
             }
@@ -444,6 +460,8 @@ public final class CoreMenuServer {
             case "ITEMS" -> Registries.ITEM.getIds().stream().sorted().forEach(id->{var item=Registries.ITEM.get(id);String label=item.getName().getString();if((id+" "+label).toLowerCase(Locale.ROOT).contains(needle))choices.add(entry(id.toString(),shortText(label,160),id.toString(),"ITEM",Integer.toString(item.getMaxCount()),0));});
             case "LOOT_TYPE" -> TypedChestLoot.types(server).values().forEach(t->choices.add(entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)));
             case "DESTINATION","POINT","BLOCK","REGION" -> sites(server).values().stream().filter(site->switch(kind){case "DESTINATION","POINT"->site instanceof AuthoringSite.Location;case "BLOCK"->site instanceof AuthoringSite.Anchor;default->site instanceof AuthoringSite.Region;}).forEach(s->choices.add(siteEntry(s)));
+            case "REGION_PURPOSE" -> ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).forEach(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());String status=binding==null?"Unassigned":binding.siteId().equals(playerContextSelection(player))?bindingState(server,role.id())+" here":bindingState(server,role.id())+" elsewhere: "+binding.siteId();choices.add(entry(role.id(),role.label(),role.description()+" · "+status,"PURPOSE",role.id(),0));});
+            case "REGION_BOUND" -> ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(playerContextSelection(player));}).forEach(role->choices.add(entry(role.id(),role.label(),role.description()+" · "+bindingState(server,role.id()),"PURPOSE",role.id(),0)));
             case "FLAG" -> {choices.add(entry("none","No prerequisite","No required game condition","FLAG","",0));ChronicleRuntime.service(server).state().flags().forEach((id,value)->choices.add(entry(id,id,"Current value: "+value,"FLAG","",0)));}
             default -> throw new IllegalArgumentException("Unsupported selector: "+kind);
         }
@@ -472,7 +490,7 @@ public final class CoreMenuServer {
     }
     private static String requirementId(Context context,String selected) {
         if(context.page==Page.SETUP) {
-            if(selected.startsWith("binding:")||ChronicleCore.authoring().get(selected).isEmpty())throw new IllegalArgumentException("Choose a registered game requirement.");
+            if(selected.startsWith("binding:")||ChronicleCore.authoring().get(selected).filter(role->role.kind()==AuthoringCatalog.Kind.LOCATION).isEmpty())throw new IllegalArgumentException("Choose a registered point requirement. Region uses are managed under Regions.");
             return selected;
         }
         if(context.page==Page.LOCATIONS&&"BINDINGS".equals(context.filter)) {
@@ -483,6 +501,18 @@ public final class CoreMenuServer {
         }
         throw new IllegalArgumentException("Block bindings are managed under Locations → Block sites.");
     }
+    private static String regionPurpose(Context context,String selected){
+        if(context.page!=Page.REGIONS)throw new IllegalArgumentException("Region uses are managed under Regions.");
+        if(selected==null||!AuthoringSite.ID.matcher(selected).matches())throw new IllegalArgumentException("Choose a registered region purpose.");
+        return ChronicleCore.authoring().get(selected).filter(role->role.kind()==AuthoringCatalog.Kind.REGION).map(AuthoringCatalog.Role::id).orElseThrow(()->new IllegalArgumentException("Choose a registered region purpose."));
+    }
+    private static void requireSelectedRegion(MinecraftServer server,String id){if(!(sites(server).get(id) instanceof AuthoringSite.Region))throw new IllegalArgumentException("Choose a saved region.");}
+    private static Fact regionUsage(MinecraftServer server,String id){var usage=ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(id);}).map(role->role.label()+" · "+bindingState(server,role.id())).toList();return new Fact("Used by",usage.isEmpty()?"None":summary(usage,4096));}
+    private static long regionUsageCount(MinecraftServer server,String id){return ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(id);}).count();}
+    private static String bindingState(MinecraftServer server,String requirement){try{MapSiteAssignments.resolve(server,requirement);return "Current";}catch(RuntimeException error){return "Stale";}}
+    private static String playerContextSelection(ServerPlayerEntity player){var context=WORLDS.getOrDefault(player.getEntityWorld().getServer(),Map.of()).get(player.getUuid());return context==null?"":context.selected;}
+    private static String nonRegionReferences(MinecraftServer server,String id){var refs=new ArrayList<String>();SpawnAuthoring.service(server).state().bindings().values().stream().filter(binding->binding.locationId().equals(id)).forEach(binding->refs.add("Player destination: "+binding.purpose()));var play=PlayRuntime.available(server);if(play!=null)play.bindings().values().stream().filter(binding->binding.regionId().equals(id)).forEach(binding->refs.add("Event: "+binding.id()));return refs.isEmpty()?"None":summary(refs,4096);}
+    private static String summary(List<String> values,int max){StringBuilder result=new StringBuilder();for(int index=0;index<values.size();index++){String next=result.isEmpty()?values.get(index):"; "+values.get(index);if(result.length()+next.length()>max){String suffix="; and "+(values.size()-index)+" more";return shortText(result.toString(),Math.max(0,max-suffix.length()))+suffix;}result.append(next);}return result.toString();}
     private static String targetKey(ServerPlayerEntity player) {
         try{var pos=ChestAuthoring.target(player.getCommandSource());return pos.toShortString()+":"+player.getEntityWorld().getBlockState(pos);}
         catch(IllegalArgumentException|IllegalStateException exception){return "";}

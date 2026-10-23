@@ -1,5 +1,11 @@
 # Bootstrap validation
 
+## Heart last stand and Regions follow-up - 23 October 2026, dev.44/45
+
+[Heart behavior and limits](M12_HEART_LAST_STAND.md): complete build372 Java /77 Python; native defiance180513491261 verifies one direct Warden, one bounded seed and persisted recut/restart suppression. Exact saved-world reproduction180907993477 again verifies the real60-second wait, Survival mining/local cue and unchanged source files.
+
+[Single Regions workflow](M12_REGIONS_WORKFLOW.md): dev.45 complete build40s372Java/77Python, native182616805359 PASS124operator/7player plus19checks each480/640logical layout; independent review clear. Assignment, cancellation, clear, one-corner update, stale-pin preservation/revalidation, raw-page/kind rejection and legacy commands are exercised. An initial coordinate rejection was a driver scrolling/rebuild issue; the production parser remains unchanged. Synthetic256-role stress and incompatibleoldclients are not native-tested. Automatic supplied-block placement/limits and flat Locations remain the next separate correction; authenticated review/pack stilldev43 and saved/stopped until combined deployment.
+
 ## Configuration placement - 23 October 2026, dev.43
 
 [Contract and exact evidence/limits](M12_CONFIGURATION_PLACEMENT.md). Fullbuild34s:355Java (178Core/177QB), no failures/errors/skips;77Python pass. Native menu162858761884 PASS107A/7B, plus19checks at each480x270/640x360logical layout. Empty/populated/stale/cancel/reassign/clear/legacy/forged-packet flows and native screenshots independently clear. Final generic Cancel tooltip is copy-only and full-build tested after the native run. Early driver encoding/name-submit/command-quoting failures are diagnosed; an earlier transient edit timeout has no captured rejection and is not claimed as a product fix. Endpoint authority/rate bounds are unchanged. One [combined review](M12_COMBINED_REVIEW.md) covers points4-6. Third-party campaigns/production maps/group soak are outside this fixture.
