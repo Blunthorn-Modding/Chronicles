@@ -20,4 +20,6 @@ Focused engine/store tests cover the real empty-network wait, milestone crossing
 
 Earlier failed disposable runs exposed stale test artifacts and a premature topology assertion. Those driver issues were corrected; their saved/stopped runtime copies were retired after exact path, process and world-lock checks, while reports remain available. No gameplay workaround was introduced for them.
 
+The additional dev.44 exact saved-world reproduction also passes: `../reports/heart-repro-20261023T180907993477Z/report.json`. It observes the real 60-second wait with the new last stand present, then mines the vulnerable Heart in Survival and receives the local cryptic cue. Every original source-world file is unchanged. Independent source/runtime review found no material issue; native evidence checks direct spawning and duplication, while warning-manager isolation is established by source review rather than a dedicated native counter assertion.
+
 The authenticated review server and client pack remain on dev.43 until the remaining Regions and automatic supplied-block registration corrections are ready for one combined review.
