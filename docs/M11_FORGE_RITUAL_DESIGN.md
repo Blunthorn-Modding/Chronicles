@@ -1,169 +1,120 @@
-# Ancient Forge ritual design — proposal for operator review
+# Ancient Forge ritual design — sequential offering proposal
 
 ## Intent
 
-The Forge should use the Ancient Altar's player-facing language: a compact
-`minecraft:popup/background` modal, normal Minecraft font, normal native item
-scale and one clear ritual gesture. It is an act of offering, not a recipe
-browser. The player sees two offerings, a bowl to press, and eventually a
-consequence. The menu contains no target/material/result labels, status prose,
-recipe tab, enchantment preview or diagnostic explanation.
+The Forge now follows one vertical ritual path: **one entry**, an illustrated
+**basin**, then **one exit**. A player adds two items sequentially through the
+same entry. It uses the Ancient Altar's compact native popup, normal Minecraft
+font and normal item/slot scale; it has no labels, status prose, recipe browser,
+enchantment preview or default Minecraft bowl.
 
-Future chest-loot recipe books can provide written clues. They are not a menu
-codex and are not part of this implementation slice.
+The basin is original Forge illustration, not an item and not a copied vanilla
+workstation. Its pixel geometry is in
+[`design/forge-basin.svg`](design/forge-basin.svg). Future production art can
+be a resource-packable bespoke basin sprite; this SVG is a design mock-up only.
 
-This is a design proposal only. It does not authorize runtime, handler,
-network, salvage, balance or asset changes.
+Recipe books may later appear as written chest loot clues. They are outside this
+screen design and are not a menu codex.
 
 ## Compact native layout
 
-Use the same generic native popup as the accepted Altar. The production renderer
-draws `minecraft:popup/background` via its GUI-sprite nine-slice path. Normal
-`minecraft:container/slot` sprites frame actual 16px item renders at their
-native 18px size. The existing handler already uses 18px inventory pitch. This
-proposal keeps that normal scale and reduces the surrounding empty space so the
-inventory occupies more of the panel.
+The panel is `224 x 212`, using the same `minecraft:popup/background`
+nine-slice path as the accepted Altar. Entry, exit and player inventory use the
+native `minecraft:container/slot` art at 18px, with unscaled 16px item renders.
+The compact vertical sequence leaves room for a normal-sized inventory.
 
 | Element | Panel-local geometry | Player-facing behaviour |
 | --- | ---: | --- |
-| Popup | `224 x 176` | dark native popup surface, exactly as the Altar framework |
-| Title | centred baseline `y=12` | `Ancient Forge`, normal Minecraft pixel font |
-| First offering | actual input slot 0 at `48,32` | normal item tooltip/narration; no label |
-| Bowl action | native `ButtonWidget` at `102,31`, `20 x 20`; bowl item at `104,33` | visible press/focus treatment, short tooltip/narration: `Offer` |
-| Second offering | actual input slot 1 at `158,32` | normal item tooltip/narration; no label |
-| Outcome | owned outcome slot at `104,60` | empty until a server resolution; then a normal item tooltip and pickup |
-| Main inventory | actual player slots 3--29 from `31,88`, `9 x 3` | normal 18px pitch and native scale |
-| Hotbar | actual player slots 30--38 from `31,146`, `9 x 1` | normal 18px pitch and native scale |
+| Popup | `224 x 212` | dark native popup surface |
+| Title | centred baseline `y=12` | `Ancient Forge`, normal bitmap font |
+| Entry | actual shared input slot at `104,30` | accepts one item at a time; normal item tooltip |
+| Basin | `80,56`, `64 x 32` | original illustrated stone/sculk/ember basin; click tooltip/narration says only `Offer` |
+| Lodged target | `104,64`, rendered over basin | noninteractive normal 16px item render after first offer |
+| Exit | actual owned outcome slot at `104,96` | empty until resolution; then normal item tooltip and collection |
+| Main inventory | actual slots 3--29 from `31,126`, `9 x 3` | normal 18px pitch |
+| Hotbar | actual slots 30--38 from `31,184`, `9 x 1` | normal 18px pitch |
 
-The bowl button is deliberately visible even though its label is an item icon:
-it uses the native `minecraft:widget/button`, highlighted and disabled
-nine-slice sprites, so its hover/focus/pressed frame makes commitment legible.
-Its only accessible name is `Offer`. It has no hover enchantment preview. The 10px gap
-between outcome and inventory is the only visual separation; there is no
-`Inventory` label or explanatory copy.
+There is no inventory label: the native grid is immediately recognisable. The
+hotbar ends at panel-local y=202, leaving ten pixels above the popup's bottom.
+At GUI scale 2, this is `(48,14)` logical / `(96,28)` physical in a `640 x
+480` window and `(208,74)` logical / `(416,148)` physical in a `1280 x 720`
+window. The popup extent is `448 x 424` physical pixels in both cases.
 
-### GUI scale 2
+## Sequential ritual flow
 
-| Window pixels | Logical canvas | Popup top-left, logical | Popup top-left, physical | Popup extent, physical |
-| --- | ---: | ---: | ---: | ---: |
-| `640 x 480` | `320 x 240` | `(48,32)` | `(96,64)` | `448 x 352` |
-| `1280 x 720` | `640 x 360` | `(208,92)` | `(416,184)` | `448 x 352` |
+1. Place a target in the single **entry** slot.
+2. Click the basin. The server validates and lodges that target in the basin;
+   it is not consumed. The entry becomes empty and the target visibly rests in
+   the basin.
+3. Place an ingredient in the **same entry** slot.
+4. Click the basin again. Only then does the server start the ritual. It locks
+   the lodged target and entry offering, and no result is predicted.
+5. After the authoritative resolution, the real owned final item or salvage
+   appears in the **exit** slot. Until that exit is collected, the entry cannot
+   accept a new pair.
 
-## Visual ritual states
+Closing, disconnecting, power/range/session loss, station replacement, death or
+server stop before commitment returns both the lodged target and the entry item
+exactly once via the handler's native recovery route. The initial design offers
+no extra "take back" control: closing is the deliberate, safe way to recover a
+lodged target before the second offering. This avoids a third interactive field
+and keeps roles clear through item location.
 
-No state is expressed as player-facing prose. Input/item presence, the native
-bowl button frame and the outcome slot tell the story.
+## Visual states
 
-| State | What is visible | Outcome |
+| State | Entry / basin | Exit |
 | --- | --- | --- |
-| Idle | empty input slots; ordinary bowl button | empty |
-| Staged | two actual input stacks; subtly highlighted bowl frame | empty |
-| Working | both inputs are locked; native highlight behind the bowl breathes | empty; nothing predicts an enchantment |
-| Successful | both inputs are gone after resolution | one real, component-preserving final item |
-| Failed ritual | target and required offering were consumed | one explicit salvage stack |
-| Unavailable | staged inputs remain recoverable; bowl button is disabled | empty |
+| Idle | empty entry; quiet basin | empty |
+| First item | target in entry | empty |
+| Target lodged | entry empty; target item rests in basin | empty |
+| Second item staged | lodged target plus ingredient in entry | empty |
+| Working | both items locked; basin pulses with bounded light | empty |
+| Success | basin clear | real component-preserving target in exit, with cosmetic glint rim |
+| Salvage | basin clear | real configured salvage in exit |
+| Unavailable | existing items remain recoverable; basin is inert | empty |
 
-The breathing effect can use `minecraft:container/slot_highlight_back` behind
-the normal bowl item with bounded alpha frames. Resource packs therefore still
-control the popup, native button, slot, item and highlight art; no Forge-specific
-bitmap is needed. The standalone mock-up uses exact local copies of those
-pinned vanilla assets only outside Git for visual review. Run
-`python scripts/forge_design_preview.py` to recreate that local asset set from
-the pinned Minecraft jar without a download.
+The basin's click target has only the native-tooltip/narration word `Offer`.
+All ordinary items retain their normal tooltip/narration. There is no visual
+text explaining a state or disclosing a recipe.
 
-## Deliberate action, real outcome and lifecycle proposal
+## Authority and outcome proposal
 
-1. The player stages two items in actual temporary input slots. The server only
-   publishes a bounded staged/unavailable state; it never previews an output.
-2. Pressing the native bowl button sends a bounded `offer` action bound to the
-   current handler/session/token. Client coordinates, items and desired output
-   are never accepted as authority.
-3. The server validates player, physical station, readiness, exact component
-   snapshots, configured material count and caps. It locks inputs and publishes
-   **working**. The client only animates the bowl.
-4. After 30 server ticks (1.5 seconds), the server repeats all authority checks
-   and resolves once. Correct eligible recipes retain the current exact
-   component-preserving result and cap policy. No correct recipe receives a
-   random failure unless the campaign later explicitly adds that rule.
-5. On resolution the result is a **real owned stack**, not a derived preview.
-   It remains in the outcome slot until collected. Closing or disconnecting
-   returns/delivers that owned stack exactly once through the handler's normal
-   safe recovery route.
+The existing server identity, exact stack/component, station, cap and one-use
+checks remain authoritative. First offer must generate a separate bounded
+"lodged target" authority; second offer binds that target and its entry offering
+to the later commit. Client clicks never choose a result or submit item data.
 
-Before resolution, power/range/session loss, station replacement, close,
-disconnect, death or server stop cancels working and returns both original
-inputs unchanged. Service interruption never consumes inputs or creates
-salvage. After a resolution commit, its one-use authority cannot resolve again.
+The proposed working duration remains 30 server ticks. At resolution, correct
+eligible recipes preserve the current component/cap behaviour and produce a
+**real owned stack** in the exit, never a derived preview. Closing after commit
+recovers/delivers that exit stack exactly once.
 
-## Deterministic failed ritual proposal
+The previously proposed deterministic target-plus-material salvage policy stays
+pending operator approval: a deliberate wrong pairing consumes the lodged target
+and required ingredient count, then yields a result from an explicit server
+salvage table. Unknown targets have no offer path. The edge policy for maxed or
+incompatible mapped recipes remains pending review; this design does not settle
+it. Correct eligible recipes never receive a random failure.
 
-For a deliberate wrong pair, consume **one target plus the configured offering
-count** and create exactly one server-defined salvage stack. Correct eligible
-recipes always win before this rule. The salvage map is server data only; it
-must not be inferred from client material, item name or NBT/components.
+## Ownership and non-goals
 
-| Target family | Proposed deterministic salvage |
-| --- | --- |
-| iron gear/tool | 1 iron ingot |
-| gold gear/tool | 1 gold ingot |
-| diamond gear/tool | 1 diamond |
-| netherite gear/tool | 1 netherite scrap |
-| leather gear | 1 leather |
-| bow or crossbow | 1 string |
-| book | 1 paper |
-| stone item/block | 1 cobblestone |
-| wood item/block | 1 stick |
+**Core** would own the sequential handler state, lodged-target recovery, exit
+ownership, compact popup/slot screen and client-only basin animation. **Quiet
+Below** continues to provide only a typed physical Forge/readiness gate; world
+models and light are separate work.
 
-Unknown or unsupported targets have no ritual offer available until an explicit
-salvage rule is defined. This avoids arbitrary destruction and makes salvage
-stable across mods and components. A target/offering pair which has a known
-recipe but is already maxed or incompatible is proposed to be a **deliberate
-failed attempt**: it consumes the target and offering and yields that target's
-configured salvage. This is a material change from the current no-consume
-behaviour and requires operator approval before implementation.
-
-Only a single target item can be staged for resolution, retaining the current
-workstation restriction. A registered offering uses its configured material
-count; an unrecognized right-hand offering consumes one item in a failed ritual.
-The bowl stays unavailable if that count is missing or the target has no explicit
-recipe/salvage rule. These are proposed server rules, never explanatory UI text.
-
-The outcome tooltip only identifies the final salvaged item after commitment;
-the menu does not explain why it appeared.
-
-## Ownership boundary
-
-**Core presentation** would own the compact popup, native bowl button,
-normal-slot rendering, accessibility name and client-only working animation.
-
-**Core transaction/configuration** would need the bounded ritual lifecycle,
-real outcome ownership, strict server salvage table and existing
-handler/session/connection/nonce/cap/component validation. It must preserve
-safe staged-input return and suppress all recipe hints from the player client.
-
-**Quiet Below** continues to own placed Forge identity and living-network
-readiness through a typed available/unavailable gate. Forge world models and
-light remain independent of this menu.
-
-## Approval points and non-goals
-
-Operator approval is required for the deterministic target-consuming salvage
-policy, including its maxed/incompatible rule and the initial exact salvage
-table. The 30-tick duration is the proposed default.
-
-This proposal does not add recipe books, a codex, random failure for correct
-recipes, arbitrary salvage inference, player-facing gate diagnostics, new Forge
-art, world-model/light changes, or changes to a correct recipe's existing
-enchantment/cap/component behaviour.
+This design does not implement new recipes, recipe books, a codex, scrap
+balance, random outcomes, player-facing diagnostics, default bowl art, world
+model/light changes or the outstanding salvage policy.
 
 ## Review checks
 
-* The mock-up has controls outside the game canvas for idle, staged, working,
-  success, failed-salvage and unavailable states.
-* The popup and slot/item art comes from the local pinned Minecraft 1.21.10
-  asset extract in `../reports/forge-ritual-preview-assets`, never from assets
-  committed into this repository.
-* Both GUI-scale-2 canvas sizes preserve the true 16px item and 18px slot scale,
-  and sample inventory stacks make the scale visible.
-* Bowl hover/focus says only `Offer`; no state has explanatory prose or a recipe
-  disclosure.
+* The HTML mock-up exposes idle, first item, target lodged, second item staged,
+  working, success, salvage and unavailable states via controls outside the
+  game canvas. `?state=staged&size=640` selects the staged review view.
+* Click-through in the mock-up mirrors the sequential rhythm: sample inventory
+  item -> entry -> basin -> lodged -> sample inventory item -> entry -> basin.
+* The `224 x 212` panel fits both GUI-scale-2 canvases with true 16px items and
+  18px slot frames. The original basin is 64x32 and no default bowl appears.
+* `python scripts/forge_design_preview.py` recreates the external pinned vanilla
+  assets used only by the local HTML preview; no upstream artwork is committed.

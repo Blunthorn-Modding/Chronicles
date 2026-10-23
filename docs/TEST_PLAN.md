@@ -1,5 +1,31 @@
 # Bootstrap validation
 
+## QB-12 vertical sequential Forge proposal - 23 October 2026, design only
+
+Branch `design/qb12-sequential-forge`, based on `b132f4f`. The operator requests
+one Entry above an illustrated basin and one Exit below, and confirms two items
+added sequentially through the same field. Dedicated `forge_ui_design` revises
+the [proposal](M11_FORGE_RITUAL_DESIGN.md) and
+[interactive mockup](design/forge-ritual.html); the lead reviews actual renders.
+
+The panel is224x212; entry104,30, original64x32 basin80,56, exit104,96,
+normal inventory31,126/hotbar31,184. The basin is original code-authored SVG,
+not the vanilla bowl item or an extra input field. First offer safely lodges
+the target, clearing the one entry for the ingredient. Resolution and salvage
+are still proposals; no Java, recipes, network, configuration, pack or server
+changes occur here. Operator design approval remains required before runtime
+implementation; maxed/incompatible salvage policy remains unsettled.
+
+HTML and SVG parsing, `node --check` on the extracted preview script, and
+`git diff --check` pass. Installed headless Edge rendered first-item, lodged,
+second-item and success views at640x480 and the staged1280x720 view; root
+visually checked normal font/item size, exact vertical alignment and fit.
+Evidence is outside Git under
+`../reports/forge-ritual-preview-assets/vertical-*.png`. The existing extraction
+helper supplies local native popup/slot/item/font assets without distributing
+upstream bitmaps. No mod tests were rerun for this design-only change; dev.38's
+verified344Java/70Python/native results below remain the last runtime baseline.
+
 ## QB-12 station support feeding / ritual design hold - 23 October 2026, dev.38
 
 Branch `fix/qb12-forge-power-and-ritual-design`, based on dev.37 `21e308c`.
