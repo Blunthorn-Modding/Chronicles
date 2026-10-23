@@ -1,5 +1,30 @@
 # Bootstrap validation
 
+## Count-rate comparison - 23 October 2026, dev.41
+
+`fix/qb08-count-rate-review`; [contract and matrix](M11_COUNT_RATE_VERIFICATION.md).
+`python scripts/workspace.py build`: PASS, 178 Core + 174 Quiet Below tests,
+zero failures/skips. `python -m unittest discover -s scripts -p 'test_*.py' -q`:
+77 PASS. Five focused EcologySpreadTest cases cover actual discounted count,
+eligible cadence, pause and since-load counter reset.
+
+`python scripts/spread_smoke.py`: PASS, final
+`../reports/spread-smoke-20261023T150631390393Z/report.json`, 18 initial + seven
+same-world restart checks. Four 400-tick samples: small/fixed 20 attempts,
+small/count 21, large/fixed 20, large/count 100; successful new cells 1/5/11/64.
+The actual menu exposes Count/Attempts/mode and three screenshots show the
+cuttable bridge, small patch and large bank. Root and independent reviewer
+inspected the evidence. Matrix is copied outside the world before restart.
+Retain that final fixture for combined review preparation; dev.40 human server
+and pack remain unchanged pending subsequent corrections.
+
+An initial preflight caught a client teleport feedback mismatch; fixed before
+measurement. A staging run exhausted disk before launch; completed retired
+runtimes were removed under strict path/process/saved-stop checks, reports
+preserved (`../reports/count-rate-disk-cleanup.json`). A first complete pass
+had a tight camera; final run above fixes framing. The unresolved dev.39 output
+timeout reproduction remains preserved and is not claimed fixed.
+
 ## Covered sculk, client defaults and Forge offerings - 23 October 2026, dev.40
 
 Branch `fix/qb12-client-feeding-offerings`, based `4f881e1`. All three slices

@@ -73,6 +73,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private int vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown;
     private long vRootedHealth,vDetachedHealth;
     private int speedPercent=100;
+    private long spreadAttempts;
     private SpreadRules spreadRules=DEFAULT_SPREAD;
     private EcologyHeart.Rules heartRules=EcologyHeart.DEFAULT;
     private int heartElapsed,heartUnflushed;
@@ -283,6 +284,9 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public int speedPercent() { return speedPercent; }
     /** Last bounded vitality summary only; changing the source policy is localized here. */
     private int growthCount(){return Math.max(0,vitalitySummary.ready()-summaryLosses);}
+    public int countedSculk(){return growthCount();}
+    /** Diagnostic only: since this engine was loaded, including unsuccessful attempts. */
+    public long spreadAttempts(){return spreadAttempts;}
     public int effectiveSpeedPercent(){
         return effectiveSpeed(speedPercent,growthCount(),spreadRules);
     }
@@ -449,6 +453,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(writes>=MAX_WRITES)return; // A busy native tick waits; it is not a persistence/capacity fault.
         if(++clock<attemptTicks(growthInterval==10)) return;
         clock=0;
+        spreadAttempts++;
         grow(w);
     }
     private void projectAppearance(EcologyTerrain w) {

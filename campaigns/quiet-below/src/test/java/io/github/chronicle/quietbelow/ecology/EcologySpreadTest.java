@@ -61,11 +61,37 @@ class EcologySpreadTest {
         }
     }
 
+    @Test void diagnosticCountDiscountsConfirmedLossBeforeTheNextCensus()throws Exception {
+        World world=new World();world.noGrowth=true;Pos leaf=new Pos(1,0,0);world.blocks.put(leaf,SCULK);
+        try(var journal=new EcologyJournal(dir.resolve("count.jsonl"))){
+            var engine=new EcologyEngine(journal);engine.configure(PINS,new EcologyEngine.Area(HEART,leaf),HEART);
+            while(!engine.view().indexed())engine.index(world);engine.mode(true);
+            for(int tick=0;tick<40;tick++){engine.beginTick();engine.tick(world,true);}
+            assertEquals(2,engine.countedSculk());
+            world.blocks.put(leaf,AIR);engine.observed(leaf,AIR);
+            assertEquals(1,engine.countedSculk(),"diagnostics must use the same conservative count as the rate formula");
+        }
+    }
+
+    @Test void attemptsAreDiagnosticEligibleCadenceAndDoNotSurviveReload()throws Exception {
+        Path file=dir.resolve("attempts.jsonl");World world=new World();world.noGrowth=true;
+        try(var journal=new EcologyJournal(file)){
+            var engine=ready(journal);for(int n=0;n<20;n++){engine.beginTick();engine.tick(world,true);}
+            engine.speed(200);long before=engine.spreadAttempts();
+            for(int n=0;n<9;n++){engine.beginTick();engine.tick(world,true);}assertEquals(before,engine.spreadAttempts());
+            engine.beginTick();engine.tick(world,true);assertEquals(before+1,engine.spreadAttempts());
+            for(int n=0;n<100;n++){engine.beginTick();engine.tick(world,false);}assertEquals(before+1,engine.spreadAttempts());
+            assertEquals(0,world.writes,"counting attempts must not require successful terrain writes");engine.flushVitality();
+        }
+        try(var journal=new EcologyJournal(file)){var replay=new EcologyEngine(journal);replay.attach(PINS,AREA,HEART);assertEquals(0,replay.spreadAttempts());}
+    }
+
     private EcologyEngine ready(EcologyJournal journal)throws Exception {EcologyEngine engine=new EcologyEngine(journal);engine.configure(PINS,AREA,HEART);World world=new World();while(!engine.view().indexed())engine.index(world);engine.mode(true);return engine;}
     private static final class World implements EcologyTerrain {
-        final Map<Pos,State> blocks=new java.util.HashMap<>(Map.of(SOURCE,SCULK));int writes;
+        final Map<Pos,State> blocks=new java.util.HashMap<>(Map.of(SOURCE,SCULK));int writes;boolean noGrowth;
         public boolean loaded(Pos p){return true;}public State get(Pos p){return blocks.getOrDefault(p,p.y()==0?new State("minecraft:stone",Map.of()):AIR);}
         public boolean solidFace(Pos p,int face){return !get(p).air()&&!get(p).vein();}public boolean substrate(Pos p){return get(p).id().equals("minecraft:stone");}
+        public boolean growthExcluded(Pos p){return noGrowth;}
         public int light(Pos p){return 0;}public boolean set(Pos p,State state){writes++;blocks.put(p,state);return true;}
     }
 }

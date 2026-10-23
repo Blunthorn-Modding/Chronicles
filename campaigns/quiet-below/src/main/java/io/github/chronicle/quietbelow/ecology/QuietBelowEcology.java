@@ -328,7 +328,8 @@ public final class QuietBelowEcology {
         return new GameSetupTools.Status(all.controlRevision(),List.of(
                 new Fact("Growth mode",spreadLabel(r.engine)),new Fact("Spread speed",speedLabel(r.engine)),
                 new Fact("Amplification","+"+rules.amplificationPercent()+"% per 1,000 living, Heart-connected sculk. Dormant/disconnected sculk does not count."),
-                new Fact("Count",r.engine.vitalitySummary().ready()+" cells at 25%+ vitality in the last completed bounded summary."),
+                new Fact("Count",r.engine.countedSculk()+" living, Heart-connected cells counted; confirmed losses are discounted from the last bounded summary."),
+                new Fact("Attempts",r.engine.spreadAttempts()+" since engine load. Each attempt may find no valid surface; this is not a count of new blocks."),
                 new Fact("Formula","Effective rate = base x (1 + count x amplification / 100000), capped at 16x. Set the base speed under Sculk ecology."),
                 new Fact("Growth",growthStatus(source.getServer(),r,r.engine.view())),
                 new Fact("Limits","Attempt speed only; existing loaded-only work, terrain-write limits and physical barriers remain.")),all.disabledReasons());
@@ -459,7 +460,7 @@ public final class QuietBelowEcology {
     }
     private static String spreadLabel(EcologyEngine e){
         var rules=e.spreadRules();return rules.mode()==EcologyEngine.GrowthMode.FIXED?"Fixed rate: the saved base rate is used.":
-                "Sculk-count rate: +"+rules.amplificationPercent()+"% per 1,000 ready rooted sculk; "+e.vitalitySummary().ready()+" counted; capped at 16x.";
+                "Sculk-count rate: +"+rules.amplificationPercent()+"% per 1,000 ready rooted sculk; "+e.countedSculk()+" counted; capped at 16x.";
     }
     private static GameSetupTools.Status vitalityStatus(ServerCommandSource source){
         Runtime r=runtime(source.getServer());var e=r.engine;var rules=e.vitality().rules();var s=e.vitalitySummary();Map<String,String> disabled=new HashMap<>();
