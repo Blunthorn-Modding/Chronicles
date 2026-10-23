@@ -48,9 +48,18 @@ class EcologyStationFeedingTest {
             }
         }
     }
-    @Test void enclosedStationAndOrdinarySolidBlocksStillSealTheSupport()throws Exception{
-        for(String station:new String[]{"quiet_below:ancient_forge","minecraft:stone"}){
+    @Test void coveredForgeAndAltarSupportStayNourishedByAnAdjacentOwnedRoot()throws Exception{
+        for(String station:ListHolder.STATIONS){
             var w=new World(station);
+            for(int[] d:DIRECTIONS)if(!STATION.add(d[0],d[1],d[2]).equals(SUPPORT))w.blocks.put(STATION.add(d[0],d[1],d[2]),STONE);
+            try(var j=new EcologyJournal(directory.resolve("covered-"+station.substring(station.indexOf(':')+1)+".jsonl"))){
+                var e=start(j,w);ticks(e,w,1500);assertEquals(EcologyVitality.Mode.SHADED,e.vitality().mode(SUPPORT));assertEquals(100,e.vitality().percent(SUPPORT));assertTrue(e.living(SUPPORT));
+            }
+        }
+    }
+    @Test void enclosedStationAndOrdinarySolidBlocksStillSealAnIsolatedSupport()throws Exception{
+        for(String station:new String[]{"quiet_below:ancient_forge","minecraft:stone"}){
+            var w=new World(station);isolateSupport(w);
             if(station.startsWith("quiet_below:"))for(int[] d:DIRECTIONS)if(!STATION.add(d[0],d[1],d[2]).equals(SUPPORT))w.blocks.put(STATION.add(d[0],d[1],d[2]),STONE);
             try(var j=new EcologyJournal(directory.resolve("sealed-"+station.substring(station.indexOf(':')+1)+".jsonl"))){
                 var e=start(j,w);ticks(e,w,1500);assertEquals(EcologyVitality.Mode.SEALED,e.vitality().mode(SUPPORT));assertEquals(0,e.vitality().percent(SUPPORT));assertFalse(e.living(SUPPORT));
@@ -58,19 +67,19 @@ class EcologyStationFeedingTest {
         }
     }
     @Test void unloadedStationOutletsAreUnknownAndNeverReadOrTreatedAsAir()throws Exception{
-        var w=new World("quiet_below:ancient_forge");
+        var w=new World("quiet_below:ancient_forge");isolateSupport(w);
         for(int[] d:DIRECTIONS){Pos p=STATION.add(d[0],d[1],d[2]);if(!p.equals(SUPPORT)){w.blocks.put(p,STONE);w.hidden.add(p);}}
         // Keep all owned cells loaded; only the station's non-network outlet cells are hidden.
         try(var j=new EcologyJournal(directory.resolve("unknown.jsonl"))){var e=start(j,w);ticks(e,w,50);assertEquals(EcologyVitality.Mode.UNKNOWN,e.vitality().mode(SUPPORT));assertEquals(0,e.forgeHeat());}
     }
-    @Test void exhaustedSupportRecoversThroughExposedStationButDetachedSupportDoesNot()throws Exception{
-        var w=new World("quiet_below:ancient_forge");
+    @Test void exhaustedIsolatedSupportRecoversThroughAnExposedStation()throws Exception{
+        var w=new World("quiet_below:ancient_forge");isolateSupport(w);
         for(int[] d:DIRECTIONS){Pos p=STATION.add(d[0],d[1],d[2]);if(!p.equals(SUPPORT))w.blocks.put(p,STONE);}
         try(var j=new EcologyJournal(directory.resolve("recover.jsonl"))){
             var e=start(j,w);ticks(e,w,1500);assertFalse(e.living(SUPPORT));
             w.blocks.put(STATION.add(0,0,1),AIR);ticks(e,w,400);assertEquals(EcologyVitality.Mode.SHADED,e.vitality().mode(SUPPORT));assertTrue(e.living(SUPPORT));
-            w.blocks.put(SUPPORT,AIR);e.observed(SUPPORT,AIR);ticks(e,w,1500);assertFalse(e.living(new Pos(1,0,0)));assertFalse(e.rooted(new Pos(1,0,0)));
         }
     }
+    private static void isolateSupport(World world){for(int x=1;x<64;x++)world.blocks.put(new Pos(x,0,0),STONE);}
     private static class ListHolder { static final String[] STATIONS={"quiet_below:ancient_forge","quiet_below:ancient_altar"}; }
 }

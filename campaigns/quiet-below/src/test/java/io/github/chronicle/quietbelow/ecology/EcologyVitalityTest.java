@@ -63,11 +63,11 @@ class EcologyVitalityTest {
         }
     }
     @Test void unloadingHoldsVitalityAndSealingStopsRecoveryWithoutTerrainDecay()throws Exception{
-        var w=new Branch();try(var j=new EcologyJournal(dir.resolve("unknown.jsonl"))){
+        var w=new Branch();w.blocks.put(Branch.END,Branch.STONE);try(var j=new EcologyJournal(dir.resolve("unknown.jsonl"))){
             var e=ready(j,w);e.tuneVitality(new EcologyVitality.Rules(1,1,2));ticks(e,w,5,true);
-            w.hidden=true;ticks(e,w,2000,true);long clock=e.vitality().ticks();ticks(e,w,2000,true);assertEquals(clock,e.vitality().ticks());assertEquals(100,e.vitality().percent(Branch.END));
-            w.hidden=false;w.sealed=true;ticks(e,w,1400,true);assertEquals(0,e.vitality().percent(Branch.END));assertEquals(SCULK,w.get(Branch.END));
-            w.sealed=false;ticks(e,w,500,true);e.flushVitality();assertTrue(e.living(Branch.END));assertNull(e.failure());
+            w.hidden=true;ticks(e,w,2000,true);long clock=e.vitality().ticks();ticks(e,w,2000,true);assertEquals(clock,e.vitality().ticks());assertEquals(100,e.vitality().percent(Branch.BRIDGE));
+            w.hidden=false;w.sealed=true;ticks(e,w,1400,true);assertEquals(0,e.vitality().percent(Branch.BRIDGE));assertEquals(SCULK,w.get(Branch.BRIDGE));
+            w.sealed=false;ticks(e,w,500,true);e.flushVitality();assertTrue(e.living(Branch.BRIDGE));assertNull(e.failure());
         }
     }
     @Test void maximumSourceKeepsFixedReadWorkAndDoesNotWriteHealthEveryCellEverySecond()throws Exception{
@@ -102,7 +102,7 @@ class EcologyVitalityTest {
             long before=j.revision();int worst=0;
             for(int n=0;n<10000;n++){w.sealed=(n/400)%2==1;w.reads=0;e.beginTick();e.tick(w,true);worst=Math.max(worst,w.reads);assertTrue(w.reads<=4096);}
             e.flushVitality();assertEquals(511,e.view().owned());assertEquals(0,w.writes);assertNull(e.failure());
-            assertEquals(0,e.vitality().value(new Pos(3,3,3)),"enclosed interior can exhaust without losing its terrain");
+            assertEquals(EcologyVitality.FULL,e.vitality().value(new Pos(3,3,3)),"covered interior stays nourished by adjacent owned roots");
             assertTrue(j.revision()-before<1500);assertTrue(j.bytes()<2*1024*1024);
             System.out.println("exposure churn ticks=10000, worst reads="+worst+", records="+(j.revision()-before)+", bytes="+j.bytes());
         }
@@ -112,6 +112,7 @@ class EcologyVitalityTest {
     static class Branch implements EcologyTerrain {
         static final Pos HEART=new Pos(0,0,0),BRIDGE=new Pos(1,0,0),END=new Pos(2,0,0);
         static final State HEART_BLOCK=new State("minecraft:reinforced_deepslate",Map.of());
+        static final State STONE=new State("minecraft:stone",Map.of());
         static final EcologyEngine.Setup PINS=new EcologyEngine.Setup("city",1,"heart",1,"minecraft:overworld");
         static final EcologyEngine.Area AREA=new EcologyEngine.Area(HEART,END);
         final Map<Pos,State> blocks=new HashMap<>();boolean hidden,sealed;int reads,writes;

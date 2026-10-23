@@ -61,6 +61,7 @@ class EcologyAppearanceTest {
         try(var j=new EcologyJournal(dir.resolve("bounded.jsonl"))) {
             var e=new EcologyEngine(j);e.configure(VisualWorld.PINS,new EcologyEngine.Area(VisualWorld.HEART,new Pos(7,7,7)),VisualWorld.HEART);
             for(int n=0;n<100&&!e.view().indexed();n++)e.index(w);e.mode(true);
+            for(var c:e.cells())if(!c.position().equals(VisualWorld.HEART))w.colors.put(c.position(),EXHAUSTED);
             ticks(e,w,200,true);assertEquals(511,w.visualWrites);assertEquals(511,w.colors.size());
             int before=w.visualWrites;ticks(e,w,200,true);assertEquals(before,w.visualWrites,"unchanged colors cause no block updates");
             w.hidden=true;ticks(e,w,100,true);assertEquals(before,w.visualWrites);assertEquals(0,w.writes);assertNull(e.failure());

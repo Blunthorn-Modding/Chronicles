@@ -54,3 +54,25 @@ Independent `forge_presentation_review` is clear after mirroring loopback-only
 validation in Core. The first private run (`133153450719Z`) failed because a
 launcher loop shadowed the username argument; the variable and regression test
 are corrected. No final review pack has been deployed yet.
+
+## Slice 2 nourishment and evidence
+
+The six existing loaded neighbour reads also check for an owned neighbour in
+completed Heart-certified topology, matching its actual recorded shape and
+physically joined through `EcologyTerrain.connected`. Such a neighbour supplies
+SHADED nourishment regardless of its current vitality, allowing covered cells
+to recover from zero. Direct bright air still takes LIT priority. This local
+rule intentionally sustains a fully enclosed connected mass; it does not relay
+light or open a growth route. Detached clusters remain DORMANT. Unloaded states
+are never read; unresolved topology holds the existing clock. No scan, schema,
+chunk ticket or extra terrain-read budget is added.
+
+The new fully enclosed 3D regression first failed with SEALED instead of SHADED,
+then passed. The full Quiet Below suite passed 171 tests outside the sandbox;
+a subsequently added direct-bright-air priority test passed with the four-case
+covered-sculk suite. The initial broader attempt had Windows temporary-directory
+AccessDenied failures; the same persistence tests and full suite passed with
+normal filesystem access. Existing isolated-seal/unload behavior, station
+support, disconnection/recovery/restart and bounded projection/read limits are
+retained. Independent source review is clear. Native layered/station evidence
+will run with the Forge slice before the combined deployment.

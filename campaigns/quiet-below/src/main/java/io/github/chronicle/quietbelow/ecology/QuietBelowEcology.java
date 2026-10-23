@@ -87,7 +87,7 @@ public final class QuietBelowEcology {
                         new GameSetupTools.Verb("refresh","Refresh status",GameSetupTools.Guard.READ_ONLY,false)),
                 QuietBelowEcology::spreadStatus,QuietBelowEcology::execute));
         registerTool(new GameSetupTools.Tool("quiet_below:vitality","Sculk vitality",
-                "Vitality and extent tuning. Detached or sealed sculk loses vitality but keeps its blocks. Physical reconnection and air exposure permit recovery, even from zero. No XP upkeep or oxygen simulation.",
+                "Vitality and extent tuning. Detached or isolated sealed sculk loses vitality but keeps its blocks. Directly joined Heart-connected sculk shares nourishment; air and sunlight still govern growth exposure and bright recovery. No XP upkeep or oxygen simulation.",
                 List.of(new GameSetupTools.Verb("loss_slower","Slower vitality loss",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("loss_faster","Faster vitality loss",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("recovery_slower","Slower recovery",GameSetupTools.Guard.EDIT,false),
@@ -450,7 +450,7 @@ public final class QuietBelowEcology {
         if(PlayRuntime.eligiblePlayers(server).isEmpty())return "Waiting for an online, alive, non-spectator participant.";
         if(v.unresolved())return "Checking connections; keep the network chunks loaded.";
         if(v.connected()==0)return "Dormant: no living sculk connection to the Heart.";
-        if(!r.engine.vitalityPending()&&r.engine.vitalitySummary().ready()==0)return "Recovering: connected sculk needs 25% vitality for growth. Expose it to air; bright exposure recovers faster.";
+        if(!r.engine.vitalityPending()&&r.engine.vitalitySummary().ready()==0)return "Recovering: connected sculk needs 25% vitality for growth. Restore direct contact with a nourished owned root or expose it to air; bright exposure recovers faster.";
         return "Active; spreading along reachable exposed surfaces.";
     }
     private static String coordinates(Pins p) {return p.heart.x()+", "+p.heart.y()+", "+p.heart.z()+" in "+p.setup.dimension();}
@@ -468,8 +468,8 @@ public final class QuietBelowEcology {
         }
         if(rules.lossMinutes()==40)disabled.put("loss_slower","Maximum full-loss time: 40 eligible minutes.");
         if(rules.lossMinutes()==1)disabled.put("loss_faster","Minimum full-loss time: 1 eligible minute.");
-        if(rules.recoveryMinutes()==40)disabled.put("recovery_slower","Maximum dark recovery time: 40 eligible minutes.");
-        if(rules.recoveryMinutes()==1)disabled.put("recovery_faster","Minimum dark recovery time: 1 eligible minute.");
+        if(rules.recoveryMinutes()==40)disabled.put("recovery_slower","Maximum shaded recovery time: 40 eligible minutes.");
+        if(rules.recoveryMinutes()==1)disabled.put("recovery_faster","Minimum shaded recovery time: 1 eligible minute.");
         if(rules.extentPreset()==0)disabled.put("extent_lower","Minimum thresholds: 64 / 512.");
         if(rules.extentPreset()==4)disabled.put("extent_higher","Maximum thresholds: 1024 / 8192.");
         if(rules.equals(EcologyVitality.DEFAULT))disabled.put("reset","Vitality tuning already uses defaults.");
@@ -478,11 +478,11 @@ public final class QuietBelowEcology {
                 new Fact("Looked sculk",inspectedCell(source,r)),
                 new Fact("Rooted vitality",s.rootedPercent()+"% average; "+s.ready()+" ready / "+s.rooted()+" rooted cells"),
                 new Fact("Detached vitality",s.detachedPercent()+"% average across "+s.detached()+" detached cells; blocks stay in place"),
-                new Fact("Exposure",s.feeding()+" feeding; "+s.sealed()+" fully sealed; "+s.unknown()+" unresolved exposures"),
-                new Fact("Full vitality loss",rules.lossMinutes()+" eligible minutes from 100% to 0% while detached or sealed"),
-                new Fact("Full recovery",rules.recoveryMinutes()+" eligible minutes in dark exposure; "+String.format(Locale.ROOT,"%.1f",rules.recoveryMinutes()/2.0)+" in bright exposure"),
+                new Fact("Nourishment",s.feeding()+" air-fed or directly joined roots; "+s.sealed()+" isolated sealed; "+s.unknown()+" unresolved"),
+                new Fact("Full vitality loss",rules.lossMinutes()+" eligible minutes from 100% to 0% while detached or sealed without an adjacent certified root"),
+                new Fact("Full recovery",rules.recoveryMinutes()+" eligible minutes with shaded nourishment; "+String.format(Locale.ROOT,"%.1f",rules.recoveryMinutes()/2.0)+" in bright exposure"),
                 new Fact("Extent thresholds","Established "+rules.established()+" / Extensive "+rules.extensive()+" ready rooted cells; 12.5% exit buffer prevents rapid switching"),
-                new Fact("Living growth","Needs physical Heart connection and at least 25% vitality. A cut stops growth/native responses immediately. Reconnection can recover from zero; dormant blocks are retained."),
+                new Fact("Living growth","Needs physical Heart connection and at least 25% vitality. Directly touching owned rooted sculk nourishes covered cells without relaying light or creating a growth route. A cut stops growth/native responses immediately; reconnection can recover from zero."),
                 new Fact("Visible vitality","Glistening blue: healthy, feeding roots (75%+). Dull blue: reduced vitality or dormant connection (25%+). Faded brown/blue: below 25%. Fully brown: zero. Colors recover too; large patches update gradually."),
                 new Fact("Clock",e.vitality().ticks()/20+" saved eligible seconds; pause, empty play, holds and unresolved networks do not advance it. Bright means light above 7; no air depletion."),
                 new Fact("Tuning","Pause play and enable editing. Full-loss/recovery choices: 1 / 2 / 5 / 10 / 20 / 40 minutes. Speed controls remain in Sculk ecology.")),disabled);
@@ -519,7 +519,7 @@ public final class QuietBelowEcology {
             case "refresh"->{r.menuRevision++;return "Vitality status refreshed.";}
             default->throw new IllegalArgumentException("Unknown vitality action");
         }
-        r.engine.tuneVitality(new EcologyVitality.Rules(loss,recovery,extent));return "Vitality tuning saved: loss "+loss+" min; dark recovery "+recovery+" min; extent preset "+(extent+1)+" / 5.";
+        r.engine.tuneVitality(new EcologyVitality.Rules(loss,recovery,extent));return "Vitality tuning saved: loss "+loss+" min; shaded recovery "+recovery+" min; extent preset "+(extent+1)+" / 5.";
     }
     private static GameSetupTools.Status ownershipStatus(ServerCommandSource source) {
         Runtime r=runtime(source.getServer());var e=r.engine;var c=e.claim();

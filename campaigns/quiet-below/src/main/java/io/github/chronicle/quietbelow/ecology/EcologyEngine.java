@@ -484,10 +484,13 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     private EcologyVitality.Mode feedingMode(EcologyTerrain w,Pos p){
         if(!rooted(p))return EcologyVitality.Mode.DORMANT;
-        boolean exposed=false,unknown=false;
+        Cell current=cells.get(p);if(current==null)return EcologyVitality.Mode.UNKNOWN;
+        boolean exposed=false,nourished=false,unknown=false;
         for(int f=0;f<6;f++){
             Pos a=localPosition(p,DIRECTIONS[f][0],DIRECTIONS[f][1],DIRECTIONS[f][2]);if(a==null){unknown=true;continue;}
             if(!w.loaded(a)){unknown=true;continue;}State s=w.get(a);
+            Cell neighbour=cells.get(a);
+            if(neighbour!=null&&connected.contains(a)&&neighbour.after.sameOwnedShape(s)&&EcologyTerrain.connected(p,current.after,a,s))nourished=true;
             if(s.air()||(owns(a)&&s.vein()&&!"true".equals(s.properties().get("waterlogged")))){exposed=true;if(w.light(a)>7)return EcologyVitality.Mode.LIT;}
             else if(w.feedingPassage(a)){
                 // Open station models must not seal their own support. One loaded-only hop
@@ -500,7 +503,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
                 }
             }
         }
-        return exposed?EcologyVitality.Mode.SHADED:unknown?EcologyVitality.Mode.UNKNOWN:EcologyVitality.Mode.SEALED;
+        return exposed||nourished?EcologyVitality.Mode.SHADED:unknown?EcologyVitality.Mode.UNKNOWN:EcologyVitality.Mode.SEALED;
     }
     /** Existing sculk joins only through real contact with the Heart/certified living network.
      * Read at most 33 x 18 neighbour positions and append at most MAX_WRITES per tick.
