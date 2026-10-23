@@ -10,6 +10,7 @@ public final class SiteAssignmentService {
     private final SiteAssignmentRepository repository;
     private final AuthoringCatalog catalog;
     private SiteAssignments current;
+    private MutationGuard mutationGuard = (requirement, existing, proposed) -> { };
 
     public SiteAssignmentService(SiteAssignmentRepository repository, AuthoringCatalog catalog) throws IOException {
         if (repository == null || catalog == null) throw new IllegalArgumentException("assignment repository and catalog are required");
@@ -20,6 +21,9 @@ public final class SiteAssignmentService {
     }
 
     public synchronized SiteAssignments state() { return current; }
+    public synchronized void mutationGuard(MutationGuard guard) {
+        mutationGuard = guard == null ? (requirement, existing, proposed) -> { } : guard;
+    }
 
     /** Persists the explicit initial state, preventing absent-file adoption from repeating after a restart. */
     public synchronized void establishInitial(Map<String, SiteAssignments.Binding> adopted) throws IOException {
@@ -45,6 +49,7 @@ public final class SiteAssignmentService {
         AuthoringSite site = site(registry, siteId);
         if (!role.kind().accepts(site)) throw new IllegalArgumentException(role.label() + " requires " + role.kind().name().toLowerCase(java.util.Locale.ROOT) + " geometry.");
         SiteAssignments.Binding binding = new SiteAssignments.Binding(requirementId, site.id(), site.revision());
+        mutationGuard.check(requirementId, current.bindings().get(requirementId), binding);
         LinkedHashMap<String, SiteAssignments.Binding> next = new LinkedHashMap<>(current.bindings());
         next.put(requirementId, binding);
         commit(new SiteAssignments(nextRevision(), next));
@@ -54,6 +59,7 @@ public final class SiteAssignmentService {
     public synchronized void clear(String requirementId) throws IOException {
         role(requirementId);
         if (!current.bindings().containsKey(requirementId)) throw new IllegalStateException("No assignment exists for " + requirementId + ".");
+        mutationGuard.check(requirementId, current.bindings().get(requirementId), null);
         LinkedHashMap<String, SiteAssignments.Binding> next = new LinkedHashMap<>(current.bindings());
         next.remove(requirementId);
         commit(new SiteAssignments(nextRevision(), next));
@@ -87,5 +93,8 @@ public final class SiteAssignmentService {
     private long nextRevision() {
         try { return Math.addExact(current.revision(), 1); }
         catch (ArithmeticException exception) { throw new IllegalStateException("assignment revision is exhausted", exception); }
+    }
+    @FunctionalInterface public interface MutationGuard {
+        void check(String requirementId, SiteAssignments.Binding existing, SiteAssignments.Binding proposed);
     }
 }

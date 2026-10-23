@@ -1,5 +1,8 @@
 # Configuration placement — design for review
 
+**Superseded by dev.45/46:** the operator rejected nested Saved sites/Game bindings and duplicate Areas in Game setup. Use [Regions](M12_REGIONS_WORKFLOW.md) and [automatic flat block sites](M12_MANAGED_BLOCK_IMPLEMENTATION.md). The following records the historical dev.43 implementation, not the current workflow.
+
+
 ## Decision
 
 Put every Quiet Below block anchor in **Locations → Block sites**. This includes **Ancient Altar**, **Ancient Forge**, and **Relic Heart**. Game setup retains game-wide settings and the existing **Source city** region assignment; it does not list block anchors. This is a presentation/routing change only: saved site IDs, revisions, `MapSiteAssignments`, and `AuthoringCatalog.Kind` remain the authority.

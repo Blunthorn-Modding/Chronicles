@@ -4,6 +4,7 @@ import io.github.chronicle.core.campaign.CampaignEvents;
 import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.loot.LootCatalog;
 import io.github.chronicle.core.play.ObservationCatalog;
+import io.github.chronicle.core.managed.ManagedBlockCatalog;
 import io.github.chronicle.core.server.PlayRuntime;
 import io.github.chronicle.core.server.TypedChestLoot;
 import io.github.chronicle.core.server.AuthoringUi;
@@ -24,6 +25,7 @@ import io.github.chronicle.core.network.CoreMenuPayloads;
 import io.github.chronicle.core.server.CoreMenuServer;
 import io.github.chronicle.core.server.CoreMenuCommands;
 import io.github.chronicle.core.server.MapSiteAssignments;
+import io.github.chronicle.core.server.ManagedBlocks;
 import io.github.chronicle.core.server.MenuPlayerDestinations;
 import io.github.chronicle.core.server.GameSetupTools;
 import net.fabricmc.api.ModInitializer;
@@ -45,12 +47,14 @@ public final class ChronicleCore implements ModInitializer {
     private static final AuthoringCatalog AUTHORING = new AuthoringCatalog();
     private static final LootCatalog CHEST_TYPES = new LootCatalog();
     private static final ObservationCatalog OBSERVATIONS = new ObservationCatalog();
+    private static final ManagedBlockCatalog MANAGED_BLOCKS = new ManagedBlockCatalog();
 
     /** Register campaign definitions during mod initialization, before the server starts. */
     public static CampaignEvents events() { return EVENTS; }
     public static AuthoringCatalog authoring() { return AUTHORING; }
     public static LootCatalog chestTypes() { return CHEST_TYPES; }
     public static ObservationCatalog observations() { return OBSERVATIONS; }
+    public static ManagedBlockCatalog managedBlocks() { return MANAGED_BLOCKS; }
 
     @Override
     public void onInitialize() {
@@ -74,11 +78,13 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTING.register(server -> AUTHORING.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> CHEST_TYPES.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> OBSERVATIONS.freeze());
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> MANAGED_BLOCKS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> GameSetupTools.freeze());
         ServerLifecycleEvents.SERVER_STARTED.register(ChronicleRuntime::start);
         ServerLifecycleEvents.SERVER_STARTED.register(Profiles::start);
         ServerLifecycleEvents.SERVER_STARTED.register(AuthoringRuntime::start);
         ServerLifecycleEvents.SERVER_STARTED.register(MapSiteAssignments::start);
+        ManagedBlocks.register();
         ChestAuthoring.register();
         TypedChestLoot.register();
         SpawnAuthoring.register();

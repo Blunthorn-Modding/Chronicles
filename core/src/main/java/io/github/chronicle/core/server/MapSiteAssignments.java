@@ -22,6 +22,7 @@ public final class MapSiteAssignments {
             SiteAssignmentStore store = new SiteAssignmentStore(file);
             SiteAssignmentService service = new SiteAssignmentService(store, ChronicleCore.authoring());
             if (store.wasAbsent()) service.establishFromExisting(AuthoringRuntime.get(server).service().state());
+            service.mutationGuard((requirement, existing, proposed) -> ManagedBlocks.checkAssignmentMutation(server, requirement, existing, proposed));
             WORLDS.put(server, service);
             ChronicleCore.LOGGER.info("Chronicle map assignments ready: {}", file);
         } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
@@ -56,6 +57,14 @@ public final class MapSiteAssignments {
     /** Returns no site when unassigned and fails closed when its saved-site revision is stale. */
     public static Optional<AuthoringSite> resolve(MinecraftServer server, String requirementId) {
         return service(server).resolve(requirementId, AuthoringRuntime.get(server).service().state());
+    }
+
+    /** Trusted idempotent compatibility bridge for an automatically managed structural block. */
+    public static AuthoringSite.Anchor ensureManagedAnchor(MinecraftServer server, String requirementId, String preferredSiteId,
+                                                            String dimension, BlockPosition position, String expectedBlock,
+                                                            boolean immutable) throws IOException {
+        return ManagedAnchorBindings.ensure(AuthoringRuntime.get(server).service(), service(server), requirementId, preferredSiteId,
+                dimension, position, expectedBlock, immutable);
     }
 
     private static SiteAssignmentService service(MinecraftServer server) {

@@ -16,6 +16,7 @@ import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
+import net.minecraft.server.world.ServerWorld;
 
 /** Intrinsic placed station; manual map-site registration is optional context only. */
 public final class AncientAltarBlock extends HorizontalFacingBlock implements BlockEntityProvider {
@@ -35,5 +36,13 @@ public final class AncientAltarBlock extends HorizontalFacingBlock implements Bl
     }
     @Override protected ActionResult onUseWithItem(ItemStack stack, BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         return onUse(state, world, pos, player, hit);
+    }
+    @Override protected void onBlockAdded(BlockState state, World world, BlockPos pos, BlockState oldState, boolean notify) {
+        super.onBlockAdded(state, world, pos, oldState, notify);
+        if (world instanceof ServerWorld serverWorld) io.github.chronicle.core.server.ManagedBlocks.observePlaced(serverWorld, pos, "quiet_below:ancient_altar");
+    }
+    @Override protected void onStateReplaced(BlockState state, ServerWorld world, BlockPos pos, boolean moved) {
+        super.onStateReplaced(state, world, pos, moved);
+        io.github.chronicle.core.server.ManagedBlocks.verifyAfterReplacement(world, pos, "quiet_below:ancient_altar");
     }
 }

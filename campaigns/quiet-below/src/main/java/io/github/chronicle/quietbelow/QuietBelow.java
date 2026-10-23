@@ -5,6 +5,8 @@ import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.loot.LootType;
 import io.github.chronicle.core.loot.LootEntry;
 import io.github.chronicle.core.play.ObservationCatalog;
+import io.github.chronicle.core.managed.ManagedBlockDefinition;
+import io.github.chronicle.core.managed.ManagedBlockItem;
 import java.util.List;
 import io.github.chronicle.core.campaign.CampaignEvent;
 import io.github.chronicle.core.campaign.EventOutcome;
@@ -55,7 +57,7 @@ public final class QuietBelow implements ModInitializer {
             new io.github.chronicle.quietbelow.content.AncientForgeBlock(AbstractBlock.Settings.create().registryKey(ANCIENT_FORGE_KEY).strength(3.5f,8).requiresTool().nonOpaque()
                     .luminance(state -> state.get(io.github.chronicle.quietbelow.content.AncientForgeBlock.HEAT) == 2 ? 12 : 0)));
     public static final Item ANCIENT_FORGE=Registry.register(Registries.ITEM,ANCIENT_FORGE_ITEM_KEY,
-            new BlockItem(ANCIENT_FORGE_BLOCK,new Item.Settings().registryKey(ANCIENT_FORGE_ITEM_KEY).useBlockPrefixedTranslationKey()));
+            new ManagedBlockItem(ANCIENT_FORGE_BLOCK,new Item.Settings().registryKey(ANCIENT_FORGE_ITEM_KEY).useBlockPrefixedTranslationKey(), "quiet_below:ancient_forge"));
     public static final net.minecraft.block.entity.BlockEntityType<io.github.chronicle.quietbelow.content.AncientForgeBlockEntity> FORGE_BLOCK_ENTITY=
             Registry.register(Registries.BLOCK_ENTITY_TYPE,id("ancient_forge"),net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
                     .create(io.github.chronicle.quietbelow.content.AncientForgeBlockEntity::new,ANCIENT_FORGE_BLOCK).build());
@@ -65,7 +67,7 @@ public final class QuietBelow implements ModInitializer {
     public static final Block ANCIENT_ALTAR_BLOCK=Registry.register(Registries.BLOCK,ANCIENT_ALTAR_KEY,
             new io.github.chronicle.quietbelow.content.AncientAltarBlock(AbstractBlock.Settings.create().registryKey(ANCIENT_ALTAR_KEY).strength(3.5f,8).requiresTool().nonOpaque()));
     public static final Item ANCIENT_ALTAR=Registry.register(Registries.ITEM,ANCIENT_ALTAR_ITEM_KEY,
-            new BlockItem(ANCIENT_ALTAR_BLOCK,new Item.Settings().registryKey(ANCIENT_ALTAR_ITEM_KEY).useBlockPrefixedTranslationKey()));
+            new ManagedBlockItem(ANCIENT_ALTAR_BLOCK,new Item.Settings().registryKey(ANCIENT_ALTAR_ITEM_KEY).useBlockPrefixedTranslationKey(), "quiet_below:ancient_altar"));
     public static final net.minecraft.block.entity.BlockEntityType<io.github.chronicle.quietbelow.content.AncientAltarBlockEntity> ALTAR_BLOCK_ENTITY=
             Registry.register(Registries.BLOCK_ENTITY_TYPE,id("ancient_altar"),net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder
                     .create(io.github.chronicle.quietbelow.content.AncientAltarBlockEntity::new,ANCIENT_ALTAR_BLOCK).build());
@@ -77,7 +79,7 @@ public final class QuietBelow implements ModInitializer {
             new io.github.chronicle.quietbelow.content.RelicHeartBlock(AbstractBlock.Settings.create().registryKey(RELIC_HEART_KEY)
                     .strength(3.5f, 3_600_000.0f).requiresTool().pistonBehavior(net.minecraft.block.piston.PistonBehavior.BLOCK).nonOpaque()));
     public static final Item RELIC_HEART_ITEM=Registry.register(Registries.ITEM,RELIC_HEART_ITEM_KEY,
-            new BlockItem(RELIC_HEART,new Item.Settings().registryKey(RELIC_HEART_ITEM_KEY).useBlockPrefixedTranslationKey()));
+            new ManagedBlockItem(RELIC_HEART,new Item.Settings().registryKey(RELIC_HEART_ITEM_KEY).useBlockPrefixedTranslationKey(), "quiet_below:relic_heart"));
 
     private static RegistryKey<Item> itemKey(String path) {
         return RegistryKey.of(RegistryKeys.ITEM, id(path));
@@ -93,6 +95,13 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        ChronicleCore.managedBlocks().register(new ManagedBlockDefinition("quiet_below:ancient_altar", "quiet_below:ancient_altar",
+                "Ancient Altar", "A placed ritual station supplied by The Quiet Below.", 1, ManagedBlockDefinition.LimitMode.EDITABLE));
+        ChronicleCore.managedBlocks().register(new ManagedBlockDefinition("quiet_below:ancient_forge", "quiet_below:ancient_forge",
+                "Ancient Forge", "A placed forging station supplied by The Quiet Below.", 1, ManagedBlockDefinition.LimitMode.EDITABLE));
+        ChronicleCore.managedBlocks().register(new ManagedBlockDefinition("quiet_below:relic_heart", "quiet_below:relic_heart",
+                "Relic Heart", "The physical root of The Quiet Below's sculk network.", 1, ManagedBlockDefinition.LimitMode.FIXED));
+        io.github.chronicle.quietbelow.ecology.QuietBelowManagedBlocks.register();
         io.github.chronicle.quietbelow.ecology.EcologyHeartDefianceTrial.register();
         io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
                 new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));

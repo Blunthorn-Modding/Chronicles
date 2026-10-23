@@ -47,6 +47,24 @@ public final class QuietBelowEcology {
     private static final Set<ServerWorld> LOAD_OVERFLOW=Collections.newSetFromMap(new IdentityHashMap<>());
     private QuietBelowEcology() { }
 
+    /** Read-only structural root authority used by Core's managed-placement policy. */
+    public static RootAuthority rootAuthority(MinecraftServer server) {
+        Runtime runtime = WORLDS.get(server);
+        if (runtime == null) return new RootAuthority(RootPhase.UNKNOWN, null, null, 0, null);
+        EcologyEngine engine = runtime.engine;
+        EcologyEngine.Setup setup = engine.setup();
+        if (setup == null) return new RootAuthority(RootPhase.UNBOUND, null, null, 0, null);
+        Pos root = engine.rootPosition();
+        io.github.chronicle.core.authoring.BlockPosition position = root == null ? null
+                : new io.github.chronicle.core.authoring.BlockPosition(root.x(), root.y(), root.z());
+        RootPhase phase = engine.ending() == null ? RootPhase.BOUND : RootPhase.ENDED;
+        return new RootAuthority(phase, setup.heart(), setup.dimension(), setup.heartRevision(), position);
+    }
+
+    public enum RootPhase { UNKNOWN, UNBOUND, BOUND, ENDED }
+    public record RootAuthority(RootPhase phase, String siteId, String dimension, long siteRevision,
+                                io.github.chronicle.core.authoring.BlockPosition position) { }
+
     public static void register() {
         EcologyEradication.register();
         PlayerBlockBreakEvents.BEFORE.register((world,player,p,state,be)->{

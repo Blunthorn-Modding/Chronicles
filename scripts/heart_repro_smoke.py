@@ -125,7 +125,11 @@ def run() -> None:
         result_path = reports / "heart-repro.json"
         fabric_smoke._await_clients(clients, [result_path], timeout=240)
         result = json.loads(result_path.read_text(encoding="utf-8"))
-        required = {"mine the vulnerable Heart with the held pickaxe", "confirm Heart was removed after its local cue"}
+        required = {"mine the vulnerable Heart with the held pickaxe", "confirm Heart was removed after its local cue",
+                    "bound Heart anchor refuses a privileged legacy deletion",
+                    "bound Heart assignment refuses a privileged legacy clear",
+                    "destroyed Heart releases physical quota while preserving history",
+                    "ended network refuses a new root without consuming the item"}
         if result.get("result") != "PASS" or not required.issubset(result.get("checks", [])):
             raise RuntimeError("Native reproduction did not prove physical Heart destruction")
         if result.get("initialElapsed", -1) < 0 or result.get("maxElapsed", -1) <= result["initialElapsed"]:
@@ -133,8 +137,12 @@ def run() -> None:
         after = _source_fingerprints(source / "world")
         if after != before:
             raise RuntimeError("The accepted source world changed during clone reproduction")
+        for relative in ("chronicle/authoring.json", "chronicle/map-assignments.json"):
+            if _digest(root / "world" / relative) != before[relative]:
+                raise RuntimeError("Managed migration or destruction changed historical map metadata: " + relative)
         report["checks"] = ["accepted review world cloned only under test-runs", "offline reproduction player substituted only in clone",
-                            "actual Heart status clock advanced to vulnerability", "Survival iron-pickaxe mining produced the local terminal cue"]
+                            "actual Heart status clock advanced to vulnerability", "Survival iron-pickaxe mining produced the local terminal cue",
+                            "managed migration preserves authoring and assignment bytes", "destroyed root quota released; ended replacement denied without item loss"]
         report["sourceFilesVerified"] = len(before)
         report["result"] = "PASS"
         print("PASS: Heart delay reproduced from saved review world; evidence:", reports, flush=True)

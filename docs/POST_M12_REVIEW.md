@@ -1,5 +1,7 @@
 # Sequential review corrections — 22 October 2026
 
+**Latest dev.46 correction:** point6's nested binding design below is superseded by the operator's follow-up. [Regions](M12_REGIONS_WORKFLOW.md) is the sole region workflow; [automatic managed blocks](M12_MANAGED_BLOCK_IMPLEMENTATION.md) replace manual supplied-block registration and nested tabs. [Heart last stand](M12_HEART_LAST_STAND.md) adds the confirmed ten-minute cooldown/direct Warden while retaining sixty seconds of weakness. Use the updated combined review.
+
 The operator reviewed dev.31 and requests one correction at a time, with an independent review agent. Workstation UI must first be designed by a dedicated UI agent, reviewed by the lead, and then implemented. A separate human review after each correction is permitted. Do not implement these in parallel.
 
 1. **Contact costs (QB-09, accepted by operator22 October):** jumping, landing back on sculk and walking across veins retain the initial exposure and sustained Hunger/Darkness. Actual sole supports and supported floor veins count; a wholly uninfested landing ends exposure and a clean pillar remains an escape. Inactive-network, eligibility, pause and foreign-effect rules remain. Native movement/restart checks, independent review and the [human review](M10_CONTACT_REVIEW.md) pass. Library/UI/persistence changes were outside this correction.

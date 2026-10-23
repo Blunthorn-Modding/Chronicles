@@ -35,7 +35,9 @@ public final class AuthoringRuntime {
     public static void start(MinecraftServer server) {
         var file = server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/authoring.json");
         try {
-            WORLDS.put(server, new AuthoringRuntime(new AuthoringService(new AuthoringStore(file))));
+            AuthoringService service = new AuthoringService(new AuthoringStore(file));
+            service.mutationGuard((existing, proposed, operation) -> ManagedBlocks.checkAuthoringMutation(server, existing, proposed));
+            WORLDS.put(server, new AuthoringRuntime(service));
             ChronicleCore.LOGGER.info("Chronicle authoring ready: {}", file);
         } catch (IOException | IllegalArgumentException exception) {
             WORLDS.remove(server);

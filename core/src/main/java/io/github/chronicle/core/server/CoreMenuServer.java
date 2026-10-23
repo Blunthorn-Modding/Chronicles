@@ -8,6 +8,7 @@ import io.github.chronicle.core.campaign.CampaignEvent;
 import io.github.chronicle.core.content.ChestBinding;
 import io.github.chronicle.core.loot.*;
 import io.github.chronicle.core.menu.CoreMenuModel.*;
+import io.github.chronicle.core.managed.*;
 import io.github.chronicle.core.network.CoreMenuPayloads.*;
 import io.github.chronicle.core.play.*;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -23,6 +24,9 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.world.RaycastContext;
 
 import java.io.IOException;
 import java.util.*;
@@ -97,7 +101,7 @@ public final class CoreMenuServer {
             if(!Objects.equals(current,context.frame))invalidate(context);
             if(request.action()==Action.OPEN){context.token=0;context.visible=true;}
             context.page=gm?request.page():Page.PLAYERS;
-            context.filter=gm&&("BLOCK".equals(request.filter())||"BINDINGS".equals(request.filter()))?request.filter():"POINT";
+            context.filter=gm&&"BLOCK".equals(request.filter())?"BLOCK":"POINT";
             context.index=request.index();
             context.selected=gm?request.id():player.getUuidAsString();
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
@@ -192,20 +196,26 @@ public final class CoreMenuServer {
             case REGION_CREATE,REGION_SAVE -> {requireSelectedDraft(player,id);var saved=AuthoringRuntime.get(server).saveRegionDraft(player);c.selected=saved.id();return "Region saved under the same ID. Existing revision-pinned consumers must be deliberately revalidated after bounds changes.";}
             case REGION_ASSIGN -> {String purpose=regionPurpose(c,arg);requireSelectedRegion(server,id);MapSiteAssignments.assign(source,purpose,id);return "Region use saved at its current revision. Its bounds were not copied or changed.";}
             case REGION_UNASSIGN -> {String purpose=regionPurpose(c,arg);requireSelectedRegion(server,id);var binding=MapSiteAssignments.bindings(server).get(purpose);if(binding==null||!binding.siteId().equals(id))throw new IllegalStateException("This purpose is not assigned to the selected region.");MapSiteAssignments.clear(source,purpose);return "Region use cleared; the saved region is retained.";}
+            case POINT_ASSIGN -> {String purpose=pointPurpose(c,arg);requireSelectedPoint(server,id);MapSiteAssignments.assign(source,purpose,id);return "Point use saved at its current revision. Its position was not copied or changed.";}
+            case POINT_UNASSIGN -> {String purpose=pointPurpose(c,arg);requireSelectedPoint(server,id);var binding=MapSiteAssignments.bindings(server).get(purpose);if(binding==null||!binding.siteId().equals(id))throw new IllegalStateException("This purpose is not assigned to the selected point.");MapSiteAssignments.clear(source,purpose);return "Point use cleared; the saved point is retained.";}
             case POINT_CREATE,POINT_UPDATE,BLOCK_CREATE,BLOCK_UPDATE -> {
                 boolean point=request.action()==Action.POINT_CREATE||request.action()==Action.POINT_UPDATE;
                 boolean update=request.action()==Action.POINT_UPDATE||request.action()==Action.BLOCK_UPDATE;
-                String siteId=update?id:arg;
+                String siteId=manualSiteId(server,update?id:arg);
+                if(!point&&lookedAtManagedBlock(player))throw new IllegalStateException("Supplied managed blocks register automatically and cannot be bound as manual block sites.");
                 String result=command(source,"chronicle author "+(point?"location ":"block ")+(update?"replace ":point?"save ":"bind ")+quote(siteId)+(point?" here":" target"));c.selected=siteId;return result;
             }
-            case SITE_DELETE -> {return command(source,"chronicle author remove "+quote(id));}
-            case SETUP_ASSIGN -> {MapSiteAssignments.assign(source,requirementId(c,id),arg);return "Requirement assigned to the existing saved site. No coordinates copied, growth enabled or player moved.";}
-            case SETUP_CLEAR -> {MapSiteAssignments.clear(source,requirementId(c,id));return "Assignment cleared; the saved site itself is retained.";}
+            case BLOCK_LIMITS -> {if(c.page!=Page.LOCATIONS||!"BLOCK".equals(c.filter))throw new IllegalArgumentException("Block limits are under Locations → Block sites.");if(ManagedBlocks.snapshot(server).types().stream().noneMatch(type->type.typeId().equals(arg)))throw new IllegalArgumentException("Choose a registered managed block type.");c.selected="limit:"+arg;return "Opened managed block limit.";}
+            case BLOCK_LIMIT_SET -> {editor(player);if(!id.startsWith("limit:"))throw new IllegalArgumentException("Choose a managed block type.");int value=Integer.parseInt(arg);ManagedBlocks.setLimit(source,id.substring("limit:".length()),value,c.managedPolicyRevision);return "Managed block limit saved. Existing blocks remain in place.";}
+            case MANAGED_SHOW -> {if(!id.startsWith("managed:"))throw new IllegalArgumentException("Choose a managed block site.");ManagedBlocks.preview(player,UUID.fromString(id.substring("managed:".length())));return "Private managed block-site outline shown without loading chunks.";}
+            case MANUAL_REFERENCES -> {if(!id.startsWith("managed:")||!arg.startsWith("manual:"))throw new IllegalArgumentException("Choose a manual reference from this managed block site.");var instance=managedInstance(server,id);String alias=arg.substring("manual:".length());if(manualAliases(server,instance).stream().noneMatch(anchor->anchor.id().equals(alias)))throw new IllegalArgumentException("That manual reference is no longer at this managed block site.");c.selected=arg;return "Opened manual reference.";}
+            case SITE_DELETE -> {return command(source,"chronicle author remove "+quote(manualSiteId(server,id)));}
+            case SETUP_ASSIGN,SETUP_CLEAR -> throw new IllegalStateException("Geometry uses are managed under Regions or Locations.");
             case TOOL_ACTION -> {return GameSetupTools.execute(source, toolId(id), arg);}
             case SHOW -> {
                 if(c.page==Page.CHESTS){var t=chest(server,id).directTarget();AuthoringRuntime.get(server).preview(player,new AuthoringSite.Anchor("preview",t.dimension(),1,new BlockPosition(t.x(),t.y(),t.z()),t.expectedBlock()));return "Private chest outline shown.";}
-                if(c.page==Page.SETUP||c.page==Page.LOCATIONS&&"BINDINGS".equals(c.filter)){var site=MapSiteAssignments.resolve(server,requirementId(c,id)).orElseThrow(()->new IllegalStateException("Choose a saved site first."));AuthoringRuntime.get(server).preview(player,site);return "Private assigned-site outline shown.";}
-                return command(source,"chronicle author show "+quote(id));
+                if(c.page==Page.SETUP)throw new IllegalStateException("Game setup contains global tools only.");
+                return command(source,"chronicle author show "+quote(manualSiteId(server,id)));
             }
             default -> throw new IllegalArgumentException("Unsupported menu action.");
         }
@@ -232,7 +242,9 @@ public final class CoreMenuServer {
         try {all=entries(player,c.page,c.filter);}catch(RuntimeException exception){all=List.of();message="Service unavailable: "+exception.getMessage();success=false;}
         int pages=Math.max(1,(all.size()+11)/12);c.index=Math.min(c.index,pages-1);
         if(c.page==Page.REGIONS&&c.selected.isBlank()&&gm&&AuthoringRuntime.isAuthor(player))AuthoringRuntime.get(server).regionDraft(player.getUuid()).ifPresent(d->c.selected=d.id());
-        if(c.page==Page.LOCATIONS&&!c.selected.isBlank()&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
+        boolean selectedManualAlias=c.page==Page.LOCATIONS&&"BLOCK".equals(c.filter)&&c.selected.startsWith("manual:")&&sites(server).get(c.selected.substring("manual:".length())) instanceof AuthoringSite.Anchor;
+        boolean selectedManagedLimit=c.page==Page.LOCATIONS&&"BLOCK".equals(c.filter)&&c.selected.startsWith("limit:")&&ManagedBlocks.snapshot(server).types().stream().anyMatch(type->c.selected.equals("limit:"+type.typeId()));
+        if(c.page==Page.LOCATIONS&&!c.selected.isBlank()&&!selectedManualAlias&&!selectedManagedLimit&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
         if(c.selected.isBlank()&&!all.isEmpty())c.selected=all.get(c.index*12).id();
         Detail detail;
         try{detail=detail(player,c);}catch(RuntimeException exception){detail=new Detail(c.selected,"Service unavailable",shortText(exception.getMessage(),2048),List.of(),List.of(),null,null,null);}
@@ -261,20 +273,8 @@ public final class CoreMenuServer {
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
             case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
-            case LOCATIONS -> {
-                if("BINDINGS".equals(filter)) yield ChronicleCore.authoring().roles().stream().filter(r->r.kind()==AuthoringCatalog.Kind.BLOCK).map(r->{
-                    var binding=MapSiteAssignments.bindings(server).get(r.id());
-                    String assigned=binding==null?"No block site assigned":binding.siteId()+" · revision "+binding.siteRevision();
-                    return entry("binding:"+r.id(),r.label(),r.description()+" · "+assigned,"BINDING",r.id(),0);
-                }).toList();
-                yield sites(server).values().stream().filter(s->"BLOCK".equals(filter)?s instanceof AuthoringSite.Anchor:s instanceof AuthoringSite.Location).map(CoreMenuServer::siteEntry).toList();
-            }
-            case SETUP -> {
-                var result=new ArrayList<Entry>();
-                ChronicleCore.authoring().roles().stream().filter(r->!r.id().startsWith("chronicle_core:")&&r.kind()==AuthoringCatalog.Kind.LOCATION).forEach(r->result.add(entry(r.id(),"Point · "+r.label(),r.description(),"POINT",r.id(),0)));
-                GameSetupTools.tools().forEach(tool->result.add(entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)));
-                yield result;
-            }
+            case LOCATIONS -> "BLOCK".equals(filter)?blockEntries(server):sites(server).values().stream().filter(AuthoringSite.Location.class::isInstance).map(CoreMenuServer::siteEntry).toList();
+            case SETUP -> GameSetupTools.tools().stream().map(tool->entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)).toList();
         };
     }
 
@@ -406,27 +406,22 @@ public final class CoreMenuServer {
                 }
             }
             case LOCATIONS -> {
-                if("BINDINGS".equals(c.filter)) {
-                    String requirement=id.startsWith("binding:")?id.substring("binding:".length()):id;
-                    var role=ChronicleCore.authoring().get(requirement).filter(r->r.kind()==AuthoringCatalog.Kind.BLOCK).orElse(null);
-                    title="Game binding";description="Choose a saved block site for this game's registered requirement. This does not change the block.";
-                    if(role!=null) {
-                        title=role.label();facts.add(new Fact("Game binding",role.description()));facts.add(new Fact("Geometry","BLOCK"));
-                        var binding=MapSiteAssignments.bindings(server).get(requirement);
-                        facts.add(new Fact("Assigned site",binding==null?"No block site assigned":binding.siteId()+" · revision "+binding.siteRevision()));
-                        if(binding!=null){try{MapSiteAssignments.resolve(server,requirement);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
-                        controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,"BLOCK"));
-                        controls.add(control(Action.BLOCK_CREATE,"Create a block site…",canEdit,editReason,false,"BINDING_CREATE"));
-                    }
-                    break;
+                boolean block="BLOCK".equals(c.filter);title=block?"Block sites":"Points";description=block?"Managed supplied blocks and optional manual vanilla or third-party references.":"A saved position and facing for game uses. No physical block is required.";
+                if(block){
+                    if(!id.startsWith("limit:"))facts.add(new Fact("Looked-at block",player.getEntityWorld().getRegistryKey().getValue()+" / "+targetKey(player)));
+                    var snapshot=ManagedBlocks.snapshot(server);
+                    if(!snapshot.ready())facts.add(new Fact("Managed blocks",snapshot.problem().isBlank()?"Unavailable":snapshot.problem()));
+                    controls.add(control(Action.BLOCK_CREATE,"Bind looked-at block…",canEdit&&!lookedAtManagedBlock(player),!canEdit?editReason:"Supplied managed blocks register automatically.",false,"ID"));
+                    controls.add(control(Action.BLOCK_LIMITS,"Block limits…",true,"",false,"BLOCK_LIMIT_TYPE"));
                 }
-                boolean block="BLOCK".equals(c.filter);title=block?"Saved block sites":"Points";description=block?"A saved reference to one exact block. Used for landmarks and game setup; binding it does not change the block.":"A saved position and facing for player destinations. No physical block is required.";
-                controls.add(control(block?Action.BLOCK_CREATE:Action.POINT_CREATE,block?"Bind looked-at block…":"Save my position…",canEdit,editReason,false,"ID"));
-                var site=sites(server).get(id);if(site!=null){title=site.id();facts.add(new Fact("Location",describe(site)));facts.add(new Fact("Used by",references(server,id)));controls.add(control(Action.SHOW,block?"Show block site":"Show point",true,"",false,""));controls.add(control(block?Action.BLOCK_UPDATE:Action.POINT_UPDATE,block?"Replace block site":"Update to my position",canEdit,editReason,true,""));controls.add(control(Action.SITE_DELETE,"Delete location",canEdit,editReason,true,""));if(block)controls.add(control(Action.REFRESH,"Manage game bindings",true,"",false,"BINDINGS_VIEW"));}
-                facts.add(new Fact("Behavior",block?"Placed mod stations work independently of this saved reference; this site is only a reference.":"Saving moves nobody. Coordinates, dimension and facing are retained; destinations are opt-in under Players."));
+                else controls.add(control(Action.POINT_CREATE,"Save my position…",canEdit,editReason,false,"ID"));
+                if(block&&id.startsWith("limit:")){title=managedTypeLabel(server,id);managedLimitDetail(server,c,id,facts,controls,canEdit,editReason);break;}
+                if(block&&id.startsWith("managed:")){title=managedInstance(server,id).label();managedDetail(server,c,id,facts,controls,canEdit,editReason);break;}
+                var site=sites(server).get(manualSiteId(server,id));if(site!=null){title=site.id();facts.add(new Fact("Location",describe(site)));facts.add(new Fact("Used by",references(server,site.id())));controls.add(control(Action.SHOW,block?"Show block site":"Show point",true,"",false,""));controls.add(control(block?Action.BLOCK_UPDATE:Action.POINT_UPDATE,block?"Replace block site":"Update to my position",canEdit,editReason,true,""));controls.add(control(Action.SITE_DELETE,"Delete location",canEdit,editReason,true,""));if(!block&&!pointRoles().isEmpty()){controls.add(control(Action.POINT_ASSIGN,"Use for…",canEdit,editReason,true,"POINT_PURPOSE"));if(pointPurposeCount(server,site.id())>0)controls.add(control(Action.POINT_UNASSIGN,"Clear use…",canEdit,editReason,true,"POINT_BOUND"));}}
+                facts.add(new Fact("Behavior",block?"Supplied blocks register themselves; manual references do not change their capacity.":"Saving moves nobody. Coordinates, dimension and facing are retained; destinations are opt-in under Players."));
             }
             case SETUP -> {
-                title="Game setup";description="Global settings and point requirements. Region assignments are under Regions; block bindings are under Locations → Block sites. This registers references; it enables no ecology, event or player move.";
+                title="Game setup";description="Global tools for this campaign. Region uses are under Regions and point uses are under Locations. This enables no ecology, event or player move.";
                 if(id.startsWith("tool:")) {
                     var tool=GameSetupTools.get(toolId(id)).orElse(null);
                     if(tool!=null) {
@@ -443,12 +438,7 @@ public final class CoreMenuServer {
                             facts.add(new Fact("Service","Unavailable: "+shortText(exception.getMessage(),512)));
                         }
                     }
-                } else {
-                    var role=ChronicleCore.authoring().get(id).orElse(null);
-                    if(role!=null&&role.kind()==AuthoringCatalog.Kind.LOCATION){title=role.label();facts.add(new Fact("Purpose",role.description()));facts.add(new Fact("Geometry","Point"));var binding=MapSiteAssignments.bindings(server).get(id);facts.add(new Fact("Assigned site",binding==null?"Unassigned":binding.siteId()+" · revision "+binding.siteRevision()));if(binding!=null){try{MapSiteAssignments.resolve(server,id);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
-                        controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,"POINT"));}
-                    facts.add(new Fact("Scope","Only installed game requirements appear. Hidden-faction voting, Journey chapters and future campaign tools are not required here."));
-                }
+                } else facts.add(new Fact("Scope","Only installed global tools appear here. Hidden-faction voting, Journey chapters and future campaign tools are not required here."));
             }
         }
         return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region);
@@ -462,6 +452,13 @@ public final class CoreMenuServer {
             case "DESTINATION","POINT","BLOCK","REGION" -> sites(server).values().stream().filter(site->switch(kind){case "DESTINATION","POINT"->site instanceof AuthoringSite.Location;case "BLOCK"->site instanceof AuthoringSite.Anchor;default->site instanceof AuthoringSite.Region;}).forEach(s->choices.add(siteEntry(s)));
             case "REGION_PURPOSE" -> ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).forEach(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());String status=binding==null?"Unassigned":binding.siteId().equals(playerContextSelection(player))?bindingState(server,role.id())+" here":bindingState(server,role.id())+" elsewhere: "+binding.siteId();choices.add(entry(role.id(),role.label(),role.description()+" · "+status,"PURPOSE",role.id(),0));});
             case "REGION_BOUND" -> ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(playerContextSelection(player));}).forEach(role->choices.add(entry(role.id(),role.label(),role.description()+" · "+bindingState(server,role.id()),"PURPOSE",role.id(),0)));
+            case "BLOCK_LIMIT_TYPE" -> ManagedBlocks.snapshot(server).types().forEach(type->choices.add(entry(type.typeId(),type.label(),type.description()+" · "+type.count()+" / "+type.limit(),"MANAGED_TYPE",type.blockId(),0)));
+            case "MANUAL_REFERENCE" -> {
+                var instance=managedInstance(server,playerContextSelection(player));
+                manualAliases(server,instance).forEach(anchor->choices.add(entry("manual:"+anchor.id(),anchor.id(),describe(anchor),"MANUAL",anchor.id(),anchor.revision())));
+            }
+            case "POINT_PURPOSE" -> pointRoles().forEach(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());String status=binding==null?"Unassigned":binding.siteId().equals(playerContextSelection(player))?bindingState(server,role.id())+" here":bindingState(server,role.id())+" elsewhere: "+binding.siteId();choices.add(entry(role.id(),role.label(),role.description()+" · "+status,"PURPOSE",role.id(),0));});
+            case "POINT_BOUND" -> pointRoles().stream().filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(playerContextSelection(player));}).forEach(role->choices.add(entry(role.id(),role.label(),role.description()+" · "+bindingState(server,role.id()),"PURPOSE",role.id(),0)));
             case "FLAG" -> {choices.add(entry("none","No prerequisite","No required game condition","FLAG","",0));ChronicleRuntime.service(server).state().flags().forEach((id,value)->choices.add(entry(id,id,"Current value: "+value,"FLAG","",0)));}
             default -> throw new IllegalArgumentException("Unsupported selector: "+kind);
         }
@@ -473,7 +470,7 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
         var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries());
-        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
+        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
     private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
@@ -493,24 +490,85 @@ public final class CoreMenuServer {
             if(selected.startsWith("binding:")||ChronicleCore.authoring().get(selected).filter(role->role.kind()==AuthoringCatalog.Kind.LOCATION).isEmpty())throw new IllegalArgumentException("Choose a registered point requirement. Region uses are managed under Regions.");
             return selected;
         }
-        if(context.page==Page.LOCATIONS&&"BINDINGS".equals(context.filter)) {
-            if(!selected.startsWith("binding:"))throw new IllegalArgumentException("Choose a registered block binding.");
-            String requirement=selected.substring("binding:".length());
-            if(ChronicleCore.authoring().get(requirement).filter(role->role.kind()==AuthoringCatalog.Kind.BLOCK).isEmpty())throw new IllegalArgumentException("Choose a registered block binding.");
-            return requirement;
-        }
-        throw new IllegalArgumentException("Block bindings are managed under Locations → Block sites.");
+        throw new IllegalArgumentException("Explicit legacy setup commands remain available; geometry uses are managed under Regions or Locations.");
     }
     private static String regionPurpose(Context context,String selected){
         if(context.page!=Page.REGIONS)throw new IllegalArgumentException("Region uses are managed under Regions.");
         if(selected==null||!AuthoringSite.ID.matcher(selected).matches())throw new IllegalArgumentException("Choose a registered region purpose.");
         return ChronicleCore.authoring().get(selected).filter(role->role.kind()==AuthoringCatalog.Kind.REGION).map(AuthoringCatalog.Role::id).orElseThrow(()->new IllegalArgumentException("Choose a registered region purpose."));
     }
+    private static String pointPurpose(Context context,String selected){if(context.page!=Page.LOCATIONS||!"POINT".equals(context.filter))throw new IllegalArgumentException("Point uses are managed under Locations → Points.");if(selected==null||!AuthoringSite.ID.matcher(selected).matches()||pointRoles().stream().noneMatch(role->role.id().equals(selected)))throw new IllegalArgumentException("Choose a registered point purpose.");return selected;}
+    private static void requireSelectedPoint(MinecraftServer server,String id){if(!(sites(server).get(id) instanceof AuthoringSite.Location))throw new IllegalArgumentException("Choose a saved point.");}
     private static void requireSelectedRegion(MinecraftServer server,String id){if(!(sites(server).get(id) instanceof AuthoringSite.Region))throw new IllegalArgumentException("Choose a saved region.");}
     private static Fact regionUsage(MinecraftServer server,String id){var usage=ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(id);}).map(role->role.label()+" · "+bindingState(server,role.id())).toList();return new Fact("Used by",usage.isEmpty()?"None":summary(usage,4096));}
     private static long regionUsageCount(MinecraftServer server,String id){return ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(id);}).count();}
     private static String bindingState(MinecraftServer server,String requirement){try{MapSiteAssignments.resolve(server,requirement);return "Current";}catch(RuntimeException error){return "Stale";}}
     private static String playerContextSelection(ServerPlayerEntity player){var context=WORLDS.getOrDefault(player.getEntityWorld().getServer(),Map.of()).get(player.getUuid());return context==null?"":context.selected;}
+    private static List<AuthoringCatalog.Role> pointRoles(){return ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.LOCATION&&!role.id().equals("chronicle_core:arrival")&&!role.id().equals("chronicle_core:respawn")).toList();}
+    private static long pointPurposeCount(MinecraftServer server,String id){return pointRoles().stream().filter(role->{var binding=MapSiteAssignments.bindings(server).get(role.id());return binding!=null&&binding.siteId().equals(id);}).count();}
+    private static List<Entry> blockEntries(MinecraftServer server) {
+        var snapshot=ManagedBlocks.snapshot(server);
+        var anchors=sites(server).values().stream().filter(AuthoringSite.Anchor.class::isInstance).map(AuthoringSite.Anchor.class::cast).toList();
+        var managedPositions=new HashSet<String>();var result=new ArrayList<Entry>();
+        for(var instance:snapshot.instances()) {
+            String position=sitePosition(instance.dimension(),instance.position());managedPositions.add(position);
+            var aliases=manualAliases(anchors,instance);String alias=aliases.size()==1?aliases.getFirst().id():"";
+            String description=instance.dimension()+" · "+coordinates(instance.position())+" · "+instance.status()+" · "+instance.actualBlock()+(aliases.isEmpty()?"":aliases.size()==1?" · Manual reference: "+alias:" · Manual references: "+aliases.size());
+            result.add(entry("managed:"+instance.id(),instance.label(),description,"MANAGED",alias,instance.revision()));
+        }
+        for(var anchor:anchors)if(!managedPositions.contains(sitePosition(anchor.dimension(),anchor.position())))result.add(entry("manual:"+anchor.id(),anchor.id(),describe(anchor)+" · Manual reference","MANUAL",anchor.id(),anchor.revision()));
+        result.sort(Comparator.comparing(Entry::label).thenComparing(Entry::id));return result;
+    }
+    private static String sitePosition(String dimension,BlockPosition position){return dimension+":"+position.x()+":"+position.y()+":"+position.z();}
+    private static ManagedBlockInstanceView managedInstance(MinecraftServer server,String id) {
+        if(!id.startsWith("managed:"))throw new IllegalArgumentException("Choose a managed block site.");
+        UUID uuid;try{uuid=UUID.fromString(id.substring("managed:".length()));}catch(IllegalArgumentException e){throw new IllegalArgumentException("Choose a managed block site.");}
+        return ManagedBlocks.snapshot(server).instances().stream().filter(instance->instance.id().equals(uuid)).findFirst().orElseThrow(()->new IllegalArgumentException("That managed block site is no longer available."));
+    }
+    private static String managedTypeLabel(MinecraftServer server,String id) {
+        if(!id.startsWith("limit:"))throw new IllegalArgumentException("Choose a managed block type.");
+        String typeId=id.substring("limit:".length());
+        return ManagedBlocks.snapshot(server).types().stream().filter(type->type.typeId().equals(typeId)).map(ManagedBlockTypeView::label).findFirst().orElseThrow(()->new IllegalArgumentException("That managed block type is no longer available."));
+    }
+    private static List<AuthoringSite.Anchor> manualAliases(MinecraftServer server,ManagedBlockInstanceView instance){return manualAliases(sites(server).values().stream().filter(AuthoringSite.Anchor.class::isInstance).map(AuthoringSite.Anchor.class::cast).toList(),instance);}
+    private static List<AuthoringSite.Anchor> manualAliases(List<AuthoringSite.Anchor> anchors,ManagedBlockInstanceView instance){String position=sitePosition(instance.dimension(),instance.position());return anchors.stream().filter(anchor->sitePosition(anchor.dimension(),anchor.position()).equals(position)).sorted(Comparator.comparing(AuthoringSite.Anchor::id)).toList();}
+    private static String manualSiteId(MinecraftServer server,String id) {
+        if(id.startsWith("manual:"))return id.substring("manual:".length());
+        if(!id.startsWith("managed:"))return id;
+        var aliases=manualAliases(server,managedInstance(server,id));
+        if(aliases.isEmpty())return id;
+        if(aliases.size()>1)throw new IllegalStateException("Choose a specific manual reference first.");
+        return aliases.getFirst().id();
+    }
+    private static void managedDetail(MinecraftServer server,Context context,String id,List<Fact> facts,List<Control> controls,boolean canEdit,String editReason) {
+        var instance=managedInstance(server,id);var type=ManagedBlocks.snapshot(server).types().stream().filter(candidate->candidate.typeId().equals(instance.typeId())).findFirst().orElse(null);
+        facts.add(new Fact("Status",instance.status().name()));facts.add(new Fact("Block",instance.actualBlock()));facts.add(new Fact("Location",instance.dimension()+" · "+coordinates(instance.position())));
+        if(type!=null)facts.add(new Fact("Capacity",type.count()+" / "+type.limit()+(type.overLimit()?" · over limit":"")));
+        var aliases=manualAliases(server,instance);
+        controls.add(control(Action.MANAGED_SHOW,"Show block site",true,"",false,""));
+        if(aliases.size()==1) {
+            facts.add(new Fact("Manual reference",aliases.getFirst().id()));
+            controls.add(control(Action.BLOCK_UPDATE,"Replace manual reference",canEdit,editReason,true,""));
+            controls.add(control(Action.SITE_DELETE,"Delete manual reference",canEdit,editReason,true,""));
+        } else if(aliases.size()>1) {
+            facts.add(new Fact("Manual references",Integer.toString(aliases.size())));
+            controls.add(control(Action.MANUAL_REFERENCES,"Manual references…",true,"",false,"MANUAL_REFERENCE"));
+        }
+    }
+    private static void managedLimitDetail(MinecraftServer server,Context context,String id,List<Fact> facts,List<Control> controls,boolean canEdit,String editReason) {
+        String typeId=id.substring("limit:".length());var snapshot=ManagedBlocks.snapshot(server);var type=snapshot.types().stream().filter(candidate->candidate.typeId().equals(typeId)).findFirst().orElseThrow(()->new IllegalArgumentException("That managed block type is no longer available."));
+        context.managedPolicyRevision=snapshot.policyRevision();
+        facts.add(new Fact("Registered block",type.blockId()));facts.add(new Fact("Current blocks",Integer.toString(type.count())));facts.add(new Fact("Limit",type.fixed()?"Fixed at "+type.limit():Integer.toString(type.limit())));if(type.overLimit())facts.add(new Fact("Status","Over limit; existing blocks remain and new placements are refused."));
+        if(!type.fixed())controls.add(control(Action.BLOCK_LIMIT_SET,"Set limit…",canEdit&&snapshot.ready(),snapshot.ready()?editReason:shortText(snapshot.problem(),512),true,"INTEGER"));
+        controls.add(control(Action.REFRESH,"Back to block sites",true,"",false,"BLOCK_SITES"));
+    }
+    private static boolean lookedAtManagedBlock(ServerPlayerEntity player) {
+        var world=player.getEntityWorld();var start=player.getEyePos();var end=start.add(player.getRotationVec(1).multiply(6));
+        for(int sample=0;sample<=24;sample++){BlockPos position=BlockPos.ofFloored(start.lerp(end,sample/24.0));if(!world.getChunkManager().isChunkLoaded(position.getX()>>4,position.getZ()>>4))return false;}
+        HitResult hit=world.raycast(new RaycastContext(start,end,RaycastContext.ShapeType.OUTLINE,RaycastContext.FluidHandling.NONE,player));
+        if(!(hit instanceof BlockHitResult block)||hit.getType()!=HitResult.Type.BLOCK)return false;
+        return ManagedBlocks.isManagedBlock(Registries.BLOCK.getId(world.getBlockState(block.getBlockPos()).getBlock()).toString());
+    }
     private static String nonRegionReferences(MinecraftServer server,String id){var refs=new ArrayList<String>();SpawnAuthoring.service(server).state().bindings().values().stream().filter(binding->binding.locationId().equals(id)).forEach(binding->refs.add("Player destination: "+binding.purpose()));var play=PlayRuntime.available(server);if(play!=null)play.bindings().values().stream().filter(binding->binding.regionId().equals(id)).forEach(binding->refs.add("Event: "+binding.id()));return refs.isEmpty()?"None":summary(refs,4096);}
     private static String summary(List<String> values,int max){StringBuilder result=new StringBuilder();for(int index=0;index<values.size();index++){String next=result.isEmpty()?values.get(index):"; "+values.get(index);if(result.length()+next.length()>max){String suffix="; and "+(values.size()-index)+" more";return shortText(result.toString(),Math.max(0,max-suffix.length()))+suffix;}result.append(next);}return result.toString();}
     private static String targetKey(ServerPlayerEntity player) {
@@ -548,9 +606,9 @@ public final class CoreMenuServer {
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
     private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries) { }
-    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object automatic,Object play,Object assignmentRevision,Object toolRevisions,String dimension,boolean editing,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
+    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object automatic,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private static final class Context {
-        long token,window,reviewTime;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="";Frame frame,reviewFrame;
+        long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="";Frame frame,reviewFrame;
         PlayRuntime.Preview observation;LootType expectedLoot;Picker picker;
         boolean visible;
     }

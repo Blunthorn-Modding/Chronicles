@@ -361,112 +361,72 @@ public final class CoreMenuSmoke {
         switch(step){
             case 110 -> navigate(client,"Locations",Page.LOCATIONS);
             case 111 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
-            case 112 -> awaitView(()->"BLOCK".equals(screen(client).state().filter())&&screen(client).state().entries().isEmpty(),"saved block sites are empty and separate from game requirements");
-            case 113 -> {require(press(screen(client),"Game bindings"),"Game bindings selector missing");waitingFor=viewCount;step++;}
-            case 114 -> {
-                var v=screen(client).state();if(viewCount<=waitingFor||!v.filter().equals("BINDINGS"))return;
-                require(v.entries().size()==3&&v.entries().stream().allMatch(e->e.kind().equals("BINDING")&&e.id().startsWith("binding:")),"block requirements are missing or mixed with saved geometry");
-                require(v.detail().controls().stream().filter(c->c.action()==Action.SETUP_ASSIGN).noneMatch(c->c.enabled()),"binding edit allowed without author mode");
-                snapshot("bindings before creation",assignmentsFile);snapshot("geometry before creation",authoringFile);
-                capture(client,"menu-empty-game-bindings.png");advance("all three registered block requirements exist before saved anchors and are permission gated");
-            }
-            case 115 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
-            case 116 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"selected Heart binding in Block sites");
-            case 117 -> {require(press(screen(client),"Enable editing"),"editing unavailable");waitingFor=viewCount;step++;}
-            case 118 -> {awaitView(()->screen(client).state().editing()&&screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"binding editing is acknowledged by server without changing selection");if(step==119)stableTicks=0;}
-            case 119 -> {
-                if(stableTicks++==0){capture(client,"menu-binding-before-picker.png");return;}if(stableTicks<20)return;
-                require(press(screen(client),"Choose existing site…"),"binding picker missing: "+bindingLayout(screen(client)));waitingFor=viewCount;step++;
-            }
-            case 120 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("BLOCK")&&screen(client).state().picker().entries().isEmpty(),"empty binding picker offers only saved anchors");
-            case 121 -> {require(press(screen(client),"Cancel selection"),"empty picker cancel missing");waitingFor=viewCount;step++;}
-            case 122 -> awaitView(()->screen(client).state().picker()==null&&screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&sameSnapshot("bindings before creation",assignmentsFile),"empty picker cancellation preserves originating binding");
-            case 123 -> {require(press(screen(client),"Create a block site…"),"binding creation route missing");waitingFor=viewCount;step++;}
-            case 124 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"binding creation routes to ordinary saved sites");
-            case 125 -> {require(press(screen(client),"Bind looked-at block…"),"normal block creation missing");step++;}
-            case 126 -> {require(press(screen(client),"Cancel"),"creation cancellation missing");waitingFor=viewCount;step++;}
-            case 127 -> awaitView(()->screen(client).state().filter().equals("BINDINGS")&&screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&sameSnapshot("bindings before creation",assignmentsFile)&&sameSnapshot("geometry before creation",authoringFile),"creation cancellation returns to binding without saving geometry or assignment");
-            case 128 -> {
-                screen(client).close();client.player.networkHandler.sendChatCommand("setblock 0 99 0 minecraft:stone");client.player.networkHandler.sendChatCommand("setblock 0 101 3 minecraft:stone");client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 0 0");step++;
-            }
-            case 129 -> {
-                if(Math.abs(client.player.getY()-100)>.05||!(client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult hit)||!hit.getBlockPos().equals(new net.minecraft.util.math.BlockPos(0,101,3)))return;
-                openMenu(client);advance("prepared actual looked-at vanilla block for generic site creation");
-            }
-            case 130 -> awaitScreen(client,Page.SESSION,"reopened menu over block fixture");
-            case 131 -> navigate(client,"Locations",Page.LOCATIONS);
-            case 132 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
-            case 133 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"saved block sites selected");
-            case 134 -> {require(press(screen(client),"Game bindings"),"Game bindings unavailable");waitingFor=viewCount;step++;}
-            case 135 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"binding list reopened");
-            case 136 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
-            case 137 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"Heart binding selected for new site");
-            case 138 -> {require(press(screen(client),"Create a block site…"),"binding create unavailable");waitingFor=viewCount;step++;}
-            case 139 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"ordinary creation route reused");
-            case 140 -> {require(press(screen(client),"Bind looked-at block…"),"looked block create missing");step++;}
-            case 141 -> {screen(client).textForTest("menu_smoke_block");require(screen(client).triggerForTest("Send"),"block name submit missing");waitingFor=viewCount;step++;}
-            case 142 -> awaitView(()->screen(client).state().filter().equals("BINDINGS")&&screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&fileContains(authoringFile,"menu_smoke_block")&&sameSnapshot("bindings before creation",assignmentsFile),"new block site returns to original binding without automatic assignment");
-            case 143 -> {require(press(screen(client),"Choose existing site…"),"new anchor picker missing");waitingFor=viewCount;step++;}
-            case 144 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().entries().stream().anyMatch(e->e.id().equals("menu_smoke_block"))&&screen(client).state().picker().entries().stream().allMatch(e->e.kind().equals("BLOCK")),"matching block picker includes new anchor and excludes points and regions");
-            case 145 -> {screen(client).selectForTest("menu_smoke_block");require(screen(client).triggerForTest("Confirm: Choose existing site…"),"binding explicit confirmation missing");waitingFor=viewCount;step++;}
-            case 146 -> awaitView(()->boundHeart()&&fact(client,"Reference").equals("Current"),"binding pins existing anchor revision through current assignment service");
-            case 147 -> {snapshot("bound before show",assignmentsFile);require(press(screen(client),"Show assigned site"),"binding show unavailable");waitingFor=viewCount;step++;}
-            case 148 -> awaitView(()->screen(client).state().success()&&sameSnapshot("bound before show",assignmentsFile),"binding show is private and does not mutate assignments");
-            case 149 -> {snapshot("anchor before replace",authoringFile);screen(client).close();client.player.networkHandler.sendChatCommand("chronicles author block replace menu_smoke_block target");step++;}
-            case 150 -> {if(sameSnapshot("anchor before replace",authoringFile))return;openMenu(client);advance("existing anchor replacement keeps identity and changes revision");}
-            case 151 -> awaitScreen(client,Page.SESSION,"reopened after anchor revision change");
-            case 152 -> navigate(client,"Locations",Page.LOCATIONS);
-            case 153 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
-            case 154 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"saved sites reopened");
-            case 155 -> {require(press(screen(client),"Game bindings"),"binding selector missing");waitingFor=viewCount;step++;}
-            case 156 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"binding view reopened for stale reference");
-            case 157 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
-            case 158 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&!fact(client,"Reference").isBlank()&&!fact(client,"Reference").equals("Current"),"revised anchor exposes stale pinned binding without silent repair");
-            case 159 -> {capture(client,"menu-stale-game-binding.png");require(press(screen(client),"Choose existing site…"),"stale binding cannot choose replacement");waitingFor=viewCount;step++;}
-            case 160 -> awaitView(()->screen(client).state().picker()!=null,"stale binding can explicitly revalidate through anchor picker");
-            case 161 -> {screen(client).selectForTest("menu_smoke_block");require(screen(client).triggerForTest("Confirm: Choose existing site…"),"revalidation confirmation missing");waitingFor=viewCount;step++;}
-            case 162 -> awaitView(()->screen(client).state().picker()==null&&fact(client,"Reference").equals("Current")&&!sameSnapshot("bound before show",assignmentsFile),"explicit assignment revalidates updated anchor revision");
-            case 163 -> {require(press(screen(client),"Clear assignment"),"binding clear unavailable");waitingFor=viewCount;step++;}
-            case 164 -> awaitView(()->!boundHeart()&&fileContains(authoringFile,"menu_smoke_block"),"clearing game binding retains saved block geometry");
-            case 165 -> {snapshot("abandoned route bindings",assignmentsFile);require(press(screen(client),"Create a block site…"),"abandonment create route missing");waitingFor=viewCount;step++;}
-            case 166 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"entered creation route before abandoning it");
-            case 167 -> navigate(client,"Players",Page.PLAYERS);
-            case 168 -> navigate(client,"Locations",Page.LOCATIONS);
-            case 169 -> {require(press(screen(client),"Block sites"),"saved sites missing after abandoned route");waitingFor=viewCount;step++;}
-            case 170 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"ordinary saved sites reopened after leaving creation route");
-            case 171 -> {require(press(screen(client),"Bind looked-at block…"),"ordinary block creation unavailable after abandoned route");step++;}
-            case 172 -> {screen(client).textForTest("menu_smoke_abandoned_block");require(screen(client).triggerForTest("Send"),"ordinary block name submit missing");waitingFor=viewCount;step++;}
-            case 173 -> {
-                if(viewCount<=waitingFor||!fileContains(authoringFile,"menu_smoke_abandoned_block")||!screen(client).state().filter().equals("BLOCK"))return;
-                require(sameSnapshot("abandoned route bindings",assignmentsFile),"abandoned creation route changed binding");checks.add("unrelated later block creation stays in Saved sites after abandoned binding route");step=185;
-            }
-            case 185 -> {require(press(screen(client),"Saved sites"),"saved sites selector missing");waitingFor=viewCount;step++;}
-            case 186 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().entries().stream().allMatch(e->e.kind().equals("BLOCK")),"saved sites list contains geometry only after clear");
-            case 187 -> {screen(client).selectForTest("menu_smoke_block");waitingFor=viewCount;step++;}
-            case 188 -> awaitView(()->screen(client).state().selected().equals("menu_smoke_block"),"selected saved site exposes geometry actions");
-            case 189 -> {require(press(screen(client),"Manage game bindings"),"saved site binding navigation missing");waitingFor=viewCount;step++;}
-            case 190 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"saved-site detail routes to game bindings");
-            case 191 -> navigate(client,"Game setup",Page.SETUP);
-            case 192 -> {
-                var entries=screen(client).state().entries();require(entries.stream().noneMatch(e->e.kind().equals("BLOCK")||e.id().equals("quiet_below:relic_heart")),"block requirement remains duplicated in Game setup");
-                require(entries.stream().noneMatch(e->e.kind().equals("AREA")||e.kind().equals("REGION")||e.id().equals("quiet_below:source_city")||e.id().equals("quiet_below:claim_region")),"region requirement remains duplicated in Game setup");
-                require(entries.stream().anyMatch(e->e.id().equals("tool:quiet_below:heart")&&e.label().equals("Heart weakness")),"Heart global tool not distinctly named");
-                screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;advance("global settings and area references remain separate from block bindings");
-            }
-            case 193 -> awaitView(()->screen(client).state().detail().title().equals("Heart weakness"),"Heart weakness is a distinct global setting");
-            case 194 -> {capture(client,"menu-heart-weakness.png");advance("captured final global Heart settings layout");}
-            case 195 -> {snapshot("gm forged binding",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_CLEAR,Page.LOCATIONS,"binding:quiet_below:source_city","",screen(client).state().token(),0,"BINDINGS",""));step++;}
-            case 196 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("gm forged binding",assignmentsFile),"GM cross-kind binding packet denied without clearing Source city");
-            case 197 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_ASSIGN,Page.LOCATIONS,"quiet_below:relic_heart","menu_smoke_block",screen(client).state().token(),0,"BINDINGS",""));step++;}
-            case 198 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("gm forged binding",assignmentsFile),"GM raw requirement packet denied in prefixed block-binding view");
-            case 199 -> {client.player.networkHandler.sendChatCommand("chronicles setup assign \"quiet_below:relic_heart\" menu_smoke_block");waitingFor=viewCount;step++;}
-            case 200 -> awaitView(this::boundHeart,"legacy raw setup-assign command remains compatible with block bindings");
-            case 201 -> {snapshot("legacy inspect binding",assignmentsFile);client.player.networkHandler.sendChatCommand("chronicles setup inspect \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
-            case 202 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("legacy inspect binding",assignmentsFile),"legacy raw setup-inspect command remains private and read only");
-            case 203 -> {client.player.networkHandler.sendChatCommand("chronicles setup clear \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
-            case 204 -> awaitView(()->!boundHeart()&&fileContains(authoringFile,"menu_smoke_block"),"legacy raw setup-clear command retains saved geometry");
-            case 205 -> step=210;
-            default -> finish(client,true,"completed "+checks.size()+" native operator checks");
+            case 112 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().entries().isEmpty(),"flat Block sites starts with actual instances only");
+            case 113 -> {require(!screen(client).triggerForTest("Game bindings")&&!screen(client).triggerForTest("Saved sites"),"nested block selectors remain");require(press(screen(client),"Enable editing"),"editing unavailable");waitingFor=viewCount;step++;}
+            case 114 -> awaitView(()->screen(client).state().editing(),"server acknowledges editing for manual references");
+            case 115 -> {screen(client).close();client.player.networkHandler.sendChatCommand("setblock 0 99 0 minecraft:stone");client.player.networkHandler.sendChatCommand("setblock 0 101 3 minecraft:stone");client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 0 0");step++;}
+            case 116 -> {if(Math.abs(client.player.getY()-100)>.05||!(client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult hit)||!hit.getBlockPos().equals(new net.minecraft.util.math.BlockPos(0,101,3)))return;openMenu(client);advance("prepared an actual looked-at vanilla reference");}
+            case 117 -> awaitScreen(client,Page.SESSION,"reopened menu over vanilla block");
+            case 118 -> navigate(client,"Locations",Page.LOCATIONS);
+            case 119 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
+            case 120 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"flat Block sites reopened");
+            case 121 -> {snapshot("manual cancelled",authoringFile);snapshot("manual bindings",assignmentsFile);require(press(screen(client),"Bind looked-at block\u2026"),"manual block binding unavailable");step++;}
+            case 122 -> {require(screen(client).triggerForTest("Cancel"),"manual naming prompt cancellation unavailable");waitingFor=viewCount;step++;}
+            case 123 -> {require(sameSnapshot("manual cancelled",authoringFile),"cancelled manual prompt changed geometry");require(press(screen(client),"Bind looked-at block\u2026"),"manual block binding unavailable after cancel");screen(client).textForTest("menu_smoke_block");waitingFor=viewCount;try{Files.writeString(output.resolve("prompt-disconnect-ready"),"ready");}catch(IOException error){throw new IllegalStateException(error);}step++;}
+            case 124 -> {if(client.player.networkHandler.getPlayerListEntry(PLAYER)!=null||viewCount<=waitingFor)return;require(screen(client).textForTest().equals("menu_smoke_block"),"unrelated disconnect cleared the prompt draft");checks.add("unrelated player disconnect preserves the open naming prompt and typed text");client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 90 0");waitingFor=viewCount;step=173;}
+            case 125 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().entries().stream().anyMatch(e->e.id().equals("manual:menu_smoke_block"))&&sameSnapshot("manual bindings",assignmentsFile),"manual vanilla reference appears without a game binding");
+            case 126 -> {screen(client).selectForTest("manual:menu_smoke_block");waitingFor=viewCount;step++;}
+            case 127 -> awaitView(()->screen(client).state().selected().equals("manual:menu_smoke_block"),"selected physical manual reference");
+            case 128 -> {snapshot("manual show",authoringFile);require(press(screen(client),"Show block site"),"private manual outline unavailable");waitingFor=viewCount;step++;}
+            case 129 -> awaitView(()->screen(client).state().success()&&sameSnapshot("manual show",authoringFile),"showing a manual reference leaves geometry unchanged");
+            case 130 -> {snapshot("manual replace",authoringFile);require(press(screen(client),"Replace block site"),"manual reference replacement unavailable");waitingFor=viewCount;step++;}
+            case 131 -> awaitView(()->!sameSnapshot("manual replace",authoringFile)&&fileContains(authoringFile,"menu_smoke_block")&&sameSnapshot("manual bindings",assignmentsFile),"manual replacement retains identity and changes no game assignment");
+            case 132 -> {require(press(screen(client),"Block limits\u2026"),"generic limit picker unavailable");waitingFor=viewCount;step++;}
+            case 133 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE")&&screen(client).state().picker().entries().size()==3,"generic limit picker lists the three registered supplied types");
+            case 134 -> {screen(client).selectForTest("quiet_below:relic_heart");waitingFor=viewCount;step++;}
+            case 135 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limit:quiet_below:relic_heart"))return;require(screen(client).state().detail().controls().stream().noneMatch(c->c.action()==Action.BLOCK_LIMIT_SET&&c.enabled()),"structural Heart limit is editable");capture(client,"menu-fixed-heart-limit.png");advance("Heart policy is fixed and read only");}
+            case 136 -> {require(press(screen(client),"Back to block sites"),"flat-list return unavailable");waitingFor=viewCount;step++;}
+            case 137 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().picker()==null&&!screen(client).state().selected().startsWith("limit:"),"limit detail returns to the sole physical list");
+            case 138 -> navigate(client,"Game setup",Page.SETUP);
+            case 139 -> {require(screen(client).state().entries().stream().allMatch(e->e.kind().equals("TOOL")),"geometry requirements remain in Game setup");screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;advance("Game setup contains global tools only");}
+            case 140 -> awaitView(()->screen(client).state().detail().title().equals("Heart weakness"),"Heart weakness remains a global rule");
+            case 141 -> {snapshot("forged old binding",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_CLEAR,Page.LOCATIONS,"binding:quiet_below:source_city","",screen(client).state().token(),0,"BINDINGS",""));step++;}
+            case 142 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged old binding",assignmentsFile),"obsolete binding packet cannot clear a region use");
+            case 143 -> {client.player.networkHandler.sendChatCommand("chronicles setup assign \"quiet_below:relic_heart\" menu_smoke_block");waitingFor=viewCount;step++;}
+            case 144 -> awaitView(this::boundHeart,"explicit legacy block assignment remains compatible");
+            case 145 -> {snapshot("legacy inspect",assignmentsFile);client.player.networkHandler.sendChatCommand("chronicles setup inspect \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
+            case 146 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("legacy inspect",assignmentsFile),"explicit legacy inspection stays private and read only");
+            case 147 -> {client.player.networkHandler.sendChatCommand("chronicles setup clear \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
+            case 148 -> awaitView(()->!boundHeart()&&fileContains(authoringFile,"menu_smoke_block"),"explicit legacy clear retains geometry");
+            case 149 -> navigate(client,"Locations",Page.LOCATIONS);
+            case 150 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
+            case 151 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"reopened flat references after compatibility commands");
+            case 152 -> {screen(client).selectForTest("manual:menu_smoke_block");waitingFor=viewCount;step++;}
+            case 153 -> awaitView(()->screen(client).state().selected().equals("manual:menu_smoke_block"),"manual reference remains selectable");
+            case 154 -> {require(press(screen(client),"Delete location"),"manual-only delete unavailable");waitingFor=viewCount;step++;}
+            case 155 -> awaitView(()->!fileContains(authoringFile,"menu_smoke_block")&&fileContains(authoringFile,"menu_smoke_region"),"manual reference removal preserves unrelated geometry");
+            case 156 -> {client.player.networkHandler.sendChatCommand("chronicles author block bind alias_one target");client.player.networkHandler.sendChatCommand("chronicles author block bind alias_two target");waitingFor=viewCount;step++;}
+            case 157 -> awaitView(()->fileContains(authoringFile,"alias_one")&&fileContains(authoringFile,"alias_two"),"two legacy references share one physical position");
+            case 158 -> {client.player.networkHandler.sendChatCommand("setblock 0 101 3 quiet_below:ancient_altar");waitingFor=viewCount;step++;}
+            case 159 -> awaitView(()->screen(client).state().entries().size()==1&&screen(client).state().entries().getFirst().kind().equals("MANAGED"),"discovery deduplicates both aliases into one physical row");
+            case 160 -> {screen(client).selectForTest(screen(client).state().entries().getFirst().id());waitingFor=viewCount;step++;}
+            case 161 -> awaitView(()->screen(client).state().selected().startsWith("managed:"),"selected managed position with multiple references");
+            case 162 -> {require(press(screen(client),"Manual references\u2026"),"multiple-reference selector unavailable");waitingFor=viewCount;step++;}
+            case 163 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("MANUAL_REFERENCE")&&screen(client).state().picker().entries().size()==2,"both legacy aliases remain discoverable");
+            case 164 -> {screen(client).selectForTest("manual:alias_two");waitingFor=viewCount;step++;}
+            case 165 -> awaitView(()->screen(client).state().selected().equals("manual:alias_two")&&screen(client).state().detail().title().equals("alias_two"),"alias picker opens the exact selected manual detail");
+            case 166 -> {require(press(screen(client),"Delete location"),"selected alias deletion unavailable");waitingFor=viewCount;step++;}
+            case 167 -> awaitView(()->!fileContains(authoringFile,"alias_two")&&fileContains(authoringFile,"alias_one")&&screen(client).state().entries().size()==1&&screen(client).state().entries().getFirst().kind().equals("MANAGED"),"deleting one alias retains the other and its managed quota");
+            case 168 -> {screen(client).selectForTest(screen(client).state().entries().getFirst().id());waitingFor=viewCount;step++;}
+            case 169 -> awaitView(()->screen(client).state().detail().facts().stream().anyMatch(f->f.label().equals("Manual reference")&&f.value().equals("alias_one")),"remaining alias retains its scoped managed detail");
+            case 170 -> {require(press(screen(client),"Delete manual reference"),"last manual reference deletion unavailable");waitingFor=viewCount;step++;}
+            case 171 -> awaitView(()->!fileContains(authoringFile,"alias_one")&&screen(client).state().entries().size()==1&&screen(client).state().entries().getFirst().kind().equals("MANAGED"),"deleting all manual references cannot free physical quota");
+            case 172 -> step=210;
+            case 173 -> awaitView(()->!screen(client).hasTextPromptForTest()&&sameSnapshot("manual cancelled",authoringFile),"changed looked-at target closes the old naming prompt without a mutation");
+            case 174 -> {client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 0 0");waitingFor=viewCount;step++;}
+            case 175 -> awaitView(()->client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult hit&&hit.getBlockPos().equals(new net.minecraft.util.math.BlockPos(0,101,3)),"restored the actual manual-reference target");
+            case 176 -> {require(press(screen(client),"Bind looked-at block\u2026"),"manual block naming unavailable after target change");screen(client).textForTest("menu_smoke_block");require(screen(client).triggerForTest("Send"),"manual reference Send unavailable");waitingFor=viewCount;step=125;}
+            default -> throw new IllegalStateException("unexpected flat block test step "+step);
         }
     }
     private void driveRegionUses(MinecraftClient client){
@@ -507,21 +467,6 @@ public final class CoreMenuSmoke {
             default -> finish(client,true,"completed "+checks.size()+" native operator checks");
         }
     }
-    private static String bindingLayout(CoreMenuScreen screen){
-        try{
-            StringBuilder out=new StringBuilder();
-            for(String name:List.of("detailOnCompact","detailScroll","detailContentHeight","detailHeight","detailX","detailY","detailWidth","clipTop","clipBottom","pending")){
-                var f=CoreMenuScreen.class.getDeclaredField(name);f.setAccessible(true);out.append(name).append('=').append(f.get(screen)).append(' ');
-            }
-            var f=CoreMenuScreen.class.getDeclaredField("buttons");f.setAccessible(true);var buttons=(Map<?,?>)f.get(screen);
-            for(String label:List.of("Choose existing site…","Back to list","Enable editing","Stop editing")){
-                var value=buttons.get(label);out.append(label).append('=');
-                if(value instanceof net.minecraft.client.gui.widget.ClickableWidget widget)out.append(widget.getX()).append(',').append(widget.getY()).append(',').append(widget.getWidth()).append(',').append(widget.getHeight()).append(" active=").append(widget.active).append(" visible=").append(widget.visible);
-                else out.append("absent");out.append(' ');
-            }
-            return out.toString();
-        }catch(ReflectiveOperationException error){return error.toString();}
-    }
     private String fact(MinecraftClient client,String name){return screen(client).state().detail().facts().stream().filter(f->f.label().equals(name)).map(f->f.value()).findFirst().orElse("");}
     private boolean boundHeart(){try{return java.util.stream.StreamSupport.stream(com.google.gson.JsonParser.parseString(Files.readString(assignmentsFile)).getAsJsonObject().getAsJsonArray("bindings").spliterator(),false).anyMatch(e->e.getAsJsonObject().get("requirementId").getAsString().equals("quiet_below:relic_heart"));}catch(IOException error){throw new IllegalStateException(error);}}
 
@@ -556,6 +501,7 @@ public final class CoreMenuSmoke {
             case 8 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"forged non-operator cleanup denied without a journal write");
             case 9 -> {snapshot("non-op block bindings",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_ASSIGN,Page.LOCATIONS,"binding:quiet_below:relic_heart","menu_smoke_region",screen(client).state().token(),0,"BINDINGS",""));step++;}
             case 10 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSnapshot("non-op block bindings",assignmentsFile),"forged non-operator block binding denied without assignment changes");
+            case 11 -> {if(!Files.isRegularFile(output.resolve("prompt-disconnect-ready")))return;advance("disconnect while the operator has an unsaved naming prompt");}
             default -> finish(client, true, "completed " + checks.size() + " ordinary-player checks");
         }
     }
@@ -582,11 +528,11 @@ public final class CoreMenuSmoke {
             case 16 -> navigate(client,"Locations",Page.LOCATIONS);
             case 17 -> {require(press(screen(client),"Block sites"),"layout Block sites missing");waitingFor=viewCount;step++;}
             case 18 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"layout saved block sites rendered");
-            case 19 -> {capture(client,"menu-layout-saved-sites.png");require(press(screen(client),"Game bindings"),"layout Game bindings missing");waitingFor=viewCount;step++;}
-            case 20 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"layout game binding list rendered");
-            case 21 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
-            case 22 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"layout Heart binding detail rendered");
-            case 23 -> {capture(client,"menu-layout-game-bindings.png");advance("captured binding detail at requested logical size");}
+            case 19 -> {capture(client,"menu-layout-block-sites.png");require(press(screen(client),"Block limits\u2026"),"layout Block limits missing");waitingFor=viewCount;step++;}
+            case 20 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE"),"layout managed type picker rendered");
+            case 21 -> {screen(client).selectForTest("quiet_below:relic_heart");waitingFor=viewCount;step++;}
+            case 22 -> awaitView(()->screen(client).state().selected().equals("limit:quiet_below:relic_heart"),"layout fixed Heart limit detail rendered");
+            case 23 -> {capture(client,"menu-layout-fixed-limit.png");advance("captured generic limit detail at requested logical size");}
             default -> finish(client, true, "completed " + checks.size() + " native layout checks");
         }
     }

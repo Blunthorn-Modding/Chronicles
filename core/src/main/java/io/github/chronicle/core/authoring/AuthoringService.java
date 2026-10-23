@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 public final class AuthoringService {
     private final AuthoringRepository repository;
     private AuthoringRegistry current;
+    private MutationGuard mutationGuard = (existing, proposed, operation) -> { };
 
     public AuthoringService(AuthoringRepository repository) throws IOException {
         if (repository == null) {
@@ -23,6 +24,11 @@ public final class AuthoringService {
         return current;
     }
 
+    /** Installs a server-owned dependency guard; ordinary standalone services remain allow-all. */
+    public synchronized void mutationGuard(MutationGuard guard) {
+        mutationGuard = guard == null ? (existing, proposed, operation) -> { } : guard;
+    }
+
     public synchronized AuthoringSite put(AuthoringSite site, boolean replace) throws IOException {
         if (site == null) {
             throw new IllegalArgumentException("authoring site is required");
@@ -34,6 +40,7 @@ public final class AuthoringService {
         if (!exists && replace) {
             throw new IllegalStateException("authoring site does not exist for replacement: " + site.id());
         }
+        mutationGuard.check(current.sites().get(site.id()), site, replace ? Operation.REPLACE : Operation.CREATE);
         long revision = nextRevision();
         AuthoringSite saved = site.withRevision(revision);
         LinkedHashMap<String, AuthoringSite> sites = new LinkedHashMap<>(current.sites());
@@ -49,6 +56,7 @@ public final class AuthoringService {
         if (!current.sites().containsKey(id)) {
             throw new IllegalStateException("authoring site does not exist: " + id);
         }
+        mutationGuard.check(current.sites().get(id), null, Operation.REMOVE);
         long revision = nextRevision();
         LinkedHashMap<String, AuthoringSite> sites = new LinkedHashMap<>(current.sites());
         sites.remove(id);
@@ -66,5 +74,10 @@ public final class AuthoringService {
         } catch (ArithmeticException exception) {
             throw new IllegalStateException("authoring registry revision is exhausted", exception);
         }
+    }
+
+    public enum Operation { CREATE, REPLACE, REMOVE }
+    @FunctionalInterface public interface MutationGuard {
+        void check(AuthoringSite existing, AuthoringSite proposed, Operation operation);
     }
 }

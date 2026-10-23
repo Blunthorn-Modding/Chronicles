@@ -52,8 +52,6 @@ public final class CoreMenuScreen extends Screen {
     private boolean detailOnCompact;
     private String selected = "";
     private String locationFilter = "";
-    /** A block-site creation never assigns it: return to this binding for the explicit picker step. */
-    private String bindingReturn = "";
     private final Map<Page, String> pageSelections = new java.util.EnumMap<>(Page.class);
     private final Map<String, String> locationSelections = new java.util.HashMap<>();
     private String notice = "";
@@ -61,6 +59,7 @@ public final class CoreMenuScreen extends Screen {
     private Confirmation confirmation;
     private PendingPicker pickerAction;
     private String pickerSearch = "";
+    private String promptDraft = "";
     private TextFieldWidget textInput;
     private TextFieldWidget pickerSearchInput;
     private int detailScroll, detailContentHeight, detailX, detailY, detailWidth, detailHeight;
@@ -101,6 +100,8 @@ public final class CoreMenuScreen extends Screen {
     }
     public void searchForTest(String value) { if (pickerSearchInput == null) throw new IllegalStateException("Open a picker first."); pickerSearchInput.setText(value); }
     public void scrollDetailForTest(int direction) { mouseScrolled(detailX + detailWidth / 2.0, detailY + detailHeight / 2.0, 0, direction < 0 ? -1 : 1); }
+    public boolean hasTextPromptForTest() { return textInput != null; }
+    public String textForTest() { if (textInput == null) throw new IllegalStateException("No text prompt is open."); return textInput.getText(); }
     public void textForTest(String value) { if (textInput == null) throw new IllegalStateException("No text prompt is open."); textInput.setText(value); }
     public void setEventSecondsForTest(String value) { if (eventSeconds == null) throw new IllegalStateException("Open an event form first."); eventSeconds.setText(value); }
     public void selectLootEntryForTest(int index) { if (lootDraft == null || index < 0 || index >= lootDraft.entries().size()) throw new IllegalArgumentException("Loot entry is unavailable: " + index); lootEntry = index; lootEntryOffset = Math.max(0, index - 2); clearAndInit(); }
@@ -118,6 +119,13 @@ public final class CoreMenuScreen extends Screen {
         String priorDetail = detailId();
         long priorToken = state.token();
         Action receivedFor = requestedAction;
+        boolean retainPrompt = textInput != null && pickerAction != null && state.picker() == null
+                && updated.picker() == null && (receivedFor == null || receivedFor == Action.REFRESH)
+                && state.page() == updated.page() && state.filter().equals(updated.filter())
+                && updated.detail() != null && updated.detail().equals(state.detail())
+                && state.phase().equals(updated.phase()) && state.session() == updated.session()
+                && state.hold().equals(updated.hold())
+                && updated.operator() && updated.editing() && updated.editable();
         boolean stableRefresh = refreshPending && updated.sameControls(state);
         boolean preserveDrafts = requestedAction == Action.OPTIONS || (requestedAction == Action.LOOT_SAVE && !updated.success());
         if (updated.detail() != null && updated.detail().id().equals(priorDetail)
@@ -135,22 +143,16 @@ public final class CoreMenuScreen extends Screen {
         if (!updated.message().isBlank()) notice = updated.message();
         if (receivedFor == Action.LOOT_SAVE && !updated.success()) notice = notice + " Draft retained; reload before choosing to replace it.";
         if (updated.detail() != null && updated.detail().region() != null && updated.page() == Page.REGIONS) detailOnCompact = true;
-        if (updated.success() && (receivedFor == Action.POINT_CREATE || receivedFor == Action.BLOCK_CREATE)) detailOnCompact = true;
+        if (updated.success() && (receivedFor == Action.POINT_CREATE || receivedFor == Action.BLOCK_CREATE || receivedFor == Action.BLOCK_LIMITS || receivedFor == Action.MANUAL_REFERENCES)) detailOnCompact = true;
         boolean changedAuthority = priorToken != updated.token();
         if (changedAuthority) {
             confirmation = null;
             if (!retainReview) eventPreview = "";
         }
         if (!stableRefresh) {
-            if (updated.picker() == null) pickerAction = null;
+            if (updated.picker() == null && !retainPrompt) { pickerAction = null; promptDraft = ""; }
             if (updated.detail() != null && !preserveDrafts && (changedAuthority || !updated.detail().id().equals(priorDetail))) loadForms(updated.detail());
             clearAndInit();
-        }
-        if (receivedFor == Action.BLOCK_CREATE && !bindingReturn.isBlank()) {
-            String returnTo = bindingReturn; bindingReturn = "";
-            locationSelections.put("BINDINGS", returnTo); locationFilter = "BINDINGS"; selected = returnTo;
-            request(Action.OPEN, Page.LOCATIONS, returnTo, "", 0, "BINDINGS", "", false);
-            return;
         }
         if (close) client.setScreen(null);
     }
@@ -203,16 +205,11 @@ public final class CoreMenuScreen extends Screen {
             button("Points", x, y, w / 2 - 2, () -> locations("POINT"), "Named positions used by systems and starting positions", true);
             button("Block sites", x + w / 2, y, w / 2 - 2, () -> locations("BLOCK"), "Named blocks, including optional vanilla references", true);
             y += 20; h -= 20;
-            if ("BLOCK".equals(state.filter()) || "BINDINGS".equals(state.filter())) {
-                button("Saved sites", x, y, w / 2 - 2, () -> locations("BLOCK"), "Named exact block references", true);
-                button("Game bindings", x + w / 2, y, w / 2 - 2, () -> locations("BINDINGS"), "Assign saved block sites to game requirements", true);
-                y += 20; h -= 20;
-            }
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (!creator.input().equals("BINDING_CREATE") && (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE)) {
-                    control(creator, x, y, w); y += 21; h -= 21; break;
+                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BLOCK_LIMITS) {
+                    control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
         }
@@ -230,7 +227,7 @@ public final class CoreMenuScreen extends Screen {
             String label = entry.label().isBlank() ? entry.id() : entry.label();
             button(label, x, y + 18 + row * 20, w, 18, () -> chooseEntry(entry), entry.description(), true);
         }
-        if (entries.isEmpty()) drawLine("Nothing is available here yet.", x, y + 22, w, 0xFFA0A0A0);
+        if (entries.isEmpty()) drawLine(state.page() == Page.LOCATIONS && "BLOCK".equals(state.filter()) ? "No managed blocks or manual block sites." : "Nothing is available here yet.", x, y + 22, w, 0xFFA0A0A0);
         if (state.picker() != null) pickerControls(x, y + 18 + rows * 20, w);
         else pageControls(x, y + 18 + rows * 20, w);
     }
@@ -371,16 +368,13 @@ public final class CoreMenuScreen extends Screen {
                 ? "x y z" : "Text";
         int fieldWidth=Math.max(80,width-106);
         textInput = addDrawableChild(new TextFieldWidget(textRenderer, x, y, fieldWidth, 18, Text.literal(hint)));
-        textInput.setMaxLength(160);
+        textInput.setMaxLength(160); textInput.setText(promptDraft); textInput.setChangedListener(value -> promptDraft = value);
         button("Cancel",x+fieldWidth+4,y,48,18,this::cancelPrompt,"Close this text entry without applying it",true);
         button("Send",x+fieldWidth+54,y,48,18,this::submitPrompt,"Submit this value",true);
     }
 
     private void cancelPrompt() {
-        pickerAction=null;
-        if(!bindingReturn.isBlank()) {
-            String returnTo=bindingReturn;bindingReturn="";locationSelections.put("BINDINGS",returnTo);locations("BINDINGS");return;
-        }
+        pickerAction=null; promptDraft="";
         clearAndInit();
     }
 
@@ -388,7 +382,7 @@ public final class CoreMenuScreen extends Screen {
         if (pickerAction == null || textInput == null) return;
         String prefix = pickerAction.kind();
         String argument = (prefix.equals("1:") || prefix.equals("2:")) ? prefix + textInput.getText() : textInput.getText();
-        Action action = pickerAction.action(); String id = pickerAction.id(); pickerAction = null;
+        Action action = pickerAction.action(); String id = pickerAction.id(); pickerAction = null; promptDraft="";
         Control source = state.detail().controls().stream().filter(c -> c.action() == action).findFirst().orElse(null);
         if (source != null) applyControl(source, id, argument); else request(action, state.page(), id, argument, state.index(), state.filter(), "", false);
     }
@@ -396,18 +390,14 @@ public final class CoreMenuScreen extends Screen {
     private void activate(Control control) {
         if (!control.enabled()) return;
         String input = control.input();
-        if (input.equals("BINDINGS_VIEW")) { locations("BINDINGS"); return; }
-        if (input.equals("BINDING_CREATE")) {
-            bindingReturn = detailId(); locationSelections.put("BINDINGS", bindingReturn);
-            locations("BLOCK", true); return;
-        }
         if (input.isBlank()) { applyControl(control, detailId(), ""); return; }
         if (input.startsWith("TOOL:")) { applyControl(control, detailId(), ""); return; }
         if (input.equals("LOOT_DRAFT")) { saveLoot(); return; }
         if (input.equals("EVENT_DRAFT")) { saveEvent(); return; }
         if (input.equals("POSITION1")) { prompt(control.action(), detailId(), "1:"); return; }
         if (input.equals("POSITION2")) { prompt(control.action(), detailId(), "2:"); return; }
-        if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS") || input.equals("REGION_PURPOSE") || input.equals("REGION_BOUND")) {
+        if (input.equals("BLOCK_SITES")) { locations("BLOCK"); return; }
+        if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS") || input.equals("REGION_PURPOSE") || input.equals("REGION_BOUND") || input.equals("POINT_PURPOSE") || input.equals("POINT_BOUND") || input.equals("BLOCK_LIMIT_TYPE") || input.equals("MANUAL_REFERENCE")) {
             beginPicker(new PendingPicker(control.action(), detailId(), input)); return;
         }
         prompt(control.action(), detailId(), "");
@@ -516,19 +506,17 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void select(String id) {
-        bindingReturn = "";
         selected = id; detailOnCompact = true; actionOffset = factOffset = detailScroll = 0;
         pageSelections.put(state.page(), id);
         if (state.page() == Page.LOCATIONS) locationSelections.put(state.filter(), id);
         request(Action.OPEN, state.page(), id, "", state.index(), state.filter(), "", false);
     }
-    private void open(Page page) { if (page == Page.LOCATIONS) { locations(locationFilter.isBlank() ? "POINT" : locationFilter); return; } bindingReturn = ""; detailOnCompact = false; selected = pageSelections.getOrDefault(page, ""); listOffset = detailScroll = 0; request(Action.OPEN, page, selected, "", 0, "", "", false); }
-    private void locations(String filter) { locations(filter, false); }
-    private void locations(String filter, boolean preserveBindingReturn) { if (!preserveBindingReturn) bindingReturn = ""; locationFilter = filter; selected = locationSelections.getOrDefault(filter, ""); detailOnCompact = false; listOffset = detailScroll = 0; request(Action.OPEN, Page.LOCATIONS, selected, "", 0, filter, "", false); }
+    private void open(Page page) { if (page == Page.LOCATIONS) { locations(locationFilter.isBlank() ? "POINT" : locationFilter); return; } detailOnCompact = false; selected = pageSelections.getOrDefault(page, ""); listOffset = detailScroll = 0; request(Action.OPEN, page, selected, "", 0, "", "", false); }
+    private void locations(String filter) { locationFilter = filter; selected = locationSelections.getOrDefault(filter, ""); detailOnCompact = false; listOffset = detailScroll = 0; request(Action.OPEN, Page.LOCATIONS, selected, "", 0, filter, "", false); }
     private void page(int delta) { listOffset=0;request(Action.OPEN, state.page(), selected, "", Math.max(0, Math.min(state.pages() - 1, state.index() + delta)), state.filter(), "", false); }
     private void pickerPage(int delta) { if (state.picker() != null) {listOffset=0;request(Action.OPTIONS, state.page(), detailId(), state.picker().kind(), Math.max(0, Math.min(state.picker().pages() - 1, state.picker().page() + delta)), state.filter(), pickerSearch, false);} }
     private void prompt(Action action, String id, String prefix) {
-        pickerAction = new PendingPicker(action, id, prefix); clearAndInit();
+        promptDraft = ""; pickerAction = new PendingPicker(action, id, prefix); clearAndInit();
     }
 
     private void applyControl(Control control, String id, String argument) {
@@ -554,6 +542,9 @@ public final class CoreMenuScreen extends Screen {
             case SETUP_CLEAR -> "Clear this requirement's assignment. The saved site stays available.";
             case REGION_ASSIGN -> "Use this saved region for " + argument + ". This pins its current revision; bounds are not copied.";
             case REGION_UNASSIGN -> "Clear this use from the selected saved region. The region stays available.";
+            case POINT_ASSIGN -> "Use this saved point for " + argument + ". This pins its current revision; position and facing are not copied.";
+            case POINT_UNASSIGN -> "Clear this use from the selected saved point. The point stays available.";
+            case BLOCK_LIMIT_SET -> "Set this managed block limit to " + argument + ". Existing blocks stay in place; a lower limit can make future placement unavailable.";
             case EVENT_RUN -> "Deliver this event to the reviewed live audience.\n" + eventPreview;
             case EVENT_RESET -> "Allow this event to run again. Its configured timer delay starts again; nothing is delivered now.";
             case STARTING_RESET -> "Permit another automatic starting-position attempt for this player. This may move them on the next eligible join.";

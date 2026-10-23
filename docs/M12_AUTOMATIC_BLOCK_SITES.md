@@ -39,7 +39,7 @@ Unknown/unloaded managed instances stay in the active count. A missing instance 
 
 ## Points and Game setup
 
-Move remaining generic `AuthoringCatalog.Kind.LOCATION` purposes into **Locations → Points** using the approved selected-point **Use for…** / **Clear use…** model. Points retain manual save/update/delete and actual location geometry. This makes Game setup global tools only, without duplicating geometry or purposes.
+Move only the currently exposed game `AuthoringCatalog.Kind.LOCATION` purposes into **Locations → Points** using the approved selected-point **Use for…** / **Clear use…** model. Exclude built-in `chronicle_core:arrival` and `chronicle_core:respawn` catalog definitions: actual starting/respawn policy remains under Players through separate `SpawnAuthoring`, with no fake `MapSiteAssignments`. Points retain manual save/update/delete and actual location geometry. If no eligible game LOCATION purpose is registered, hide Use for/Clear use rather than show an empty picker. This makes Game setup global tools only, without duplicating geometry or purposes.
 
 Game setup contains global policy/tools such as **Heart weakness**. It has no REGION, LOCATION, or BLOCK placement/binding rows.
 
@@ -51,7 +51,7 @@ Current menu controls have a finite input kind (32 characters) and one selected 
 * Default/configured caps reject extra supplied placements before a second managed instance exists.
 * Altar/Forge remain usable intrinsically whether or not any manual anchor exists; Heart historical cleanup pin is preserved.
 * Flat list, manual-anchor lifecycle, position dedupe, unloaded/missing/legacy states, lowered-overlimit caps, and non-editor denial are clear and safe. If a deduplicated row has a manual reference, **Delete manual reference** removes only that reference and explicitly says it does not remove the block or free capacity.
-* Points owns LOCATION purposes with the same generic usage model; Game setup shows global tools only.
+* Points owns only eligible game LOCATION purposes with the same generic usage model; arrival/respawn remain Players policy, and Game setup shows global tools only.
 
 This is a placement/presentation design only. It does not specify the managed-instance store, migration implementation, block event code, cap configuration schema, station rules, or Heart cleanup behavior.
 
