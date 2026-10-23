@@ -52,6 +52,8 @@ public final class CoreMenuScreen extends Screen {
     private boolean detailOnCompact;
     private String selected = "";
     private String locationFilter = "";
+    /** A block-site creation never assigns it: return to this binding for the explicit picker step. */
+    private String bindingReturn = "";
     private final Map<Page, String> pageSelections = new java.util.EnumMap<>(Page.class);
     private final Map<String, String> locationSelections = new java.util.HashMap<>();
     private String notice = "";
@@ -144,6 +146,12 @@ public final class CoreMenuScreen extends Screen {
             if (updated.detail() != null && !preserveDrafts && (changedAuthority || !updated.detail().id().equals(priorDetail))) loadForms(updated.detail());
             clearAndInit();
         }
+        if (receivedFor == Action.BLOCK_CREATE && !bindingReturn.isBlank()) {
+            String returnTo = bindingReturn; bindingReturn = "";
+            locationSelections.put("BINDINGS", returnTo); locationFilter = "BINDINGS"; selected = returnTo;
+            request(Action.OPEN, Page.LOCATIONS, returnTo, "", 0, "BINDINGS", "", false);
+            return;
+        }
         if (close) client.setScreen(null);
     }
 
@@ -174,9 +182,9 @@ public final class CoreMenuScreen extends Screen {
             button(label, 5, navY, navWidth - 8, 18, () -> open(page), page == state.page() ? "Current page" : "", true);
         }
         if (state.operator()) drawLine("Advanced", 5, top + 3 * 20, navWidth - 8, 0xFFA0A0A0);
-        button("Refresh", width - 59, 5, 54, 18, () -> request(Action.REFRESH, state.page(), "", "", state.index(), state.filter(), "", false), "Request current data", true);
+        button("Refresh", width - 59, 5, 54, 18, () -> request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false), "Request current data", true);
         if (state.operator()) button(state.editing() ? "Stop editing" : "Enable editing", Math.max(5, width - 150), 5, 87,
-                () -> request(state.editing() ? Action.EDIT_OFF : Action.EDIT_ON, state.page(), "", "", state.index(), state.filter(), "", false),
+                () -> request(state.editing() ? Action.EDIT_OFF : Action.EDIT_ON, state.page(), detailId(), "", state.index(), state.filter(), "", false),
                 state.editing() ? "Leave authoring edit mode" : "Ask the server to enable authoring edit mode", state.editable() || state.editing());
         if (compact && detailOnCompact && state.picker() == null) {
             button("Back to list", mainLeft, top, Math.min(92, mainWidth), 18, () -> { detailOnCompact = false; clearAndInit(); }, "Show selectable items", true);
@@ -195,10 +203,15 @@ public final class CoreMenuScreen extends Screen {
             button("Points", x, y, w / 2 - 2, () -> locations("POINT"), "Named positions used by systems and starting positions", true);
             button("Block sites", x + w / 2, y, w / 2 - 2, () -> locations("BLOCK"), "Named blocks, including optional vanilla references", true);
             y += 20; h -= 20;
+            if ("BLOCK".equals(state.filter()) || "BINDINGS".equals(state.filter())) {
+                button("Saved sites", x, y, w / 2 - 2, () -> locations("BLOCK"), "Named exact block references", true);
+                button("Game bindings", x + w / 2, y, w / 2 - 2, () -> locations("BINDINGS"), "Assign saved block sites to game requirements", true);
+                y += 20; h -= 20;
+            }
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE) {
+                if (!creator.input().equals("BINDING_CREATE") && (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE)) {
                     control(creator, x, y, w); y += 21; h -= 21; break;
                 }
             }
@@ -231,6 +244,12 @@ public final class CoreMenuScreen extends Screen {
         field.setChangedListener(value -> pickerSearch = value);
         button("Find", x, y + 20, w, 18, () -> request(Action.OPTIONS, state.page(), detailId(), state.picker().kind(), 0,
                 state.filter(), pickerSearch, false), "Search this picker", true);
+        button("Cancel selection", x, y + 40, w, 18, this::cancelPicker, "Return without changing this selection", true);
+    }
+
+    private void cancelPicker() {
+        pickerAction=null;pickerSearch="";
+        request(Action.REFRESH,state.page(),detailId(),"",state.index(),state.filter(),"",false);
     }
 
     private void pageControls(int x, int y, int w) {
@@ -350,9 +369,19 @@ public final class CoreMenuScreen extends Screen {
     private void promptWidgets(int x, int y, int width) {
         String hint = pickerAction.kind().startsWith("1:") || pickerAction.kind().startsWith("2:")
                 ? "x y z" : "Text";
-        textInput = addDrawableChild(new TextFieldWidget(textRenderer, x, y, Math.max(80, width - 54), 18, Text.literal(hint)));
+        int fieldWidth=Math.max(80,width-106);
+        textInput = addDrawableChild(new TextFieldWidget(textRenderer, x, y, fieldWidth, 18, Text.literal(hint)));
         textInput.setMaxLength(160);
-        button("Send", x + Math.max(80, width - 50), y, 50, 18, this::submitPrompt, "Submit this value", true);
+        button("Cancel",x+fieldWidth+4,y,48,18,this::cancelPrompt,"Close this text entry without applying it",true);
+        button("Send",x+fieldWidth+54,y,48,18,this::submitPrompt,"Submit this value",true);
+    }
+
+    private void cancelPrompt() {
+        pickerAction=null;
+        if(!bindingReturn.isBlank()) {
+            String returnTo=bindingReturn;bindingReturn="";locationSelections.put("BINDINGS",returnTo);locations("BINDINGS");return;
+        }
+        clearAndInit();
     }
 
     private void submitPrompt() {
@@ -367,6 +396,11 @@ public final class CoreMenuScreen extends Screen {
     private void activate(Control control) {
         if (!control.enabled()) return;
         String input = control.input();
+        if (input.equals("BINDINGS_VIEW")) { locations("BINDINGS"); return; }
+        if (input.equals("BINDING_CREATE")) {
+            bindingReturn = detailId(); locationSelections.put("BINDINGS", bindingReturn);
+            locations("BLOCK", true); return;
+        }
         if (input.isBlank()) { applyControl(control, detailId(), ""); return; }
         if (input.startsWith("TOOL:")) { applyControl(control, detailId(), ""); return; }
         if (input.equals("LOOT_DRAFT")) { saveLoot(); return; }
@@ -482,13 +516,15 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void select(String id) {
+        bindingReturn = "";
         selected = id; detailOnCompact = true; actionOffset = factOffset = detailScroll = 0;
         pageSelections.put(state.page(), id);
         if (state.page() == Page.LOCATIONS) locationSelections.put(state.filter(), id);
         request(Action.OPEN, state.page(), id, "", state.index(), state.filter(), "", false);
     }
-    private void open(Page page) { if (page == Page.LOCATIONS) { locations(locationFilter.isBlank() ? "POINT" : locationFilter); return; } detailOnCompact = false; selected = pageSelections.getOrDefault(page, ""); listOffset = detailScroll = 0; request(Action.OPEN, page, selected, "", 0, "", "", false); }
-    private void locations(String filter) { locationFilter = filter; selected = locationSelections.getOrDefault(filter, ""); detailOnCompact = false; listOffset = detailScroll = 0; request(Action.OPEN, Page.LOCATIONS, selected, "", 0, filter, "", false); }
+    private void open(Page page) { if (page == Page.LOCATIONS) { locations(locationFilter.isBlank() ? "POINT" : locationFilter); return; } bindingReturn = ""; detailOnCompact = false; selected = pageSelections.getOrDefault(page, ""); listOffset = detailScroll = 0; request(Action.OPEN, page, selected, "", 0, "", "", false); }
+    private void locations(String filter) { locations(filter, false); }
+    private void locations(String filter, boolean preserveBindingReturn) { if (!preserveBindingReturn) bindingReturn = ""; locationFilter = filter; selected = locationSelections.getOrDefault(filter, ""); detailOnCompact = false; listOffset = detailScroll = 0; request(Action.OPEN, Page.LOCATIONS, selected, "", 0, filter, "", false); }
     private void page(int delta) { listOffset=0;request(Action.OPEN, state.page(), selected, "", Math.max(0, Math.min(state.pages() - 1, state.index() + delta)), state.filter(), "", false); }
     private void pickerPage(int delta) { if (state.picker() != null) {listOffset=0;request(Action.OPTIONS, state.page(), detailId(), state.picker().kind(), Math.max(0, Math.min(state.picker().pages() - 1, state.picker().page() + delta)), state.filter(), pickerSearch, false);} }
     private void prompt(Action action, String id, String prefix) {

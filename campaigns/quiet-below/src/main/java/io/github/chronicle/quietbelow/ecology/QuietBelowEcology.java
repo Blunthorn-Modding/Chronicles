@@ -46,7 +46,7 @@ public final class QuietBelowEcology {
             if(!(world instanceof ServerWorld w)||!protectsRoot(w,p))return true;
             if(player instanceof ServerPlayerEntity actor)destroyHeart(actor,w,p);return false;
         });
-        registerTool(new GameSetupTools.Tool("quiet_below:heart","Relic Heart",
+        registerTool(new GameSetupTools.Tool("quiet_below:heart","Heart weakness",
                 "Below the living sculk threshold, the Heart weakens during active play. A participating Survival or Adventure player can mine the vulnerable bound Heart with a pickaxe. Unloaded branches prevent vulnerability. Cleanup restores recorded terrain as chunks naturally load.",
                 List.of(new GameSetupTools.Verb("follow_extent","Follow Established threshold",GameSetupTools.Guard.EDIT,false),
                         new GameSetupTools.Verb("threshold_lower","Lower weakness threshold",GameSetupTools.Guard.EDIT,false),

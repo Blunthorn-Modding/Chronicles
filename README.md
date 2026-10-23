@@ -1,10 +1,8 @@
 # Chronicle
 
-The operator accepted dev.40. The [count-rate comparison](docs/M11_COUNT_RATE_VERIFICATION.md)
-is independently verified; [physical Heart mining and lens states](docs/M12_PHYSICAL_HEART.md)
-are the next sequential correction. These will share one review client after
-configuration placement is corrected. The current authenticated review remains
-dev.40 at **127.0.0.1:25589** until that combined deployment.
+**Combined review, dev.43:** count-based spread now has a usable small/large comparison world and live Count/Attempts diagnostics. The Heart is mined with a pickaxe and shows its state through the sculk lens. Locations > Block sites separates Saved sites from Game bindings; Game setup keeps global rules, including Heart weakness. [Review these together](docs/M12_COMBINED_REVIEW.md).
+
+The [matching client pack](../client/Chronicle-M9-1.21.10.mrpack) and authenticated **127.0.0.1:25589** server are ready, **PAUSED**, on one fresh disposable fixture with stations and supplies. The accepted dev.40 world was saved/stopped and CRC/hash-backed up first.355Java/77Python tests and native functional/layout checks pass; independent reviews are clear. Human review precedes M13 handcrafted-map readiness. The dated deployments below are historical.
 
 **Combined correction review, dev.40:** covered Heart-connected sculk stays nourished beneath stations and other sculk; surface exposure still governs growth. The approved Forge layout now accepts one item per offering, consumes wrong pairs, and returns only unchanged equipment for valid already-maxed pairs. The refreshed [matching pack](../client/Chronicle-M9-1.21.10.mrpack) suppresses FancyMenu's welcome/documentation prompt and adds the running review server without overwriting an existing server list. One authenticated review at **127.0.0.1:25589** is **PAUSED**, with the current world, tuning and both accepted prayers retained after a verified stopped backup. [Review all three together](docs/M11_COMBINED_REVIEW.md), [implementation contract](docs/M11_COVERED_SCULK_AND_OFFERINGS.md), [Core transactions](docs/CF11_FORGE_WORKSTATION.md) and [exact checks/limits](docs/TEST_PLAN.md). Other [corrections](docs/POST_M12_REVIEW.md) remain sequential. Earlier deployments below are historical.
 

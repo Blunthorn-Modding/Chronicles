@@ -85,7 +85,7 @@ public final class CoreMenuServer {
             if(!Objects.equals(current,context.frame))invalidate(context);
             if(request.action()==Action.OPEN){context.token=0;context.visible=true;}
             context.page=gm?request.page():Page.PLAYERS;
-            context.filter=gm&&"BLOCK".equals(request.filter())?"BLOCK":"POINT";
+            context.filter=gm&&("BLOCK".equals(request.filter())||"BINDINGS".equals(request.filter()))?request.filter():"POINT";
             context.index=request.index();
             context.selected=gm?request.id():player.getUuidAsString();
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
@@ -185,12 +185,12 @@ public final class CoreMenuServer {
                 String result=command(source,"chronicle author "+(point?"location ":"block ")+(update?"replace ":point?"save ":"bind ")+quote(siteId)+(point?" here":" target"));c.selected=siteId;return result;
             }
             case SITE_DELETE -> {return command(source,"chronicle author remove "+quote(id));}
-            case SETUP_ASSIGN -> {MapSiteAssignments.assign(source,id,arg);return "Requirement assigned to the existing saved site. No coordinates copied, growth enabled or player moved.";}
-            case SETUP_CLEAR -> {MapSiteAssignments.clear(source,id);return "Assignment cleared; the saved site itself is retained.";}
+            case SETUP_ASSIGN -> {MapSiteAssignments.assign(source,requirementId(c,id),arg);return "Requirement assigned to the existing saved site. No coordinates copied, growth enabled or player moved.";}
+            case SETUP_CLEAR -> {MapSiteAssignments.clear(source,requirementId(c,id));return "Assignment cleared; the saved site itself is retained.";}
             case TOOL_ACTION -> {return GameSetupTools.execute(source, toolId(id), arg);}
             case SHOW -> {
                 if(c.page==Page.CHESTS){var t=chest(server,id).directTarget();AuthoringRuntime.get(server).preview(player,new AuthoringSite.Anchor("preview",t.dimension(),1,new BlockPosition(t.x(),t.y(),t.z()),t.expectedBlock()));return "Private chest outline shown.";}
-                if(c.page==Page.SETUP){var site=MapSiteAssignments.resolve(server,id).orElseThrow(()->new IllegalStateException("Choose a saved site first."));AuthoringRuntime.get(server).preview(player,site);return "Private assigned-site outline shown.";}
+                if(c.page==Page.SETUP||c.page==Page.LOCATIONS&&"BINDINGS".equals(c.filter)){var site=MapSiteAssignments.resolve(server,requirementId(c,id)).orElseThrow(()->new IllegalStateException("Choose a saved site first."));AuthoringRuntime.get(server).preview(player,site);return "Private assigned-site outline shown.";}
                 return command(source,"chronicle author show "+quote(id));
             }
             default -> throw new IllegalArgumentException("Unsupported menu action.");
@@ -247,10 +247,17 @@ public final class CoreMenuServer {
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
             case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
-            case LOCATIONS -> sites(server).values().stream().filter(s->"BLOCK".equals(filter)?s instanceof AuthoringSite.Anchor:s instanceof AuthoringSite.Location).map(CoreMenuServer::siteEntry).toList();
+            case LOCATIONS -> {
+                if("BINDINGS".equals(filter)) yield ChronicleCore.authoring().roles().stream().filter(r->r.kind()==AuthoringCatalog.Kind.BLOCK).map(r->{
+                    var binding=MapSiteAssignments.bindings(server).get(r.id());
+                    String assigned=binding==null?"No block site assigned":binding.siteId()+" · revision "+binding.siteRevision();
+                    return entry("binding:"+r.id(),r.label(),r.description()+" · "+assigned,"BINDING",r.id(),0);
+                }).toList();
+                yield sites(server).values().stream().filter(s->"BLOCK".equals(filter)?s instanceof AuthoringSite.Anchor:s instanceof AuthoringSite.Location).map(CoreMenuServer::siteEntry).toList();
+            }
             case SETUP -> {
                 var result=new ArrayList<Entry>();
-                ChronicleCore.authoring().roles().stream().filter(r->!r.id().startsWith("chronicle_core:")).forEach(r->result.add(entry(r.id(),r.label(),r.description(),r.kind().name(),r.id(),0)));
+                ChronicleCore.authoring().roles().stream().filter(r->!r.id().startsWith("chronicle_core:")&&r.kind()!=AuthoringCatalog.Kind.BLOCK).forEach(r->{String kind=r.kind()==AuthoringCatalog.Kind.REGION?"AREA":"POINT";result.add(entry(r.id(),(kind.equals("AREA")?"Area · ":"Point · ")+r.label(),r.description(),kind,r.id(),0));});
                 GameSetupTools.tools().forEach(tool->result.add(entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)));
                 yield result;
             }
@@ -383,13 +390,27 @@ public final class CoreMenuServer {
                 }
             }
             case LOCATIONS -> {
-                boolean block="BLOCK".equals(c.filter);title=block?"Block sites":"Points";description=block?"A reference to one exact block instance and its expected type. Used for stations, landmarks or interactions.":"A saved position and facing for player destinations. No physical block is required.";
+                if("BINDINGS".equals(c.filter)) {
+                    String requirement=id.startsWith("binding:")?id.substring("binding:".length()):id;
+                    var role=ChronicleCore.authoring().get(requirement).filter(r->r.kind()==AuthoringCatalog.Kind.BLOCK).orElse(null);
+                    title="Game binding";description="Choose a saved block site for this game's registered requirement. This does not change the block.";
+                    if(role!=null) {
+                        title=role.label();facts.add(new Fact("Game binding",role.description()));facts.add(new Fact("Geometry","BLOCK"));
+                        var binding=MapSiteAssignments.bindings(server).get(requirement);
+                        facts.add(new Fact("Assigned site",binding==null?"No block site assigned":binding.siteId()+" · revision "+binding.siteRevision()));
+                        if(binding!=null){try{MapSiteAssignments.resolve(server,requirement);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
+                        controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,"BLOCK"));
+                        controls.add(control(Action.BLOCK_CREATE,"Create a block site…",canEdit,editReason,false,"BINDING_CREATE"));
+                    }
+                    break;
+                }
+                boolean block="BLOCK".equals(c.filter);title=block?"Saved block sites":"Points";description=block?"A saved reference to one exact block. Used for landmarks and game setup; binding it does not change the block.":"A saved position and facing for player destinations. No physical block is required.";
                 controls.add(control(block?Action.BLOCK_CREATE:Action.POINT_CREATE,block?"Bind looked-at block…":"Save my position…",canEdit,editReason,false,"ID"));
-                var site=sites(server).get(id);if(site!=null){title=site.id();facts.add(new Fact("Location",describe(site)));facts.add(new Fact("Used by",references(server,id)));controls.add(control(Action.SHOW,block?"Show block site":"Show point",true,"",false,""));controls.add(control(block?Action.BLOCK_UPDATE:Action.POINT_UPDATE,block?"Replace block site":"Update to my position",canEdit,editReason,true,""));controls.add(control(Action.SITE_DELETE,"Delete location",canEdit,editReason,true,""));}
-                facts.add(new Fact("Behavior",block?"Mod blocks own their gameplay; this site is only a reference. Actual campaign stations arrive in their own milestone.":"Saving moves nobody. Coordinates, dimension and facing are retained; destinations are opt-in under Players."));
+                var site=sites(server).get(id);if(site!=null){title=site.id();facts.add(new Fact("Location",describe(site)));facts.add(new Fact("Used by",references(server,id)));controls.add(control(Action.SHOW,block?"Show block site":"Show point",true,"",false,""));controls.add(control(block?Action.BLOCK_UPDATE:Action.POINT_UPDATE,block?"Replace block site":"Update to my position",canEdit,editReason,true,""));controls.add(control(Action.SITE_DELETE,"Delete location",canEdit,editReason,true,""));if(block)controls.add(control(Action.REFRESH,"Manage game bindings",true,"",false,"BINDINGS_VIEW"));}
+                facts.add(new Fact("Behavior",block?"Placed mod stations work independently of this saved reference; this site is only a reference.":"Saving moves nobody. Coordinates, dimension and facing are retained; destinations are opt-in under Players."));
             }
             case SETUP -> {
-                title="Game setup";description="Assign this game's key requirements to existing saved geometry. This registers references; it enables no ecology, event or player move.";
+                title="Game setup";description="Assign this game's Areas and Points to existing saved geometry. Block bindings are under Locations → Block sites. This registers references; it enables no ecology, event or player move.";
                 if(id.startsWith("tool:")) {
                     var tool=GameSetupTools.get(toolId(id)).orElse(null);
                     if(tool!=null) {
@@ -408,8 +429,8 @@ public final class CoreMenuServer {
                     }
                 } else {
                     var role=ChronicleCore.authoring().get(id).orElse(null);
-                    if(role!=null){title=role.label();facts.add(new Fact("Purpose",role.description()));facts.add(new Fact("Geometry",role.kind().name()));var binding=MapSiteAssignments.bindings(server).get(id);facts.add(new Fact("Assigned site",binding==null?"Unassigned":binding.siteId()+" · revision "+binding.siteRevision()));if(binding!=null){try{MapSiteAssignments.resolve(server,id);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
-                        String kind=switch(role.kind()){case REGION->"REGION";case LOCATION->"POINT";case BLOCK->"BLOCK";};controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,kind));}
+                    if(role!=null&&role.kind()!=AuthoringCatalog.Kind.BLOCK){title=role.label();facts.add(new Fact("Purpose",role.description()));facts.add(new Fact("Geometry",role.kind()==AuthoringCatalog.Kind.REGION?"Area":"Point"));var binding=MapSiteAssignments.bindings(server).get(id);facts.add(new Fact("Assigned site",binding==null?"Unassigned":binding.siteId()+" · revision "+binding.siteRevision()));if(binding!=null){try{MapSiteAssignments.resolve(server,id);facts.add(new Fact("Reference","Current"));}catch(RuntimeException e){facts.add(new Fact("Reference",shortText(e.getMessage(),512)));}controls.add(control(Action.SHOW,"Show assigned site",true,"",false,""));controls.add(control(Action.SETUP_CLEAR,"Clear assignment",canEdit,editReason,true,""));}
+                        String kind=role.kind()==AuthoringCatalog.Kind.REGION?"REGION":"POINT";controls.add(control(Action.SETUP_ASSIGN,"Choose existing site…",canEdit,editReason,true,kind));}
                     facts.add(new Fact("Scope","Only installed game requirements appear. Hidden-faction voting, Journey chapters and future campaign tools are not required here."));
                 }
             }
@@ -448,6 +469,19 @@ public final class CoreMenuServer {
     private static String toolId(String selected) {
         if(!selected.startsWith("tool:")) throw new IllegalArgumentException("Choose a registered game setup tool.");
         return selected.substring("tool:".length());
+    }
+    private static String requirementId(Context context,String selected) {
+        if(context.page==Page.SETUP) {
+            if(selected.startsWith("binding:")||ChronicleCore.authoring().get(selected).isEmpty())throw new IllegalArgumentException("Choose a registered game requirement.");
+            return selected;
+        }
+        if(context.page==Page.LOCATIONS&&"BINDINGS".equals(context.filter)) {
+            if(!selected.startsWith("binding:"))throw new IllegalArgumentException("Choose a registered block binding.");
+            String requirement=selected.substring("binding:".length());
+            if(ChronicleCore.authoring().get(requirement).filter(role->role.kind()==AuthoringCatalog.Kind.BLOCK).isEmpty())throw new IllegalArgumentException("Choose a registered block binding.");
+            return requirement;
+        }
+        throw new IllegalArgumentException("Block bindings are managed under Locations → Block sites.");
     }
     private static String targetKey(ServerPlayerEntity player) {
         try{var pos=ChestAuthoring.target(player.getCommandSource());return pos.toShortString()+":"+player.getEntityWorld().getBlockState(pos);}

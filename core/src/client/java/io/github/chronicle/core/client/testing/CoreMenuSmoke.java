@@ -63,6 +63,10 @@ public final class CoreMenuSmoke {
     private long previewMessageCount;
     private final Map<String, String> snapshots = new HashMap<>();
     private View lastView;
+    private final List<String> rejectedViews = new ArrayList<>();
+    private int observedStep = -1;
+    private long stepStarted;
+    private int driveTicks;
     private boolean connecting;
     private boolean complete;
     private int step;
@@ -105,6 +109,10 @@ public final class CoreMenuSmoke {
     public static void onView(View view) {
         if (instance != null && !instance.complete) {
             instance.lastView = view;
+            if (!view.success() && instance.rejectedViews.size() < 32) {
+                instance.rejectedViews.add("step " + instance.step + ": " + view.message());
+                ChronicleCore.LOGGER.info("Core menu smoke {} rejected at step {}: {}", instance.role, instance.step, view.message());
+            }
             instance.viewCount++;
         }
     }
@@ -113,6 +121,12 @@ public final class CoreMenuSmoke {
         if (complete) return;
         try {
             if (System.nanoTime() > deadline) throw new IllegalStateException("overall 240 second deadline exceeded");
+            if (observedStep != step) {
+                observedStep = step; stepStarted = System.nanoTime();
+                ChronicleCore.LOGGER.info("Core menu smoke {} step {}", role, step);
+            } else if (System.nanoTime() - stepStarted > 120_000_000_000L) {
+                throw new IllegalStateException("step " + step + " exceeded 120 seconds; rejected responses: " + rejectedViews);
+            }
             if (client.player == null && client.getOverlay() == null && client.currentScreen instanceof AccessibilityOnboardingScreen) client.setScreen(new TitleScreen());
             if (!connecting && client.player == null && client.getOverlay() == null && client.currentScreen instanceof TitleScreen) {
                 connecting = true;
@@ -124,10 +138,13 @@ public final class CoreMenuSmoke {
             if (client.player == null) return;
             client.getToastManager().clear();
             requireFixture(client);
+            require(chatMessages.stream().noneMatch(message -> message.contains("Expected whitespace to end one argument")), "test command has invalid Brigadier quoting");
             // A visible native action has already sent its request.  Do not let
             // the next scripted case press a newly rebuilt control until the
             // authoritative response has arrived (notably Continue in world).
             if (client.currentScreen instanceof CoreMenuScreen screen && screen.pending()) return;
+            // Pace scripted actions below the normal endpoint's 20 requests/second limit.
+            if (++driveTicks % 4 != 0) return;
             if (role.equals("A")) { if (LAYOUT_ONLY) driveLayout(client); else driveOperator(client); } else drivePlayer(client);
         } catch (Throwable error) {
             ChronicleCore.LOGGER.error("Core menu smoke {} failed", role, error);
@@ -136,6 +153,7 @@ public final class CoreMenuSmoke {
     }
 
     private void driveOperator(MinecraftClient client) {
+        if(step>=110){driveBlockBindings(client);return;}
         switch (step) {
             case 0 -> { openMenu(client); advance("operator opened the native menu"); }
             case 1 -> awaitScreen(client, Page.SESSION, "Session");
@@ -160,6 +178,7 @@ public final class CoreMenuSmoke {
             case 12 -> awaitView(() -> "BLOCK".equals(screen(client).state().filter()), "Locations exposes Block sites selector");
             case 13 -> navigate(client, "Game setup", Page.SETUP);
             case 14 -> {
+                if (client.getNetworkHandler().getPlayerList().size() < 2 || ++stableTicks < 10) return;
                 CoreMenuScreen screen = screen(client);
                 require(screen.triggerForTest("Enable editing"), "Enable editing is unavailable to the operator");
                 waitingFor = viewCount; step++;
@@ -337,6 +356,135 @@ public final class CoreMenuSmoke {
         }
     }
 
+    private void driveBlockBindings(MinecraftClient client){
+        switch(step){
+            case 110 -> navigate(client,"Locations",Page.LOCATIONS);
+            case 111 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
+            case 112 -> awaitView(()->"BLOCK".equals(screen(client).state().filter())&&screen(client).state().entries().isEmpty(),"saved block sites are empty and separate from game requirements");
+            case 113 -> {require(press(screen(client),"Game bindings"),"Game bindings selector missing");waitingFor=viewCount;step++;}
+            case 114 -> {
+                var v=screen(client).state();if(viewCount<=waitingFor||!v.filter().equals("BINDINGS"))return;
+                require(v.entries().size()==3&&v.entries().stream().allMatch(e->e.kind().equals("BINDING")&&e.id().startsWith("binding:")),"block requirements are missing or mixed with saved geometry");
+                require(v.detail().controls().stream().filter(c->c.action()==Action.SETUP_ASSIGN).noneMatch(c->c.enabled()),"binding edit allowed without author mode");
+                snapshot("bindings before creation",assignmentsFile);snapshot("geometry before creation",authoringFile);
+                capture(client,"menu-empty-game-bindings.png");advance("all three registered block requirements exist before saved anchors and are permission gated");
+            }
+            case 115 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
+            case 116 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"selected Heart binding in Block sites");
+            case 117 -> {require(press(screen(client),"Enable editing"),"editing unavailable");waitingFor=viewCount;step++;}
+            case 118 -> {awaitView(()->screen(client).state().editing()&&screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"binding editing is acknowledged by server without changing selection");if(step==119)stableTicks=0;}
+            case 119 -> {
+                if(stableTicks++==0){capture(client,"menu-binding-before-picker.png");return;}if(stableTicks<20)return;
+                require(press(screen(client),"Choose existing site…"),"binding picker missing: "+bindingLayout(screen(client)));waitingFor=viewCount;step++;
+            }
+            case 120 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("BLOCK")&&screen(client).state().picker().entries().isEmpty(),"empty binding picker offers only saved anchors");
+            case 121 -> {require(press(screen(client),"Cancel selection"),"empty picker cancel missing");waitingFor=viewCount;step++;}
+            case 122 -> awaitView(()->screen(client).state().picker()==null&&screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&sameSnapshot("bindings before creation",assignmentsFile),"empty picker cancellation preserves originating binding");
+            case 123 -> {require(press(screen(client),"Create a block site…"),"binding creation route missing");waitingFor=viewCount;step++;}
+            case 124 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"binding creation routes to ordinary saved sites");
+            case 125 -> {require(press(screen(client),"Bind looked-at block…"),"normal block creation missing");step++;}
+            case 126 -> {require(press(screen(client),"Cancel"),"creation cancellation missing");waitingFor=viewCount;step++;}
+            case 127 -> awaitView(()->screen(client).state().filter().equals("BINDINGS")&&screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&sameSnapshot("bindings before creation",assignmentsFile)&&sameSnapshot("geometry before creation",authoringFile),"creation cancellation returns to binding without saving geometry or assignment");
+            case 128 -> {
+                screen(client).close();client.player.networkHandler.sendChatCommand("setblock 0 99 0 minecraft:stone");client.player.networkHandler.sendChatCommand("setblock 0 101 3 minecraft:stone");client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 0 0");step++;
+            }
+            case 129 -> {
+                if(Math.abs(client.player.getY()-100)>.05||!(client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult hit)||!hit.getBlockPos().equals(new net.minecraft.util.math.BlockPos(0,101,3)))return;
+                openMenu(client);advance("prepared actual looked-at vanilla block for generic site creation");
+            }
+            case 130 -> awaitScreen(client,Page.SESSION,"reopened menu over block fixture");
+            case 131 -> navigate(client,"Locations",Page.LOCATIONS);
+            case 132 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
+            case 133 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"saved block sites selected");
+            case 134 -> {require(press(screen(client),"Game bindings"),"Game bindings unavailable");waitingFor=viewCount;step++;}
+            case 135 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"binding list reopened");
+            case 136 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
+            case 137 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"Heart binding selected for new site");
+            case 138 -> {require(press(screen(client),"Create a block site…"),"binding create unavailable");waitingFor=viewCount;step++;}
+            case 139 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"ordinary creation route reused");
+            case 140 -> {require(press(screen(client),"Bind looked-at block…"),"looked block create missing");step++;}
+            case 141 -> {screen(client).textForTest("menu_smoke_block");require(screen(client).triggerForTest("Send"),"block name submit missing");waitingFor=viewCount;step++;}
+            case 142 -> awaitView(()->screen(client).state().filter().equals("BINDINGS")&&screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&fileContains(authoringFile,"menu_smoke_block")&&sameSnapshot("bindings before creation",assignmentsFile),"new block site returns to original binding without automatic assignment");
+            case 143 -> {require(press(screen(client),"Choose existing site…"),"new anchor picker missing");waitingFor=viewCount;step++;}
+            case 144 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().entries().stream().anyMatch(e->e.id().equals("menu_smoke_block"))&&screen(client).state().picker().entries().stream().allMatch(e->e.kind().equals("BLOCK")),"matching block picker includes new anchor and excludes points and regions");
+            case 145 -> {screen(client).selectForTest("menu_smoke_block");require(screen(client).triggerForTest("Confirm: Choose existing site…"),"binding explicit confirmation missing");waitingFor=viewCount;step++;}
+            case 146 -> awaitView(()->boundHeart()&&fact(client,"Reference").equals("Current"),"binding pins existing anchor revision through current assignment service");
+            case 147 -> {snapshot("bound before show",assignmentsFile);require(press(screen(client),"Show assigned site"),"binding show unavailable");waitingFor=viewCount;step++;}
+            case 148 -> awaitView(()->screen(client).state().success()&&sameSnapshot("bound before show",assignmentsFile),"binding show is private and does not mutate assignments");
+            case 149 -> {snapshot("anchor before replace",authoringFile);screen(client).close();client.player.networkHandler.sendChatCommand("chronicles author block replace menu_smoke_block target");step++;}
+            case 150 -> {if(sameSnapshot("anchor before replace",authoringFile))return;openMenu(client);advance("existing anchor replacement keeps identity and changes revision");}
+            case 151 -> awaitScreen(client,Page.SESSION,"reopened after anchor revision change");
+            case 152 -> navigate(client,"Locations",Page.LOCATIONS);
+            case 153 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
+            case 154 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"saved sites reopened");
+            case 155 -> {require(press(screen(client),"Game bindings"),"binding selector missing");waitingFor=viewCount;step++;}
+            case 156 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"binding view reopened for stale reference");
+            case 157 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
+            case 158 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart")&&!fact(client,"Reference").isBlank()&&!fact(client,"Reference").equals("Current"),"revised anchor exposes stale pinned binding without silent repair");
+            case 159 -> {capture(client,"menu-stale-game-binding.png");require(press(screen(client),"Choose existing site…"),"stale binding cannot choose replacement");waitingFor=viewCount;step++;}
+            case 160 -> awaitView(()->screen(client).state().picker()!=null,"stale binding can explicitly revalidate through anchor picker");
+            case 161 -> {screen(client).selectForTest("menu_smoke_block");require(screen(client).triggerForTest("Confirm: Choose existing site…"),"revalidation confirmation missing");waitingFor=viewCount;step++;}
+            case 162 -> awaitView(()->screen(client).state().picker()==null&&fact(client,"Reference").equals("Current")&&!sameSnapshot("bound before show",assignmentsFile),"explicit assignment revalidates updated anchor revision");
+            case 163 -> {require(press(screen(client),"Clear assignment"),"binding clear unavailable");waitingFor=viewCount;step++;}
+            case 164 -> awaitView(()->!boundHeart()&&fileContains(authoringFile,"menu_smoke_block"),"clearing game binding retains saved block geometry");
+            case 165 -> {snapshot("abandoned route bindings",assignmentsFile);require(press(screen(client),"Create a block site…"),"abandonment create route missing");waitingFor=viewCount;step++;}
+            case 166 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"entered creation route before abandoning it");
+            case 167 -> navigate(client,"Players",Page.PLAYERS);
+            case 168 -> navigate(client,"Locations",Page.LOCATIONS);
+            case 169 -> {require(press(screen(client),"Block sites"),"saved sites missing after abandoned route");waitingFor=viewCount;step++;}
+            case 170 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"ordinary saved sites reopened after leaving creation route");
+            case 171 -> {require(press(screen(client),"Bind looked-at block…"),"ordinary block creation unavailable after abandoned route");step++;}
+            case 172 -> {screen(client).textForTest("menu_smoke_abandoned_block");require(screen(client).triggerForTest("Send"),"ordinary block name submit missing");waitingFor=viewCount;step++;}
+            case 173 -> {
+                if(viewCount<=waitingFor||!fileContains(authoringFile,"menu_smoke_abandoned_block")||!screen(client).state().filter().equals("BLOCK"))return;
+                require(sameSnapshot("abandoned route bindings",assignmentsFile),"abandoned creation route changed binding");checks.add("unrelated later block creation stays in Saved sites after abandoned binding route");step=185;
+            }
+            case 185 -> {require(press(screen(client),"Saved sites"),"saved sites selector missing");waitingFor=viewCount;step++;}
+            case 186 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().entries().stream().allMatch(e->e.kind().equals("BLOCK")),"saved sites list contains geometry only after clear");
+            case 187 -> {screen(client).selectForTest("menu_smoke_block");waitingFor=viewCount;step++;}
+            case 188 -> awaitView(()->screen(client).state().selected().equals("menu_smoke_block"),"selected saved site exposes geometry actions");
+            case 189 -> {require(press(screen(client),"Manage game bindings"),"saved site binding navigation missing");waitingFor=viewCount;step++;}
+            case 190 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"saved-site detail routes to game bindings");
+            case 191 -> navigate(client,"Game setup",Page.SETUP);
+            case 192 -> {
+                var entries=screen(client).state().entries();require(entries.stream().noneMatch(e->e.kind().equals("BLOCK")||e.id().equals("quiet_below:relic_heart")),"block requirement remains duplicated in Game setup");
+                require(entries.stream().anyMatch(e->e.id().equals("quiet_below:source_city")),"Source city area removed from Game setup");
+                require(entries.stream().anyMatch(e->e.id().equals("tool:quiet_below:heart")&&e.label().equals("Heart weakness")),"Heart global tool not distinctly named");
+                screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;advance("global settings and area references remain separate from block bindings");
+            }
+            case 193 -> awaitView(()->screen(client).state().detail().title().equals("Heart weakness"),"Heart weakness is a distinct global setting");
+            case 194 -> {capture(client,"menu-heart-weakness.png");advance("captured final global Heart settings layout");}
+            case 195 -> {snapshot("gm forged binding",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_CLEAR,Page.LOCATIONS,"binding:quiet_below:source_city","",screen(client).state().token(),0,"BINDINGS",""));step++;}
+            case 196 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("gm forged binding",assignmentsFile),"GM cross-kind binding packet denied without clearing Source city");
+            case 197 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_ASSIGN,Page.LOCATIONS,"quiet_below:relic_heart","menu_smoke_block",screen(client).state().token(),0,"BINDINGS",""));step++;}
+            case 198 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("gm forged binding",assignmentsFile),"GM raw requirement packet denied in prefixed block-binding view");
+            case 199 -> {client.player.networkHandler.sendChatCommand("chronicles setup assign \"quiet_below:relic_heart\" menu_smoke_block");waitingFor=viewCount;step++;}
+            case 200 -> awaitView(this::boundHeart,"legacy raw setup-assign command remains compatible with block bindings");
+            case 201 -> {snapshot("legacy inspect binding",assignmentsFile);client.player.networkHandler.sendChatCommand("chronicles setup inspect \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
+            case 202 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("legacy inspect binding",assignmentsFile),"legacy raw setup-inspect command remains private and read only");
+            case 203 -> {client.player.networkHandler.sendChatCommand("chronicles setup clear \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
+            case 204 -> awaitView(()->!boundHeart()&&fileContains(authoringFile,"menu_smoke_block"),"legacy raw setup-clear command retains saved geometry");
+            default -> finish(client,true,"completed "+checks.size()+" native operator checks");
+        }
+    }
+    private static String bindingLayout(CoreMenuScreen screen){
+        try{
+            StringBuilder out=new StringBuilder();
+            for(String name:List.of("detailOnCompact","detailScroll","detailContentHeight","detailHeight","detailX","detailY","detailWidth","clipTop","clipBottom","pending")){
+                var f=CoreMenuScreen.class.getDeclaredField(name);f.setAccessible(true);out.append(name).append('=').append(f.get(screen)).append(' ');
+            }
+            var f=CoreMenuScreen.class.getDeclaredField("buttons");f.setAccessible(true);var buttons=(Map<?,?>)f.get(screen);
+            for(String label:List.of("Choose existing site…","Back to list","Enable editing","Stop editing")){
+                var value=buttons.get(label);out.append(label).append('=');
+                if(value instanceof net.minecraft.client.gui.widget.ClickableWidget widget)out.append(widget.getX()).append(',').append(widget.getY()).append(',').append(widget.getWidth()).append(',').append(widget.getHeight()).append(" active=").append(widget.active).append(" visible=").append(widget.visible);
+                else out.append("absent");out.append(' ');
+            }
+            return out.toString();
+        }catch(ReflectiveOperationException error){return error.toString();}
+    }
+    private String fact(MinecraftClient client,String name){return screen(client).state().detail().facts().stream().filter(f->f.label().equals(name)).map(f->f.value()).findFirst().orElse("");}
+    private boolean boundHeart(){try{return java.util.stream.StreamSupport.stream(com.google.gson.JsonParser.parseString(Files.readString(assignmentsFile)).getAsJsonObject().getAsJsonArray("bindings").spliterator(),false).anyMatch(e->e.getAsJsonObject().get("requirementId").getAsString().equals("quiet_below:relic_heart"));}catch(IOException error){throw new IllegalStateException(error);}}
+
     private void drivePlayer(MinecraftClient client) {
         switch (step) {
             case 0 -> { openMenu(client); advance("ordinary player opened own menu"); }
@@ -366,6 +514,8 @@ public final class CoreMenuSmoke {
             case 6 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"forged non-operator campaign tool action denied without a journal write");
             case 7 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.TOOL_ACTION,Page.SETUP,"tool:quiet_below:ownership","cleanup_on",screen(client).state().token(),0,"",""));step++;}
             case 8 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"forged non-operator cleanup denied without a journal write");
+            case 9 -> {snapshot("non-op block bindings",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_ASSIGN,Page.LOCATIONS,"binding:quiet_below:relic_heart","menu_smoke_region",screen(client).state().token(),0,"BINDINGS",""));step++;}
+            case 10 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSnapshot("non-op block bindings",assignmentsFile),"forged non-operator block binding denied without assignment changes");
             default -> finish(client, true, "completed " + checks.size() + " ordinary-player checks");
         }
     }
@@ -386,6 +536,17 @@ public final class CoreMenuSmoke {
             case 10 -> { capture(client, "menu-layout-region-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); advance("captured meaningful region detail"); }
             case 11 -> navigate(client, "Locations", Page.LOCATIONS);
             case 12 -> navigate(client, "Game setup", Page.SETUP);
+            case 13 -> {screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;step++;}
+            case 14 -> awaitView(()->screen(client).state().detail().title().equals("Heart weakness"),"layout Heart weakness settings rendered");
+            case 15 -> {capture(client,"menu-layout-heart-weakness.png");advance("captured global settings at requested logical size");}
+            case 16 -> navigate(client,"Locations",Page.LOCATIONS);
+            case 17 -> {require(press(screen(client),"Block sites"),"layout Block sites missing");waitingFor=viewCount;step++;}
+            case 18 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"layout saved block sites rendered");
+            case 19 -> {capture(client,"menu-layout-saved-sites.png");require(press(screen(client),"Game bindings"),"layout Game bindings missing");waitingFor=viewCount;step++;}
+            case 20 -> awaitView(()->screen(client).state().filter().equals("BINDINGS"),"layout game binding list rendered");
+            case 21 -> {screen(client).selectForTest("binding:quiet_below:relic_heart");waitingFor=viewCount;step++;}
+            case 22 -> awaitView(()->screen(client).state().selected().equals("binding:quiet_below:relic_heart"),"layout Heart binding detail rendered");
+            case 23 -> {capture(client,"menu-layout-game-bindings.png");advance("captured binding detail at requested logical size");}
             default -> finish(client, true, "completed " + checks.size() + " native layout checks");
         }
     }
@@ -431,6 +592,7 @@ public final class CoreMenuSmoke {
             }
             screen.scrollDetailForTest(-1);
         }
+        if(List.of("Points","Block sites","Saved sites","Game bindings").contains(label)&&screen.triggerForTest("Back to list"))return screen.triggerForTest(label);
         return false;
     }
 
@@ -480,6 +642,8 @@ public final class CoreMenuSmoke {
         result.addProperty("detail", detail == null ? "" : detail);
         result.addProperty("views", viewCount);
         result.addProperty("step", step);
+        JsonArray rejected = new JsonArray(); rejectedViews.forEach(rejected::add); result.add("rejectedViews", rejected);
+        if(!pass){result.add("lastView",new com.google.gson.Gson().toJsonTree(lastView));capture(client,"menu-failure-"+step+".png");}
         JsonArray asserted = new JsonArray(); checks.forEach(asserted::add); result.add("checks", asserted);
         try { Files.writeString(output.resolve("role-" + role + ".json"), result + "\n", StandardCharsets.UTF_8); }
         catch (IOException error) { ChronicleCore.LOGGER.error("Could not write Core menu smoke result", error); }

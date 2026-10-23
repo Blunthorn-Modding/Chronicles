@@ -135,7 +135,9 @@ def run() -> None:
         finally:
             if server_log is not None:
                 server_log.close()
-            (w.REPORTS / 'core-menu-latest.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+            content = json.dumps(report, indent=2) + '\n'
+            (reports / 'report.json').write_text(content, encoding='utf-8')
+            (w.REPORTS / 'core-menu-latest.json').write_text(content, encoding='utf-8')
 
 
 if __name__ == '__main__':

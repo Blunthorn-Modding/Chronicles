@@ -1,5 +1,11 @@
 # Bootstrap validation
 
+## Configuration placement - 23 October 2026, dev.43
+
+[Contract and exact evidence/limits](M12_CONFIGURATION_PLACEMENT.md). Fullbuild34s:355Java (178Core/177QB), no failures/errors/skips;77Python pass. Native menu162858761884 PASS107A/7B, plus19checks at each480x270/640x360logical layout. Empty/populated/stale/cancel/reassign/clear/legacy/forged-packet flows and native screenshots independently clear. Final generic Cancel tooltip is copy-only and full-build tested after the native run. Early driver encoding/name-submit/command-quoting failures are diagnosed; an earlier transient edit timeout has no captured rejection and is not claimed as a product fix. Endpoint authority/rate bounds are unchanged. One [combined review](M12_COMBINED_REVIEW.md) covers points4-6. Third-party campaigns/production maps/group soak are outside this fixture.
+
+Deployment: authenticated25589/voice24469 is PAUSED on fresh comparison world, console70850; both owned jars and refreshed pack are exact dev43 hashes.68-file stopped dev40 backup verified by CRC and per-file hashes. Native player-loaded copy163723733475 prepared the actual stations/supplies/spawn after automatic review rejected temporary force-loading; no forced-chunk add executed, final query empty. Current auth/whitelist/secure-profile/OP and client defaults/preset are verified. Report `../reports/combined-dev43-deployment.json`. Original150631 source and old112453 Forge reproduction retained.
+
 ## Physical Heart - 23 October 2026, dev.42
 
 [Contract and complete evidence/limits](M12_PHYSICAL_HEART.md). Full build29s
