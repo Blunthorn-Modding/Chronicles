@@ -98,7 +98,8 @@ def run() -> None:
         ]
         fabric_smoke._await_clients(clients, [reports / 'role-A.json', reports / 'role-B.json'])
         operator = _read_result(reports / 'role-A.json')
-        required = {'Global Building Mode is explicit and wrong-page requests cannot enable it',
+        required = {'Visible controls stay inside the popup and Debug sits beside editing',
+                    'Global Building Mode is explicit and wrong-page requests cannot enable it',
                     'Clean and Debug switch facts without changing server authority',
                     'Debug toggle preserves unsaved prompt and server authority',
                     'Game setup owns the sole managed block policy selector',
@@ -121,7 +122,7 @@ def run() -> None:
         # Run the same disposable operator probe at the other logical menu
         # sizes.  Separate evidence folders avoid clobbering result/screenshot
         # names and retain the exact launch dimensions for inspection.
-        for label, width, height in [('operator-480', 960, 540), ('operator-640', 1280, 720)]:
+        for label, width, height in [('operator-480', 960, 540), ('operator-640', 1280, 720), ('operator-wide-short', 1920, 574)]:
             layout = reports / label
             layout.mkdir()
             clients = [_client(w, launch, root, layout, 'A', label, width, height, layout_only=True)]

@@ -588,11 +588,13 @@ public final class CoreMenuSmoke {
 
     private void awaitScreen(MinecraftClient client, Page expected, String check) {
         if (!(client.currentScreen instanceof CoreMenuScreen screen) || screen.pending() || screen.state().page() != expected) return;
+        verifyFrame(screen(client));
         advance(check);
     }
 
     private void awaitView(Checked condition, String check) {
         if (viewCount <= waitingFor || !condition.test()) return;
+        verifyFrame(screen(MinecraftClient.getInstance()));
         advance(check);
     }
 
@@ -606,9 +608,11 @@ public final class CoreMenuSmoke {
         for (int attempt = 0; attempt < 60; attempt++) screen.scrollDetailForTest(1);
         for (int attempt = 0; attempt < 30; attempt++) {
             if (screen.triggerForTest(label)) {
+                verifyFrame(screen);
                 // Confirmations are a local modal step: press the original
                 // action once, then its explicit confirmation if it appeared.
                 screen.triggerForTest("Confirm: " + label);
+                verifyFrame(screen);
                 return true;
             }
             screen.scrollDetailForTest(-1);
@@ -617,13 +621,29 @@ public final class CoreMenuSmoke {
         return false;
     }
 
+    private static void verifyFrame(CoreMenuScreen screen) {
+        var c=screen.contentBoundsForTest();
+        require(c.x()>=14&&c.y()>=14,"popup content has no real inset");
+        for(var widget:screen.visibleWidgetBoundsForTest())
+            require(widget.x()>=c.x()&&widget.y()>=c.y()&&widget.x()+widget.width()<=c.x()+c.width()
+                    &&widget.y()+widget.height()<=c.y()+c.height(),"widget escapes popup content: "+widget);
+        var header=screen.headerBoundsForTest();
+        if(header.debug()!=null&&header.editing()!=null) {
+            require(header.editing().x()+header.editing().width()<header.debug().x()
+                    &&header.debug().x()+header.debug().width()<header.refresh().x(),"header controls overlap or Debug is misplaced");
+            require(header.editing().y()==header.debug().y()&&header.debug().y()==header.refresh().y(),"Debug is not beside editing");
+        }
+    }
+
     private void verifyCleanDebug(MinecraftClient client) {
         var screen=screen(client);var before=screen.state();
+        verifyFrame(screen);
+        checks.add("Visible controls stay inside the popup and Debug sits beside editing");
         require(!screen.debugForTest(),"a fresh client did not default to Clean view");
-        require(!screen.debugVisibleFactLabelsForTest().contains("Active play"),"Clean view exposes the diagnostic clock");
-        screen.toggleDebugForTest();require(screen.debugForTest()&&screen.debugVisibleFactLabelsForTest().contains("Active play"),"Debug view does not reveal diagnostics");
+        require(screen.debugVisibleFactLabelsForTest().isEmpty(),"Clean view exposes selected-item facts");
+        screen.toggleDebugForTest();require(screen.debugForTest()&&screen.debugVisibleFactLabelsForTest().equals(before.detail().facts().stream().map(f->f.label()).toList()),"Debug view does not reveal every fact in order");
         require(screen.state()==before,"Debug toggle changed the authoritative view");
-        screen.toggleDebugForTest();require(!screen.debugForTest()&&!screen.debugVisibleFactLabelsForTest().contains("Active play")&&screen.state()==before,"Clean toggle changed authority or failed to hide diagnostics");
+        screen.toggleDebugForTest();require(!screen.debugForTest()&&screen.debugVisibleFactLabelsForTest().isEmpty()&&screen.state()==before,"Clean toggle changed authority or failed to hide facts");
         checks.add("Clean and Debug switch facts without changing server authority");
     }
     private int managedLimitForTest(String type){

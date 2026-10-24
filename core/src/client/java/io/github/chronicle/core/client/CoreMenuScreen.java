@@ -3,6 +3,7 @@ package io.github.chronicle.core.client;
 import io.github.chronicle.core.loot.LootEntry;
 import io.github.chronicle.core.loot.LootTableDraftJson;
 import io.github.chronicle.core.loot.LootType;
+import io.github.chronicle.core.menu.CoreMenuLayout;
 import io.github.chronicle.core.menu.CoreMenuPresentation;
 import io.github.chronicle.core.menu.CoreMenuModel.Action;
 import io.github.chronicle.core.menu.CoreMenuModel.Control;
@@ -81,6 +82,7 @@ public final class CoreMenuScreen extends Screen {
     private final Map<Integer, String[]> lootInputDrafts = new java.util.HashMap<>();
     private final Map<String, ButtonWidget> buttons = new LinkedHashMap<>();
     private final List<RenderLine> renderLines = new ArrayList<>();
+    private CoreMenuLayout.Layout layout;
 
     public CoreMenuScreen(View initial) {
         super(Text.literal("Chronicle"));
@@ -98,6 +100,24 @@ public final class CoreMenuScreen extends Screen {
         if (state.detail() == null) return List.of();
         return state.detail().facts().stream().filter(fact -> CoreMenuPresentation.showFact(fact, debug))
                 .map(fact -> fact.label()).toList();
+    }
+    /** Native-smoke hook for the shared framed popup content bounds. */
+    public BoundsProbe contentBoundsForTest() {
+        CoreMenuLayout.Bounds content = activeLayout().content();
+        return new BoundsProbe(content.x(), content.y(), content.width(), content.height());
+    }
+    /** Native-smoke hook for every visible native child, including text fields. */
+    public List<WidgetBounds> visibleWidgetBoundsForTest() {
+        return children().stream()
+                .filter(child -> child instanceof net.minecraft.client.gui.widget.ClickableWidget widget && widget.visible)
+                .map(child -> (net.minecraft.client.gui.widget.ClickableWidget) child)
+                .map(widget -> new WidgetBounds(widget.getMessage().getString(), widget.getX(), widget.getY(), widget.getWidth(), widget.getHeight()))
+                .toList();
+    }
+    /** Native-smoke hook for the stable header controls. */
+    public HeaderBoundsForTest headerBoundsForTest() {
+        return new HeaderBoundsForTest(boundsFor("Refresh"), boundsFor(debugLabel()),
+                state.operator() ? boundsFor(state.editing() ? "Stop editing" : "Enable editing") : null);
     }
     public boolean debugForTest() { return debug; }
     public void toggleDebugForTest() { setDebug(!debug); }
@@ -173,50 +193,53 @@ public final class CoreMenuScreen extends Screen {
 
     @Override protected void init() {
         buttons.clear(); renderLines.clear(); textInput = pickerSearchInput = null; eventSeconds = lootChance = lootMin = lootMax = lootRefill = null;
-        int top = 31;
-        int navWidth = Math.max(86, Math.min(100, width / 5));
-        boolean compact = width <= 480;
-        int mainLeft = navWidth + 7;
-        int mainWidth = Math.max(120, width - mainLeft - 7);
+        layout = CoreMenuLayout.forViewport(width, height);
+        int top = layout.bodyTop();
+        int navWidth = layout.navWidth();
+        boolean compact = layout.compact();
+        int mainLeft = layout.mainLeft();
+        int mainWidth = layout.mainWidth();
         if (confirmation != null) {
-            drawLine(confirmation.title(), 12, 40, width - 24, 0xFFFFFFFF);
-            wrapped(confirmation.body(), 12, 61, width - 24, 0xFFCCCCCC, Math.max(2, (height - 125) / 10));
-            button("Cancel", 12, height - 54, 80, () -> { confirmation = null; if (state.picker() != null) request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false); else clearAndInit(); }, "Return without applying this change", true);
-            button("Confirm: " + confirmation.title(), 98, height - 54, width - 110, () -> {
+            drawLine(confirmation.title(), layout.content().x(), top, layout.content().width(), 0xFFFFFFFF);
+            wrapped(confirmation.body(), layout.content().x(), top + 21, layout.content().width(), 0xFFCCCCCC,
+                    Math.max(2, (layout.bodyBottom() - top - 47) / 10));
+            int confirmationY = Math.max(top + 42, layout.bodyBottom() - 18);
+            button("Cancel", layout.content().x(), confirmationY, 80, () -> { confirmation = null; if (state.picker() != null) request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false); else clearAndInit(); }, "Return without applying this change", true);
+            button("Confirm: " + confirmation.title(), layout.content().x() + 86, confirmationY, Math.max(1, layout.content().width() - 86), () -> {
                 Confirmation staged = confirmation; confirmation = null;
                 if (staged.token() != state.token()) { notice = "The server state changed. Review the action again."; clearAndInit(); return; }
                 staged.execute().run();
             }, "Apply the reviewed action", true);
-            button("Close", width - 59, height - 25, 54, 18, this::close, "Close this menu", true);
+            button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true);
             return;
         }
         Page[] navigation = state.operator() ? NAVIGATION : new Page[] {Page.PLAYERS};
         for (int i = 0; i < navigation.length; i++) {
             Page page = navigation[i];
             String label = navigationLabel(page);
-            int navY = top + i * 20 + (i >= 3 ? 10 : 0);
-            button(label, 5, navY, navWidth - 8, 18, () -> open(page), page == state.page() ? "Current page" : "", true);
+            int navY = top + i * 19 + (i >= 3 ? 10 : 0);
+            button(label, layout.content().x(), navY, navWidth, 18, () -> open(page), page == state.page() ? "Current page" : "", true);
         }
-        if (state.operator()) drawLine("Advanced", 5, top + 3 * 20, navWidth - 8, 0xFFA0A0A0);
-        button("Refresh", width - 59, 5, 54, 18, () -> request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false), "Request current data", true);
-        if (state.operator()) button(state.editing() ? "Stop editing" : "Enable editing", Math.max(5, width - 150), 5, 87,
+        if (state.operator()) drawLine("Advanced", layout.content().x(), top + 3 * 19, navWidth, 0xFFA0A0A0);
+        int refreshX = layout.content().right() - 54;
+        button("Refresh", refreshX, layout.headerY(), 54, 18, () -> request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false), "Request current data", true);
+        if (state.operator()) {
+            int debugX = refreshX - 2 - 60;
+            button(debugLabel(), debugX, layout.headerY(), 60, 18, () -> setDebug(!debug), "Show or hide editor details on this client", true);
+            button(state.editing() ? "Stop editing" : "Enable editing", debugX - 2 - 87, layout.headerY(), 87, 18,
                 () -> request(state.editing() ? Action.EDIT_OFF : Action.EDIT_ON, state.page(), detailId(), "", state.index(), state.filter(), "", false),
                 state.editing() ? "Leave authoring edit mode" : "Ask the server to enable authoring edit mode", state.editable() || state.editing());
+        }
         if (compact && detailOnCompact && state.picker() == null) {
             button("Back to list", mainLeft, top, Math.min(92, mainWidth), 18, () -> { detailOnCompact = false; clearAndInit(); }, "Show selectable items", true);
-            detail(mainLeft, top + 23, mainWidth, height - top - 89);
+            detail(mainLeft, top + 23, mainWidth, layout.bodyBottom() - (top + 23));
         } else {
             int listWidth = compact ? mainWidth : Math.max(100, mainWidth * 38 / 100);
-            list(mainLeft, top, listWidth, height - top - 66);
-            if (!compact) detail(mainLeft + listWidth + 5, top, mainWidth - listWidth - 5, height - top - 66);
+            list(mainLeft, top, listWidth, layout.bodyBottom() - top);
+            if (!compact) detail(mainLeft + listWidth + 5, top, mainWidth - listWidth - 5, layout.bodyBottom() - top);
         }
-        if (pickerAction != null && state.picker() == null) promptWidgets(mainLeft, height - 66, mainWidth);
-        if (state.operator()) {
-            String label = debugLabel();
-            button(label, Math.max(5, width - 130), height - 25, 66,
-                    () -> setDebug(!debug), "Show or hide editor diagnostics on this client", true);
-        }
-        button("Close", width - 59, height - 25, 54, 18, this::close, "Close this menu", true);
+        if (pickerAction != null && state.picker() == null) promptWidgets(mainLeft, Math.max(top, layout.bodyBottom() - 18), mainWidth);
+        button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true);
     }
 
     private void list(int x, int y, int w, int h) {
@@ -607,30 +630,20 @@ public final class CoreMenuScreen extends Screen {
             clearAndInit();
             return true;
         }
-        if (mouseY > 45 && mouseY < height - 60) { listOffset = Math.max(0, listOffset + (verticalAmount < 0 ? 1 : -1)); clearAndInit(); return true; }
+        CoreMenuLayout.Layout current = activeLayout();
+        if (mouseY >= current.bodyTop() && mouseY < current.bodyBottom()) { listOffset = Math.max(0, listOffset + (verticalAmount < 0 ? 1 : -1)); clearAndInit(); return true; }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
     @Override public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, 2, 2, Math.max(1, width - 4), Math.max(1, height - 4));
-        context.drawTextWithShadow(textRenderer, Text.literal("Chronicle"), 7, 7, 0xFFFFFFFF);
-        boolean building = state.detail() != null && state.detail().facts().stream()
-                .anyMatch(fact -> fact.label().equals("Building Mode") && fact.value().startsWith("On - "));
-        if (building) {
-            draw(context, "Building Mode is on - anyone can change the map.", 7, 21, width - 14, 0xFFFFCC66);
-        } else if (debug) {
-            String mode = state.editing() ? "Editing enabled" : "Editing off";
-            draw(context, "Session " + state.session() + " " + state.phase() + " · " + mode
-                    + (state.hold().isBlank() ? "" : " · Hold: " + state.hold()), 7, 21, width - 14,
-                    state.editing() ? 0xFF77FF77 : 0xFFFFCC66);
-        } else if (!state.hold().isBlank()) {
-            draw(context, "Chronicle is held: " + state.hold(), 7, 21, width - 14, 0xFFFFCC66);
-        } else if (state.editing()) {
-            draw(context, "Editing is enabled.", 7, 21, width - 14, 0xFF77FF77);
-        }
+        CoreMenuLayout.Layout current = activeLayout();
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, current.frame().x(), current.frame().y(), current.frame().width(), current.frame().height());
+        context.drawTextWithShadow(textRenderer, Text.literal("Chronicle"), current.content().x(), current.headerY() + 5, 0xFFFFFFFF);
         String message = notice.isBlank() ? (pending ? "Waiting for server..." : "Choose an item, then use the actions on the right.") : notice;
         if (CoreMenuPresentation.showFooterMessage(notice, pending, debug))
-            draw(context, message, 7, height - 43, width - 140, state.success() ? 0xFF77FF77 : 0xFFFFCC66);
-        if (debug && !state.clock().isBlank()) draw(context, state.clock(), 7, height - 24, width - 140, 0xFFA0A0A0);
+            draw(context, message, current.mainLeft(), current.feedbackY(), Math.max(1, current.content().right() - 60 - current.mainLeft()), state.success() ? 0xFF77FF77 : 0xFFFFCC66);
+        if (debug && !state.clock().isBlank())
+            draw(context, state.clock(), current.mainLeft(), current.footerY() + 5,
+                    Math.max(1, current.content().right() - 60 - current.mainLeft()), 0xFFA0A0A0);
         for (RenderLine line : renderLines) if (line.top() == 0 || (line.y() >= line.top() && line.y() + 9 <= line.bottom()))
             draw(context, line.value(), line.x(), line.y(), line.width(), line.color());
         super.render(context, mouseX, mouseY, deltaTicks);
@@ -650,6 +663,13 @@ public final class CoreMenuScreen extends Screen {
         if (detail.event() != null) { eventMode = detail.event().mode(); eventRegion = detail.event().region(); eventFlag = detail.event().flag(); eventSecondsDraft = Long.toString(detail.event().seconds()); }
         if (detail.region() != null) { regionFirst = detail.region().first(); regionSecond = detail.region().second(); }
         if (detail.loot() != null) { lootDraft = detail.loot(); lootEntry = -1; lootEntryOffset = 0; refillMinutesDraft = Double.toString(detail.loot().refillMinutes()); lootValidation = ""; lootInputDrafts.clear(); }
+    }
+    private CoreMenuLayout.Layout activeLayout() {
+        return layout == null ? CoreMenuLayout.forViewport(width, height) : layout;
+    }
+    private BoundsProbe boundsFor(String label) {
+        ButtonWidget button = buttons.get(label);
+        return button == null ? null : new BoundsProbe(button.getX(), button.getY(), button.getWidth(), button.getHeight());
     }
     private String detailId() { return state.detail() == null ? selected : state.detail().id(); }
     private void button(String label, int x, int y, int w, int h, Runnable action, String hint, boolean enabled) {
@@ -683,4 +703,10 @@ public final class CoreMenuScreen extends Screen {
     private String debugLabel() { return "Debug: " + (debug ? "on" : "off"); }
     private record RenderLine(String value, int x, int y, int width, int color, int top, int bottom) { }
     public record ButtonProbe(int identity, boolean active, boolean hovered, boolean focused) { }
+    /** Rectangle reported by the native smoke harness in logical GUI coordinates. */
+    public record BoundsProbe(int x, int y, int width, int height) { }
+    /** A visible button or text field reported by the native smoke harness. */
+    public record WidgetBounds(String label, int x, int y, int width, int height) { }
+    /** Header control positions reported by the native smoke harness. */
+    public record HeaderBoundsForTest(BoundsProbe refresh, BoundsProbe debug, BoundsProbe editing) { }
 }
