@@ -2,6 +2,8 @@
 
 ## 24 October: dev49 interrupted-warning cooldown fix
 
+**Human review accepted:** the operator confirms all now works, following prior UI acceptance. Implementation is paused at the operator's request until tomorrow.
+
 The operator accepted the UI and supplied the missing sequence: reconnect the initially disconnected Heart during its warning, wait for protection, then cut again. Confirmed [diagnosis](M12_HEART_DIAGNOSIS.md): the early heartbeat claimed the cooldown, and reconnection cancelled the warning while keeping that claim. A later cut therefore reached vulnerability with no actual defence.
 
 The real native regression `../reports/heart-defiance-20261024T213722337867Z` fails on the previous production runtime: at clock200, receipt1 already exists and phase is AUTHORIZED despite no burst/Warden. Fixed native `../reports/heart-defiance-20261024T214420344968Z/report.json` passes22 initial and2 saved-restart checks. The interrupted first warning has exactly one heartbeat and no receipt/burst/Warden. Reconnection restores protection; the next cut produces the first full24-column burst, all8 warning beats and one direct Warden. Receipt claim is at the actual final effort (ACTIVE tick1526), expiry13526. A subsequent physical recut remains quiet under the same receipt, and a saved restart does not replay effects.

@@ -1,5 +1,7 @@
 # Chronicle work tracking
 
+**24 October acceptance:** the operator confirms dev49 works; UI and Heart corrections are accepted. Implementation is explicitly paused until the operator resumes tomorrow. Reassess remaining milestones and the M13 handcrafted-map/group prerequisites on resumption.
+
 **Dev49 Heart correction:** the operator accepted the UI and supplied the missing warning/reconnect/recut sequence. The first warning incorrectly claimed the cooldown, suppressing the later actual defence. The fix claims only the final attempt, with transient cancellable warnings; existing receipts remain respected. The new native regression fails on old code and passes on the fix, including full defence, cooldown and restart. See [confirmed diagnosis](M12_HEART_DIAGNOSIS.md).
 
 **24 October dev48 follow-up:** CF17 inset layout, strict Clean/no-fact rows, header Debug and typed Block limits modal are independently reviewed and native-verified. New limit edits below placed count are refused; legacy discovered overage stays intact. Quiet Below adds accelerating Heart heartbeat, cosmetic-failure containment and burst outcome diagnostics. The intact map AIR-cut test now proves all24 eligible columns; the reported historical zero-growth case remains unreproduced and needs recurrence evidence. Cooldown/recut/restart checks pass; the matching authenticated dev48 pack/server is ready for one combined human review. Earlier queue entries below are historical; M13 handcrafted-map/group playtest and broader format engines remain outstanding.
