@@ -3,6 +3,7 @@ package io.github.chronicle.core.mixin;
 import io.github.chronicle.core.stats.FoodCapacity;
 import io.github.chronicle.core.stats.OfferingAttributes;
 import io.github.chronicle.core.stats.OfferingExhaustion;
+import io.github.chronicle.core.server.SessionGameplay;
 import net.minecraft.entity.player.HungerManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -23,6 +24,7 @@ abstract class ExpandedHungerMixin implements FoodCapacity.Owner {
 
     @ModifyVariable(method="addExhaustion",at=@At("HEAD"),argsOnly=true,ordinal=0,require=1,allow=1)
     private float chronicle$exhaustionPrice(float amount) {
+        if (chronicle$owner != null && SessionGameplay.frozen(chronicle$owner)) return 0.0F;
         if(!(chronicle$owner instanceof ServerPlayerEntity player)||player.isCreative()||player.isSpectator())return amount;
         return OfferingExhaustion.scale(amount,player.getAttributeValue(OfferingAttributes.EXHAUSTION_MULTIPLIER));
     }
@@ -33,9 +35,13 @@ abstract class ExpandedHungerMixin implements FoodCapacity.Owner {
     @ModifyConstant(method="isNotFull", constant=@Constant(intValue=20), require=1, allow=1)
     private int chronicle$fullCapacity(int vanilla) { return FoodCapacity.capacity(chronicle$owner); }
 
-    @Inject(method="update", at=@At("HEAD"), require=1, allow=1)
+    @Inject(method="update", at=@At("HEAD"), cancellable=true, require=1, allow=1)
     private void chronicle$actualOwner(ServerPlayerEntity player, CallbackInfo callback) {
         chronicle$owner = player;
+        if (SessionGameplay.frozen(player)) {
+            callback.cancel();
+            return;
+        }
         FoodCapacity.clamp((HungerManager)(Object)this, FoodCapacity.capacity(player));
     }
 

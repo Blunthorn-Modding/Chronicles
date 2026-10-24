@@ -28,3 +28,14 @@ Rechecked the same supplied artifact after the operator rejected capture/templat
 The packaged config has `tome-distribution-interval-minutes: 20`, a chest location list, and `cure_books_spawn_chance: 0.3`. `TomeDistributionManager.distributeTomes` returns unless the reference session state is active, clears registered tome chests, selects random locations/types, distributes tomes, adds enchanted books to remaining locations, then applies its cure-book chance. This is a scenario-specific distribution algorithm, not an existing generic percentage-per-entry profile editor. The findings come from config and `javap -c -p` bytecode, not from running the Paper plugin.
 
 Chronicle adopts direct typed binding plus separately editable distributions. The operator explicitly confirms independent percentages, fills at a new session, optional periodic refills and replacement of **all** bound chest contents. Core supplies the registry/config/scheduler; campaigns supply defaults and recommendations. No reference binary, fixed coordinates, factions, forced loading or copied source is installed.
+
+## Pause/build reinspection - 24 October 2026
+
+Inspected the same SHA-256 artifact using packaged configuration and pinned Java `javap -c -p`; no Paper runtime execution or source copying.
+
+- `SessionManager` uses states before(0), active(1), paused(2), after(3), and pre-session/building(4). `isOutOfSession` covers 0/2/3. Pause freezes ticks and records online food/saturation; an 80-tick task restores them. End fills food/saturation, and resume unfreezes ticks. This is not a general per-player physiology freeze.
+- `CommandHandler` restricts the transition into building to an admin command. `BlockListener.onBlockBreak/onBlockPlace` allow everyone in active or building states, denying 0/2/3. Building is global and unfreezes world ticks; it is not an operator-only map-edit flag.
+- `CombatListener.onEntityDamage`, `onEntityDamageByEntity` and `onFoodLevelChange` cancel player damage, attacks and food changes outside active play. `VampireCraftBlocker.onCraftItem` separately denies 0/2/3. Movement remains available subject to its normal boundary rules.
+- Inspected item/interaction handlers only skip their vampire-specific processing outside active play; they do not establish a general vanilla eating cancellation. Paused reconnects are not explicitly added to the food snapshot map in the inspected join path.
+
+The useful pattern is separate action and survival guards alongside vanilla tick freeze. Chronicle keeps player mobility and card editing, freezes actual hunger/damage/item-use/effect paths, and uses its existing server-owned operator editing permission for paused map work. It does not inherit global unfreezing or refill players on resume. See [CF-15](CF15_PAUSED_GAMEPLAY.md). These are bytecode findings, not a claim that every reference behavior was reproduced in Minecraft.

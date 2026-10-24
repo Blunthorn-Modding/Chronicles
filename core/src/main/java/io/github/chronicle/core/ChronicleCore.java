@@ -72,6 +72,7 @@ public final class ChronicleCore implements ModInitializer {
         MenuPlayerDestinations.register();
         io.github.chronicle.core.server.EnchantmentCapRuntime.register();
         io.github.chronicle.core.enchanting.EnchantmentCapsTrial.register();
+        io.github.chronicle.core.server.testing.SessionPauseTrial.register();
         AuthoringPreviewPayload.register();
         Profiles.registerNetworking();
         ServerLifecycleEvents.SERVER_STARTING.register(server -> EVENTS.freeze());

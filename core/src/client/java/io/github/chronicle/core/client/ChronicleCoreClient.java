@@ -40,6 +40,7 @@ public final class ChronicleCoreClient implements ClientModInitializer {
         FabricRegressionSmoke.register();
         io.github.chronicle.core.client.testing.CoreMenuSmoke.register();
         io.github.chronicle.core.client.testing.EnchantmentCapsSmoke.register();
+        io.github.chronicle.core.client.testing.PauseGameplaySmoke.register();
         ChronicleCore.LOGGER.info("Chronicle Core client initialized");
     }
 

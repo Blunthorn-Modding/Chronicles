@@ -26,7 +26,7 @@ public final class SessionPresentation {
     private static void apply(MinecraftServer server, boolean refresh) {
         CampaignService service = ChronicleRuntime.available(server);
         CampaignState state = service == null ? null : service.state();
-        boolean frozen = state == null || state.phase() != SessionPhase.ACTIVE || RuntimeHolds.reason(server) != null;
+        boolean frozen = SessionGameplay.frozen(server);
         ServerTickManager ticks = server.getTickManager();
         if (frozen) {
             ticks.stopSprinting();
