@@ -763,8 +763,10 @@ public final class QuietBelowEcology {
         if(!HeartDefianceStore.cycleEligible(r.defiance.receipt(),pin,cycleStart)){
             r.defiancePhase=DefiancePhase.DENIED;return false;
         }
+        // Warning beats are transient. Recovering before the final effort must not spend cooldown.
+        if(!heart.lastEffort()){r.defiancePhase=DefiancePhase.WARNING;return true;}
         try{
-            // Durable claim precedes the first sound, particles, terrain change and Warden spawn.
+            // Claim the actual attempt before terrain writes or the direct Warden spawn.
             r.defiance=r.defianceStore.claim(pin,activeTicks,false);r.defiancePhase=DefiancePhase.AUTHORIZED;
             QuietBelow.LOGGER.info("Heart last stand claimed: root={}, activeTicks={}, cooldownSeconds={}",r.engine.rootPosition(),activeTicks,r.defiance.cooldownSeconds());return true;
         }catch(Exception failure){
@@ -783,7 +785,7 @@ public final class QuietBelowEcology {
     }
     static DefianceEffectResult optionalDefianceEffect(DefiancePhase phase,DefianceEffect effect){
         Objects.requireNonNull(phase);Objects.requireNonNull(effect);
-        if(phase!=DefiancePhase.AUTHORIZED)return new DefianceEffectResult(phase,false,null);
+        if(phase!=DefiancePhase.WARNING&&phase!=DefiancePhase.AUTHORIZED)return new DefianceEffectResult(phase,false,null);
         try{return new DefianceEffectResult(phase,effect.run(),null);}
         catch(RuntimeException failure){return new DefianceEffectResult(phase,false,failure);}
     }
@@ -926,7 +928,7 @@ public final class QuietBelowEcology {
                 new Fact("Weakness delay",rules.seconds()+" active seconds. Unknown or unloaded branches reset the wait; known pauses preserve it. Restart requires a new wait."),
                 new Fact("Last stand",r.defianceProblem==null?"The Heart pulses, makes one final growth attempt and directly summons one Warden. At most one phase begins per cooldown.":r.defianceProblem),
                 new Fact("Last stand phase",r.defiancePhase.name()+"; remaining cooldown "+remainingDefianceSeconds(r,source.getServer())+" active seconds; final growth "+e.heartBurstOutcome()),
-                new Fact("Last stand cooldown",cooldown+" active seconds, measured from the first pulse. A cut beginning during cooldown stays quiet for its full weakness cycle."),
+                new Fact("Last stand cooldown",cooldown+" active seconds, measured from the final defence attempt. A cut beginning during cooldown stays quiet for its full weakness cycle."),
                 new Fact("Ending","Mine the vulnerable bound Heart with a pickaxe during occupied active play. Bonuses and sacrifices end together; disconnected sculk is included."),
                 new Fact("Cleanup","Loaded chunks only, with saved chunk receipts. Later replacements are preserved; pending unloaded areas remain dormant.")),disabled);
     }
@@ -964,7 +966,7 @@ public final class QuietBelowEcology {
         if(r.engine.failure()==null)r.engine.fail(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());
         if(!r.failureLogged){r.failureLogged=true;QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry: "+r.engine.failure(),e);}
     }
-    enum DefiancePhase { UNDECIDED,AUTHORIZED,DENIED }
+    enum DefiancePhase { UNDECIDED,WARNING,AUTHORIZED,DENIED }
     @FunctionalInterface interface DefianceEffect { boolean run(); }
     record DefianceEffectResult(DefiancePhase phase,boolean value,RuntimeException failure) { }
     private static final class Runtime {

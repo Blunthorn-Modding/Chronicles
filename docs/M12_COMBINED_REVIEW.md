@@ -1,6 +1,6 @@
-# Combined correction review: dev.48
+# Combined correction review: dev.49
 
-Use the matching [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and **127.0.0.1:25589** (Minecraft Java 1.21.10, Fabric). This is one review for the inset editor, strict Clean/Debug mode, Block limits popup and audible Heart follow-up. Check the newest TEST_PLAN checkpoint for deployment readiness; this guide alone does not establish a running server.
+Use the matching [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and **127.0.0.1:25589** (Minecraft Java 1.21.10, Fabric). The editor is accepted. This follow-up reviews only the interrupted Heart warning: reconnect before the final attempt, wait for protection, then cut again. The controls below describe the unchanged fixture. Check the newest TEST_PLAN checkpoint for deployment readiness; this guide alone does not establish a running server.
 
 ## Pause and map work
 
@@ -29,7 +29,7 @@ The Heart/stations are on the small platform; a separate bank has roughly 4096 s
 
 The Heart is at **-4,64,0**. Keep its network below Established for **60 occupied ACTIVE seconds**. Unresolved/unloaded branches prevent vulnerability. Warden heartbeats start after10 active seconds, then accelerate at19,27,34,40,45,48 and49seconds; the final effort is at50seconds. It spreads explosively across a local **5x5 footprint where eligible surfaces exist**, and directly summons one normal Warden when safe local space exists. Peaceful skips the Warden. Enclosure, exclusions and actual connected geometry still apply; it cannot grow through solid walls. Reconnecting/recutting cannot replay the phase within **ten occupied ACTIVE minutes**. Pauses/downtime do not count; cooldown survives restart.
 
-The reported missing final burst has not been reproduced on the intact archived map. The new Debug facts and server log show planned/checked/written burst cells, completion/cancellation reason and cooldown phase; preserve that output if it recurs.
+The interrupted-warning cooldown bug is fixed: reconnecting after warning beats but before the50second attempt does not spend cooldown. Reconnect the initially disconnected Heart, wait until protected, then cut it again and stay nearby. It should warn, make its final effort at50seconds, and become vulnerable at60seconds only if still weak. Only a real final attempt starts the ten ACTIVE-minute cooldown. Debug and logs retain burst/cooldown outcomes.
 
 The brown lens marks vulnerability. With editing off, use a pickaxe in Survival. Nearby players receive a cryptic message; there is no destruction menu. Eradication ends this fixture's network and removes Altar bargains. Test this last because it ends the fixture.
 

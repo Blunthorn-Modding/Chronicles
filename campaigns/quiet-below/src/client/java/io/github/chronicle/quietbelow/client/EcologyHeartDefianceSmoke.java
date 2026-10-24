@@ -25,9 +25,9 @@ import java.util.regex.Pattern;
 /** Opt-in real-time driver for the disposable Heart last-stand proof. */
 final class EcologyHeartDefianceSmoke {
     private static final String OUTPUT=System.getenv("CHRONICLE_HEART_DEFIANCE_SMOKE"),PHASE=System.getenv("CHRONICLE_HEART_DEFIANCE_PHASE"),ROOT=System.getenv("CHRONICLE_HEART_DEFIANCE_SERVER_DIR"),ADDRESS="127.0.0.1:25575";
-    private static final Pattern STATUS=Pattern.compile("Defiance status elapsed=(\\d+) living=(\\d+) complete=(true|false) wardens=(\\d+) receipt=(\\d+) active=(\\d+)");
+    private static final Pattern STATUS=Pattern.compile("Defiance status elapsed=(\\d+) living=(\\d+) complete=(true|false) wardens=(\\d+) receipt=(\\d+) active=(\\d+) phase=([^ ]+) claimed=(-?\\d+) eligible=(-?\\d+)");
     private final Path output;private final String phase;private final List<String> messages=new ArrayList<>(),checks=new ArrayList<>(),statuses=new ArrayList<>();private final List<Step> steps=new ArrayList<>();
-    private final long overallDeadline=System.nanoTime()+260_000_000_000L;
+    private final long overallDeadline=System.nanoTime()+220_000_000_000L;
     private int index,baseline,lastElapsed,lastLiving,lastWardens,lastReceipt;private long deadline,nextStatus;private boolean lastComplete,connected,built,started,finished;
 
     private EcologyHeartDefianceSmoke(Path output,Path root,String phase)throws IOException{
@@ -61,13 +61,18 @@ final class EcologyHeartDefianceSmoke {
             waitFor("wait for protected 256-cell topology proof",()->poll(client,0,256,0,true),45_000);
             command(client,"confirm protected Heart source","quiet_below_heart_defiance_trial observe","observe",20_000);
             command(client,"cut only the Heart-neighbour network shell","quiet_below_heart_defiance_trial cut","cut",20_000);
-            waitFor("wait for the first cut to settle",()->poll(client,0,0,0,true),45_000);
-            command(client,"record first post-cut topology baseline","quiet_below_heart_defiance_trial settle","settle",20_000);
+            waitFor("wait for the interrupted warning heartbeat",()->poll(client,220,0,0,true),35_000);
+            command(client,"verify warning has no durable claim or effects","quiet_below_heart_defiance_trial warning","warning",20_000);
+            command(client,"reconnect before the actual final effort","quiet_below_heart_defiance_trial reconnect","reconnect",20_000);
+            waitFor("wait for protected reconnection after warning",()->poll(client,0,256,0,true),45_000);
+            command(client,"recut after the aborted warning","quiet_below_heart_defiance_trial recut_after_warning","recut_after_warning",20_000);
+            waitFor("wait for recut to settle",()->poll(client,0,0,0,true),45_000);
+            command(client,"record post-recut topology baseline","quiet_below_heart_defiance_trial settle","settle",20_000);
             waitFor("wait for actual last-stand pulse and direct Warden",()->poll(client,1000,1,1,false),90_000);
             delay("allow the bounded5x5 burst to finish",2500);
             command(client,"verify first durable last stand","quiet_below_heart_defiance_trial first","first",20_000);
             screenshot(client,"heart-defiance-first-warden.png");
-            command(client,"physically reconnect the original network","quiet_below_heart_defiance_trial reconnect","reconnect",20_000);
+            command(client,"physically reconnect the original network after the actual attempt","quiet_below_heart_defiance_trial reconnect","reconnect",20_000);
             waitFor("wait for fully protected reconnection",()->poll(client,0,256,0,true),45_000);
             command(client,"recut the Heart-neighbour network inside cooldown","quiet_below_heart_defiance_trial second_cut","second_cut",20_000);
             waitFor("wait for the second cut to settle",()->poll(client,0,0,0,true),45_000);

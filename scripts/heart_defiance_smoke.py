@@ -83,7 +83,7 @@ def run() -> None:
             parsed = json.loads(result.read_text(encoding="utf-8"))
             if parsed.get("result") != "PASS":
                 raise RuntimeError("Heart defiance " + phase + " client failed: " + str(parsed))
-            required = {"verify first durable last stand", "verify cooldown suppressed all second effects"} if phase == "initial" else {"verify persisted defiance receipt after restart"}
+            required = {"verify warning has no durable claim or effects", "recut after the aborted warning", "verify first durable last stand", "verify cooldown suppressed all second effects"} if phase == "initial" else {"verify persisted defiance receipt after restart"}
             if not required.issubset(parsed.get("checks", [])):
                 raise RuntimeError("Heart defiance " + phase + " lacked required proof steps")
             fabric_smoke._stop(server)
@@ -91,7 +91,7 @@ def run() -> None:
             handle.close()
             handle = None
             client = None
-        report["checks"] = ["fresh timestamped offline world only", "256-cell source reached protected proof", "actual 50-second last stand produced one Warden and all24 eligible surface columns of a5x5 patch around the Heart", "physical reconnect then recut remained suppressed during persisted cooldown", "same world restart retained receipt and did not replay last stand"]
+        report["checks"] = ["fresh timestamped offline world only", "256-cell source reached protected proof", "interrupted warning emitted one heartbeat without a durable cooldown claim, Warden or burst", "reconnect reset the warning cycle before its final effort", "second cut made the first actual 50-second last stand with one Warden and all24 eligible surface columns of a5x5 patch around the Heart", "receipt cooldown begins at final-effort claim", "physical reconnect then recut remained suppressed during persisted cooldown", "same world restart retained receipt and did not replay last stand"]
         report["result"] = "PASS"
         print("PASS: real-time Heart defiance proof completed; evidence:", reports, flush=True)
     except BaseException as error:

@@ -12,6 +12,7 @@ import io.github.chronicle.core.server.MapSiteAssignments;
 import io.github.chronicle.core.server.PlayRuntime;
 import io.github.chronicle.quietbelow.QuietBelow;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.mob.WardenEntity;
@@ -44,10 +45,16 @@ public final class EcologyHeartDefianceTrial {
     public static void register(){
         if(!"true".equals(System.getenv("CHRONICLE_HEART_DEFIANCE_TRIAL")))return;
         CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->commands(dispatcher));
+        ServerTickEvents.END_SERVER_TICK.register(server->{
+            Stage stage=STAGES.get(server);
+            if(stage==null||stage.second||stage.claimSignals!=null)return;
+            var signals=QuietBelowEcology.signalsForTest(server);
+            if(signals.phase().equals("AUTHORIZED")&&signals.wardenAttempted())stage.claimSignals=signals;
+        });
     }
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher){
         var root=literal("quiet_below_heart_defiance_trial").requires(source->source.hasPermissionLevel(2));
-        for(String verb:List.of("prepare","observe","cut","settle","status","first","reconnect","second_cut","second_settle","second","restart"))root.then(literal(verb).executes(context->run(context.getSource(),verb)));
+        for(String verb:List.of("prepare","observe","cut","warning","reconnect","recut_after_warning","settle","status","first","second_cut","second_settle","second","restart"))root.then(literal(verb).executes(context->run(context.getSource(),verb)));
         dispatcher.register(root);
     }
     private static int run(ServerCommandSource source,String verb){
@@ -56,10 +63,12 @@ public final class EcologyHeartDefianceTrial {
                 case "prepare"->prepare(source,world,player);
                 case "observe"->observe(server);
                 case "cut"->cut(server,world,false);
+                case "warning"->warning(server,world);
                 case "settle"->settle(server,false);
                 case "status"->status(source,server,world);
                 case "first"->first(server,world);
                 case "reconnect"->reconnect(server,world);
+                case "recut_after_warning"->{require(stage(server).warningAborted,"warning cycle was not verified before recut");cut(server,world,false);}
                 case "second_cut"->cut(server,world,true);
                 case "second_settle"->settle(server,true);
                 case "second"->second(server,world);
@@ -89,14 +98,15 @@ public final class EcologyHeartDefianceTrial {
         STAGES.put(source.getServer(),new Stage());
     }
     private static void observe(MinecraftServer server){EcologyEngine e=QuietBelowEcology.engineForTest(server);require(e.heartProof(true).complete()&&e.heartProof(true).living()>=256&&!e.heartVulnerable(true),"Heart is not protected by the 256-cell source");}
-    private static void status(ServerCommandSource source,MinecraftServer server,ServerWorld world)throws Exception{EcologyEngine e=QuietBelowEcology.engineForTest(server);HeartDefianceStore.State state=store(server).load();int wardens=wardens(world).size();long receipt=state.receipt()==null?0:state.receipt().revision();source.sendFeedback(()->Text.literal("Defiance status elapsed="+e.heartElapsed()+" living="+e.heartProof(true).living()+" complete="+e.heartProof(true).complete()+" wardens="+wardens+" receipt="+receipt+" active="+PlayRuntime.elapsedTicks(server)),false);}
+    private static void status(ServerCommandSource source,MinecraftServer server,ServerWorld world)throws Exception{EcologyEngine e=QuietBelowEcology.engineForTest(server);HeartDefianceStore.State state=store(server).load();int wardens=wardens(world).size();long receipt=state.receipt()==null?0:state.receipt().revision();long claimed=state.receipt()==null?-1:state.receipt().claimedAtActiveTicks();long eligible=state.receipt()==null?-1:state.receipt().eligibleAfterActiveTicks();String phase=QuietBelowEcology.signalsForTest(server).phase();source.sendFeedback(()->Text.literal("Defiance status elapsed="+e.heartElapsed()+" living="+e.heartProof(true).living()+" complete="+e.heartProof(true).complete()+" wardens="+wardens+" receipt="+receipt+" active="+PlayRuntime.elapsedTicks(server)+" phase="+phase+" claimed="+claimed+" eligible="+eligible),false);}
     private static void cut(MinecraftServer server,ServerWorld world,boolean second){Stage stage=stage(server);EcologyEngine e=QuietBelowEcology.engineForTest(server);
         for(int dx=-3;dx<=3;dx++)for(int dy=-3;dy<=3;dy++)for(int dz=-3;dz<=3;dz++){BlockPos at=HEART.add(dx,dy,dz);if(at.equals(HEART))continue;BlockState state=world.getBlockState(at);if(isNetwork(state)){if(!second)stage.original.put(at,state);put(world,at,Blocks.STONE.getDefaultState());e.noticeContact(QuietBelowEcology.pos(at));}}
         stage.cutAt=PlayRuntime.elapsedTicks(server);stage.second=second;require(e.heartElapsed()==0,"cut started with an existing weakness clock");
     }
     private static void settle(MinecraftServer server,boolean second){Stage stage=stage(server);EcologyEngine e=QuietBelowEcology.engineForTest(server);EcologyHeart.Proof proof=e.heartProof(true);require(proof.complete()&&proof.living()==0,"cut topology has not settled to a complete zero-living proof");Set<EcologyTerrain.Pos> positions=e.cells().stream().map(EcologyEngine.Cell::position).collect(java.util.stream.Collectors.toSet());if(second)stage.secondBaseline=positions;else stage.firstBaseline=positions;}
+    private static void warning(MinecraftServer server,ServerWorld world)throws IOException{Stage stage=stage(server);EcologyEngine e=QuietBelowEcology.engineForTest(server);require(!stage.second&&e.heartElapsed()>=220&&e.heartElapsed()<1000,"warning was not observed before final effort");HeartDefianceStore.State state=store(server).load();var signals=QuietBelowEcology.signalsForTest(server);require("WARNING".equals(signals.phase())&&signals.heartbeatTicks().equals(List.of(200)),"first warning did not emit only its initial heartbeat: "+signals);require(state.receipt()==null,"warning claimed the durable cooldown before final effort");require(wardens(world).isEmpty()&&!signals.wardenAttempted()&&!signals.wardenSpawned(),"warning started a Warden or last-stand effect");require(e.heartBurstOutcome().written()==0,"warning started a final growth burst");stage.warningAborted=true;}
     private static void first(MinecraftServer server,ServerWorld world)throws Exception{Stage stage=stage(server);EcologyEngine e=QuietBelowEcology.engineForTest(server);require(!stage.second&&PlayRuntime.elapsedTicks(server)-stage.cutAt>=1040,"first burst has not had its bounded completion window");
-        HeartDefianceStore.State state=store(server).load();require(state.receipt()!=null,"first last-stand has no durable receipt");require(QuietBelowEcology.signalsForTest(server).heartbeatTicks().equals(List.of(200,380,540,680,800,900,960,980)),"first last stand did not emit the exact accelerating heartbeat schedule");var wardens=wardens(world);require(wardens.size()==1,"expected one direct Warden, found "+wardens.size());require(stage.firstBaseline!=null&&e.cells().stream().anyMatch(cell->nearHeart(cell.position())&&!stage.firstBaseline.contains(cell.position())&&cell.after().network()),"last stand did not journal a new root-near growth attempt");Set<String> footprint=new HashSet<>();
+        HeartDefianceStore.State state=store(server).load();require(stage.warningAborted&&state.receipt()!=null,"first last-stand has no durable receipt after the aborted warning");var receipt=state.receipt();require(receipt.claimedAtActiveTicks()>=stage.cutAt+990&&receipt.claimedAtActiveTicks()<=stage.cutAt+1020,"receipt was not claimed near the actual final effort: "+receipt.claimedAtActiveTicks()+" versus "+stage.cutAt);require(receipt.eligibleAfterActiveTicks()==receipt.claimedAtActiveTicks()+12_000,"cooldown expiry is not based on the final-effort claim");require(stage.claimSignals!=null&&stage.claimSignals.heartbeatTicks().equals(List.of(200,380,540,680,800,900,960,980)),"captured first last stand did not emit the exact accelerating heartbeat schedule: "+stage.claimSignals);var wardens=wardens(world);require(wardens.size()==1,"expected one direct Warden, found "+wardens.size());require(stage.firstBaseline!=null&&e.cells().stream().anyMatch(cell->nearHeart(cell.position())&&!stage.firstBaseline.contains(cell.position())&&cell.after().network()),"last stand did not journal a new root-near growth attempt");Set<String> footprint=new HashSet<>();
         for(var cell:e.cells())if(!stage.firstBaseline.contains(cell.position())&&cell.after().network()&&Math.abs(cell.position().x())<=2&&Math.abs(cell.position().z())<=2&&Math.abs(cell.position().y()-65)<=3){
             require(cell.after().sameOwnedShape(QuietBelowEcology.encode(world.getBlockState(new BlockPos(cell.position().x(),cell.position().y(),cell.position().z())))),"burst ledger/world mismatch");
             footprint.add(cell.position().x()+":"+cell.position().z());
@@ -119,5 +129,5 @@ public final class EcologyHeartDefianceTrial {
     private static boolean networkInShell(ServerWorld world){for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)for(int dz=-1;dz<=1;dz++)if(Math.abs(dx)+Math.abs(dy)+Math.abs(dz)<=2&&!HEART.equals(HEART.add(dx,dy,dz))&&isNetwork(world.getBlockState(HEART.add(dx,dy,dz))))return true;return false;}
     private static void require(boolean value,String detail){if(!value)throw new IllegalStateException(detail);}
     private static String detail(Exception error){return error.getMessage()==null?error.getClass().getSimpleName():error.getMessage();}
-    private static final class Stage {final Map<BlockPos,BlockState> original=new HashMap<>();long cutAt,receiptRevision;Set<EcologyTerrain.Pos> firstBaseline,secondBaseline;UUID warden;boolean second;}
+    private static final class Stage {final Map<BlockPos,BlockState> original=new HashMap<>();long cutAt,receiptRevision;Set<EcologyTerrain.Pos> firstBaseline,secondBaseline;UUID warden;QuietBelowEcology.DefianceSignals claimSignals;boolean second,warningAborted;}
 }

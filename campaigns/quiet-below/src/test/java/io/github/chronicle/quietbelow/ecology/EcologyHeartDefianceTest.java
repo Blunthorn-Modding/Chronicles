@@ -192,6 +192,15 @@ class EcologyHeartDefianceTest {
         }
     }
 
+    @Test void warningEffectsDoNotPromoteThePhaseToAClaimedAttempt() {
+        var phase=QuietBelowEcology.DefiancePhase.WARNING;
+        var sound=QuietBelowEcology.optionalDefianceEffect(phase,()->true);
+        assertTrue(sound.value());assertEquals(phase,sound.phase());
+        var failedSound=QuietBelowEcology.optionalDefianceEffect(phase,()->{throw new IllegalStateException("sound fault");});
+        assertFalse(failedSound.value());assertNotNull(failedSound.failure());assertEquals(phase,failedSound.phase());
+        assertFalse(QuietBelowEcology.optionalDefianceEffect(QuietBelowEcology.DefiancePhase.DENIED,()->true).value());
+    }
+
     @Test void optionalEffectRuntimeFailurePreservesTheAuthorizedAttemptAndWeakness() throws Exception {
         RuntimeException fault = new IllegalStateException("simulated optional effect fault");
         QuietBelowEcology.DefianceEffectResult result = QuietBelowEcology.optionalDefianceEffect(

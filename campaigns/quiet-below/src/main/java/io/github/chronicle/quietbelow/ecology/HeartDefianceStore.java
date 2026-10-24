@@ -75,7 +75,7 @@ public final class HeartDefianceStore {
         catch(RuntimeException failure){throw new IOException("Heart defiance state is invalid and was not replaced: "+file+" ("+failure.getMessage()+")",failure);}
     }
 
-    /** Saves the claim before callers emit any feedback or world effect. */
+    /** Saves the final-attempt claim before terrain changes or creature spawning. Warning beats do not claim. */
     public synchronized State claim(Pin pin,long activeTicks,boolean permanent)throws IOException {
         Objects.requireNonNull(pin,"Heart pin");
         if(activeTicks<0)throw new IllegalArgumentException("Active play time cannot be negative");

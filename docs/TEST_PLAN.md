@@ -1,5 +1,15 @@
 # Bootstrap validation
 
+## 24 October: dev49 interrupted-warning cooldown fix
+
+The operator accepted the UI and supplied the missing sequence: reconnect the initially disconnected Heart during its warning, wait for protection, then cut again. Confirmed [diagnosis](M12_HEART_DIAGNOSIS.md): the early heartbeat claimed the cooldown, and reconnection cancelled the warning while keeping that claim. A later cut therefore reached vulnerability with no actual defence.
+
+The real native regression `../reports/heart-defiance-20261024T213722337867Z` fails on the previous production runtime: at clock200, receipt1 already exists and phase is AUTHORIZED despite no burst/Warden. Fixed native `../reports/heart-defiance-20261024T214420344968Z/report.json` passes22 initial and2 saved-restart checks. The interrupted first warning has exactly one heartbeat and no receipt/burst/Warden. Reconnection restores protection; the next cut produces the first full24-column burst, all8 warning beats and one direct Warden. Receipt claim is at the actual final effort (ACTIVE tick1526), expiry13526. A subsequent physical recut remains quiet under the same receipt, and a saved restart does not replay effects.
+
+The first fixed run214008 failed a test-observation assumption: the successful burst recovered the network and correctly cleared current-cycle diagnostic signals before the delayed assertion. The opt-in trial now snapshots immutable signals at the AUTHORIZED final-effort tick. Assertions still require all8 beats and full24 actual matching columns; no gameplay check was relaxed. Previous-code and diagnosed failed worlds were saved/stopped/retired; reports remain.
+
+Final full build passes in24s:404 Java tests;81 Python tests pass. Independent source review is clear. Existing legacy receipts remain respected because they cannot distinguish cancelled warnings from real spawned defences; no receipt migration/reset occurs. Mid-warning server restart is source-reviewed, while postclaim restart and warning/reconnect/recut are native-tested. No UI code changes. Fresh authenticated dev49 review214536 is LIVE PAUSED on127.0.0.1:25589, voice24469, console61634/PID30440. Pack/server exact owned JARs, CRC, client defaults/preset, online/whitelist/secure-profile/OP4 and protocol/listeners are verified. The Heart has no old cooldown receipt; all71 reported-source files remain unchanged. See `../reports/combined-dev49-deployment.json`.
+
 ## 24 October: dev48 editor, limits popup and audible Heart
 
 Sequentially implemented with a dedicated UI designer/lead approval and independent read-only review per slice. Core layout/strict Clean is7f8a5fe; typed Block limits modal/minimum is7a8f032. No main merge. Full final `python scripts/workspace.py build` passes in25s:403 Java tests (202Core/201Quiet Below); `python -m unittest discover -s scripts -p "test_*.py"` passes81 Python tests.
