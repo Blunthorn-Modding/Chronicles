@@ -71,20 +71,28 @@ public final class EcologyHeart {
         return eligible(rules, proof) && elapsed >= rules.requiredTicks();
     }
 
-    /**
-     * Weakening signals cross a bounded set of clock milestones. The regular pulse is at most
-     * once per active second for very short configured delays and six times for the default wait.
-     */
+    /** Crossings are driven by occupied ACTIVE time, so pauses never replay a beat. */
     public static Transition transition(Rules rules, int previous, int current) {
         Objects.requireNonNull(rules, "Heart rules");
         validateElapsed(rules, previous);
         validateElapsed(rules, current);
         if (current < previous) throw new IllegalArgumentException("Heart clock cannot move backwards within a transition");
-        int interval = Math.max(20, rules.requiredTicks() / 6);
-        boolean pulse = current > previous && (current / interval > previous / interval
-                || current == rules.requiredTicks());
+        boolean pulse = heartbeatTicks(rules).stream().anyMatch(tick -> previous < tick && current >= tick);
         int effort = lastEffortTick(rules);
         return new Transition(previous, current, pulse, previous < effort && current >= effort);
+    }
+
+    /** Eight accelerating beats before the final effort; default gaps are10,9,8,7,6,5,3,1seconds.
+     * Very short configured waits omit beats rather than emitting more than one per active second. */
+    public static List<Integer> heartbeatTicks(Rules rules) {
+        Objects.requireNonNull(rules, "Heart rules");
+        int effort = lastEffortTick(rules), last = 0;
+        var ticks = new java.util.ArrayList<Integer>();
+        for (int percent : new int[]{20,38,54,68,80,90,96,98}) {
+            int tick = Math.max(20, effort * percent / 100);
+            if (tick < effort && tick - last >= 20) { ticks.add(tick); last = tick; }
+        }
+        return List.copyOf(ticks);
     }
 
     /** Five sixths of the configured active-play wait: 50 seconds for the default rules. */

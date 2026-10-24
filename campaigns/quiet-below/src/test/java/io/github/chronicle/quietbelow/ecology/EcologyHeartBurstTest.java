@@ -20,6 +20,7 @@ class EcologyHeartBurstTest {
     private static final EcologyTerrain.State STONE = new EcologyTerrain.State("minecraft:stone", Map.of());
     private static final EcologyEngine.Setup PINS = new EcologyEngine.Setup("city", 1, "heart", 1, "minecraft:overworld");
     private static final EcologyEngine.Area AREA = new EcologyEngine.Area(HEART, SOURCE);
+    private static final EcologyEngine.Area LARGE_AREA = new EcologyEngine.Area(new EcologyTerrain.Pos(0,0,0),new EcologyTerrain.Pos(31,15,15));
 
     @TempDir Path dir;
 
@@ -30,7 +31,7 @@ class EcologyHeartBurstTest {
             EcologyEngine engine=emptyEngine(journal,world);
             EcologyHeart.Transition transition=advance(engine,world,1000,true);
             assertTrue(engine.heartLastEffort(world,true,transition));
-            drain(engine,world,40,true);
+            drainBurst(engine,world);
 
             Set<String> footprint=new HashSet<>(),expectedFootprint=new HashSet<>();
             for(int x=-2;x<=2;x++)for(int z=-2;z<=2;z++)if(x!=0||z!=0)expectedFootprint.add(x+":"+z);
@@ -39,6 +40,11 @@ class EcologyHeartBurstTest {
                 assertTrue(cell.after().network());
             }
             assertTrue(footprint.containsAll(expectedFootprint),"every eligible column in the 5x5 footprint must visibly receive sculk");
+            EcologyEngine.HeartBurstOutcome outcome=engine.heartBurstOutcome();
+            assertFalse(outcome.active());assertEquals("complete",outcome.reason());
+            assertTrue(outcome.planned()>0);
+            assertTrue(outcome.checked()>=outcome.written());assertTrue(outcome.written()>=24);
+            assertEquals(world.writes,outcome.written());
             assertTrue(world.maxWritesPerTick<=EcologyEngine.MAX_WRITES);
             assertEquals(world.writes,journal.entries().stream().filter(e->e.type().equals("GROW")).count());
             expected=engine.cells();
@@ -58,12 +64,14 @@ class EcologyHeartBurstTest {
 
             drain(engine,world,12,false);
             assertEquals(initial,world.writes,"paused ticks must neither spend nor discard the burst");
+            assertTrue(engine.heartBurstOutcome().active());assertEquals("running",engine.heartBurstOutcome().reason());
 
             for(int tick=0;tick<40;tick++){
                 world.beginTick();engine.beginTick();engine.tick(world,true);engine.heartTick(true,true);
             }
             assertEquals(0,engine.heartElapsed(),"the first connected cells recover the threshold-one network");
             assertTrue(engine.cells().size()>=24,"recovery must not truncate the one authorized last stand");
+            assertFalse(engine.heartBurstOutcome().active());assertEquals("complete",engine.heartBurstOutcome().reason());
             assertTrue(world.maxWritesPerTick<=EcologyEngine.MAX_WRITES);
         }
     }
@@ -79,9 +87,11 @@ class EcologyHeartBurstTest {
                 engine.tick(world,true);
             }
             assertEquals(0,world.writes,"saturated ticks cannot overrun the shared budget");
+            assertTrue(engine.heartBurstOutcome().active());assertEquals("running",engine.heartBurstOutcome().reason());
             drain(engine,world,40,true);
             Set<String> footprint=new HashSet<>();for(var cell:engine.cells())footprint.add(cell.position().x()+":"+cell.position().z());
             for(int x=-2;x<=2;x++)for(int z=-2;z<=2;z++)if(x!=0||z!=0)assertTrue(footprint.contains(x+":"+z));
+            assertFalse(engine.heartBurstOutcome().active());assertEquals("complete",engine.heartBurstOutcome().reason());
         }
     }
 
@@ -102,8 +112,51 @@ class EcologyHeartBurstTest {
             }
             drain(engine,world,40,true);
             assertEquals(started,world.writes,"a real topology cut cancels queued authority");
+            assertFalse(engine.heartBurstOutcome().active());assertEquals("native-cut",engine.heartBurstOutcome().reason());
             assertTrue(world.written.stream().noneMatch(p->p.x()==2||p.x()==-2));
             assertTrue(world.maxWritesPerTick<=EcologyEngine.MAX_WRITES);
+        }
+    }
+
+    @Test void largeDormantRemoteLedgerCannotHideAnEligibleAirCutLastEffort() throws Exception {
+        Path file=dir.resolve("large-air-cut.jsonl");World world=largeWorld();
+        try(EcologyJournal journal=new EcologyJournal(file)){
+            EcologyEngine engine=new EcologyEngine(journal);engine.configure(PINS,LARGE_AREA,HEART);
+            for(int tick=0;tick<200&&!engine.view().indexed();tick++)engine.index(world);
+            assertTrue(engine.view().indexed());assertEquals(4351,engine.cells().size());
+            engine.mode(true);
+            for(int tick=0;tick<100&&!engine.heartProof(true).complete();tick++){
+                world.beginTick();engine.beginTick();engine.tick(world,true);
+            }
+            assertTrue(engine.heartProof(true).complete());
+            assertEquals(4351,engine.view().connected(),"the fixture must first prove a fully connected large network");
+
+            for(EcologyEngine.Cell cell:java.util.List.copyOf(engine.cells()))if(localBurstBox(cell.position())){
+                world.blocks.put(cell.position(),AIR);engine.observed(cell.position(),AIR);
+            }
+            for(int tick=0;tick<100&&(engine.view().connected()!=0||!engine.heartProof(true).complete());tick++){
+                world.beginTick();engine.beginTick();engine.tick(world,true);
+            }
+            assertEquals(0,engine.view().connected());
+            assertTrue(engine.cells().stream().noneMatch(c->localBurstBox(c.position())),"the cut must leave no local owned seed");
+            drain(engine,world,40,true);
+            assertEquals(EcologyVitality.Mode.DORMANT,engine.vitality().mode(new EcologyTerrain.Pos(16,1,0)));
+
+            EcologyHeart.Transition transition=advance(engine,world,1000,true);
+            int beforeWrites=world.writes;
+            assertTrue(engine.heartLastEffort(world,true,transition));
+            drainBurst(engine,world);
+
+            Set<String> footprint=new HashSet<>();
+            for(EcologyEngine.Cell cell:engine.cells())if(Math.abs(cell.position().x())<=2&&Math.abs(cell.position().z())<=2)
+                footprint.add(cell.position().x()+":"+cell.position().z());
+            Set<String> expected=new HashSet<>();
+            for(int x=-2;x<=2;x++)for(int z=-2;z<=2;z++)if(x!=0||z!=0)expected.add(x+":"+z);
+            assertTrue(footprint.containsAll(expected),"large remote history must not prevent the exact eligible 5x5 footprint");
+            EcologyEngine.HeartBurstOutcome outcome=engine.heartBurstOutcome();
+            assertFalse(outcome.active());assertEquals("complete",outcome.reason());
+            assertTrue(outcome.planned()>0);assertTrue(outcome.checked()>=outcome.written());assertTrue(outcome.written()>=24);
+            assertEquals(world.writes-beforeWrites,outcome.written());assertTrue(world.maxWritesPerTick<=EcologyEngine.MAX_WRITES);
         }
     }
 
@@ -128,10 +181,27 @@ class EcologyHeartBurstTest {
             world.beginTick();engine.beginTick();engine.tick(world,playing);
         }
     }
+    private static void drainBurst(EcologyEngine engine,World world)throws Exception{
+        for(int tick=0;tick<EcologyEngine.HEART_BURST_TICKS&&engine.heartBurstOutcome().active();tick++){
+            world.beginTick();engine.beginTick();engine.tick(world,true);
+        }
+        assertFalse(engine.heartBurstOutcome().active(),"the burst must finish within its bounded work window");
+    }
     private static World flatWorld(){
         World world=new World();
         for(int x=-2;x<=2;x++)for(int y=-2;y<=4;y++)for(int z=-2;z<=2;z++)world.blocks.put(new EcologyTerrain.Pos(x,y,z),y<=0?STONE:AIR);
         world.blocks.put(HEART,HEART_STATE);world.blocks.put(SOURCE,SCULK);return world;
+    }
+    private static boolean localBurstBox(EcologyTerrain.Pos p){
+        return Math.abs(p.x()-HEART.x())<=2&&Math.abs(p.y()-HEART.y())<=3&&Math.abs(p.z()-HEART.z())<=2;
+    }
+    private static World largeWorld(){
+        World world=new World();
+        for(int x=-2;x<=2;x++)for(int y=-2;y<=4;y++)for(int z=-2;z<=2;z++)world.blocks.put(new EcologyTerrain.Pos(x,y,z),y<=0?STONE:AIR);
+        for(int x=16;x<=31;x++)for(int y=0;y<=15;y++)for(int z=0;z<=15;z++)world.blocks.put(new EcologyTerrain.Pos(x,y,z),SCULK);
+        for(int x=1;x<=15;x++)for(int z=0;z<=15;z++)world.blocks.put(new EcologyTerrain.Pos(x,1,z),SCULK);
+        for(int z=0;z<=15;z++)world.blocks.put(new EcologyTerrain.Pos(0,1,z),SCULK);
+        world.blocks.put(HEART,HEART_STATE);return world;
     }
 
     private static final class World implements EcologyTerrain{

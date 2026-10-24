@@ -16,6 +16,13 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public record SpreadRules(GrowthMode mode,int amplificationPercent) {
         public SpreadRules { Objects.requireNonNull(mode);if(!AMPLIFICATIONS.contains(amplificationPercent))throw new IllegalArgumentException("Choose a supported sculk-count amplification"); }
     }
+    /** Transient diagnostics for the most recent Heart burst; never restored or replayed. */
+    public record HeartBurstOutcome(int planned,int checked,int written,String reason,boolean active) {
+        public HeartBurstOutcome {
+            if(planned<0||checked<0||written<0||written>checked)throw new IllegalArgumentException("Invalid Heart burst outcome counts");
+            Objects.requireNonNull(reason,"Heart burst outcome reason");
+        }
+    }
     public static final SpreadRules DEFAULT_SPREAD=new SpreadRules(GrowthMode.FIXED,10);
     public record Setup(String city, long cityRevision, String heart, long heartRevision, String dimension) {
         public Setup {
@@ -83,6 +90,8 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private boolean heartLastEffortSpent;
     private ArrayDeque<HeartBurstSurface> heartBurst;
     private int heartBurstTicks;
+    private int heartBurstPlanned,heartBurstChecked,heartBurstWritten;
+    private String heartBurstReason="idle";
     private UUID ending;
     private Pos endingRoot;
     private State endingRootState;
@@ -188,8 +197,11 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     public boolean heartVulnerable(boolean rootValid){
         return ending==null&&!heartNeedsReset&&heartUnflushed==0&&EcologyHeart.vulnerable(heartRules,heartElapsed,heartProof(rootValid));
     }
+    public HeartBurstOutcome heartBurstOutcome(){
+        return new HeartBurstOutcome(heartBurstPlanned,heartBurstChecked,heartBurstWritten,heartBurstReason,heartBurst!=null);
+    }
     public EcologyHeart.Transition heartTick(boolean rootValid,boolean playing)throws IOException {
-        if(!rootValid)cancelHeartBurst();
+        if(!rootValid)cancelHeartBurst("invalid-root");
         if(ending!=null||failure!=null||!indexed)return EcologyHeart.transition(heartRules,heartElapsed(),heartElapsed());
         if(heartNeedsReset){resetHeart();heartNeedsReset=false;}
         int old=heartElapsed(),next=EcologyHeart.nextElapsed(heartRules,old,heartProof(rootValid),playing,1);
@@ -209,8 +221,10 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(!EcologyHeart.eligible(heartRules,proof)||heartElapsed()>=heartRules.requiredTicks())return false;
         heartLastEffortSpent=true;
         heartBurst=planHeartBurst(w);
+        heartBurstPlanned=heartBurst.size();heartBurstChecked=heartBurstWritten=0;
         heartBurstTicks=heartBurst.isEmpty()?0:HEART_BURST_TICKS;
-        if(heartBurst.isEmpty()){heartBurst=null;return false;}
+        if(heartBurst.isEmpty()){heartBurst=null;heartBurstReason="empty-plan";return false;}
+        heartBurstReason="running";
         int before=writes;
         continueHeartBurst(w);
         return writes>before||heartBurst!=null;
@@ -233,7 +247,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         flushVitality();if(!heartVulnerable(rootValid))throw new IllegalStateException("The living network recovered before destruction");
         JsonObject p=new JsonObject();p.addProperty("job",job.toString());p.add("root",pos(root));p.add("state",state(rootState));
         record("HEART_END",p);
-        cancelHeartBurst();
+        cancelHeartBurst("eradicated");
     }
     static JsonObject heartRulesPayload(EcologyHeart.Rules r){JsonObject p=new JsonObject();p.addProperty("threshold",r.threshold());p.addProperty("seconds",r.seconds());return p;}
     private static EcologyHeart.Rules parseHeartRules(JsonObject p){keys(p,"threshold","seconds");return new EcologyHeart.Rules(integer(p,"threshold"),integer(p,"seconds"));}
@@ -375,7 +389,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(!w.set(p,AIR)) {cleanup(false);if(enabled)mode(false);fail("A journaled sculk cleanup write failed; cleanup disabled. Inspect the world before continuing.");throw new IOException(failure);}
         return true;
     }
-    public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason);cancelHeartBurst();controlRevision++; } }
+    public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason);cancelHeartBurst("failure");controlRevision++; } }
     /** A reversible missing/unloaded Heart is not a journal failure. Recertify after it returns. */
     public void invalidateConnections() { if(ending!=null)return;unresolved=true;generation++;controlRevision++;contactScan=null;resetVitalityScan(); }
 
@@ -422,7 +436,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(on && (!indexed||area==null||cells.isEmpty())) throw new IllegalStateException("Finish indexing a non-empty source city first");
         flushVitality();
         JsonObject p=new JsonObject(); p.addProperty("enabled",on); record("MODE",p); clock=0;
-        if(!on)cancelHeartBurst();
+        if(!on)cancelHeartBurst("mode-disabled");
     }
     public View view() {
         int done=0,total=0;
@@ -470,7 +484,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(!playing||!enabled()||!indexed||area==null) { flushVitality();clock=0;growthInterval=20;return; }
         reconcile(w);
         topology(w);
-        if(unresolved || (graph!=null&&!extending)) {cancelHeartBurst();flushVitality();resetVitalityScan();return;}
+        if(unresolved || (graph!=null&&!extending)) {cancelHeartBurst("topology-unresolved");flushVitality();resetVitalityScan();return;}
         if(graph!=null) {flushVitality();resetVitalityScan();return;}
         vitalityTick(w);
         projectAppearance(w);
@@ -708,14 +722,21 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private int burstShell(Pos p){return Math.max(Math.abs(p.x()-heart.x()),Math.abs(p.z()-heart.z()));}
     private void continueHeartBurst(EcologyTerrain w)throws IOException {
         if(heartBurst==null)return;
-        if(!enabled()||ending!=null||failure!=null||heart==null||!w.loaded(heart)){cancelHeartBurst();return;}
+        if(ending!=null){cancelHeartBurst("ending");return;}
+        if(failure!=null){cancelHeartBurst("failure");return;}
+        if(!enabled()){cancelHeartBurst("mode-disabled");return;}
+        if(heart==null){cancelHeartBurst("missing-heart");return;}
+        if(!w.loaded(heart)){cancelHeartBurst("unloaded-heart");return;}
         if(writes>=MAX_WRITES)return; // Shared native work defers this attempt; it does not spend its work window.
         int checked=0;
         while(checked++<HEART_BURST_CHECKS&&writes<MAX_WRITES&&!heartBurst.isEmpty()){
-            HeartBurstSurface surface=heartBurst.removeFirst();int result=burstSurface(w,surface);
+            HeartBurstSurface surface=heartBurst.removeFirst();heartBurstChecked++;int before=writes,result=burstSurface(w,surface);
+            heartBurstWritten+=writes-before;
             if(result<0&&surface.retries()>0)heartBurst.addLast(new HeartBurstSurface(surface.air(),surface.face(),surface.retries()-1));
         }
-        if(--heartBurstTicks<=0||heartBurst.isEmpty())cancelHeartBurst();
+        heartBurstTicks--;
+        if(heartBurst.isEmpty())cancelHeartBurst("complete");
+        else if(heartBurstTicks<=0)cancelHeartBurst("work-limit");
     }
     /** @return one for a write, zero for a permanently invalid surface, minus one to retry after
      * nearer surfaces have extended the connected network. */
@@ -751,7 +772,10 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         return Math.abs((long)p.x()-heart.x())<=HEART_BURST_RADIUS&&Math.abs((long)p.z()-heart.z())<=HEART_BURST_RADIUS
                 &&Math.abs((long)p.y()-heart.y())<=HEART_BURST_VERTICAL;
     }
-    private void cancelHeartBurst(){heartBurst=null;heartBurstTicks=0;}
+    private void cancelHeartBurst(String reason){
+        if(heartBurst!=null)heartBurstReason=Objects.requireNonNull(reason);
+        heartBurst=null;heartBurstTicks=0;
+    }
     private static void shuffle(SplittableRandom random,int[] values) {
         for(int i=values.length-1;i>0;i--){int j=random.nextInt(i+1),v=values[i];values[i]=values[j];values[j]=v;}
     }
@@ -883,7 +907,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     public void remove(Pos p) throws IOException {
         if(ending!=null||!cells.containsKey(p)) return;
-        if(connected.contains(p))cancelHeartBurst();
+        if(connected.contains(p))cancelHeartBurst("native-cut");
         JsonObject payload=new JsonObject();payload.add("p",pos(p));record("REMOVE",payload);
     }
     private IllegalStateException capacity(String message) { fail(message+"; expansion held");return new IllegalStateException(failure); }

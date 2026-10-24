@@ -26,7 +26,7 @@ class EcologyHeartDefianceTest {
 
     @TempDir Path dir;
 
-    @Test void pureMilestonesPulseSixTimesAndMakeOneEffortAtFiftySeconds() {
+    @Test void pureMilestonesAccelerateHeartbeatsAndMakeOneEffortAtFiftySeconds() {
         EcologyHeart.Rules rules = EcologyHeart.DEFAULT;
         assertEquals(1000, EcologyHeart.lastEffortTick(rules));
         int pulses = 0, efforts = 0;
@@ -35,7 +35,8 @@ class EcologyHeartDefianceTest {
             if (transition.pulse()) pulses++;
             if (transition.lastEffort()) efforts++;
         }
-        assertEquals(6, pulses);
+        assertEquals(8, pulses);
+        assertEquals(java.util.List.of(200,380,540,680,800,900,960,980),EcologyHeart.heartbeatTicks(rules));
         assertEquals(1, efforts);
         assertTrue(EcologyHeart.transition(rules, 999, 1000).lastEffort());
         assertFalse(EcologyHeart.transition(rules, 1000, 1001).lastEffort());
@@ -43,7 +44,22 @@ class EcologyHeartDefianceTest {
         EcologyHeart.Rules oneSecond = new EcologyHeart.Rules(1, 1);
         assertEquals(16, EcologyHeart.lastEffortTick(oneSecond));
         assertTrue(EcologyHeart.transition(oneSecond, 15, 16).lastEffort());
-        assertTrue(EcologyHeart.transition(oneSecond, 19, 20).pulse());
+        assertFalse(EcologyHeart.transition(oneSecond, 19, 20).pulse());
+        assertTrue(EcologyHeart.heartbeatTicks(oneSecond).isEmpty());
+    }
+
+    @Test void heartbeatScheduleIsBoundedAndNeverRunsAfterTheFinalAttempt() {
+        for(int seconds:EcologyHeart.DELAY_CHOICES) {
+            var rules=new EcologyHeart.Rules(1,seconds);
+            var beats=EcologyHeart.heartbeatTicks(rules);int prior=0;
+            assertTrue(beats.size()<=8);
+            for(int beat:beats) {
+                assertTrue(beat-prior>=20);assertTrue(beat<EcologyHeart.lastEffortTick(rules));
+                assertTrue(EcologyHeart.transition(rules,beat-1,beat).pulse());
+                assertFalse(EcologyHeart.transition(rules,beat,beat).pulse());prior=beat;
+            }
+            assertFalse(EcologyHeart.transition(rules,EcologyHeart.lastEffortTick(rules),rules.requiredTicks()).pulse());
+        }
     }
 
     @Test void emptyNetworkMakesOneJournaledLocalEffortAndStillMaturesAtSixtySeconds() throws Exception {
@@ -176,15 +192,15 @@ class EcologyHeartDefianceTest {
         }
     }
 
-    @Test void optionalEffectRuntimeFailureDeniesItsPhaseButNotHeartWeakness() throws Exception {
+    @Test void optionalEffectRuntimeFailurePreservesTheAuthorizedAttemptAndWeakness() throws Exception {
         RuntimeException fault = new IllegalStateException("simulated optional effect fault");
         QuietBelowEcology.DefianceEffectResult result = QuietBelowEcology.optionalDefianceEffect(
                 QuietBelowEcology.DefiancePhase.AUTHORIZED, () -> { throw fault; });
-        assertEquals(QuietBelowEcology.DefiancePhase.DENIED, result.phase());
+        assertEquals(QuietBelowEcology.DefiancePhase.AUTHORIZED, result.phase());
         assertSame(fault, result.failure());
         assertFalse(result.value());
-        assertFalse(QuietBelowEcology.optionalDefianceEffect(result.phase(), () -> true).value(),
-                "the rest of the failed phase must stay suppressed");
+        assertTrue(QuietBelowEcology.optionalDefianceEffect(result.phase(), () -> true).value(),
+                "a sound failure must not cancel the final growth or Warden attempt");
 
         World world = exposedWorld();
         try (EcologyJournal journal = new EcologyJournal(dir.resolve("optional-fault-heart.jsonl"))) {

@@ -103,6 +103,7 @@ public final class QuietBelow implements ModInitializer {
                 "Relic Heart", "The physical root of The Quiet Below's sculk network.", 1, ManagedBlockDefinition.LimitMode.FIXED));
         io.github.chronicle.quietbelow.ecology.QuietBelowManagedBlocks.register();
         io.github.chronicle.quietbelow.ecology.EcologyHeartDefianceTrial.register();
+        io.github.chronicle.quietbelow.ecology.EcologyHeartAirCutTrial.register();
         io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
                 new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));
         io.github.chronicle.quietbelow.content.SculkAppearanceHandshake.register();

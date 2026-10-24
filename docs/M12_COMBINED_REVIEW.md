@@ -1,6 +1,6 @@
-# Combined correction review: dev.47
+# Combined correction review: dev.48
 
-Use the matching [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and **127.0.0.1:25589** (Minecraft Java 1.21.10, Fabric). This is one review for the three functional corrections and four presentation improvements. Check the newest TEST_PLAN checkpoint for deployment readiness; this guide alone does not establish a running server.
+Use the matching [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and **127.0.0.1:25589** (Minecraft Java 1.21.10, Fabric). This is one review for the inset editor, strict Clean/Debug mode, Block limits popup and audible Heart follow-up. Check the newest TEST_PLAN checkpoint for deployment readiness; this guide alone does not establish a running server.
 
 ## Pause and map work
 
@@ -8,18 +8,18 @@ While paused, turn editing off and use Survival. You should be able to move and 
 
 ## One configuration destination
 
-**Game setup > Block limits** is the only limit editor. Choose Ancient Altar or Forge, change its maximum, then place an additional block while paused with Building Mode on. Editing is required to change the policy; Building Mode grants actual map interaction. Lowering the limit preserves existing blocks and refuses more placements. The Heart remains fixed at one.
+**Game setup > Block limits** is the only limit editor. Choose a block in the centered popup. Its value is `placed / maximum`; Editing enables the right-hand numeric field. Save writes directly; Close discards an unsaved value and returns to the unchanged Game setup page. Then place an additional block while paused with Building Mode on. Editing is required to change the policy; Building Mode grants actual map interaction. A new maximum cannot be lower than the number already placed. Existing over-limit data remains intact. The Heart remains fixed at one.
 
 **Locations > Block sites** lists actual supplied blocks and manual references. It shows capacity/status without policy controls or links. Supplied blocks register automatically. Regions alone owns source-city/takeover geometry through **Use for...** and **Clear use...**; Game setup has global settings.
 
 ## Four UI improvements together
 
 - ACTIVE status appears briefly, then leaves the hotbar area clear. Paused/held status remains visible.
-- The editor starts in Clean view. **Debug: off/on** in the footer reveals diagnostic facts locally; it must preserve drafts, selection and permissions. Errors, blocked reasons and useful physical status stay visible in both views.
+- The editor starts in Clean view. **Debug: off/on** beside Editing in the top-right reveals all diagnostic facts locally; it must preserve drafts, selection and permissions. Clean shows only the selected description, working forms/actions and meaningful feedback. Debug reveals all fact/status rows.
 - Configuration uses the Altar's normal Minecraft popup/widgets and readable text, with the established left tabs. It has no inventory panel. Check scrolling and input at your normal GUI scale 2.
 - Events distinguish private **Preview cue/action**, **Check audience/readiness**, and reviewed execution. Regions explains the two-position workflow. Activity uses readable summaries.
 
-Please review these four as one UI pass. Native coverage includes 320x240,480x270 and 640x360 logical layouts; taste, texture-pack appearance and wording remain human checks.
+Please review these four as one UI pass. Native coverage includes 320x240,480x270,640x360 and the reported960x287 wide-short logical layout; taste, texture-pack appearance and wording remain human checks.
 
 ## Spread comparison
 
@@ -27,7 +27,9 @@ The Heart/stations are on the small platform; a separate bank has roughly 4096 s
 
 ## Heart last stand: test last
 
-The Heart is at **-4,64,0**. Keep its network below Established for **60 occupied ACTIVE seconds**. Unresolved/unloaded branches prevent vulnerability. It pulses, spreads explosively across a local **5x5 footprint where eligible surfaces exist**, and directly summons one normal Warden when safe local space exists. Peaceful skips the Warden. Enclosure, exclusions and actual connected geometry still apply; it cannot grow through solid walls. Reconnecting/recutting cannot replay the phase within **ten occupied ACTIVE minutes**. Pauses/downtime do not count; cooldown survives restart.
+The Heart is at **-4,64,0**. Keep its network below Established for **60 occupied ACTIVE seconds**. Unresolved/unloaded branches prevent vulnerability. Warden heartbeats start after10 active seconds, then accelerate at19,27,34,40,45,48 and49seconds; the final effort is at50seconds. It spreads explosively across a local **5x5 footprint where eligible surfaces exist**, and directly summons one normal Warden when safe local space exists. Peaceful skips the Warden. Enclosure, exclusions and actual connected geometry still apply; it cannot grow through solid walls. Reconnecting/recutting cannot replay the phase within **ten occupied ACTIVE minutes**. Pauses/downtime do not count; cooldown survives restart.
+
+The reported missing final burst has not been reproduced on the intact archived map. The new Debug facts and server log show planned/checked/written burst cells, completion/cancellation reason and cooldown phase; preserve that output if it recurs.
 
 The brown lens marks vulnerability. With editing off, use a pickaxe in Survival. Nearby players receive a cryptic message; there is no destruction menu. Eradication ends this fixture's network and removes Altar bargains. Test this last because it ends the fixture.
 

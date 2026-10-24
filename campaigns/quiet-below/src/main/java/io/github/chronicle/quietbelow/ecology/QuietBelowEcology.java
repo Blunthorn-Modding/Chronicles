@@ -252,16 +252,32 @@ public final class QuietBelowEcology {
             } else r.claimProblem=null;
             if(r.rootProblem==null)r.engine.tick(world,playing(server));else r.engine.flushVitality();
             int priorHeartElapsed=r.engine.heartElapsed();
-            if(priorHeartElapsed<r.lastHeartElapsed)r.defiancePhase=DefiancePhase.UNDECIDED;
+            if(priorHeartElapsed<r.lastHeartElapsed)resetDefianceSignals(r);
             EcologyHeart.Transition heart=r.engine.heartTick(r.rootProblem==null,playing(server));
-            if(heart.current()==0&&priorHeartElapsed>0)r.defiancePhase=DefiancePhase.UNDECIDED;
+            if(heart.current()==0&&priorHeartElapsed>0)resetDefianceSignals(r);
             if((heart.pulse()||heart.lastEffort())&&authorizeDefiance(server,r,heart)){
                 boolean lastGrowth=heart.lastEffort()&&r.engine.heartLastEffort(world,r.rootProblem==null,heart);
-                boolean warden=false;
-                if(heart.lastEffort())warden=applyDefianceEffect(r,"The Heart's final creature could not emerge",
-                        ()->spawnLastStandWarden(world.world,r.engine.rootPosition()));
-                if(r.defiancePhase==DefiancePhase.AUTHORIZED){boolean visible=lastGrowth||warden;applyDefianceEffect(r,
-                        "The Heart's last-stand signal could not be emitted",()->{heartPulse(world.world,r,heart.lastEffort(),visible);return true;});}
+                if(heart.lastEffort()) {
+                    r.wardenAttempted=true;
+                    r.wardenSpawned=applyDefianceEffect(r,"The Heart's final creature could not emerge",
+                            ()->spawnLastStandWarden(world.world,r.engine.rootPosition()));
+                    QuietBelow.LOGGER.info("Heart last stand attempted: root={}, growthQueued={}, Warden={}",
+                            r.engine.rootPosition(),lastGrowth,r.wardenSpawned?"spawned":"no safe loaded spawn");
+                }
+                if(heart.pulse()) {
+                    boolean emitted=applyDefianceEffect(r,"The Heart's heartbeat could not be emitted",
+                            ()->heartHeartbeat(world.world,r));
+                    if(emitted)r.heartbeatTicks.add(heart.current());
+                }
+                boolean visible=lastGrowth||r.wardenSpawned;
+                applyDefianceEffect(r,"The Heart's last-stand signal could not be emitted",
+                        ()->{heartPulse(world.world,r,heart.lastEffort(),visible);return true;});
+            }
+            var burst=r.engine.heartBurstOutcome();
+            if(!burst.active()&&!burst.reason().equals("idle")&&!burst.equals(r.loggedBurst)) {
+                r.loggedBurst=burst;
+                QuietBelow.LOGGER.info("Heart final growth finished: root={}, planned={}, checked={}, written={}, result={}",
+                        r.engine.rootPosition(),burst.planned(),burst.checked(),burst.written(),burst.reason());
             }
             r.lastHeartElapsed=heart.current();
             if(server.getTicks()%20==0)heartAppearance(world.world,r);
@@ -725,8 +741,15 @@ public final class QuietBelowEcology {
     }
     private static void heartAppearance(ServerWorld world,Runtime r){
         if(r.engine.rootPosition()==null)return;
-        var proof=r.engine.heartProof(r.rootProblem==null);boolean weak=r.engine.heartVulnerable(r.rootProblem==null);
-        projectHeartAppearance(world,r,heartLens(proof,r.engine.heartRules(),weak),weak);
+        try {
+            var proof=r.engine.heartProof(r.rootProblem==null);boolean weak=r.engine.heartVulnerable(r.rootProblem==null);
+            projectHeartAppearance(world,r,heartLens(proof,r.engine.heartRules(),weak),weak);
+        } catch(RuntimeException failure) {
+            if(!r.heartAppearanceFailureLogged) {
+                r.heartAppearanceFailureLogged=true;
+                QuietBelow.LOGGER.warn("Could not refresh Heart appearance; growth and weakness remain active",failure);
+            }
+        }
     }
     private static boolean authorizeDefiance(MinecraftServer server,Runtime r,EcologyHeart.Transition heart){
         if(r.defiancePhase==DefiancePhase.AUTHORIZED)return true;
@@ -742,7 +765,8 @@ public final class QuietBelowEcology {
         }
         try{
             // Durable claim precedes the first sound, particles, terrain change and Warden spawn.
-            r.defiance=r.defianceStore.claim(pin,activeTicks,false);r.defiancePhase=DefiancePhase.AUTHORIZED;return true;
+            r.defiance=r.defianceStore.claim(pin,activeTicks,false);r.defiancePhase=DefiancePhase.AUTHORIZED;
+            QuietBelow.LOGGER.info("Heart last stand claimed: root={}, activeTicks={}, cooldownSeconds={}",r.engine.rootPosition(),activeTicks,r.defiance.cooldownSeconds());return true;
         }catch(Exception failure){
             defianceFailure(r,"Heart last-stand claim could not be saved; this phase is suppressed while normal weakness continues",failure);
             r.defiancePhase=DefiancePhase.DENIED;return false;
@@ -761,8 +785,23 @@ public final class QuietBelowEcology {
         Objects.requireNonNull(phase);Objects.requireNonNull(effect);
         if(phase!=DefiancePhase.AUTHORIZED)return new DefianceEffectResult(phase,false,null);
         try{return new DefianceEffectResult(phase,effect.run(),null);}
-        catch(RuntimeException failure){return new DefianceEffectResult(DefiancePhase.DENIED,false,failure);}
+        catch(RuntimeException failure){return new DefianceEffectResult(phase,false,failure);}
     }
+    private static void resetDefianceSignals(Runtime r) {
+        r.defiancePhase=DefiancePhase.UNDECIDED;r.heartbeatTicks.clear();r.wardenAttempted=false;r.wardenSpawned=false;
+    }
+    record DefianceSignals(String phase,List<Integer> heartbeatTicks,boolean wardenAttempted,boolean wardenSpawned) { }
+    static DefianceSignals signalsForTest(MinecraftServer server) {
+        Runtime r=runtime(server);
+        return new DefianceSignals(r.defiancePhase.name(),List.copyOf(r.heartbeatTicks),r.wardenAttempted,r.wardenSpawned);
+    }
+    private static boolean heartHeartbeat(ServerWorld world,Runtime r) {
+        Pos root=r.engine.rootPosition();if(root==null)return false;
+        BlockPos at=blockPos(root);if(EcologyLoadedBlocks.chunk(world,at)==null)return false;
+        world.playSound(null,at,SoundEvents.ENTITY_WARDEN_HEARTBEAT,SoundCategory.BLOCKS,1.6f,.85f);
+        return true;
+    }
+
     /** One direct triggered Warden, without touching vanilla player warning managers. */
     private static boolean spawnLastStandWarden(ServerWorld world,Pos root){
         if(root==null||world.getDifficulty()==Difficulty.PEACEFUL)return false;
@@ -791,8 +830,7 @@ public final class QuietBelowEcology {
         if(r.engine.rootPosition()==null)return;
         BlockPos at=blockPos(r.engine.rootPosition());
         if(EcologyLoadedBlocks.chunk(world,at)==null)return;
-        world.playSound(null,at,SoundEvents.BLOCK_SCULK_CATALYST_BLOOM,SoundCategory.BLOCKS,
-                lastEffort?1.35f:.75f,lastEffort?.62f:.82f);
+        if(lastEffort)world.playSound(null,at,SoundEvents.BLOCK_SCULK_CATALYST_BLOOM,SoundCategory.BLOCKS,1.35f,.62f);
         world.spawnParticles(net.minecraft.particle.ParticleTypes.SCULK_SOUL,
                 at.getX()+.5,at.getY()+.8,at.getZ()+.5,lastEffort?(grew?18:12):5,.32,.28,.32,.02);
     }
@@ -858,6 +896,11 @@ public final class QuietBelowEcology {
         if(e.heartVulnerable(true))return "Heart vulnerable. Mine the bound block with a pickaxe during active play.";
         return "Heart weakening: "+(e.heartElapsed()/20)+" / "+e.heartRules().seconds()+" active seconds below threshold.";
     }
+    private static long remainingDefianceSeconds(Runtime r,MinecraftServer server) {
+        if(r.defiance==null||r.defiance.receipt()==null)return 0;
+        long ticks=Math.max(0,r.defiance.receipt().eligibleAfterActiveTicks()-PlayRuntime.elapsedTicks(server));
+        return ticks/20+(ticks%20==0?0:1);
+    }
     private static GameSetupTools.Status heartStatus(ServerCommandSource source){
         Runtime r=runtime(source.getServer());var e=r.engine;var rules=e.heartRules();Map<String,String> disabled=new HashMap<>();
         List<String> verbs=List.of("follow_extent","threshold_lower","threshold_higher","delay_shorter","delay_longer","reset");
@@ -882,6 +925,7 @@ public final class QuietBelowEcology {
                 new Fact("Heart status",heartDescription(r)),new Fact("Weakness threshold",rules.threshold()==0?"Follows Established: fewer than "+rules.threshold(e.vitality().rules().established())+" living connected cells.":"Fewer than "+rules.threshold()+" living connected cells."),
                 new Fact("Weakness delay",rules.seconds()+" active seconds. Unknown or unloaded branches reset the wait; known pauses preserve it. Restart requires a new wait."),
                 new Fact("Last stand",r.defianceProblem==null?"The Heart pulses, makes one final growth attempt and directly summons one Warden. At most one phase begins per cooldown.":r.defianceProblem),
+                new Fact("Last stand phase",r.defiancePhase.name()+"; remaining cooldown "+remainingDefianceSeconds(r,source.getServer())+" active seconds; final growth "+e.heartBurstOutcome()),
                 new Fact("Last stand cooldown",cooldown+" active seconds, measured from the first pulse. A cut beginning during cooldown stays quiet for its full weakness cycle."),
                 new Fact("Ending","Mine the vulnerable bound Heart with a pickaxe during occupied active play. Bonuses and sacrifices end together; disconnected sculk is included."),
                 new Fact("Cleanup","Loaded chunks only, with saved chunk receipts. Later replacements are preserved; pending unloaded areas remain dormant.")),disabled);
@@ -906,7 +950,7 @@ public final class QuietBelowEcology {
             case "refresh"->{r.menuRevision++;return heartDescription(r);}
             default->throw new IllegalArgumentException("Unknown Heart action");
         }
-        r.engine.tuneHeart(new EcologyHeart.Rules(threshold,delay));r.defiancePhase=DefiancePhase.UNDECIDED;r.lastHeartElapsed=0;return "Heart weakness rules saved; the weakness wait restarts.";
+        r.engine.tuneHeart(new EcologyHeart.Rules(threshold,delay));resetDefianceSignals(r);r.lastHeartElapsed=0;return "Heart weakness rules saved; the weakness wait restarts.";
     }
     private static int choice(List<Integer> choices,int current,boolean higher){
         if(higher)return choices.stream().filter(n->n>current).findFirst().orElse(current);
@@ -925,6 +969,7 @@ public final class QuietBelowEcology {
     record DefianceEffectResult(DefiancePhase phase,boolean value,RuntimeException failure) { }
     private static final class Runtime {
         final EcologyEngine engine;final EcologyJournal journal;final HeartDefianceStore defianceStore;int settlingWrites,endingWorkTick=Integer.MIN_VALUE,lastHeartElapsed;long menuRevision,lastTickNanos;boolean failureLogged,appearanceFailureLogged,defianceFailureLogged,defianceEffectFailureLogged;String rootProblem,claimProblem,defianceProblem;HeartDefianceStore.State defiance;DefiancePhase defiancePhase=DefiancePhase.UNDECIDED;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;EcologyEradication eradication;boolean sourceClosed,endingHeld;String endingProblem,lastEndingHold;
+        final List<Integer> heartbeatTicks=new ArrayList<>();boolean wardenAttempted,wardenSpawned,heartAppearanceFailureLogged;EcologyEngine.HeartBurstOutcome loggedBurst;
         Runtime(EcologyEngine e,EcologyJournal j,HeartDefianceStore d){engine=e;journal=j;defianceStore=d;crops=new EcologyCrops(e.cropRules());recovery=new EcologyRecovery(e.recoveryRules());costs=new EcologyCosts(e.costRules());}
     }
     private static final class NativeHooks implements EcologyHooks.Handler {
