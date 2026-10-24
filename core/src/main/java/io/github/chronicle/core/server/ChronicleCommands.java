@@ -29,6 +29,9 @@ public final class ChronicleCommands {
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         var session = literal("session")
+                .then(literal("building").requires(ChronicleCommands::isGm)
+                        .then(literal("on").executes(context -> building(context.getSource(), true)))
+                        .then(literal("off").executes(context -> building(context.getSource(), false))))
                 .then(literal("status").executes(context -> status(context.getSource())))
                 .then(literal("start").requires(ChronicleCommands::isGm)
                         .executes(context -> start(context.getSource(), null))
@@ -100,6 +103,17 @@ public final class ChronicleCommands {
 
     private static boolean isGm(ServerCommandSource source) {
         return source.hasPermissionLevel(2);
+    }
+
+    private static int building(ServerCommandSource source, boolean value) {
+        try {
+            String message = SessionBuilding.set(source, value);
+            source.sendFeedback(() -> Text.literal(message), true);
+            return 1;
+        } catch (IllegalArgumentException | IllegalStateException error) {
+            source.sendError(Text.literal(error.getMessage()));
+            return 0;
+        }
     }
 
     private static int status(ServerCommandSource source) {

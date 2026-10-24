@@ -6,8 +6,8 @@ public final class SessionGameplayPolicy {
     public static boolean frozen(SessionPhase phase, boolean held) {
         return phase != SessionPhase.ACTIVE || held;
     }
-    public static boolean canBuild(SessionPhase phase, boolean held, boolean operator, boolean editing) {
+    public static boolean canBuild(SessionPhase phase, boolean held, boolean building) {
         if (phase == null || held) return false;
-        return phase == SessionPhase.ACTIVE || (operator && editing);
+        return phase == SessionPhase.ACTIVE || building;
     }
 }

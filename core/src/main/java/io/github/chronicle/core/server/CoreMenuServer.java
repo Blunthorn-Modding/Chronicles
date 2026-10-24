@@ -109,6 +109,7 @@ public final class CoreMenuServer {
             String message="";boolean close=false;
             if(request.action()==Action.OPTIONS){
                 if(!gm)throw new IllegalStateException("Management selectors require operator permission.");
+                if(request.argument().equals("BLOCK_LIMIT_TYPE")&&context.page!=Page.SETUP)throw new IllegalArgumentException("Block limits are under Game setup.");
                 context.picker=picker(player,request.argument(),request.query(),request.index());
                 context.index=0;
             } else if(!read || request.action()==Action.EVENT_PREVIEW || request.action()==Action.EVENT_AUDIO || request.action()==Action.EVENT_CHECK) {
@@ -132,6 +133,10 @@ public final class CoreMenuServer {
         switch(request.action()) {
             case EDIT_ON -> {return command(source,"chronicle author mode on");}
             case EDIT_OFF -> {return command(source,"chronicle author mode off");}
+            case SESSION_BUILD_ON,SESSION_BUILD_OFF -> {
+                if(c.page!=Page.SESSION||!id.equals("play"))throw new IllegalArgumentException("Building Mode is under Session > Play controls.");
+                return SessionBuilding.set(source,request.action()==Action.SESSION_BUILD_ON);
+            }
             case SESSION_START,SESSION_PAUSE,SESSION_RESUME,SESSION_END -> {
                 String verb=switch(request.action()){case SESSION_START->"start";case SESSION_PAUSE->"pause";case SESSION_RESUME->"resume";default->"end";};
                 return command(source,"chronicle session "+verb)+" Continuing world, game conditions and completion history are retained.";
@@ -205,8 +210,8 @@ public final class CoreMenuServer {
                 if(!point&&lookedAtManagedBlock(player))throw new IllegalStateException("Supplied managed blocks register automatically and cannot be bound as manual block sites.");
                 String result=command(source,"chronicle author "+(point?"location ":"block ")+(update?"replace ":point?"save ":"bind ")+quote(siteId)+(point?" here":" target"));c.selected=siteId;return result;
             }
-            case BLOCK_LIMITS -> {if(c.page!=Page.LOCATIONS||!"BLOCK".equals(c.filter))throw new IllegalArgumentException("Block limits are under Locations → Block sites.");if(ManagedBlocks.snapshot(server).types().stream().noneMatch(type->type.typeId().equals(arg)))throw new IllegalArgumentException("Choose a registered managed block type.");c.selected="limit:"+arg;return "Opened managed block limit.";}
-            case BLOCK_LIMIT_SET -> {editor(player);if(!id.startsWith("limit:"))throw new IllegalArgumentException("Choose a managed block type.");int value=Integer.parseInt(arg);ManagedBlocks.setLimit(source,id.substring("limit:".length()),value,c.managedPolicyRevision);return "Managed block limit saved. Existing blocks remain in place.";}
+            case BLOCK_LIMITS -> {if(c.page!=Page.SETUP)throw new IllegalArgumentException("Block limits are under Game setup.");if(ManagedBlocks.snapshot(server).types().stream().noneMatch(type->type.typeId().equals(arg)))throw new IllegalArgumentException("Choose a registered managed block type.");c.selected="limit:"+arg;return "Opened managed block limit.";}
+            case BLOCK_LIMIT_SET -> {editor(player);if(c.page!=Page.SETUP)throw new IllegalArgumentException("Block limits are under Game setup.");if(!id.startsWith("limit:"))throw new IllegalArgumentException("Choose a managed block type.");int value=Integer.parseInt(arg);ManagedBlocks.setLimit(source,id.substring("limit:".length()),value,c.managedPolicyRevision);return "Managed block limit saved. Existing blocks remain in place.";}
             case MANAGED_SHOW -> {if(!id.startsWith("managed:"))throw new IllegalArgumentException("Choose a managed block site.");ManagedBlocks.preview(player,UUID.fromString(id.substring("managed:".length())));return "Private managed block-site outline shown without loading chunks.";}
             case MANUAL_REFERENCES -> {if(!id.startsWith("managed:")||!arg.startsWith("manual:"))throw new IllegalArgumentException("Choose a manual reference from this managed block site.");var instance=managedInstance(server,id);String alias=arg.substring("manual:".length());if(manualAliases(server,instance).stream().noneMatch(anchor->anchor.id().equals(alias)))throw new IllegalArgumentException("That manual reference is no longer at this managed block site.");c.selected=arg;return "Opened manual reference.";}
             case SITE_DELETE -> {return command(source,"chronicle author remove "+quote(manualSiteId(server,id)));}
@@ -230,6 +235,10 @@ public final class CoreMenuServer {
 
     private static void requireReview(ServerPlayerEntity player,Context c,String id){if(!c.reviewId.equals(id)||!Objects.equals(c.reviewFrame,frame(player))||System.nanoTime()-c.reviewTime>30_000_000_000L)throw new IllegalStateException("Review this exact action and its current targets first; reviews expire after 30 seconds.");}
     private static void requireSelectedDraft(ServerPlayerEntity player,String id){var draft=AuthoringRuntime.get(player.getEntityWorld().getServer()).regionDraft(player.getUuid()).orElseThrow(()->new IllegalStateException("Open a region draft first."));if(!draft.id().equals(id))throw new IllegalStateException("Select the current region draft before changing or saving it.");}
+    private static String eventLabel(String id) {
+        String path=id.substring(id.indexOf(':')+1).replace('_',' ').replace('.',' ').replace('/',' ').toLowerCase(Locale.ROOT);
+        return path.isBlank()?id:Character.toUpperCase(path.charAt(0))+path.substring(1);
+    }
     private static String parseBoolean(String value){if(!value.equals("true")&&!value.equals("false"))throw new IllegalArgumentException("Choose true or false.");return value;}
     private static BlockPosition position(String value){var parts=value.trim().split("\\s+");if(parts.length!=3)throw new IllegalArgumentException("Enter X Y Z as three integer coordinates.");return new BlockPosition(Integer.parseInt(parts[0]),Integer.parseInt(parts[1]),Integer.parseInt(parts[2]));}
 
@@ -243,8 +252,8 @@ public final class CoreMenuServer {
         int pages=Math.max(1,(all.size()+11)/12);c.index=Math.min(c.index,pages-1);
         if(c.page==Page.REGIONS&&c.selected.isBlank()&&gm&&AuthoringRuntime.isAuthor(player))AuthoringRuntime.get(server).regionDraft(player.getUuid()).ifPresent(d->c.selected=d.id());
         boolean selectedManualAlias=c.page==Page.LOCATIONS&&"BLOCK".equals(c.filter)&&c.selected.startsWith("manual:")&&sites(server).get(c.selected.substring("manual:".length())) instanceof AuthoringSite.Anchor;
-        boolean selectedManagedLimit=c.page==Page.LOCATIONS&&"BLOCK".equals(c.filter)&&c.selected.startsWith("limit:")&&ManagedBlocks.snapshot(server).types().stream().anyMatch(type->c.selected.equals("limit:"+type.typeId()));
-        if(c.page==Page.LOCATIONS&&!c.selected.isBlank()&&!selectedManualAlias&&!selectedManagedLimit&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
+
+        if(c.page==Page.LOCATIONS&&!c.selected.isBlank()&&!selectedManualAlias&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
         if(c.selected.isBlank()&&!all.isEmpty())c.selected=all.get(c.index*12).id();
         Detail detail;
         try{detail=detail(player,c);}catch(RuntimeException exception){detail=new Detail(c.selected,"Service unavailable",shortText(exception.getMessage(),2048),List.of(),List.of(),null,null,null);}
@@ -258,7 +267,7 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();
         if(!player.getCommandSource().hasPermissionLevel(2))return List.of(entry(player.getUuidAsString(),player.getName().getString(),"Your participation and public character card","PLAYER","",0));
         return switch(page) {
-            case SESSION -> List.of(entry("play","Play controls","Run or freeze the continuing world","SESSION","",0),entry("activity","Activity","Session, event, player and loot records","HISTORY","",0));
+            case SESSION -> List.of(entry("play","Play controls","Run or freeze the continuing world","SESSION","",0),entry("activity","Activity","Recent Chronicle activity","HISTORY","",0));
             case PLAYERS -> {
                 var players=new TreeMap<String,String>();var play=PlayRuntime.available(server);if(play!=null)play.participants().forEach(id->players.put(id.toString(),id.toString()));
                 var automatic=AutomaticPlayerSpawns.available(server);if(automatic!=null){automatic.policies().keySet().forEach(id->players.put(id.toString(),id.toString()));automatic.arrivals().keySet().forEach(id->players.put(id.toString(),id.toString()));}
@@ -267,48 +276,61 @@ public final class CoreMenuServer {
             }
             case EVENTS -> {
                 var result=new ArrayList<Entry>();ChronicleCore.observations().definitions().forEach(d->result.add(entry("cue:"+d.id(),d.label(),d.text(),"CUE",d.id(),0)));
-                ChronicleCore.events().events().forEach(e->result.add(entry("action:"+e.id(),e.id(),e.description(),"ACTION",e.id(),0)));
+                ChronicleCore.events().events().forEach(e->result.add(entry("action:"+e.id(),eventLabel(e.id()),e.description(),"ACTION",e.id(),0)));
                 ChronicleRuntime.service(server).state().flags().forEach((id,value)->result.add(entry("flag:"+id,id,"Game condition: "+value,"FLAG",id,0)));yield result;
             }
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
             case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
             case LOCATIONS -> "BLOCK".equals(filter)?blockEntries(server):sites(server).values().stream().filter(AuthoringSite.Location.class::isInstance).map(CoreMenuServer::siteEntry).toList();
-            case SETUP -> GameSetupTools.tools().stream().map(tool->entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)).toList();
+            case SETUP -> {
+                var tools=new ArrayList<Entry>();
+                tools.add(entry("limits","Block limits","Set how many supplied blocks may be placed.","LIMITS","",0));
+                GameSetupTools.tools().forEach(tool->tools.add(entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)));
+                yield tools;
+            }
         };
     }
 
     private static Detail detail(ServerPlayerEntity player,Context c) {
         var server=player.getEntityWorld().getServer();var source=player.getCommandSource();String id=c.selected;
         boolean gm=source.hasPermissionLevel(2),editing=gm&&AuthoringRuntime.isAuthor(player),active=ChronicleRuntime.service(server).state().phase().name().equals("ACTIVE");
-        boolean canEdit=editing&&AuthoringRuntime.editable(server);String editReason=active?"Pause play before changing setup.":"Enable editing to change saved setup.";
+        boolean canEdit=editing&&AuthoringRuntime.editable(server);String editReason=active?"Pause play to edit these settings.":"Enable editing to change these settings.";
         var facts=new ArrayList<Fact>();var controls=new ArrayList<Control>();String title="Choose an item",description="Select an item in the middle to inspect its details.";
         LootType loot=null;EventForm event=null;RegionForm region=null;
         switch(c.page) {
             case SESSION -> {
                 title=id.equals("activity")?"Activity":"Play controls";
-                description="A session is a play window. This world and story continue across meetings; ending play does not reset game progress.";
+                description="Start, pause or finish a play window. The world and story carry on between meetings.";
                 var campaign=ChronicleRuntime.service(server).state();
                 if(id.equals("activity")) {
-                    campaign.history().stream().skip(Math.max(0,campaign.history().size()-12)).forEach(a->facts.add(new Fact(a.timestamp()+" · "+a.action(),a.actor().name()+" · "+a.target()+" · "+a.parameters())));
-                    var play=PlayRuntime.available(server);if(play!=null)play.deliveries().values().stream().limit(8).forEach(d->facts.add(new Fact("Event · "+d.id(),d.status()+" · "+d.recipients().size()+" recipients · session "+d.session())));
-                    var autos=AutomaticPlayerSpawns.available(server);if(autos!=null)autos.arrivals().entrySet().stream().limit(8).forEach(a->facts.add(new Fact("Starting position · "+a.getKey(),a.getValue().status()+" · "+a.getValue().detail())));
+                    campaign.history().stream().skip(Math.max(0,campaign.history().size()-12)).forEach(a->{
+                        facts.add(new Fact("Recent activity",a.timestamp()+" - "+a.actor().name()+": "+eventLabel(a.action())));
+                        facts.add(new Fact("Audit detail",shortText(a.target()+" - "+a.parameters(),4096)));
+                    });
+                    var play=PlayRuntime.available(server);if(play!=null)play.deliveries().values().stream().limit(8).forEach(d->facts.add(new Fact("Cue delivery",eventLabel(d.id())+" - "+d.status()+" - "+d.recipients().size()+" players")));
+                    var autos=AutomaticPlayerSpawns.available(server);if(autos!=null)autos.arrivals().entrySet().stream().limit(8).forEach(a->facts.add(new Fact("Starting-position history",a.getKey()+" - "+a.getValue().status()+" - "+a.getValue().detail())));
                     facts.add(new Fact("Loot","Scheduled fills and interrupted-operation evidence remain in the chest journal. Inspection never refills a chest."));
                 } else {
                     facts.add(new Fact("World",active&&RuntimeHolds.reason(server)==null?"Simulation running":"Frozen; players stay mobile and may edit their cards"));
-                    facts.add(new Fact("Active play","The footer shows occupied active time. Paused, empty and held time does not count."));
-                    facts.add(new Fact("Session boundaries","Conditions, event completion and starting-position history continue. Configured new-session loot fills are the explicit exception."));
+                    facts.add(new Fact("Active play","Debug view shows the play clock. Paused, empty and held time does not count."));
+                    facts.add(new Fact("Session boundaries","Discoveries and game progress are kept. Configured session-start loot refills run when a new play window starts."));
                     switch(campaign.phase()) {
                         case INACTIVE,ENDED -> controls.add(control(Action.SESSION_START,"Start play",true,"",true,""));
                         case PAUSED -> controls.add(control(Action.SESSION_RESUME,"Resume play",true,"",false,""));
                         case ACTIVE -> controls.add(control(Action.SESSION_PAUSE,"Pause play",true,"",false,""));
                     }
                     if(active||campaign.phase().name().equals("PAUSED"))controls.add(control(Action.SESSION_END,"Finish for now",true,"",true,""));
+                    boolean building=SessionBuilding.enabled(server);
+                    facts.add(new Fact("Building Mode",building?"On - anyone may change the map; survival remains frozen.":"Off - map interactions are frozen while play is paused or stopped."));
+                    String buildReason=RuntimeHolds.reason(server)!=null?"Resolve the active Chronicle operation hold first.":active?"Building Mode requires a non-active Chronicle play state.":"";
+                    controls.add(control(building?Action.SESSION_BUILD_OFF:Action.SESSION_BUILD_ON,
+                            building?"Disable Building Mode":"Enable Building Mode",buildReason.isBlank(),buildReason,!building,""));
                 }
             }
             case PLAYERS -> {
                 if(id.isBlank())break;UUID uuid=UUID.fromString(id);var target=server.getPlayerManager().getPlayer(uuid);
-                title=target==null?id:target.getName().getString();description="Participation, public character card and this player's destinations. Starting position places them once when they first enter play, not at every meeting.";
+                title=target==null?id:target.getName().getString();description="Manage participation, character cards and travel. A starting position is used once on first eligible entry.";
                 var play=PlayRuntime.available(server);boolean member=play!=null&&play.participants().contains(uuid);
                 facts.add(new Fact("Connection",target==null?"Offline":"Online"));facts.add(new Fact("Participation",member?"Participating":"Not participating"));
                 facts.add(new Fact("Eligible now",PlayRuntime.eligibleIds(server).contains(uuid)?"Yes":"No: must be participating, online, alive, not spectating or editing"));
@@ -320,7 +342,7 @@ public final class CoreMenuServer {
                     facts.add(new Fact("Starting position",policy==null||policy.arrival()==null?"Off":destination(server,policy.arrival().purpose())));
                     facts.add(new Fact("After death",policy==null||policy.respawn()==null?"Vanilla bed / anchor / world spawn":destination(server,policy.respawn().purpose())));
                     facts.add(new Fact("Starting-position history",attempt==null?"Never attempted":attempt.status()+" · "+attempt.detail()));
-                    facts.add(new Fact("Saving settings","Moves nobody now. Independent per-player opt-ins preserve beds/anchors and previous once-only claims."));
+                    facts.add(new Fact("Saving settings","Saving does not move this player. Without an after-death destination, vanilla respawn still applies."));
                     controls.add(control(Action.PLAYER_MOVE_REVIEW,"Move player…",active&&target!=null&&!held(server),"Requires active play, online target and no unresolved operation.",false,"DESTINATION"));
                     if(c.reviewId.equals(id))controls.add(control(Action.PLAYER_MOVE,"Confirm player move",active&&target!=null&&!held(server),"Review a current safe destination first.",true,""));
                     controls.add(control(Action.STARTING_SET,"Set starting position…",canEdit&&state!=null,editReason,false,"DESTINATION"));
@@ -333,45 +355,45 @@ public final class CoreMenuServer {
             case EVENTS -> {
                 if(id.isBlank())break;
                 if(id.startsWith("flag:")) {
-                    title=raw(id);description="A true/false game condition. Changing a live value can satisfy event prerequisites.";
+                    title=raw(id);description="A game condition used by event triggers. Changing it can make an event ready to run.";
                     facts.add(new Fact("Value",Boolean.toString(ChronicleRuntime.service(server).state().flag(raw(id)))));
                     controls.add(control(Action.CONDITION_SET,"Set condition…",active,"Live condition changes require active play.",true,"TEXT"));break;
                 }
                 if(id.startsWith("cue:")) {
-                    var d=cue(id);title=d.label();description="Message and optional sound · "+raw(id).split(":")[0];
+                    var d=cue(id);title=d.label();description="A message and optional sound for players. Preview is private and works before a trigger is configured.";
                     var state=PlayRuntime.available(server);var binding=state==null?null:state.bindings().get(raw(id));var delivery=state==null?null:state.deliveries().get(raw(id));
-                    facts.add(new Fact("Content",d.text()));facts.add(new Fact("Sound",d.sound().isBlank()?"None":d.sound()));
-                    facts.add(new Fact("Audience",d.audience()==ObservationCatalog.Audience.REGION?"Eligible participants in the selected region":"All eligible participants"));
+                    facts.add(new Fact("Content",d.text()));facts.add(new Fact("Sound",d.sound().isBlank()?"None":"Included"));if(!d.sound().isBlank())facts.add(new Fact("Sound ID",d.sound()));
+                    facts.add(new Fact("Audience",d.audience()==ObservationCatalog.Audience.REGION?"Participants currently inside the selected region":"All participating players who can receive events"));
                     facts.add(new Fact("Completion",delivery==null?"Not delivered":delivery.status()+" · "+delivery.recipients().size()+" recipients"));
-                    facts.add(new Fact("Configuration",binding==null?"Unconfigured; preview works before setup":binding.mode()+" · region="+binding.regionId()+" · condition="+binding.requiredFlag()));
-                    facts.add(new Fact("Entry/audience region","This cue service currently uses one region for both entry detection and a region audience."));
+                    facts.add(new Fact("Configuration",binding==null?"Not configured; private preview is available":binding.mode()+" · region="+binding.regionId()+" · condition="+binding.requiredFlag()));
+                    facts.add(new Fact("Entry/audience region","For an entry trigger, the same region also defines who receives a regional cue."));
                     event=new EventForm(binding==null?"MANUAL":binding.mode().name(),binding==null?"":binding.regionId(),binding==null?"":binding.requiredFlag(),binding==null?60:binding.delayTicks()/20,binding!=null,true,!d.sound().isBlank());
-                    controls.add(control(Action.EVENT_PREVIEW,"Preview event",true,"",false,""));
-                    if(!d.sound().isBlank())controls.add(control(Action.EVENT_AUDIO,"Play preview — only me",true,"",false,""));
-                    controls.add(control(Action.EVENT_CHECK,"Check live audience",true,"",false,""));
-                    controls.add(control(Action.EVENT_REVIEW,"Run event…",active&&!held(server)&&binding!=null&&delivery==null,"Requires ACTIVE, a valid saved audience/configuration, no prior claim and no operation hold.",false,""));
-                    if(c.reviewId.equals(id))controls.add(control(Action.EVENT_RUN,"Run this event",true,"",true,""));
+                    controls.add(control(Action.EVENT_PREVIEW,"Preview cue",true,"",false,""));
+                    if(!d.sound().isBlank())controls.add(control(Action.EVENT_AUDIO,"Preview sound",true,"",false,""));
+                    controls.add(control(Action.EVENT_CHECK,"Check audience",true,"",false,""));
+                    controls.add(control(Action.EVENT_REVIEW,"Review run",active&&!held(server)&&binding!=null&&delivery==null,"Start play and save this cue's trigger first. A cue already run must be reset before it can run again.",false,""));
+                    if(c.reviewId.equals(id))controls.add(control(Action.EVENT_RUN,"Run now",true,"",true,""));
                     controls.add(control(Action.EVENT_SAVE,"Save event configuration",canEdit,editReason,false,"EVENT_DRAFT"));
                     if(binding!=null){controls.add(control(Action.EVENT_DISABLE_AUTO,"Disable automatic trigger",canEdit,editReason,true,""));controls.add(control(Action.EVENT_REMOVE,"Remove event configuration",canEdit,editReason,true,""));}
                     if(delivery!=null)controls.add(control(Action.EVENT_RESET,"Allow event again",canEdit,editReason,true,""));
                 } else {
-                    var d=gameEvent(id);title=d.id();description="Game-state action · "+d.description();
+                    var d=gameEvent(id);title=eventLabel(d.id());description="Game action. "+d.description();
                     facts.add(new Fact("Required conditions",d.requiredFlags().toString()));facts.add(new Fact("Completion",ChronicleRuntime.service(server).state().completedEvents().contains(raw(id))?"Completed":"Not completed"));
                     facts.add(new Fact("Readiness",ChronicleRuntime.service(server).preview(raw(id))));
-                    controls.add(control(Action.EVENT_PREVIEW,"Preview event",true,"",false,""));controls.add(control(Action.EVENT_CHECK,"Check readiness",true,"",false,""));
-                    controls.add(control(Action.EVENT_REVIEW,"Run event…",active&&!held(server)&&ChronicleRuntime.service(server).preview(raw(id)).equals("Ready."),"Requires active play and satisfied conditions.",false,""));
-                    if(c.reviewId.equals(id))controls.add(control(Action.EVENT_RUN,"Run this event",true,"",true,""));
+                    controls.add(control(Action.EVENT_PREVIEW,"Preview action",true,"",false,""));controls.add(control(Action.EVENT_CHECK,"Check readiness",true,"",false,""));
+                    controls.add(control(Action.EVENT_REVIEW,"Review run",active&&!held(server)&&ChronicleRuntime.service(server).preview(raw(id)).equals("Ready."),"Requires active play and satisfied conditions.",false,""));
+                    if(c.reviewId.equals(id))controls.add(control(Action.EVENT_RUN,"Run now",true,"",true,""));
                 }
             }
             case CHESTS -> {
-                title="Bound chests";description="Physical loot containers and their table bindings. Item probabilities and refill settings live separately in Loot Tables.";
+                title="Bound chests";description="Choose a loot table for a physical chest. Edit possible items and refill settings in Loot Tables.";
                 boolean supported=false;
                 try{var target=ChestAuthoring.target(source);ChestAuthoring.supported(source.getWorld(),target);supported=true;facts.add(new Fact("Looked-at container",source.getWorld().getRegistryKey().getValue()+" · "+target.toShortString()+" · "+Registries.BLOCK.getId(source.getWorld().getBlockState(target).getBlock())));}
                 catch(IllegalArgumentException|IllegalStateException exception){facts.add(new Fact("Looked-at container","No supported container in reach"));}
                 controls.add(control(Action.CHEST_BIND,"Bind looked-at chest…",canEdit&&supported,canEdit?"Look at a supported chest, barrel or shulker box within reach.":editReason,true,"LOOT_TYPE"));
                 if(!id.isBlank()) {
                     var b=chest(server,id);var t=b.directTarget();title="Chest at "+t.x()+" "+t.y()+" "+t.z();
-                    facts.add(new Fact("Loot table",b.lootType()));facts.add(new Fact("Container",t.dimension()+" · "+t.expectedBlock()));facts.add(new Fact("Fill behavior","Scheduled fills REPLACE ALL contents; binding/inspection does not fill now."));
+                    facts.add(new Fact("Loot table",b.lootType()));facts.add(new Fact("Container",t.dimension()+" · "+t.expectedBlock()));facts.add(new Fact("Fill behavior","Session-start and timed refills replace all contents. Binding or viewing this chest does not fill it."));
                     controls.add(control(Action.SHOW,"Show chest",true,"",false,""));controls.add(control(Action.TABLE_OPEN,"Open loot table",true,"",false,""));controls.add(control(Action.CHEST_RETYPE,"Change loot table…",canEdit,editReason,true,"LOOT_TYPE"));controls.add(control(Action.CHEST_UNBIND,"Unbind chest",canEdit,editReason,true,""));
                 }
             }
@@ -387,7 +409,7 @@ public final class CoreMenuServer {
                 controls.add(control(Action.LOOT_RELOAD,"Reload loot configuration",canEdit,editReason,true,""));
             }
             case REGIONS -> {
-                title="Regions";description="Select positions in the world, then review and save. Continue in world activates this draft and private bounding box automatically.";
+                title="Regions";description="Create a region, continue in the world to select its two corners, then return here to save.";
                 var draft=canEdit?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null;
                 controls.add(control(Action.REGION_NEW,"Create region…",canEdit,editReason,draft!=null,"ID"));
                 var unassigned=ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->!MapSiteAssignments.bindings(server).containsKey(role.id())).map(AuthoringCatalog.Role::label).toList();
@@ -399,30 +421,37 @@ public final class CoreMenuServer {
                 if(draft!=null&&draft.id().equals(id)) {
                     title="Region draft · "+draft.id();region=new RegionForm(draft.id(),draft.dimension(),draft.baseRevision(),coordinates(draft.first()),coordinates(draft.second()));
                     facts.add(new Fact("Step 1","Continue in world; stand at a corner and run /chronicles author region pos1 or pos2. Each changes only its own position."));
-                    facts.add(new Fact("Position 1",coordinates(draft.first())));facts.add(new Fact("Position 2",coordinates(draft.second())));facts.add(new Fact("Step 2","Return here to save; existing pinned consumers become stale after changed bounds."));
+                    facts.add(new Fact("Position 1",coordinates(draft.first())));facts.add(new Fact("Position 2",coordinates(draft.second())));facts.add(new Fact("Step 2","Return here to save. If a game uses the old bounds, review that use again after saving."));
                     controls.add(control(Action.REGION_CONTINUE,"Continue in world",canEdit,editReason,false,""));
                     controls.add(control(Action.REGION_POSITION,"Change position 1…",canEdit,editReason,false,"POSITION1"));controls.add(control(Action.REGION_POSITION,"Change position 2…",canEdit,editReason,false,"POSITION2"));
                     controls.add(control(draft.existing()?Action.REGION_SAVE:Action.REGION_CREATE,draft.existing()?"Save region changes":"Create selected region",canEdit&&draft.complete(),"Select both positions in the same dimension first.",draft.existing(),""));
                 }
             }
             case LOCATIONS -> {
-                boolean block="BLOCK".equals(c.filter);title=block?"Block sites":"Points";description=block?"Managed supplied blocks and optional manual vanilla or third-party references.":"A saved position and facing for game uses. No physical block is required.";
+                boolean block="BLOCK".equals(c.filter);title=block?"Block sites":"Points";description=block?"Placed game blocks register themselves. You can also save a reference to a vanilla or other block.":"A saved position and facing for game systems. No block is required.";
                 if(block){
-                    if(!id.startsWith("limit:"))facts.add(new Fact("Looked-at block",player.getEntityWorld().getRegistryKey().getValue()+" / "+targetKey(player)));
+                    facts.add(new Fact("Looked-at block",player.getEntityWorld().getRegistryKey().getValue()+" / "+targetKey(player)));
                     var snapshot=ManagedBlocks.snapshot(server);
                     if(!snapshot.ready())facts.add(new Fact("Managed blocks",snapshot.problem().isBlank()?"Unavailable":snapshot.problem()));
                     controls.add(control(Action.BLOCK_CREATE,"Bind looked-at block…",canEdit&&!lookedAtManagedBlock(player),!canEdit?editReason:"Supplied managed blocks register automatically.",false,"ID"));
-                    controls.add(control(Action.BLOCK_LIMITS,"Block limits…",true,"",false,"BLOCK_LIMIT_TYPE"));
                 }
                 else controls.add(control(Action.POINT_CREATE,"Save my position…",canEdit,editReason,false,"ID"));
-                if(block&&id.startsWith("limit:")){title=managedTypeLabel(server,id);managedLimitDetail(server,c,id,facts,controls,canEdit,editReason);break;}
                 if(block&&id.startsWith("managed:")){title=managedInstance(server,id).label();managedDetail(server,c,id,facts,controls,canEdit,editReason);break;}
                 var site=sites(server).get(manualSiteId(server,id));if(site!=null){title=site.id();facts.add(new Fact("Location",describe(site)));facts.add(new Fact("Used by",references(server,site.id())));controls.add(control(Action.SHOW,block?"Show block site":"Show point",true,"",false,""));controls.add(control(block?Action.BLOCK_UPDATE:Action.POINT_UPDATE,block?"Replace block site":"Update to my position",canEdit,editReason,true,""));controls.add(control(Action.SITE_DELETE,"Delete location",canEdit,editReason,true,""));if(!block&&!pointRoles().isEmpty()){controls.add(control(Action.POINT_ASSIGN,"Use for…",canEdit,editReason,true,"POINT_PURPOSE"));if(pointPurposeCount(server,site.id())>0)controls.add(control(Action.POINT_UNASSIGN,"Clear use…",canEdit,editReason,true,"POINT_BOUND"));}}
-                facts.add(new Fact("Behavior",block?"Supplied blocks register themselves; manual references do not change their capacity.":"Saving moves nobody. Coordinates, dimension and facing are retained; destinations are opt-in under Players."));
+                facts.add(new Fact("Behavior",block?"Game blocks register when placed. A manual reference only marks a location.":"Saving a point moves nobody. Choose player travel destinations under Players."));
             }
             case SETUP -> {
-                title="Game setup";description="Global tools for this campaign. Region uses are under Regions and point uses are under Locations. This enables no ecology, event or player move.";
-                if(id.startsWith("tool:")) {
+                title="Game setup";description="Global game settings. Configure regions under Regions, and saved points or blocks under Locations.";
+                if(id.equals("limits")) {
+                    title="Block limits";description="Choose how many supplied blocks may be placed. Existing blocks stay in the world.";
+                    var snapshot=ManagedBlocks.snapshot(server);
+                    if(!snapshot.ready())facts.add(new Fact("Block policy",snapshot.problem().isBlank()?"Unavailable":snapshot.problem()));
+                    snapshot.types().forEach(type->facts.add(new Fact(type.label(),type.count()+" / "+type.limit()+" - "+limitStatus(type))));
+                    controls.add(control(Action.BLOCK_LIMITS,"Choose block type…",!snapshot.types().isEmpty(),"No supplied block types are registered.",false,"BLOCK_LIMIT_TYPE"));
+                } else if(id.startsWith("limit:")) {
+                    title=managedTypeLabel(server,id);description="Existing blocks stay in place. The limit controls new placements.";
+                    managedLimitDetail(server,c,id,facts,controls,canEdit,editReason);
+                } else if(id.startsWith("tool:")) {
                     var tool=GameSetupTools.get(toolId(id)).orElse(null);
                     if(tool!=null) {
                         title=tool.label();description=tool.description();
@@ -441,6 +470,8 @@ public final class CoreMenuServer {
                 } else facts.add(new Fact("Scope","Only installed global tools appear here. Hidden-faction voting, Journey chapters and future campaign tools are not required here."));
             }
         }
+        if(SessionBuilding.enabled(server)&&facts.stream().noneMatch(f->f.label().equals("Building Mode")))
+            facts.add(new Fact("Building Mode","On - anyone may change the map; survival remains frozen."));
         return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region);
     }
 
@@ -470,7 +501,7 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
         var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries());
-        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
+        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
     private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
@@ -543,7 +574,7 @@ public final class CoreMenuServer {
     private static void managedDetail(MinecraftServer server,Context context,String id,List<Fact> facts,List<Control> controls,boolean canEdit,String editReason) {
         var instance=managedInstance(server,id);var type=ManagedBlocks.snapshot(server).types().stream().filter(candidate->candidate.typeId().equals(instance.typeId())).findFirst().orElse(null);
         facts.add(new Fact("Status",instance.status().name()));facts.add(new Fact("Block",instance.actualBlock()));facts.add(new Fact("Location",instance.dimension()+" · "+coordinates(instance.position())));
-        if(type!=null)facts.add(new Fact("Capacity",type.count()+" / "+type.limit()+(type.overLimit()?" · over limit":"")));
+        if(type!=null)facts.add(new Fact("Capacity",type.count()+" / "+type.limit()+" - "+limitStatus(type)));
         var aliases=manualAliases(server,instance);
         controls.add(control(Action.MANAGED_SHOW,"Show block site",true,"",false,""));
         if(aliases.size()==1) {
@@ -558,10 +589,12 @@ public final class CoreMenuServer {
     private static void managedLimitDetail(MinecraftServer server,Context context,String id,List<Fact> facts,List<Control> controls,boolean canEdit,String editReason) {
         String typeId=id.substring("limit:".length());var snapshot=ManagedBlocks.snapshot(server);var type=snapshot.types().stream().filter(candidate->candidate.typeId().equals(typeId)).findFirst().orElseThrow(()->new IllegalArgumentException("That managed block type is no longer available."));
         context.managedPolicyRevision=snapshot.policyRevision();
-        facts.add(new Fact("Registered block",type.blockId()));facts.add(new Fact("Current blocks",Integer.toString(type.count())));facts.add(new Fact("Limit",type.fixed()?"Fixed at "+type.limit():Integer.toString(type.limit())));if(type.overLimit())facts.add(new Fact("Status","Over limit; existing blocks remain and new placements are refused."));
+        facts.add(new Fact("Registered block",type.blockId()));facts.add(new Fact("Current blocks",Integer.toString(type.count())));facts.add(new Fact("Limit",type.fixed()?"Fixed at "+type.limit():Integer.toString(type.limit())));facts.add(new Fact("Capacity",limitStatus(type)));
         if(!type.fixed())controls.add(control(Action.BLOCK_LIMIT_SET,"Set limit…",canEdit&&snapshot.ready(),snapshot.ready()?editReason:shortText(snapshot.problem(),512),true,"INTEGER"));
-        controls.add(control(Action.REFRESH,"Back to block sites",true,"",false,"BLOCK_SITES"));
+        controls.add(control(Action.BLOCK_LIMITS,"Choose block type…",true,"",false,"BLOCK_LIMIT_TYPE"));
+        controls.add(control(Action.REFRESH,"Back to game setup",true,"",false,"GAME_SETUP"));
     }
+    private static String limitStatus(ManagedBlockTypeView type) { return type.overLimit()?"Over limit":type.count()>=type.limit()?"Limit reached":"Available"; }
     private static boolean lookedAtManagedBlock(ServerPlayerEntity player) {
         var world=player.getEntityWorld();var start=player.getEyePos();var end=start.add(player.getRotationVec(1).multiply(6));
         for(int sample=0;sample<=24;sample++){BlockPos position=BlockPos.ofFloored(start.lerp(end,sample/24.0));if(!world.getChunkManager().isChunkLoaded(position.getX()>>4,position.getZ()>>4))return false;}
@@ -606,7 +639,7 @@ public final class CoreMenuServer {
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
     private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries) { }
-    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object automatic,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
+    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object automatic,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private static final class Context {
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="";Frame frame,reviewFrame;
         PlayRuntime.Preview observation;LootType expectedLoot;Picker picker;

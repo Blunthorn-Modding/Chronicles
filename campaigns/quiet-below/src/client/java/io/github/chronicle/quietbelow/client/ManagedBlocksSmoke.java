@@ -79,13 +79,15 @@ final class ManagedBlocksSmoke {
         }catch(Throwable error){finish(client,false,error.getClass().getSimpleName()+": "+error.getMessage());}
     }
     private void build(MinecraftClient client){
+        command(client,"enable explicit paused map editing","chronicles author mode on","Author mode enabled");
+        command(client,"enable global paused map work","chronicles session building on","Building Mode enabled for everyone");
         if(phase.equals("initial")){
             step("fresh fixture player is in Creative",()->{},()->client.player.isCreative(),15_000);
             teleport(client,128.5,66,134.5);
             loaded(client,"initial",120,120,144,144);
             command(client,"build only the currently player-loaded floor","fill 120 63 120 144 63 144 minecraft:stone","filled");
             teleport(client,128.5,64,134.5);
-            command(client,"use ordinary Survival placement","gamemode survival","survival");
+            command(client,"use Survival map placement with explicit editing","gamemode survival","survival");
             give(client,ALTAR,2,QuietBelow.ANCIENT_ALTAR);
             place(client,"first Altar consumes exactly one item and auto-registers",FIRST,QuietBelow.ANCIENT_ALTAR,1,true);
             place(client,"second Altar is refused without consuming its item",new BlockPos(129,64,133),QuietBelow.ANCIENT_ALTAR,1,false);
@@ -151,9 +153,9 @@ final class ManagedBlocksSmoke {
     private void limit(MinecraftClient client,int value){
         step("open management for limit "+value,()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,15_000);
         step("enable server-authorized policy editing",()->{if(!menu(client).state().editing())press(menu(client),"Enable editing");},()->menu(client).state().editing(),15_000);
-        step("open Locations for placement policy",()->press(menu(client),"Locations"),()->menu(client).state().page()==Page.LOCATIONS,15_000);
-        step("open flat Block sites",()->press(menu(client),"Block sites"),()->menu(client).state().filter().equals("BLOCK"),15_000);
-        step("choose generic Block limits",()->press(menu(client),"Block limits\u2026"),()->menu(client).state().picker()!=null&&menu(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE"),15_000);
+        step("open Game setup for placement policy",()->press(menu(client),"Game setup"),()->menu(client).state().page()==Page.SETUP,15_000);
+        step("select the sole Block limits entry",()->menu(client).selectForTest("limits"),()->menu(client).state().selected().equals("limits"),15_000);
+        step("choose generic Block limits",()->press(menu(client),"Choose block type\u2026"),()->menu(client).state().picker()!=null&&menu(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE"),15_000);
         step("choose Altar type policy",()->menu(client).selectForTest(ALTAR),()->menu(client).state().selected().equals("limit:"+ALTAR)&&menu(client).state().picker()==null,15_000);
         step("capture native limit detail "+value,()->ScreenshotRecorder.saveScreenshot(output.toFile(),"limit-"+phase+"-"+value+".png",client.getFramebuffer(),1,ignored->{}),()->pngReady(output.resolve("screenshots/limit-"+phase+"-"+value+".png")),15_000);
         step("enter typed cap",()->press(menu(client),"Set limit\u2026"),()->true,1_000);

@@ -1,6 +1,6 @@
 # Chronicle
 
-**Combined review, dev.46:** the Heart pulses, makes a bounded final growth attempt and directly summons one normal Warden, with a persisted ten occupied ACTIVE-minute cooldown. The sixty-second weakness rule remains. Regions is the sole region workflow; Locations has a flat Block sites list. Supplied blocks register automatically, with configurable Altar/Forge limits and an immutable single Heart root. [Review these together](docs/M12_COMBINED_REVIEW.md).
+**Combined review, dev.47:** paused play now freezes player survival and world-changing interactions while allowing movement and explicit global Building Mode for everyone. Metadata editing remains operator-only. The Heart's last stand spreads across a surface-adaptive5x5 footprint. Block limits lives solely in Game setup. The editor uses native popup/widgets, optional Debug details and clearer wording; ACTIVE status fades after one message. [Review these together](docs/M12_COMBINED_REVIEW.md).
 
 Install the refreshed [matching client pack](../client/Chronicle-M9-1.21.10.mrpack), then join authenticated **127.0.0.1:25589**, currently **PAUSED**. The world, tuning and access settings were preserved through a stopped verified backup. 385 Java/77 Python tests, native placement/restart/menu/layout checks and the exact saved-world Heart regression pass; independent reviews are clear. Human review precedes M13 handcrafted-map/group readiness. Older dated paragraphs below are historical.
 

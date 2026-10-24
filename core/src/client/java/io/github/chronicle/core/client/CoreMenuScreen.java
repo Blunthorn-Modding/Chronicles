@@ -3,6 +3,7 @@ package io.github.chronicle.core.client;
 import io.github.chronicle.core.loot.LootEntry;
 import io.github.chronicle.core.loot.LootTableDraftJson;
 import io.github.chronicle.core.loot.LootType;
+import io.github.chronicle.core.menu.CoreMenuPresentation;
 import io.github.chronicle.core.menu.CoreMenuModel.Action;
 import io.github.chronicle.core.menu.CoreMenuModel.Control;
 import io.github.chronicle.core.menu.CoreMenuModel.Detail;
@@ -20,7 +21,9 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -33,6 +36,7 @@ import java.util.Map;
  * selection, permissions and all mutations remain server-authoritative.
  */
 public final class CoreMenuScreen extends Screen {
+    private static final Identifier POPUP = Identifier.ofVanilla("popup/background");
     private static final int RESPONSE_TIMEOUT = 20 * 10;
     private static final int REFRESH_TICKS = 20 * 2;
     private static final Page[] NAVIGATION = {Page.SESSION, Page.PLAYERS, Page.EVENTS, Page.CHESTS,
@@ -50,6 +54,7 @@ public final class CoreMenuScreen extends Screen {
     private int actionOffset;
     private int factOffset;
     private boolean detailOnCompact;
+    private boolean debug;
     private String selected = "";
     private String locationFilter = "";
     private final Map<Page, String> pageSelections = new java.util.EnumMap<>(Page.class);
@@ -82,11 +87,20 @@ public final class CoreMenuScreen extends Screen {
         state = initial;
         selected = initial.selected();
         notice = initial.message();
+        debug = EditorMenuPreferences.debug();
         loadForms(initial.detail());
     }
 
     public View state() { return state; }
     public boolean pending() { return pending; }
+    /** Native-smoke hook for presentation-only fact visibility. */
+    public List<String> debugVisibleFactLabelsForTest() {
+        if (state.detail() == null) return List.of();
+        return state.detail().facts().stream().filter(fact -> CoreMenuPresentation.showFact(fact, debug))
+                .map(fact -> fact.label()).toList();
+    }
+    public boolean debugForTest() { return debug; }
+    public void toggleDebugForTest() { setDebug(!debug); }
     public boolean triggerForTest(String label) {
         ButtonWidget button = buttons.get(label);
         if (button == null || !button.active || !button.visible) return false;
@@ -197,6 +211,11 @@ public final class CoreMenuScreen extends Screen {
             if (!compact) detail(mainLeft + listWidth + 5, top, mainWidth - listWidth - 5, height - top - 66);
         }
         if (pickerAction != null && state.picker() == null) promptWidgets(mainLeft, height - 66, mainWidth);
+        if (state.operator()) {
+            String label = debugLabel();
+            button(label, Math.max(5, width - 130), height - 25, 66,
+                    () -> setDebug(!debug), "Show or hide editor diagnostics on this client", true);
+        }
         button("Close", width - 59, height - 25, 54, 18, this::close, "Close this menu", true);
     }
 
@@ -208,7 +227,7 @@ public final class CoreMenuScreen extends Screen {
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BLOCK_LIMITS) {
+                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE) {
                     control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
@@ -271,8 +290,8 @@ public final class CoreMenuScreen extends Screen {
             drawLine(state.page() == Page.EVENTS ? "Event preview" : "Movement review", x, cursor, w, 0xFF77CCFF);
             cursor = wrapped(eventPreview, x, cursor + 10, w, 0xFFCCCCCC, 3);
         }
-        cursor = wrapped(detail.description(), x, cursor, w, 0xFFA0A0A0, 3);
-        for (var fact : detail.facts()) {
+        cursor = wrapped(detail.description(), x, cursor, w, 0xFFFFFFFF, 3);
+        for (var fact : detail.facts()) if (CoreMenuPresentation.showFact(fact, debug)) {
             cursor = wrapped(fact.label() + ": " + fact.value(), x, cursor, w, 0xFFCCCCCC, 8);
         }
         if (state.page() == Page.EVENTS && detail.event() != null) cursor = eventForm(detail.event(), x, cursor, w);
@@ -396,7 +415,7 @@ public final class CoreMenuScreen extends Screen {
         if (input.equals("EVENT_DRAFT")) { saveEvent(); return; }
         if (input.equals("POSITION1")) { prompt(control.action(), detailId(), "1:"); return; }
         if (input.equals("POSITION2")) { prompt(control.action(), detailId(), "2:"); return; }
-        if (input.equals("BLOCK_SITES")) { locations("BLOCK"); return; }
+        if (input.equals("GAME_SETUP")) { selected="limits";pageSelections.put(Page.SETUP,"limits");open(Page.SETUP); return; }
         if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS") || input.equals("REGION_PURPOSE") || input.equals("REGION_BOUND") || input.equals("POINT_PURPOSE") || input.equals("POINT_BOUND") || input.equals("BLOCK_LIMIT_TYPE") || input.equals("MANUAL_REFERENCE")) {
             beginPicker(new PendingPicker(control.action(), detailId(), input)); return;
         }
@@ -592,18 +611,39 @@ public final class CoreMenuScreen extends Screen {
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
     @Override public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
-        context.fill(0, 0, width, height, 0xF01C211A);
-        context.drawTextWithShadow(textRenderer, Text.literal("Chronicle"), 5, 6, 0xFFFFFFFF);
-        String mode = state.editing() ? "Editing enabled" : "Editing off";
-        draw(context, "Session " + state.session() + " " + state.phase() + " · " + mode + (state.hold().isBlank() ? "" : " · Hold: " + state.hold()), 5, 20, width - 10, state.editing() ? 0xFF77FF77 : 0xFFFFCC66);
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, 2, 2, Math.max(1, width - 4), Math.max(1, height - 4));
+        context.drawTextWithShadow(textRenderer, Text.literal("Chronicle"), 7, 7, 0xFFFFFFFF);
+        boolean building = state.detail() != null && state.detail().facts().stream()
+                .anyMatch(fact -> fact.label().equals("Building Mode") && fact.value().startsWith("On - "));
+        if (building) {
+            draw(context, "Building Mode is on - anyone can change the map.", 7, 21, width - 14, 0xFFFFCC66);
+        } else if (debug) {
+            String mode = state.editing() ? "Editing enabled" : "Editing off";
+            draw(context, "Session " + state.session() + " " + state.phase() + " · " + mode
+                    + (state.hold().isBlank() ? "" : " · Hold: " + state.hold()), 7, 21, width - 14,
+                    state.editing() ? 0xFF77FF77 : 0xFFFFCC66);
+        } else if (!state.hold().isBlank()) {
+            draw(context, "Chronicle is held: " + state.hold(), 7, 21, width - 14, 0xFFFFCC66);
+        } else if (state.editing()) {
+            draw(context, "Editing is enabled.", 7, 21, width - 14, 0xFF77FF77);
+        }
         String message = notice.isBlank() ? (pending ? "Waiting for server..." : "Choose an item, then use the actions on the right.") : notice;
-        draw(context, message, 5, height - 43, width - 68, state.success() ? 0xFF77FF77 : 0xFFFFCC66);
-        if (!state.clock().isBlank()) draw(context, state.clock(), 5, height - 24, width - 70, 0xFFA0A0A0);
-        for (RenderLine line : renderLines) if (line.top() == 0 || (line.y() >= line.top() && line.y() + 9 <= line.bottom())) draw(context, line.value(), line.x(), line.y(), line.width(), line.color());
+        if (CoreMenuPresentation.showFooterMessage(notice, pending, debug))
+            draw(context, message, 7, height - 43, width - 140, state.success() ? 0xFF77FF77 : 0xFFFFCC66);
+        if (debug && !state.clock().isBlank()) draw(context, state.clock(), 7, height - 24, width - 140, 0xFFA0A0A0);
+        for (RenderLine line : renderLines) if (line.top() == 0 || (line.y() >= line.top() && line.y() + 9 <= line.bottom()))
+            draw(context, line.value(), line.x(), line.y(), line.width(), line.color());
         super.render(context, mouseX, mouseY, deltaTicks);
     }
     @Override public boolean shouldPause() { return false; }
     @Override public void close() { CoreMenuClient.closed(state.token()); super.close(); }
+
+    private void setDebug(boolean value) {
+        if (debug == value) return;
+        debug = value;
+        EditorMenuPreferences.setDebug(value);
+        clearAndInit();
+    }
 
     private void loadForms(Detail detail) {
         if (detail == null) return;
@@ -640,6 +680,7 @@ public final class CoreMenuScreen extends Screen {
     private static String blank(String value, String fallback) { return value == null || value.isBlank() ? fallback : value; }
     private record Confirmation(String title, String body, long token, Runnable execute) { }
     private record PendingPicker(Action action, String id, String kind) { }
+    private String debugLabel() { return "Debug: " + (debug ? "on" : "off"); }
     private record RenderLine(String value, int x, int y, int width, int color, int top, int bottom) { }
     public record ButtonProbe(int identity, boolean active, boolean hovered, boolean focused) { }
 }

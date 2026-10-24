@@ -17,7 +17,7 @@ public final class CoreMenuModel {
         REGION_NEW, REGION_EDIT, REGION_POSITION, REGION_CONTINUE, REGION_SAVE, REGION_CREATE,
         POINT_CREATE, POINT_UPDATE, BLOCK_CREATE, BLOCK_UPDATE, SITE_DELETE, SETUP_ASSIGN, SETUP_CLEAR, TOOL_ACTION,
         REGION_ASSIGN, REGION_UNASSIGN, POINT_ASSIGN, POINT_UNASSIGN, BLOCK_LIMITS, BLOCK_LIMIT_SET, MANAGED_SHOW,
-        MANUAL_REFERENCES
+        MANUAL_REFERENCES, SESSION_BUILD_ON, SESSION_BUILD_OFF
     }
     public record Entry(String id, String label, String description, String kind, String reference, long revision) {
         public Entry { text(id,160);text(label,160);text(description,2048);text(kind,32);text(reference,160);if(revision<0)throw new IllegalArgumentException("Invalid revision"); }

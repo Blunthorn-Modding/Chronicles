@@ -1,5 +1,7 @@
 # Automatic block placement and flat configuration (dev.46)
 
+**24 October dev.47 routing correction:** Block limits is exclusively under Game setup; Locations only reports physical capacity/status. Metadata editing changes limits, while explicit global Building Mode grants paused placement to everyone. The dated dev.46 implementation below remains persistence/migration history. See [current review](M12_COMBINED_REVIEW.md) and [evidence](TEST_PLAN.md).
+
 Core owns generic managed-block definitions, placement quotas, physical accounting and menu controls. Quiet Below registers the Ancient Altar and Forge with editable limits of one each, and the Relic Heart with a fixed structural limit of one. The dedicated UI design and backend architecture were reviewed before implementation; see [design](M12_AUTOMATIC_BLOCK_SITES.md) and [architecture](M12_BLOCK_SITE_ARCHITECTURE.md).
 
 ## Placement and persistence

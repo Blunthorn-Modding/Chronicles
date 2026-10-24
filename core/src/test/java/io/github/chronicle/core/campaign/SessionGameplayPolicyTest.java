@@ -12,16 +12,15 @@ class SessionGameplayPolicyTest {
         assertTrue(SessionGameplayPolicy.frozen(null, false));
         assertTrue(SessionGameplayPolicy.frozen(null, true));
     }
-    @Test void pausedMapWorkRequiresBothLiveAuthorityAndExplicitEditing() {
+    @Test void globalBuildingModeIsIndependentOfPlayerAuthorityAndNeverUnfreezesSurvival() {
         for (SessionPhase phase : SessionPhase.values()) {
-            for (boolean operator : new boolean[]{false, true}) {
-                for (boolean editing : new boolean[]{false, true}) {
-                    assertEquals(phase == SessionPhase.ACTIVE || (operator && editing),
-                            SessionGameplayPolicy.canBuild(phase, false, operator, editing));
-                    assertFalse(SessionGameplayPolicy.canBuild(phase, true, operator, editing));
-                }
+            for (boolean building : new boolean[]{false, true}) {
+                assertEquals(phase == SessionPhase.ACTIVE || building,
+                        SessionGameplayPolicy.canBuild(phase, false, building));
+                assertFalse(SessionGameplayPolicy.canBuild(phase, true, building));
+                assertEquals(phase != SessionPhase.ACTIVE, SessionGameplayPolicy.frozen(phase, false));
             }
         }
-        assertFalse(SessionGameplayPolicy.canBuild(null, false, true, true));
+        assertFalse(SessionGameplayPolicy.canBuild(null, false, true));
     }
 }

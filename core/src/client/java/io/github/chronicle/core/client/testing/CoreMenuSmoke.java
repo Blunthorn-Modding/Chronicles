@@ -153,12 +153,13 @@ public final class CoreMenuSmoke {
     }
 
     private void driveOperator(MinecraftClient client) {
-        if(step>=210){driveRegionUses(client);return;}
+        if(step>=20000){driveBuildingMode(client);return;}
+        if(step>=210&&step<1000){driveRegionUses(client);return;}
         if(step>=110){driveBlockBindings(client);return;}
         switch (step) {
             case 0 -> { openMenu(client); advance("operator opened the native menu"); }
             case 1 -> awaitScreen(client, Page.SESSION, "Session");
-            case 2 -> { capture(client, "menu-operator-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); advance("captured native menu layout"); }
+            case 2 -> { verifyCleanDebug(client);capture(client, "menu-operator-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); checks.add("captured native clean menu layout");step=20000; }
             case 3 -> navigate(client, "Players", Page.PLAYERS);
             case 4 -> navigate(client, "Events", Page.EVENTS);
             case 5 -> navigate(client, "Chests", Page.CHESTS);
@@ -236,13 +237,13 @@ public final class CoreMenuSmoke {
             }
             case 32 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().detail().id().equals("cue:quiet_below:city_presence"),
                     "selected unconfigured cue");
-            case 33 -> { capture(client, "menu-event-detail-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); snapshot("unconfigured event before preview", playFile); previewMessageCount = chatCount(CITY_MESSAGE); require(press(screen(client), "Preview event"), "event preview unavailable"); waitingFor = viewCount; step++; }
+            case 33 -> { capture(client, "menu-event-detail-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); snapshot("unconfigured event before preview", playFile); previewMessageCount = chatCount(CITY_MESSAGE); require(press(screen(client), "Preview cue"), "event preview unavailable"); waitingFor = viewCount; step++; }
             case 34 -> awaitView(() -> previewChatArrived(CITY_MESSAGE) && sameSnapshot("unconfigured event before preview", playFile), "paused unconfigured City preview sends private chat without changing play ledger");
             case 35 -> {
                 // This action uses the normal screen callback and server route;
                 // no public delivery or completion is asserted from a sample.
                 previewMessageCount = chatCount(CITY_MESSAGE);
-                if (press(screen(client), "Play preview — only me")) { waitingFor = viewCount; step++; }
+                if (press(screen(client), "Preview sound")) { waitingFor = viewCount; step++; }
                 else { checks.add("cue has no private audio in this fixture"); step = 37; }
             }
             case 36 -> awaitView(() -> previewChatArrived(CITY_MESSAGE) && sameSnapshot("unconfigured event before preview", playFile), "City playback includes private chat and leaves play ledger unchanged");
@@ -325,9 +326,9 @@ public final class CoreMenuSmoke {
             case 92 -> awaitView(() -> screen(client).state().page() == Page.EVENTS, "opened Events for distant preview");
             case 93 -> { screen(client).selectForTest("cue:quiet_below:distant_stir"); waitingFor = viewCount; step++; }
             case 94 -> awaitView(() -> "cue:quiet_below:distant_stir".equals(screen(client).state().selected()), "selected unconfigured Distant stirring");
-            case 95 -> { snapshot("distant preview", playFile); previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview event"), "Distant preview unavailable"); waitingFor = viewCount; step++; }
+            case 95 -> { snapshot("distant preview", playFile); previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview cue"), "Distant preview unavailable"); waitingFor = viewCount; step++; }
             case 96 -> awaitView(() -> previewChatArrived(DISTANT_MESSAGE) && sameSnapshot("distant preview", playFile), "paused Distant preview sends private chat without changing play ledger");
-            case 97 -> { previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Play preview — only me"), "Distant playback unavailable"); waitingFor = viewCount; step++; }
+            case 97 -> { previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview sound"), "Distant playback unavailable"); waitingFor = viewCount; step++; }
             case 98 -> awaitView(() -> previewChatArrived(DISTANT_MESSAGE) && sameSnapshot("distant preview", playFile), "Distant playback includes private chat and leaves play ledger unchanged");
             case 99 -> { try { Files.writeString(output.resolve("preview-chat-checked"), "done", StandardCharsets.UTF_8); } catch (IOException e) { throw new IllegalStateException(e); } advance("both preview actions checked for both cues"); }
             case 100 -> {require(press(screen(client),"Game setup"),"Game setup unavailable");waitingFor=viewCount;step++;}
@@ -353,7 +354,7 @@ public final class CoreMenuSmoke {
                 capture(client,"menu-sculk-ownership.png");require(press(screen(client),"Refresh status"),"ownership refresh unavailable");waitingFor=viewCount;step++;
             }
             case 109 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("Sculk ownership status refreshed")&&sameSize("ecology before read-only refresh",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"ownership read-only refresh leaves journal unchanged");
-            default -> finish(client, true, "completed " + checks.size() + " native operator checks");
+            default -> throw new IllegalStateException("unexpected operator menu step "+step);
         }
     }
 
@@ -372,7 +373,7 @@ public final class CoreMenuSmoke {
             case 120 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"flat Block sites reopened");
             case 121 -> {snapshot("manual cancelled",authoringFile);snapshot("manual bindings",assignmentsFile);require(press(screen(client),"Bind looked-at block\u2026"),"manual block binding unavailable");step++;}
             case 122 -> {require(screen(client).triggerForTest("Cancel"),"manual naming prompt cancellation unavailable");waitingFor=viewCount;step++;}
-            case 123 -> {require(sameSnapshot("manual cancelled",authoringFile),"cancelled manual prompt changed geometry");require(press(screen(client),"Bind looked-at block\u2026"),"manual block binding unavailable after cancel");screen(client).textForTest("menu_smoke_block");waitingFor=viewCount;try{Files.writeString(output.resolve("prompt-disconnect-ready"),"ready");}catch(IOException error){throw new IllegalStateException(error);}step++;}
+            case 123 -> {require(sameSnapshot("manual cancelled",authoringFile),"cancelled manual prompt changed geometry");require(press(screen(client),"Bind looked-at block\u2026"),"manual block binding unavailable after cancel");screen(client).textForTest("menu_smoke_block");var before=screen(client).state();screen(client).toggleDebugForTest();require(screen(client).textForTest().equals("menu_smoke_block")&&screen(client).state()==before,"Debug toggle discarded the prompt or changed the server view");screen(client).toggleDebugForTest();require(screen(client).textForTest().equals("menu_smoke_block"),"Clean toggle discarded the prompt");checks.add("Debug toggle preserves unsaved prompt and server authority");waitingFor=viewCount;try{Files.writeString(output.resolve("prompt-disconnect-ready"),"ready");}catch(IOException error){throw new IllegalStateException(error);}step++;}
             case 124 -> {if(client.player.networkHandler.getPlayerListEntry(PLAYER)!=null||viewCount<=waitingFor)return;require(screen(client).textForTest().equals("menu_smoke_block"),"unrelated disconnect cleared the prompt draft");checks.add("unrelated player disconnect preserves the open naming prompt and typed text");client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 90 0");waitingFor=viewCount;step=173;}
             case 125 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().entries().stream().anyMatch(e->e.id().equals("manual:menu_smoke_block"))&&sameSnapshot("manual bindings",assignmentsFile),"manual vanilla reference appears without a game binding");
             case 126 -> {screen(client).selectForTest("manual:menu_smoke_block");waitingFor=viewCount;step++;}
@@ -381,14 +382,23 @@ public final class CoreMenuSmoke {
             case 129 -> awaitView(()->screen(client).state().success()&&sameSnapshot("manual show",authoringFile),"showing a manual reference leaves geometry unchanged");
             case 130 -> {snapshot("manual replace",authoringFile);require(press(screen(client),"Replace block site"),"manual reference replacement unavailable");waitingFor=viewCount;step++;}
             case 131 -> awaitView(()->!sameSnapshot("manual replace",authoringFile)&&fileContains(authoringFile,"menu_smoke_block")&&sameSnapshot("manual bindings",assignmentsFile),"manual replacement retains identity and changes no game assignment");
-            case 132 -> {require(press(screen(client),"Block limits\u2026"),"generic limit picker unavailable");waitingFor=viewCount;step++;}
-            case 133 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE")&&screen(client).state().picker().entries().size()==3,"generic limit picker lists the three registered supplied types");
+            case 132 -> {require(screen(client).state().detail().controls().stream().noneMatch(c->c.action()==Action.BLOCK_LIMITS||c.action()==Action.BLOCK_LIMIT_SET),"Locations still contains policy controls");snapshot("old limit route",serverRoot.resolve("config/chronicle/managed-block-limits.json"));waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.BLOCK_LIMIT_SET,Page.LOCATIONS,"limit:quiet_below:ancient_forge","2",screen(client).state().token(),0,"BLOCK",""));step=1320;}
+            case 1320 -> {if(viewCount<=waitingFor)return;require(!screen(client).state().success()&&sameSnapshot("old limit route",serverRoot.resolve("config/chronicle/managed-block-limits.json")),"old Locations policy route changed the cap");waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.OPTIONS,Page.LOCATIONS,screen(client).state().selected(),"BLOCK_LIMIT_TYPE",screen(client).state().token(),0,"BLOCK",""));step=1321;}
+            case 1321 -> {if(viewCount<=waitingFor)return;require(!screen(client).state().success()&&screen(client).state().picker()==null&&sameSnapshot("old limit route",serverRoot.resolve("config/chronicle/managed-block-limits.json")),"old Locations policy selector still opened");checks.add("Locations has no policy editor and forged old policy routes are denied");navigate(client,"Game setup",Page.SETUP);step=133;}
+            case 133 -> {if(viewCount<=waitingFor||screen(client).state().page()!=Page.SETUP)return;screen(client).selectForTest("limits");waitingFor=viewCount;step=1330;}
+            case 1330 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limits"))return;require(press(screen(client),"Choose block type\u2026"),"Game setup block type selector unavailable");waitingFor=viewCount;step=1331;}
+            case 1331 -> {if(viewCount<=waitingFor||screen(client).state().picker()==null)return;require(screen(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE")&&screen(client).state().picker().entries().size()==3,"Game setup selector did not list registered types");advance("Game setup owns the sole managed block policy selector");step=134;}
             case 134 -> {screen(client).selectForTest("quiet_below:relic_heart");waitingFor=viewCount;step++;}
-            case 135 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limit:quiet_below:relic_heart"))return;require(screen(client).state().detail().controls().stream().noneMatch(c->c.action()==Action.BLOCK_LIMIT_SET&&c.enabled()),"structural Heart limit is editable");capture(client,"menu-fixed-heart-limit.png");advance("Heart policy is fixed and read only");}
-            case 136 -> {require(press(screen(client),"Back to block sites"),"flat-list return unavailable");waitingFor=viewCount;step++;}
-            case 137 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().picker()==null&&!screen(client).state().selected().startsWith("limit:"),"limit detail returns to the sole physical list");
+            case 135 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limit:quiet_below:relic_heart"))return;require(screen(client).state().detail().controls().stream().noneMatch(c->c.action()==Action.BLOCK_LIMIT_SET&&c.enabled()),"structural Heart limit is editable");capture(client,"menu-fixed-heart-limit.png");advance("Heart policy is fixed and read only");step=1350;}
+            case 1350 -> {require(press(screen(client),"Choose block type\u2026"),"type selector missing");waitingFor=viewCount;step=1351;}
+            case 1351 -> {if(viewCount<=waitingFor||screen(client).state().picker()==null)return;screen(client).selectForTest("quiet_below:ancient_forge");waitingFor=viewCount;step=1352;}
+            case 1352 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limit:quiet_below:ancient_forge"))return;require(press(screen(client),"Set limit\u2026"),"global limit value editor missing");screen(client).textForTest("2");require(press(screen(client),"Send"),"limit value input missing");require(screen(client).triggerForTest("Confirm: Set limit\u2026"),"limit review missing");waitingFor=viewCount;step=1353;}
+            case 1353 -> {if(viewCount<=waitingFor)return;require(screen(client).state().success()&&managedLimitForTest("quiet_below:ancient_forge")==2,"Game setup did not save Forge cap2");checks.add("Game setup value edit durably changes the selected cap");require(press(screen(client),"Set limit\u2026"),"limit restoration editor missing");screen(client).textForTest("1");require(press(screen(client),"Send"),"limit restoration input missing");require(screen(client).triggerForTest("Confirm: Set limit\u2026"),"limit restoration review missing");waitingFor=viewCount;step=1354;}
+            case 1354 -> {if(viewCount<=waitingFor)return;require(screen(client).state().success()&&managedLimitForTest("quiet_below:ancient_forge")==1,"Forge cap restoration failed");advance("Game setup value edit restores the cap without changing placed blocks");step=136;}
+            case 136 -> {require(press(screen(client),"Back to game setup"),"global settings return unavailable");waitingFor=viewCount;step++;}
+            case 137 -> awaitView(()->screen(client).state().page()==Page.SETUP&&screen(client).state().picker()==null&&screen(client).state().selected().equals("limits"),"limit detail returns to global settings without a Locations link");
             case 138 -> navigate(client,"Game setup",Page.SETUP);
-            case 139 -> {require(screen(client).state().entries().stream().allMatch(e->e.kind().equals("TOOL")),"geometry requirements remain in Game setup");screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;advance("Game setup contains global tools only");}
+            case 139 -> {require(screen(client).state().entries().stream().allMatch(e->e.kind().equals("TOOL")||e.kind().equals("LIMITS")),"geometry requirements remain in Game setup");screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;advance("Game setup contains global tools only");}
             case 140 -> awaitView(()->screen(client).state().detail().title().equals("Heart weakness"),"Heart weakness remains a global rule");
             case 141 -> {snapshot("forged old binding",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_CLEAR,Page.LOCATIONS,"binding:quiet_below:source_city","",screen(client).state().token(),0,"BINDINGS",""));step++;}
             case 142 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged old binding",assignmentsFile),"obsolete binding packet cannot clear a region use");
@@ -464,11 +474,30 @@ public final class CoreMenuSmoke {
             case 240 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged setup region clear",assignmentsFile),"raw Game setup packet cannot mutate a region use");
             case 241 -> {client.player.networkHandler.sendChatCommand("chronicles setup inspect \"quiet_below:source_city\"");waitingFor=viewCount;step++;}
             case 242 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("forged setup region clear",assignmentsFile),"explicit legacy region inspect remains compatible and read only");
-            default -> finish(client,true,"completed "+checks.size()+" native operator checks");
+            case 243 -> finish(client,true,"completed "+checks.size()+" native operator checks");
+            default -> throw new IllegalStateException("unexpected region menu step "+step);
         }
     }
     private String fact(MinecraftClient client,String name){return screen(client).state().detail().facts().stream().filter(f->f.label().equals(name)).map(f->f.value()).findFirst().orElse("");}
     private boolean boundHeart(){try{return java.util.stream.StreamSupport.stream(com.google.gson.JsonParser.parseString(Files.readString(assignmentsFile)).getAsJsonObject().getAsJsonArray("bindings").spliterator(),false).anyMatch(e->e.getAsJsonObject().get("requirementId").getAsString().equals("quiet_below:relic_heart"));}catch(IOException error){throw new IllegalStateException(error);}}
+
+    private boolean buildingFact(MinecraftClient client, boolean enabled) {
+        var detail=screen(client).state().detail();
+        return detail!=null&&detail.facts().stream().anyMatch(f->f.label().equals("Building Mode")&&f.value().startsWith(enabled?"On - ":"Off - "));
+    }
+    private void driveBuildingMode(MinecraftClient client) {
+        switch(step) {
+            case 20000 -> {screen(client).selectForTest("play");waitingFor=viewCount;step++;}
+            case 20001 -> {if(viewCount<=waitingFor||!buildingFact(client,false))return;require(press(screen(client),"Enable Building Mode"),"confirmed global build control unavailable");waitingFor=viewCount;step++;}
+            case 20002 -> {if(viewCount<=waitingFor||!buildingFact(client,true))return;capture(client,"menu-global-building-on.png");advance("Session explicitly enables global Building Mode");}
+            case 20003 -> {require(press(screen(client),"Disable Building Mode"),"global build off unavailable");waitingFor=viewCount;step++;}
+            case 20004 -> awaitView(()->buildingFact(client,false),"Session disables global Building Mode");
+            case 20005 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SESSION_BUILD_ON,Page.LOCATIONS,"play","",screen(client).state().token(),0,"BLOCK",""));step++;}
+            case 20006 -> {if(viewCount<=waitingFor||screen(client).state().success())return;require(press(screen(client),"Session"),"Session unavailable after denied wrong-page build request");waitingFor=viewCount;step++;}
+            case 20007 -> {if(viewCount<=waitingFor||screen(client).state().page()!=Page.SESSION||!buildingFact(client,false))return;checks.add("Global Building Mode is explicit and wrong-page requests cannot enable it");step=3;}
+            default -> throw new IllegalStateException("unexpected global Building Mode menu step "+step);
+        }
+    }
 
     private void drivePlayer(MinecraftClient client) {
         switch (step) {
@@ -501,8 +530,10 @@ public final class CoreMenuSmoke {
             case 8 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSize("non-op ecology",serverRoot.resolve("world/quiet-below/ecology.jsonl")),"forged non-operator cleanup denied without a journal write");
             case 9 -> {snapshot("non-op block bindings",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_ASSIGN,Page.LOCATIONS,"binding:quiet_below:relic_heart","menu_smoke_region",screen(client).state().token(),0,"BINDINGS",""));step++;}
             case 10 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSnapshot("non-op block bindings",assignmentsFile),"forged non-operator block binding denied without assignment changes");
-            case 11 -> {if(!Files.isRegularFile(output.resolve("prompt-disconnect-ready")))return;advance("disconnect while the operator has an unsaved naming prompt");}
-            default -> finish(client, true, "completed " + checks.size() + " ordinary-player checks");
+            case 11 -> {if(!Files.isRegularFile(output.resolve("prompt-disconnect-ready")))return;waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SESSION_BUILD_ON,Page.SESSION,"play","",screen(client).state().token(),0,"",""));step=13;}
+            case 13 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator(),"forged non-operator global Building Mode request is denied");
+            case 14 -> {checks.add("disconnect while the operator has an unsaved naming prompt");finish(client, true, "completed " + checks.size() + " ordinary-player checks");}
+            default -> throw new IllegalStateException("unexpected ordinary-player menu step "+step);
         }
     }
 
@@ -524,16 +555,20 @@ public final class CoreMenuSmoke {
             case 12 -> navigate(client, "Game setup", Page.SETUP);
             case 13 -> {screen(client).selectForTest("tool:quiet_below:heart");waitingFor=viewCount;step++;}
             case 14 -> awaitView(()->screen(client).state().detail().title().equals("Heart weakness"),"layout Heart weakness settings rendered");
-            case 15 -> {capture(client,"menu-layout-heart-weakness.png");advance("captured global settings at requested logical size");}
+            case 15 -> {capture(client,"menu-layout-heart-weakness.png");screen(client).toggleDebugForTest();step=1500;}
+            case 1500 -> {require(screen(client).debugForTest(),"layout Debug view not enabled");capture(client,"menu-layout-heart-debug.png");screen(client).toggleDebugForTest();advance("captured clean and debug global settings at requested logical size");step=16;}
             case 16 -> navigate(client,"Locations",Page.LOCATIONS);
             case 17 -> {require(press(screen(client),"Block sites"),"layout Block sites missing");waitingFor=viewCount;step++;}
             case 18 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"layout saved block sites rendered");
-            case 19 -> {capture(client,"menu-layout-block-sites.png");require(press(screen(client),"Block limits\u2026"),"layout Block limits missing");waitingFor=viewCount;step++;}
-            case 20 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE"),"layout managed type picker rendered");
+            case 19 -> {capture(client,"menu-layout-block-sites.png");require(screen(client).state().detail().controls().stream().noneMatch(c->c.action()==Action.BLOCK_LIMITS||c.action()==Action.BLOCK_LIMIT_SET),"layout Locations policy control remains");navigate(client,"Game setup",Page.SETUP);step=20;}
+            case 20 -> {if(viewCount<=waitingFor||screen(client).state().page()!=Page.SETUP)return;screen(client).selectForTest("limits");waitingFor=viewCount;step=2000;}
+            case 2000 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limits"))return;require(press(screen(client),"Choose block type\u2026"),"layout Game setup type selector missing");waitingFor=viewCount;step=2001;}
+            case 2001 -> {if(viewCount<=waitingFor||screen(client).state().picker()==null)return;require(screen(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE"),"layout policy selector missing");advance("layout managed type selector rendered only under Game setup");step=21;}
             case 21 -> {screen(client).selectForTest("quiet_below:relic_heart");waitingFor=viewCount;step++;}
             case 22 -> awaitView(()->screen(client).state().selected().equals("limit:quiet_below:relic_heart"),"layout fixed Heart limit detail rendered");
             case 23 -> {capture(client,"menu-layout-fixed-limit.png");advance("captured generic limit detail at requested logical size");}
-            default -> finish(client, true, "completed " + checks.size() + " native layout checks");
+            case 24 -> finish(client, true, "completed " + checks.size() + " native layout checks");
+            default -> throw new IllegalStateException("unexpected layout menu step "+step);
         }
     }
 
@@ -582,6 +617,20 @@ public final class CoreMenuSmoke {
         return false;
     }
 
+    private void verifyCleanDebug(MinecraftClient client) {
+        var screen=screen(client);var before=screen.state();
+        require(!screen.debugForTest(),"a fresh client did not default to Clean view");
+        require(!screen.debugVisibleFactLabelsForTest().contains("Active play"),"Clean view exposes the diagnostic clock");
+        screen.toggleDebugForTest();require(screen.debugForTest()&&screen.debugVisibleFactLabelsForTest().contains("Active play"),"Debug view does not reveal diagnostics");
+        require(screen.state()==before,"Debug toggle changed the authoritative view");
+        screen.toggleDebugForTest();require(!screen.debugForTest()&&!screen.debugVisibleFactLabelsForTest().contains("Active play")&&screen.state()==before,"Clean toggle changed authority or failed to hide diagnostics");
+        checks.add("Clean and Debug switch facts without changing server authority");
+    }
+    private int managedLimitForTest(String type){
+        try{var overrides=new com.google.gson.Gson().fromJson(Files.readString(serverRoot.resolve("config/chronicle/managed-block-limits.json")),com.google.gson.JsonObject.class).getAsJsonObject("overrides");
+            return overrides.has(type)?overrides.get(type).getAsInt():ChronicleCore.managedBlocks().get(type).orElseThrow().defaultLimit();}
+        catch(Exception error){throw new IllegalStateException("missing durable managed limit override",error);}
+    }
     private void advance(String check) { checks.add(check); step++; }
     private long chatCount(String text) { return chatMessages.stream().filter(text::equals).count(); }
     private boolean previewChatArrived(String text) { require(chatCount(text) > previewMessageCount, "preview did not send the cue text to chat: " + text); return true; }

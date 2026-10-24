@@ -29,5 +29,7 @@
   "key.chronicle.authoring.open": "Open Core authoring",
   "attribute.chronicle_core.food_capacity": "Maximum food",
   "attribute.chronicle_core.exhaustion_multiplier": "Food exhaustion multiplier",
-  "screen.chronicle.item_workshop.offer": "Offer"
+  "screen.chronicle.item_workshop.offer": "Offer",
+  "chronicle.session.play_active": "Chronicle | Play is active",
+  "chronicle.session.building": "%s | Building Mode on"
 }

@@ -1,21 +1,34 @@
-# Combined correction review: dev.46
+# Combined correction review: dev.47
 
-Use the matching [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and **127.0.0.1:25589**. Minecraft Java 1.21.10, Fabric. This is one disposable comparison world for the Heart, Regions and automatic block-placement corrections. Resume through Session after joining; pause before authoring. Turn editing off before participating.
+Use the matching [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and **127.0.0.1:25589** (Minecraft Java 1.21.10, Fabric). This is one review for the three functional corrections and four presentation improvements. Check the newest TEST_PLAN checkpoint for deployment readiness; this guide alone does not establish a running server.
 
-## Regions and block placement
+## Pause and map work
 
-Game setup contains global tools only. Source-city and takeover purposes are under **Regions**, through the selected region's **Use for...** and **Clear use...**. Editing bounds leaves prior pins stale until explicitly updated.
+While paused, turn editing off and use Survival. You should be able to move and edit character cards, but not place, mine, eat, take damage or lose hunger. Effects and in-flight food use freeze. **Session > Play controls > Enable Building Mode** deliberately permits everyone to place/build while paused; survival progression remains frozen. Only an operator can enable it. Metadata editing is separate and grants no private building bypass. Resume restores ordinary play and clears Building Mode. Holds, phase changes and restart clear it too; reconnecting never restores metadata editing privileges.
 
-**Locations > Block sites** is one flat list. Placing an Ancient Altar or Forge registers it automatically; each defaults to a maximum of one. The existing stations already count. Try another placement: it should be refused without consuming the item. While paused with editing enabled, open **Block limits...**, choose the station type and raise its limit. An additional placement should then work. Lowering a limit keeps existing blocks and refuses further placements. Breaking a station releases its slot after physical verification. The Heart limit remains fixed at one. Manual vanilla references remain available separately from these intrinsic blocks.
+## One configuration destination
+
+**Game setup > Block limits** is the only limit editor. Choose Ancient Altar or Forge, change its maximum, then place an additional block while paused with Building Mode on. Editing is required to change the policy; Building Mode grants actual map interaction. Lowering the limit preserves existing blocks and refuses more placements. The Heart remains fixed at one.
+
+**Locations > Block sites** lists actual supplied blocks and manual references. It shows capacity/status without policy controls or links. Supplied blocks register automatically. Regions alone owns source-city/takeover geometry through **Use for...** and **Clear use...**; Game setup has global settings.
+
+## Four UI improvements together
+
+- ACTIVE status appears briefly, then leaves the hotbar area clear. Paused/held status remains visible.
+- The editor starts in Clean view. **Debug: off/on** in the footer reveals diagnostic facts locally; it must preserve drafts, selection and permissions. Errors, blocked reasons and useful physical status stay visible in both views.
+- Configuration uses the Altar's normal Minecraft popup/widgets and readable text, with the established left tabs. It has no inventory panel. Check scrolling and input at your normal GUI scale 2.
+- Events distinguish private **Preview cue/action**, **Check audience/readiness**, and reviewed execution. Regions explains the two-position workflow. Activity uses readable summaries.
+
+Please review these four as one UI pass. Native coverage includes 320x240,480x270 and 640x360 logical layouts; taste, texture-pack appearance and wording remain human checks.
 
 ## Spread comparison
 
-The Heart and stations are on the small platform; a separate bank contains roughly 4096 sculk cells. A bridge at z3,y64 joins them; replacing the current cut at x8-10 reconnects it. Removing that bridge separates the bank. Game setup's Spread mode shows conservative living Count, effective rate and since-load Attempts. Compare similar occupied ACTIVE periods while connected and disconnected, then compare Fixed rate. Attempts measure opportunities; actual growth depends on available surfaces.
+The Heart/stations are on the small platform; a separate bank has roughly 4096 sculk cells. A bridge at z3,y64 joins them; replacing the cut at x8-10 reconnects it. Game setup's Spread mode shows living Count/effective rate; Debug exposes Attempts. Compare similar occupied ACTIVE periods connected/disconnected, then Fixed rate. Attempts are opportunities; actual growth depends on available surfaces.
 
 ## Heart last stand: test last
 
-The Heart is at **-4,64,0**. Keep the nearby network below Established for **60 occupied ACTIVE seconds**. Unloaded/unresolved branches prevent vulnerability. Its lens and pulses show weakening; it makes one bounded final growth effort and directly summons one normal Warden when a safe local spawn exists. Peaceful difficulty skips the Warden. A final seed may reconnect the network, so keep watching the physical root connection. Reconnecting and cutting again cannot replay the last stand within **ten occupied ACTIVE minutes**. Pauses and downtime do not count; the cooldown persists over restart.
+The Heart is at **-4,64,0**. Keep its network below Established for **60 occupied ACTIVE seconds**. Unresolved/unloaded branches prevent vulnerability. It pulses, spreads explosively across a local **5x5 footprint where eligible surfaces exist**, and directly summons one normal Warden when safe local space exists. Peaceful skips the Warden. Enclosure, exclusions and actual connected geometry still apply; it cannot grow through solid walls. Reconnecting/recutting cannot replay the phase within **ten occupied ACTIVE minutes**. Pauses/downtime do not count; cooldown survives restart.
 
-After sustained weakening, the brown lens marks vulnerability. With editing off, use a pickaxe in Survival to destroy it. Nearby players receive a cryptic message; there is no destruction menu. Eradication permanently ends this fixture's network and removes its Altar bargains. Placing another Heart afterward must fail. Test this after the menu/spread checks because it ends the fixture.
+The brown lens marks vulnerability. With editing off, use a pickaxe in Survival. Nearby players receive a cryptic message; there is no destruction menu. Eradication ends this fixture's network and removes Altar bargains. Test this last because it ends the fixture.
 
-See [last stand](M12_HEART_LAST_STAND.md), [Regions](M12_REGIONS_WORKFLOW.md), [managed blocks](M12_MANAGED_BLOCK_IMPLEMENTATION.md) and [test evidence](TEST_PLAN.md). This synthetic fixture is not a production-map or group-performance soak. M13 still requires the handcrafted map and group playtest.
+See [pause](CF15_PAUSED_GAMEPLAY.md), [last stand](M12_HEART_LAST_STAND.md), [editor design](CF16_EDITOR_UI_DESIGN.md) and [test evidence](TEST_PLAN.md). M13 still requires the handcrafted map/group playtest; this synthetic fixture is not that soak.

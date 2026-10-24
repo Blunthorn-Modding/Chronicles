@@ -1,6 +1,6 @@
 # Operator follow-ups after dev.46
 
-Recorded 23 October 2026. Next implementation work is for 24 October; tonight is documentation only. Keep the existing scoped branch/commit workflow and address corrections sequentially, with independent review. UI changes require a dedicated design pass and lead review before implementation. These notes do not claim any new code or deployment.
+Recorded23 October2026; implementation authorized24 October. The original notes below are retained as acceptance context and are superseded by this status: all three functional corrections and four presentation items are implemented for one combined dev.47 review. Functional points received independent review; the UI received a dedicated design and lead review before implementation. See [pause contract](CF15_PAUSED_GAMEPLAY.md), [Heart burst](M12_HEART_LAST_STAND.md), [editor design](CF16_EDITOR_UI_DESIGN.md), [combined review](M12_COMBINED_REVIEW.md) and [current evidence](TEST_PLAN.md).
 
 ## Next implementation work
 
@@ -8,7 +8,7 @@ Recorded 23 October 2026. Next implementation work is for 24 October; tonight is
 
 Operator reports that a frozen game still permits block placement, eating, damage and hunger loss. Investigate and correct the broader pause/stop behavior in Chronicle Core. Reproduce with the exact session phase, player game mode, editor/author flag, participant state and relevant damage/interaction sources recorded, so intentional builder permissions are distinguishable from a participant bypass.
 
-Inspect the locally supplied `../../VampireSMP-1.1.2.jar` for how VSMP handles session pausing, stopping and build sessions. The [existing reference findings](REFERENCE_VAMPIRE_SMP.md) cover authoring/chests; they do **not** establish its pause/build implementation. That inspection remains pending. Use it as behavioral reference for a Fabric-native Core design, not as an installed Paper dependency or an unreviewed code copy.
+Inspect the locally supplied `../../VampireSMP-1.1.2.jar` for how VSMP handles session pausing, stopping and build sessions. The [existing reference findings](REFERENCE_VAMPIRE_SMP.md) cover authoring/chests; they do **not** establish its pause/build implementation. That inspection was completed for CF15; see its contract and the updated reference findings. Use it as behavioral reference for a Fabric-native Core design, not as an installed Paper dependency or an unreviewed code copy.
 
 Acceptance direction:
 
@@ -27,11 +27,11 @@ Move Block limits exclusively to Game setup. Remove both Locations copies and al
 
 ## After the main functionality
 
-These are future polish tasks, not extra work to fold into tomorrow's functional corrections:
+The operator subsequently authorized bundling these four polish tasks into the same implementation and human review:
 
 - **Session status:** replace the continuously repeated ACTIVE actionbar with a short message when play becomes active, then let it disappear. Keep the paused-session reminder persistent. Choose a consistent transition/reconnect behavior during design.
 - **Editor Debug Mode:** add an optional diagnostics toggle. The default editor view should hide routine technical/status text such as purchases and authority details; debug mode reveals it when needed. Keep ordinary errors and necessary action/confirmation information understandable in the clean view. This is presentation, not a change to server authority or permissions.
 - **Options UI:** redesign the configuration/options screens using the Ancient Altar's visual framework and normal Minecraft UI building blocks. Reuse its presentation conventions rather than its prayer mechanics. Dedicated UI design and review precede implementation.
 - **UI wording:** audit labels, explanations and descriptions for other organizers/players, replacing confusing or technical wording with clear purpose and action text. Coordinate this with the clean/debug split and configuration redesign; keep user-facing descriptions consistent with actual behavior.
 
-The current dev.46 server and pack remain unchanged by these notes. Human acceptance of working functionality does not erase these follow-ups or complete the production-map/group-play milestones.
+The original notes alone made no runtime changes. Deployment status belongs to the newest TEST_PLAN checkpoint; implementation does not complete the production-map/group-play milestones.

@@ -106,6 +106,7 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPED.register(AuthoringRuntime::stop);
         ServerLifecycleEvents.SERVER_STOPPED.register(MapSiteAssignments::stop);
         ServerLifecycleEvents.SERVER_STOPPED.register(RuntimeHolds::stop);
+        ServerLifecycleEvents.SERVER_STOPPED.register(SessionPresentation::stop);
         LOGGER.info("Chronicle Core initialized");
     }
 

@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.github.chronicle.core.ChronicleCore;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
@@ -28,8 +29,9 @@ public final class PauseGameplaySmoke {
     private static final String ADDRESS="127.0.0.1:25575";
     private static PauseGameplaySmoke instance;
     private final Path output,control; private String stage="",running=""; private long started; private Vec3d movementStart; private boolean connected;
+    private int activeBannerCount,stableActiveBannerCount=-1,activeBannerBaseline;
     private PauseGameplaySmoke(Path output,Path control) throws IOException { this.output=output.toAbsolutePath().normalize();this.control=control.toAbsolutePath().normalize();Files.createDirectories(this.output.getParent()); }
-    public static void register() { if(OUTPUT_ENV==null)return;try{instance=new PauseGameplaySmoke(Path.of(OUTPUT_ENV),Path.of(CONTROL_ENV));ClientTickEvents.END_CLIENT_TICK.register(instance::tick);}catch(Exception e){ChronicleCore.LOGGER.error("Pause gameplay smoke setup failed",e);}}
+    public static void register() { if(OUTPUT_ENV==null)return;try{instance=new PauseGameplaySmoke(Path.of(OUTPUT_ENV),Path.of(CONTROL_ENV));ClientReceiveMessageEvents.GAME.register((message,overlay)->{if(overlay&&message.getString().equals("Chronicle | Play is active"))instance.activeBannerCount++;});ClientTickEvents.END_CLIENT_TICK.register(instance::tick);}catch(Exception e){ChronicleCore.LOGGER.error("Pause gameplay smoke setup failed",e);}}
     private void tick(MinecraftClient client) {
         try {
             if(client.player==null){if(client.currentScreen instanceof TitleScreen)ConnectScreen.connect(client.currentScreen,client,ServerAddress.parse(ADDRESS),new ServerInfo("Chronicle pause smoke",ADDRESS,ServerInfo.ServerType.OTHER),false,null);return;}
@@ -42,8 +44,9 @@ public final class PauseGameplaySmoke {
     }
     private void start(MinecraftClient c){
         if(stage.equals("paused")){movementStart=position(c);c.options.forwardKey.setPressed(true);running="move";}
-        else if(stage.equals("author")||stage.equals("revoked")){c.player.getInventory().setSelectedSlot(0);place(c,stage.equals("author")?new BlockPos(4,64,0):new BlockPos(-2,64,0));running="wait";}
-        else if(stage.equals("active")){c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(1,64,0));running="place";}
+        else if(stage.equals("author_only")||stage.equals("building_off")){if(stage.equals("building_off"))activeBannerBaseline=activeBannerCount;c.player.getInventory().setSelectedSlot(0);place(c,stage.equals("author_only")?new BlockPos(4,64,0):new BlockPos(-2,64,0));running="wait";}
+        else if(stage.equals("building")){c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(4,64,0));running="place";}
+        else if(stage.equals("active")){stableActiveBannerCount=-1;c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(1,64,0));running="place";}
         else if(stage.equals("inflight")){eat(c);running="begin";}
     }
     private void advance(MinecraftClient c){
@@ -52,8 +55,14 @@ public final class PauseGameplaySmoke {
         if(stage.equals("paused")){
             if(running.equals("move")&&elapsed>900){c.options.forwardKey.setPressed(false);if(Math.hypot(c.player.getX()-movementStart.x,c.player.getZ()-movementStart.z)<.08)throw new IllegalStateException("paused player did not move horizontally");c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(1,64,0));attack(c,new BlockPos(2,65,0));eat(c);running="food";}
             else if(running.equals("food")&&elapsed>3400)ready(c,"paused movement/place/break/food packets sent");
-        } else if(stage.equals("author")||stage.equals("revoked")){if(running.equals("wait")&&elapsed>500)ready(c,"paused author placement packet sent");}
+        } else if(stage.equals("author_only")||stage.equals("building_off")){if(running.equals("wait")&&elapsed>500)ready(c,"paused placement packet sent");}
+        else if(stage.equals("building")){
+            if(running.equals("place")&&elapsed>500){attack(c,new BlockPos(5,65,0));running="mine";}
+            else if(running.equals("mine")){c.interactionManager.updateBlockBreakingProgress(new BlockPos(5,65,0),Direction.UP);if(elapsed>1700){c.interactionManager.cancelBlockBreaking();eat(c);running="food";}}
+            else if(running.equals("food")&&elapsed>4000)ready(c,"global Building Mode real-player placement, mining and food-use packets sent");
+        }
         else if(stage.equals("active")){
+            if(elapsed>=1000&&stableActiveBannerCount<0)stableActiveBannerCount=activeBannerCount;
             if(running.equals("place")&&elapsed>500){attack(c,new BlockPos(2,65,0));running="mine";}
             else if(running.equals("mine")){c.interactionManager.updateBlockBreakingProgress(new BlockPos(2,65,0),Direction.UP);if(elapsed>1700){c.interactionManager.cancelBlockBreaking();eat(c);running="food";}}
             else if(running.equals("food")&&elapsed>4000)ready(c,"active placement/break/food packets sent");
@@ -66,6 +75,8 @@ public final class PauseGameplaySmoke {
                 throw new IllegalStateException("rejected action left ghost inventory contents");
             if(!client.world.getBlockState(new BlockPos(1,65,0)).isAir())throw new IllegalStateException("rejected placement left ghost block");
         }
+        if(stage.equals("active")&&(activeBannerCount-activeBannerBaseline!=1||activeBannerCount!=stableActiveBannerCount))
+            throw new IllegalStateException("ACTIVE actionbar missing or periodically repeated");
         running="done";write("READY",stage,detail);
     }
     private static void eat(MinecraftClient c){c.player.getInventory().setSelectedSlot(1);c.player.setPitch(-65);c.options.useKey.setPressed(true);c.interactionManager.interactItem(c.player,Hand.MAIN_HAND);}

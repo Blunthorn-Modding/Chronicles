@@ -97,6 +97,22 @@ def run() -> None:
             _client(w, launch, root, reports, 'B', 'player', 640, 480),
         ]
         fabric_smoke._await_clients(clients, [reports / 'role-A.json', reports / 'role-B.json'])
+        operator = _read_result(reports / 'role-A.json')
+        required = {'Global Building Mode is explicit and wrong-page requests cannot enable it',
+                    'Clean and Debug switch facts without changing server authority',
+                    'Debug toggle preserves unsaved prompt and server authority',
+                    'Game setup owns the sole managed block policy selector',
+                    'Game setup value edit durably changes the selected cap',
+                    'Game setup value edit restores the cap without changing placed blocks',
+                    'Locations has no policy editor and forged old policy routes are denied',
+                    'deleting all manual references cannot free physical quota',
+                    'explicit legacy region inspect remains compatible and read only'}
+        missing = required.difference(operator.get('checks', []))
+        if missing:
+            raise RuntimeError('Menu probe ended before required assertions: ' + repr(sorted(missing)))
+        player = _read_result(reports / 'role-B.json')
+        if 'forged non-operator global Building Mode request is denied' not in player.get('checks', []):
+            raise RuntimeError('Missing ordinary-player global Building Mode denial proof')
         report['checks'].append('operator and non-operator native menu probes passed')
         for _, logfile in clients:
             logfile.close()

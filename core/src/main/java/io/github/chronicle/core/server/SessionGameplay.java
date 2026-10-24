@@ -19,14 +19,13 @@ public final class SessionGameplay {
         var service = ChronicleRuntime.available(server);
         return SessionGameplayPolicy.frozen(service == null ? null : service.state().phase(), RuntimeHolds.reason(server) != null);
     }
-    /** Map work is explicit, server-owned and rechecked against current operator authority. */
+    /** Map work while frozen requires the explicit server-global Building Mode. */
     public static boolean canBuild(ServerPlayerEntity player) {
         var server = player.getEntityWorld().getServer();
         if (!server.isOnThread()) throw new IllegalStateException("Session gameplay requires the server thread.");
         var service = ChronicleRuntime.available(server);
         return SessionGameplayPolicy.canBuild(service == null ? null : service.state().phase(),
-                RuntimeHolds.reason(server) != null, player.getCommandSource().hasPermissionLevel(2),
-                AuthoringRuntime.isAuthor(player));
+                RuntimeHolds.reason(server) != null, SessionBuilding.enabled(server));
     }
     public static boolean frozen(PlayerEntity player) {
         if (player instanceof ServerPlayerEntity actor) return frozen(actor.getEntityWorld().getServer());

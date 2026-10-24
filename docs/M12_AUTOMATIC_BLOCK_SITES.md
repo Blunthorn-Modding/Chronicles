@@ -46,7 +46,7 @@ The empty state says `No managed blocks or manual block sites.` and shows **Bind
 
 Limits are server policy, not geometry. **Game setup > Block limits** is the sole configuration entry. Operators choose a registered managed type and edit its limit through the normal configuration controls. Core provides this generically; no Altar/Forge-specific configuration branches are needed. Locations has no policy editor, policy submenu or link back to this entry. A placed block reports current capacity/limit status only.
 
-This destination is the operator's next requested correction. The installed dev.46 build still has the former Locations controls until implementation on 24 October.
+Implemented24 October for the combined dev.47 review: Game setup owns the selector/detail/value editor, Locations shows capacity only, and forged old Locations policy requests are rejected. Native menu runs141238 and142345 verify actual writes, restored defaults and the read-only Heart. See [editor design and evidence](CF16_EDITOR_UI_DESIGN.md).
 
 The structural Relic Heart entry says `Fixed: 1` and is read-only. JSON/server configuration remains the authoritative persistent policy and can configure the same limits. Lowering a cap below the current active count is allowed: existing blocks stay, the type/detail says `Over limit`, and new placements are denied until reconciliation brings the active count within the cap. No limit operation deletes or unbinds a block.
 
