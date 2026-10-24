@@ -8,6 +8,7 @@ import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 /** Bounded, durable campaign ecology. No clocks, players, chunk loads or Minecraft classes. */
 public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery.Network,EcologyCosts.Network {
     public static final int MAX_CELLS=131072, MAX_AIR=524288, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
+    static final int HEART_BURST_RADIUS=2,HEART_BURST_VERTICAL=3,HEART_BURST_TICKS=40,HEART_BURST_CHECKS=32;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
     public static final List<Integer> SPEEDS=List.of(25,50,100,200,400,800,1600);
     public static final List<Integer> AMPLIFICATIONS=List.of(0,1,2,5,10,25,50,100);
@@ -38,6 +39,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         boolean contains(Pos p) { return p.x()>=min.x()&&p.x()<=max.x()&&p.y()>=min.y()&&p.y()<=max.y()&&p.z()>=min.z()&&p.z()<=max.z(); }
     }
     public record Cell(Pos position, State before, State after, boolean adopted) { }
+    private record HeartBurstSurface(Pos air,int face,int retries) { }
     public record Claim(String site,long revision,Area area,boolean complete,Map<Long,Integer> cursors) {
         public Claim { cursors=Map.copyOf(cursors); }
     }
@@ -79,6 +81,8 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private int heartElapsed,heartUnflushed;
     private boolean heartNeedsReset;
     private boolean heartLastEffortSpent;
+    private ArrayDeque<HeartBurstSurface> heartBurst;
+    private int heartBurstTicks;
     private UUID ending;
     private Pos endingRoot;
     private State endingRootState;
@@ -185,6 +189,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         return ending==null&&!heartNeedsReset&&heartUnflushed==0&&EcologyHeart.vulnerable(heartRules,heartElapsed,heartProof(rootValid));
     }
     public EcologyHeart.Transition heartTick(boolean rootValid,boolean playing)throws IOException {
+        if(!rootValid)cancelHeartBurst();
         if(ending!=null||failure!=null||!indexed)return EcologyHeart.transition(heartRules,heartElapsed(),heartElapsed());
         if(heartNeedsReset){resetHeart();heartNeedsReset=false;}
         int old=heartElapsed(),next=EcologyHeart.nextElapsed(heartRules,old,heartProof(rootValid),playing,1);
@@ -194,21 +199,21 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         return EcologyHeart.transition(heartRules,old,next);
     }
 
-    /**
-     * Makes the Heart's single final growth attempt for this continuous weakness cycle. Normal
-     * living networks reuse the ordinary bounded surface grower. A genuinely empty network may
-     * seed one exposed cell touching the Heart; it never scans or loads beyond that local shell.
-     */
+    /** Starts one transient, local final burst for this weakness cycle. The queue is intentionally
+     * absent from persistence: the durable defiance receipt prevents replay after a restart. */
     public boolean heartLastEffort(EcologyTerrain w,boolean rootValid,EcologyHeart.Transition transition)throws IOException {
         Objects.requireNonNull(w);Objects.requireNonNull(transition);
         boolean authenticCrossing=EcologyHeart.transition(heartRules,transition.previous(),transition.current()).lastEffort();
-        if(heartLastEffortSpent||!transition.lastEffort()||!authenticCrossing||transition.current()!=heartElapsed()||writes>=MAX_WRITES)return false;
+        if(heartLastEffortSpent||heartBurst!=null||!transition.lastEffort()||!authenticCrossing||transition.current()!=heartElapsed())return false;
         EcologyHeart.Proof proof=heartProof(rootValid);
         if(!EcologyHeart.eligible(heartRules,proof)||heartElapsed()>=heartRules.requiredTicks())return false;
         heartLastEffortSpent=true;
+        heartBurst=planHeartBurst(w);
+        heartBurstTicks=heartBurst.isEmpty()?0:HEART_BURST_TICKS;
+        if(heartBurst.isEmpty()){heartBurst=null;return false;}
         int before=writes;
-        if(proof.living()==0)seedFromHeart(w);else grow(w);
-        return writes>before;
+        continueHeartBurst(w);
+        return writes>before||heartBurst!=null;
     }
     public void flushHeart()throws IOException {
         if(ending==null&&failure==null&&heartUnflushed>0){
@@ -228,6 +233,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         flushVitality();if(!heartVulnerable(rootValid))throw new IllegalStateException("The living network recovered before destruction");
         JsonObject p=new JsonObject();p.addProperty("job",job.toString());p.add("root",pos(root));p.add("state",state(rootState));
         record("HEART_END",p);
+        cancelHeartBurst();
     }
     static JsonObject heartRulesPayload(EcologyHeart.Rules r){JsonObject p=new JsonObject();p.addProperty("threshold",r.threshold());p.addProperty("seconds",r.seconds());return p;}
     private static EcologyHeart.Rules parseHeartRules(JsonObject p){keys(p,"threshold","seconds");return new EcologyHeart.Rules(integer(p,"threshold"),integer(p,"seconds"));}
@@ -369,7 +375,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(!w.set(p,AIR)) {cleanup(false);if(enabled)mode(false);fail("A journaled sculk cleanup write failed; cleanup disabled. Inspect the world before continuing.");throw new IOException(failure);}
         return true;
     }
-    public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason); controlRevision++; } }
+    public void fail(String reason) { if(failure==null) { failure=Objects.requireNonNull(reason);cancelHeartBurst();controlRevision++; } }
     /** A reversible missing/unloaded Heart is not a journal failure. Recertify after it returns. */
     public void invalidateConnections() { if(ending!=null)return;unresolved=true;generation++;controlRevision++;contactScan=null;resetVitalityScan(); }
 
@@ -416,6 +422,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(on && (!indexed||area==null||cells.isEmpty())) throw new IllegalStateException("Finish indexing a non-empty source city first");
         flushVitality();
         JsonObject p=new JsonObject(); p.addProperty("enabled",on); record("MODE",p); clock=0;
+        if(!on)cancelHeartBurst();
     }
     public View view() {
         int done=0,total=0;
@@ -463,10 +470,14 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if(!playing||!enabled()||!indexed||area==null) { flushVitality();clock=0;growthInterval=20;return; }
         reconcile(w);
         topology(w);
-        if(unresolved || graph!=null) {flushVitality();resetVitalityScan();return;}
+        if(unresolved || (graph!=null&&!extending)) {cancelHeartBurst();flushVitality();resetVitalityScan();return;}
+        if(graph!=null) {flushVitality();resetVitalityScan();return;}
         vitalityTick(w);
         projectAppearance(w);
         discoverExposure(w);
+        boolean bursting=heartBurst!=null;
+        if(bursting)continueHeartBurst(w);
+        if(bursting)return;
         connectPlacedSculk(w);
         if(graph!=null || connected.isEmpty()) return;
         if(writes>=MAX_WRITES)return; // A busy native tick waits; it is not a persistence/capacity fault.
@@ -659,37 +670,88 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             }
         }
     }
-    /** Empty-network fallback for the Heart's one final effort. Fixed local work: six adjacent
-     * candidates, each with at most six exposure/backing checks, and at most one terrain write. */
-    private void seedFromHeart(EcologyTerrain w)throws IOException {
-        if(heart==null||!w.loaded(heart)||cells.size()>=MAX_CELLS)return;
-        for(int direction=0;direction<6&&writes<MAX_WRITES;direction++){
-            Pos candidate=heart.offset(direction);
-            if(!w.loaded(candidate)||w.growthExcluded(candidate))continue;
-            State original=w.get(candidate);
-            if(original.network())continue;
-            if(w.substrate(candidate)){
-                for(int face=0;face<6;face++){
-                    Pos exposed=candidate.offset(face);
-                    if(exposed.equals(heart)||!w.loaded(exposed)||!w.get(exposed).air())continue;
-                    if(EcologyTerrain.connected(heart,SCULK,candidate,SCULK))change(w,candidate,original,SCULK,List.of(exposed));
-                    return;
-                }
-            }else if(original.air()){
-                for(int face=0;face<6;face++){
-                    Pos backing=candidate.offset(face);
-                    if(backing.equals(heart)||!w.loaded(backing)||w.growthExcluded(backing))continue;
-                    State backingState=w.get(backing);
-                    if(backingState.network()||!w.solidFace(backing,face^1))continue;
-                    State vein=EcologyTerrain.vein(face);
-                    if(EcologyTerrain.connected(heart,SCULK,candidate,vein)){
-                        change(w,candidate,original,vein,List.of(candidate));
-                        return;
-                    }
-                }
+    /** Fixed 5x7x5 loaded-only air flood. Surfaces are ordered from the Heart outwards, then
+     * revalidated in small batches. This lets a supported vein bootstrap a substrate path without
+     * cutting through a sealed shell or treating foreign sculk as campaign ownership. */
+    private ArrayDeque<HeartBurstSurface> planHeartBurst(EcologyTerrain w){
+        ArrayDeque<HeartBurstSurface> planned=new ArrayDeque<>();
+        if(heart==null||!w.loaded(heart)||cells.size()>=MAX_CELLS)return planned;
+        Map<Pos,State> local=new HashMap<>();
+        for(int dx=-HEART_BURST_RADIUS;dx<=HEART_BURST_RADIUS;dx++)for(int dy=-HEART_BURST_VERTICAL;dy<=HEART_BURST_VERTICAL;dy++)
+            for(int dz=-HEART_BURST_RADIUS;dz<=HEART_BURST_RADIUS;dz++){
+                Pos p=localPosition(heart,dx,dy,dz);if(p!=null&&w.loaded(p))local.put(p,w.get(p));
+            }
+        ArrayDeque<Pos> open=new ArrayDeque<>();Set<Pos> reached=new HashSet<>();
+        for(int face=0;face<6;face++){
+            Pos neighbour=heart.offset(face);State neighbourState=local.get(neighbour);
+            if(neighbourState!=null&&burstOpen(neighbour,neighbourState)&&reached.add(neighbour))open.add(neighbour);
+        }
+        while(!open.isEmpty()){
+            Pos p=open.removeFirst();
+            for(int face=0;face<6;face++){
+                Pos q=p.offset(face);State state=local.get(q);
+                if(state!=null&&burstOpen(q,state)&&reached.add(q))open.add(q);
             }
         }
+        List<HeartBurstSurface> surfaces=new ArrayList<>();
+        for(Pos air:reached)for(int face=0;face<6;face++){
+            Pos backing=air.offset(face);State state=local.get(backing);
+            if(state!=null&&!state.air()&&!state.network()&&!backing.equals(heart))surfaces.add(new HeartBurstSurface(air,face,4));
+        }
+        surfaces.sort(Comparator
+                .comparingInt((HeartBurstSurface s)->burstShell(s.air.offset(s.face)))
+                .thenComparingInt(s->Math.abs(s.air.offset(s.face).y()-heart.y()))
+                .thenComparingInt(s->s.air.x()).thenComparingInt(s->s.air.y()).thenComparingInt(s->s.air.z()).thenComparingInt(HeartBurstSurface::face));
+        planned.addAll(surfaces);return planned;
     }
+    private boolean burstOpen(Pos p,State state){return state.air()||(state.vein()&&owns(p)&&!"true".equals(state.properties().get("waterlogged")));}
+    private int burstShell(Pos p){return Math.max(Math.abs(p.x()-heart.x()),Math.abs(p.z()-heart.z()));}
+    private void continueHeartBurst(EcologyTerrain w)throws IOException {
+        if(heartBurst==null)return;
+        if(!enabled()||ending!=null||failure!=null||heart==null||!w.loaded(heart)){cancelHeartBurst();return;}
+        if(writes>=MAX_WRITES)return; // Shared native work defers this attempt; it does not spend its work window.
+        int checked=0;
+        while(checked++<HEART_BURST_CHECKS&&writes<MAX_WRITES&&!heartBurst.isEmpty()){
+            HeartBurstSurface surface=heartBurst.removeFirst();int result=burstSurface(w,surface);
+            if(result<0&&surface.retries()>0)heartBurst.addLast(new HeartBurstSurface(surface.air(),surface.face(),surface.retries()-1));
+        }
+        if(--heartBurstTicks<=0||heartBurst.isEmpty())cancelHeartBurst();
+    }
+    /** @return one for a write, zero for a permanently invalid surface, minus one to retry after
+     * nearer surfaces have extended the connected network. */
+    private int burstSurface(EcologyTerrain w,HeartBurstSurface surface)throws IOException {
+        Pos air=surface.air(),backing=air.offset(surface.face());
+        if(!heartBurstBounded(air)||!heartBurstBounded(backing)||!w.loaded(air)||!w.loaded(backing)
+                ||w.growthExcluded(air)||w.growthExcluded(backing))return 0;
+        State exposed=w.get(air),support=w.get(backing);
+        if(!(exposed.air()||(exposed.vein()&&owns(air)&&!"true".equals(exposed.properties().get("waterlogged"))))
+                ||support.network()||!w.solidFace(backing,surface.face()^1))return 0;
+        if(w.substrate(backing)&&!owns(backing)){
+            if(burstConnected(w,backing,SCULK)){change(w,backing,support,SCULK,List.of(air));return 1;}
+        }
+        State next=exposed.vein()?exposed.with(FACES[surface.face()],"true"):EcologyTerrain.vein(surface.face());
+        if(!next.equals(exposed)&&burstConnected(w,air,next)){
+            change(w,air,exposed,next,List.of(air));
+            return w.substrate(backing)?-1:1;
+        }
+        return -1;
+    }
+    private boolean burstConnected(EcologyTerrain w,Pos p,State state){
+        if(heart!=null&&EcologyTerrain.connected(heart,SCULK,p,state))return true;
+        for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)for(int dz=-1;dz<=1;dz++){
+            if(Math.abs(dx)+Math.abs(dy)+Math.abs(dz)>2)continue;
+            Pos q=p.add(dx,dy,dz);Cell cell=cells.get(q);
+            if(cell==null||!connected.contains(q)||!w.loaded(q))continue;
+            State actual=w.get(q);
+            if(cell.after.sameOwnedShape(actual)&&EcologyTerrain.connected(p,state,q,actual))return true;
+        }
+        return false;
+    }
+    private boolean heartBurstBounded(Pos p){
+        return Math.abs((long)p.x()-heart.x())<=HEART_BURST_RADIUS&&Math.abs((long)p.z()-heart.z())<=HEART_BURST_RADIUS
+                &&Math.abs((long)p.y()-heart.y())<=HEART_BURST_VERTICAL;
+    }
+    private void cancelHeartBurst(){heartBurst=null;heartBurstTicks=0;}
     private static void shuffle(SplittableRandom random,int[] values) {
         for(int i=values.length-1;i>0;i--){int j=random.nextInt(i+1),v=values[i];values[i]=values[j];values[j]=v;}
     }
@@ -821,6 +883,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
     public void remove(Pos p) throws IOException {
         if(ending!=null||!cells.containsKey(p)) return;
+        if(connected.contains(p))cancelHeartBurst();
         JsonObject payload=new JsonObject();payload.add("p",pos(p));record("REMOVE",payload);
     }
     private IllegalStateException capacity(String message) { fail(message+"; expansion held");return new IllegalStateException(failure); }

@@ -64,6 +64,7 @@ final class EcologyHeartDefianceSmoke {
             waitFor("wait for the first cut to settle",()->poll(client,0,0,0,true),45_000);
             command(client,"record first post-cut topology baseline","quiet_below_heart_defiance_trial settle","settle",20_000);
             waitFor("wait for actual last-stand pulse and direct Warden",()->poll(client,1000,1,1,false),90_000);
+            delay("allow the bounded5x5 burst to finish",2500);
             command(client,"verify first durable last stand","quiet_below_heart_defiance_trial first","first",20_000);
             screenshot(client,"heart-defiance-first-warden.png");
             command(client,"physically reconnect the original network","quiet_below_heart_defiance_trial reconnect","reconnect",20_000);

@@ -91,7 +91,7 @@ def run() -> None:
             handle.close()
             handle = None
             client = None
-        report["checks"] = ["fresh timestamped offline world only", "256-cell source reached protected proof", "actual 50-second last stand produced one Warden and root-near growth", "physical reconnect then recut remained suppressed during persisted cooldown", "same world restart retained receipt and did not replay last stand"]
+        report["checks"] = ["fresh timestamped offline world only", "256-cell source reached protected proof", "actual 50-second last stand produced one Warden and all24 eligible surface columns of a5x5 patch around the Heart", "physical reconnect then recut remained suppressed during persisted cooldown", "same world restart retained receipt and did not replay last stand"]
         report["result"] = "PASS"
         print("PASS: real-time Heart defiance proof completed; evidence:", reports, flush=True)
     except BaseException as error:

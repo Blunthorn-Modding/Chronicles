@@ -56,13 +56,14 @@ class EcologyHeartDefianceTest {
             long grows = journal.entries().stream().filter(entry -> entry.type().equals("GROW")).count();
 
             assertTrue(engine.heartLastEffort(world, true, transition));
-            assertEquals(writes + 1, world.writes);
-            assertEquals(grows + 1, journal.entries().stream().filter(entry -> entry.type().equals("GROW")).count());
+            assertTrue(world.writes > writes);
+            assertEquals(world.writes - writes, journal.entries().stream().filter(entry -> entry.type().equals("GROW")).count() - grows);
+            assertTrue(world.writes - writes <= EcologyEngine.MAX_WRITES);
             EcologyEngine.Cell seeded = engine.cells().stream().filter(cell -> cell.position().equals(SEED)).findFirst().orElseThrow();
             assertEquals(STONE, seeded.before(), "cleanup must retain the exact terrain replaced by the final effort");
             assertEquals(SCULK, seeded.after());
             assertFalse(engine.heartLastEffort(world, true, transition), "one weakness cycle gets only one final effort");
-            assertEquals(writes + 1, world.writes);
+            assertTrue(world.writes > writes);
 
             EcologyHeart.Transition completed = advance(engine, world, 200, true);
             assertEquals(1200, completed.current());
@@ -83,8 +84,8 @@ class EcologyHeartDefianceTest {
             assertTrue(engine.heartLastEffort(world, true, transition));
             assertTrue(world.blocks.get(SEED).vein());
             assertEquals(STONE, world.blocks.get(backing));
-            assertEquals(1, world.writes);
-            assertEquals(1, journal.entries().stream().filter(entry -> entry.type().equals("GROW")).count());
+            assertTrue(world.writes >= 1 && world.writes <= EcologyEngine.MAX_WRITES);
+            assertEquals(world.writes, journal.entries().stream().filter(entry -> entry.type().equals("GROW")).count());
         }
     }
 
@@ -113,6 +114,10 @@ class EcologyHeartDefianceTest {
 
     @Test void sealedExcludedUnloadedAndUnownedShellsFailWithoutAWorldWrite() throws Exception {
         assertRejected("sealed", world -> { }, Set.of());
+        assertRejected("one-block-shell", world -> {
+            for(int x=-2;x<=2;x++)for(int y=-2;y<=2;y++)for(int z=-2;z<=2;z++)
+                if(Math.abs(x)+Math.abs(y)+Math.abs(z)>=2)world.blocks.put(HEART.add(x,y,z),AIR);
+        }, Set.of());
         assertRejected("excluded", world -> {
             world.blocks.put(SEED_AIR, AIR);
             for (int face = 0; face < 6; face++) world.excluded.add(HEART.offset(face));
@@ -133,9 +138,12 @@ class EcologyHeartDefianceTest {
             EcologyHeart.Transition transition = advance(engine, world, 1000, true);
             for (int write = 0; write < EcologyEngine.MAX_WRITES; write++) assertTrue(engine.reserveNativeLoss());
             int before = world.writes;
-            assertFalse(engine.heartLastEffort(world, true, transition));
+            assertTrue(engine.heartLastEffort(world, true, transition), "a busy trigger tick must queue rather than lose the burst");
             assertEquals(before, world.writes);
             assertEquals(0, journal.entries().stream().filter(entry -> entry.type().equals("GROW")).count());
+            engine.beginTick();engine.tick(world, true);
+            assertTrue(world.writes > before);
+            assertTrue(world.writes - before <= EcologyEngine.MAX_WRITES);
         }
     }
 
@@ -241,6 +249,7 @@ class EcologyHeartDefianceTest {
 
     private static World exposedWorld() {
         World world = sealedWorld();
+        world.blocks.put(HEART.offset(2), AIR);
         world.blocks.put(SEED_AIR, AIR);
         return world;
     }
