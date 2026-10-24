@@ -259,8 +259,31 @@ public final class CoreMenuServer {
         try{detail=detail(player,c);}catch(RuntimeException exception){detail=new Detail(c.selected,"Service unavailable",shortText(exception.getMessage(),2048),List.of(),List.of(),null,null,null);}
         var campaign=ChronicleRuntime.service(server).state();
         String clock=gm?"Active play: "+PlayRuntime.elapsedTicks(server)/20+"s":"";
-        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close);
+        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c));
         ServerPlayNetworking.send(player,new Response(view,open));
+    }
+
+    private static BlockLimitsForm blockLimitsForm(ServerPlayerEntity player,Context c) {
+        if(!player.getCommandSource().hasPermissionLevel(2)||c.page!=Page.SETUP
+                ||!(c.selected.equals("limits")||c.selected.startsWith("limit:")
+                ||c.picker!=null&&c.picker.kind().equals("BLOCK_LIMIT_TYPE")))return null;
+        var server=player.getEntityWorld().getServer();var snapshot=ManagedBlocks.snapshot(server);
+        String selected=c.selected.startsWith("limit:")?c.selected.substring(6):"";
+        var rows=new ArrayList<BlockLimitType>();
+        if(c.picker!=null&&c.picker.kind().equals("BLOCK_LIMIT_TYPE")) {
+            for(var entry:c.picker.entries())snapshot.types().stream().filter(type->type.typeId().equals(entry.id())).findFirst()
+                    .ifPresent(type->rows.add(new BlockLimitType(type.typeId(),type.blockId(),type.label(),type.description(),type.count(),type.limit(),type.fixed())));
+            selected="";
+        } else if(!selected.isBlank()) {
+            String wanted=selected;
+            snapshot.types().stream().filter(type->type.typeId().equals(wanted)).findFirst()
+                    .ifPresent(type->rows.add(new BlockLimitType(type.typeId(),type.blockId(),type.label(),type.description(),type.count(),type.limit(),type.fixed())));
+            if(rows.isEmpty())selected="";
+        }
+        boolean editable=snapshot.ready()&&AuthoringRuntime.isAuthor(player)&&AuthoringRuntime.editable(server);
+        String reason=!snapshot.ready()?snapshot.problem():!AuthoringRuntime.editable(server)?"Pause play and resolve any operation hold to edit limits.":"Enable editing to change this limit.";
+        return new BlockLimitsForm(snapshot.policyRevision(),snapshot.ready(),shortText(snapshot.problem(),512),editable,
+                editable?"":shortText(reason,512),selected,rows);
     }
 
     private static List<Entry> entries(ServerPlayerEntity player,Page page,String filter) {
@@ -446,7 +469,7 @@ public final class CoreMenuServer {
                     title="Block limits";description="Choose how many supplied blocks may be placed. Existing blocks stay in the world.";
                     var snapshot=ManagedBlocks.snapshot(server);
                     if(!snapshot.ready())facts.add(new Fact("Block policy",snapshot.problem().isBlank()?"Unavailable":snapshot.problem()));
-                    snapshot.types().forEach(type->facts.add(new Fact(type.label(),type.count()+" / "+type.limit()+" - "+limitStatus(type))));
+                    facts.add(new Fact("Registered block types",Integer.toString(snapshot.types().size())));
                     controls.add(control(Action.BLOCK_LIMITS,"Choose block type…",!snapshot.types().isEmpty(),"No supplied block types are registered.",false,"BLOCK_LIMIT_TYPE"));
                 } else if(id.startsWith("limit:")) {
                     title=managedTypeLabel(server,id);description="Existing blocks stay in place. The limit controls new placements.";

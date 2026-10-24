@@ -68,7 +68,7 @@ The top-right control is `Debug: off` / `Debug: on`, tooltip `Show or hide edito
 
 The first modal is a registered-type chooser driven by existing `BLOCK_LIMITS` and `BLOCK_LIMIT_TYPE` picker messages. No new command syntax or protocol branch is needed. Current picker rows contain the bounded registered block ID as reference; the client may resolve it to an optional vanilla item icon. If no item exists or it cannot resolve, show the same text row without an icon. Icons never carry authority.
 
-Chooser geometry is `min(248, width - 32)` wide and `min(206, height - 32)` high, centered in the popup frame. It has title **Choose block type**, seven visible 18-pixel rows, local up/down scrolling for more entries on the existing maximum-twelve picker page, and **Close**. Each row is `icon when available + label + placed / current limit`. Row selection sends the existing bounded selection and opens the policy modal. Close uses the current picker cancel/refresh path and writes nothing.
+Chooser geometry is `min(248, width - 32)` wide and `min(206, height - 32)` high, centered in the popup frame. It has title **Choose block type**, seven visible 18-pixel rows, local up/down scrolling for more entries on the existing maximum-twelve picker page, page navigation when further catalog pages exist, and **Close**. Each row is `icon when available + label + placed / current limit`. Row selection sends the existing bounded selection and opens the policy modal. Close uses the current picker cancel/refresh path and writes nothing.
 
 The policy modal is `min(224, width - 32)` by `min(158, height - 32)`, centered:
 
@@ -82,17 +82,7 @@ The left number is the placed count; only the right number is an editable field.
 
 For Relic Heart, show `1 / 1` with a short `Fixed` label; there is no input or Save. A disabled editable type shows the actual server reason (editing off, hold, or policy-service state). Modal validation/server errors are amber and visible under strict Clean rules. Successful save displays a meaningful result, refreshes selected type and keeps modal open. Close writes nothing, discards only local input and returns to unchanged Game setup detail.
 
-Save retains current `BLOCK_LIMIT_SET`, policy revision, stale request checks and explicit confirmation. Its confirmation remains in the modal with type, current value and requested limit. Cancelling returns to same input draft; stale/error response retains draft and displays server refusal.
-
-```text
-             Game setup visible but disabled behind scrim
-                    ┌──────────────────────────┐
-                    │ Ancient Forge             │
-                    │ Placed: 1  Current: 1     │
-                    │ [ 1                      ]│
-                    │       [Save] [Close]      │
-                    └──────────────────────────┘
-```
+Save retains the existing `BLOCK_LIMIT_SET`, policy revision and stale request checks. The Save button itself is the explicit commit; no secondary confirmation is shown. A stale policy or server error retains the draft and shows a refusal in the modal. Changed policy requires closing and reopening before another save.
 
 No modal action returns to Locations, opens a nested page, or edits an unregistered type.
 
@@ -107,7 +97,7 @@ No modal action returns to Locations, opens a nested page, or edits an unregiste
 ### Limits modal
 
 1. Add local modal state in `CoreMenuScreen`, driven by existing limit picker and selected `limit:` detail; draw it over retained Game setup view.
-2. Reuse `BLOCK_LIMITS`, `BLOCK_LIMIT_TYPE`, `BLOCK_LIMIT_SET`, existing confirmation, revision and refresh routes. No arbitrary wire field is needed.
+2. Reuse `BLOCK_LIMITS`, `BLOCK_LIMIT_TYPE`, `BLOCK_LIMIT_SET`, revision and refresh routes. No arbitrary wire field is needed.
 3. Make the server limit setter reject a requested value below current placed count before persistent write. Preserve fixed Heart and stale/author checks.
 4. Add focused source/native tests and independent review before human build.
 
@@ -141,3 +131,9 @@ Approved slice2 design subject to backend review after slice1: the modal display
 ## Slice1 verification
 
 Full build50s/399 Java tests passes. Native menu `../reports/core-menu-smoke-20261024T200238459919Z` passes123 operator/9 ordinary-player checks and19 each at480,640 and the reported960x287 wide-short layout. Visible widgets are checked against actual inset content bounds; Clean has zero fact labels and Debug shows the entire server fact list in order, without changing authority. Lead inspected320 and960 captures. Independent source review clear after documenting the intentional320/480 compact threshold. Rendered text is visually/source reviewed rather than independently boxed by the widget assertion. The local prompt/confirmation pre/post-action frame assertion was added after this native compile and will run with the next slice's native suite. No separate client pack/deployment; slice2 follows.
+
+## Slice2 verification
+
+Full build33s passes401 Java tests (202Core/199Quiet Below); all77 Python tests pass. Native menu `../reports/core-menu-smoke-20261024T201824760282Z` passes123 operator/9 ordinary-player checks and19 each at480,640 and960x287. Lead inspected editable and fixed popups plus the wide-short backdrop. The popup retains Game setup, rejects background navigation, edits Forge1->2->1 with direct Save, and Close discards an unsaved7 draft without changing JSON.
+
+Native managed-block test `../reports/managed-blocks-20261024T202142946902Z` passes all three phases including two saved restarts. It proves Save disables below placed count, a forged live-token request is refused by the server without policy/count change, lowering succeeds after removal, discovered overage remains intact, and cap2/count3 persists while further placement is denied. Independent source review is clear. More-than-seven-type chooser scrolling/pagination and a dedicated stale-frame modal Save are source-reviewed, not exercised by the current three-type native catalog; synchronized unit tests cover placement appearing between opening and saving. No separate human client/deployment; Heart follow-up joins this bundle.

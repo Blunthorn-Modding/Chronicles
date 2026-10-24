@@ -6,10 +6,13 @@ import com.google.gson.JsonParser;
 import io.github.chronicle.core.client.CoreMenuScreen;
 import io.github.chronicle.core.client.ItemEnchantingScreen;
 import io.github.chronicle.core.client.OfferingScreen;
+import io.github.chronicle.core.network.CoreMenuPayloads;
+import io.github.chronicle.core.menu.CoreMenuModel.Action;
 import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import io.github.chronicle.quietbelow.QuietBelow;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
@@ -119,22 +122,22 @@ final class ManagedBlocksSmoke {
                 place(client,"raised server limit permits one additional Altar",SECOND,QuietBelow.ANCIENT_ALTAR,2,true);
                 give(client,ALTAR,1,QuietBelow.ANCIENT_ALTAR);
                 place(client,"raised limit also refuses the next extra Altar",THIRD,QuietBelow.ANCIENT_ALTAR,2,false);
-                limit(client,1);
-                step("lowering the limit preserves both physical registrations",()->{},()->count(ALTAR)==2&&!client.world.getBlockState(SECOND).isAir(),10_000);
-                place(client,"over-limit placement is refused without consumption",THIRD,QuietBelow.ANCIENT_ALTAR,2,false);
-                limit(client,2);
+                rejectLimitBelowPlaced(client,1,2);
                 give(client,"minecraft:netherite_pickaxe",1,Items.NETHERITE_PICKAXE);
                 step("mine the actual Altar in Survival",()->{select(client,Items.NETHERITE_PICKAXE);mining=SECOND;client.interactionManager.attackBlock(SECOND,Direction.UP);},()->client.world.getBlockState(SECOND).isAir()&&count(ALTAR)==1,25_000);
                 step("stop mining after authoritative quota release",()->{mining=null;client.interactionManager.cancelBlockBreaking();},()->true,1_000);
-                place(client,"verified removal frees the slot for a replacement",THIRD,QuietBelow.ANCIENT_ALTAR,2,true);
+                limit(client,1);
+                place(client,"lowered policy refuses a replacement while its sole slot is occupied",THIRD,QuietBelow.ANCIENT_ALTAR,1,false);
+                limit(client,2);
+                place(client,"verified removal frees the raised slot for a replacement",THIRD,QuietBelow.ANCIENT_ALTAR,2,true);
                 command(client,"adopt an operator-created extra block without deleting it","setblock 1026 64 1026 quiet_below:ancient_altar","changed");
                 step("direct placement is counted even when over limit",()->{},()->count(ALTAR)==3&&client.world.getBlockState(DISCOVERED).isOf(QuietBelow.ANCIENT_ALTAR_BLOCK),25_000);
-                limit(client,1);
-                step("policy decrease never deletes discovered or placed blocks",()->{},()->count(ALTAR)==3&&client.world.getBlockState(THIRD).isOf(QuietBelow.ANCIENT_ALTAR_BLOCK)&&client.world.getBlockState(DISCOVERED).isOf(QuietBelow.ANCIENT_ALTAR_BLOCK),10_000);
+                rejectLimitBelowPlaced(client,1,3);
+                step("rejected policy decrease never deletes discovered or placed blocks",()->{},()->limitValue()==2&&count(ALTAR)==3&&client.world.getBlockState(THIRD).isOf(QuietBelow.ANCIENT_ALTAR_BLOCK)&&client.world.getBlockState(DISCOVERED).isOf(QuietBelow.ANCIENT_ALTAR_BLOCK),10_000);
             }else{
-                step("final restart keeps the lowered policy and over-limit records",()->{},()->limitValue()==1&&count(ALTAR)==3,20_000);
+                step("final restart keeps the policy and over-limit records",()->{},()->limitValue()==2&&count(ALTAR)==3,20_000);
                 give(client,ALTAR,1,QuietBelow.ANCIENT_ALTAR);
-                place(client,"persisted lowered policy refuses more placements",new BlockPos(1022,64,1027),QuietBelow.ANCIENT_ALTAR,3,false);
+                place(client,"persisted policy refuses additional placements after discovered overage",new BlockPos(1022,64,1027),QuietBelow.ANCIENT_ALTAR,3,false);
             }
         }
     }
@@ -155,12 +158,33 @@ final class ManagedBlocksSmoke {
         step("enable server-authorized policy editing",()->{if(!menu(client).state().editing())press(menu(client),"Enable editing");},()->menu(client).state().editing(),15_000);
         step("open Game setup for placement policy",()->press(menu(client),"Game setup"),()->menu(client).state().page()==Page.SETUP,15_000);
         step("select the sole Block limits entry",()->menu(client).selectForTest("limits"),()->menu(client).state().selected().equals("limits"),15_000);
-        step("choose generic Block limits",()->press(menu(client),"Choose block type\u2026"),()->menu(client).state().picker()!=null&&menu(client).state().picker().kind().equals("BLOCK_LIMIT_TYPE"),15_000);
-        step("choose Altar type policy",()->menu(client).selectForTest(ALTAR),()->menu(client).state().selected().equals("limit:"+ALTAR)&&menu(client).state().picker()==null,15_000);
+        step("open Block limits modal",()->press(menu(client),"Choose block type\u2026"),()->menu(client).limitDialogOpenForTest()&&menu(client).limitDialogStageForTest().equals("choose"),15_000);
+        step("choose Altar type policy in modal",()->menu(client).selectForTest(ALTAR),()->menu(client).limitDialogStageForTest().equals("edit")&&menu(client).limitFieldEnabledForTest(),15_000);
         step("capture native limit detail "+value,()->ScreenshotRecorder.saveScreenshot(output.toFile(),"limit-"+phase+"-"+value+".png",client.getFramebuffer(),1,ignored->{}),()->pngReady(output.resolve("screenshots/limit-"+phase+"-"+value+".png")),15_000);
-        step("enter typed cap",()->press(menu(client),"Set limit\u2026"),()->true,1_000);
-        step("save cap "+value+" through native control",()->{menu(client).textForTest(Integer.toString(value));require(menu(client).triggerForTest("Send"),"cap Send unavailable");menu(client).triggerForTest("Confirm: Set limit\u2026");},()->limitValue()==value&&menu(client).state().success(),15_000);
-        step("close management after cap change",()->menu(client).close(),()->client.currentScreen==null,10_000);
+        step("save cap "+value+" through native control",()->{menu(client).setLimitValueForTest(Integer.toString(value));require(menu(client).triggerForTest("Save"),"cap Save unavailable");},()->limitValue()==value&&menu(client).state().success()&&menu(client).limitDialogStageForTest().equals("edit"),15_000);
+        closeLimitManagement(client,"cap change "+value);
+    }
+    private void rejectLimitBelowPlaced(MinecraftClient client,int value,int placed){
+        step("open management for rejected limit "+value,()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,15_000);
+        step("enable server-authorized policy editing for rejected limit",()->{if(!menu(client).state().editing())press(menu(client),"Enable editing");},()->menu(client).state().editing(),15_000);
+        step("open Game setup for rejected limit",()->press(menu(client),"Game setup"),()->menu(client).state().page()==Page.SETUP,15_000);
+        step("select Block limits for rejected limit",()->menu(client).selectForTest("limits"),()->menu(client).state().selected().equals("limits"),15_000);
+        step("open Block limits modal for rejected limit",()->press(menu(client),"Choose block type\u2026"),()->menu(client).limitDialogOpenForTest()&&menu(client).limitDialogStageForTest().equals("choose"),15_000);
+        step("select Altar for rejected limit",()->menu(client).selectForTest(ALTAR),()->menu(client).limitDialogStageForTest().equals("edit")&&menu(client).limitFieldEnabledForTest(),15_000);
+        final int[] before={-1,-1};
+        step("below-placed limit disables modal Save",()->{before[0]=limitValue();before[1]=count(ALTAR);menu(client).setLimitValueForTest(Integer.toString(value));},()->!menu(client).triggerForTest("Save")&&limitValue()==before[0]&&count(ALTAR)==before[1],10_000);
+        step("forged below-placed limit is rejected by the authoritative service",()->{
+            var screen=menu(client);
+            ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.BLOCK_LIMIT_SET,Page.SETUP,"limit:"+ALTAR,Integer.toString(value),screen.state().token(),screen.state().index(),screen.state().filter(),""));
+        },()->{
+            var screen=menu(client);
+            return !screen.state().success()&&screen.state().message().contains("Limit cannot be below "+placed+" placed")&&limitValue()==before[0]&&count(ALTAR)==before[1];
+        },15_000);
+        closeLimitManagement(client,"rejected limit "+value);
+    }
+    private void closeLimitManagement(MinecraftClient client,String reason){
+        step("close Block limits modal after "+reason,()->require(menu(client).triggerForTest("Close"),"modal Close unavailable"),()->!menu(client).limitDialogOpenForTest()&&menu(client).state().page()==Page.SETUP&&menu(client).state().selected().equals("limits"),15_000);
+        step("close management after "+reason,()->menu(client).close(),()->client.currentScreen==null,10_000);
     }
     private void loaded(MinecraftClient client,String name,int x1,int z1,int x2,int z2){
         step("wait for naturally player-loaded "+name+" chunks",()->settleUntil=0,()->{

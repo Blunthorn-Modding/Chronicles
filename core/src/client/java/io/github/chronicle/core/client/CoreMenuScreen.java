@@ -6,6 +6,8 @@ import io.github.chronicle.core.loot.LootType;
 import io.github.chronicle.core.menu.CoreMenuLayout;
 import io.github.chronicle.core.menu.CoreMenuPresentation;
 import io.github.chronicle.core.menu.CoreMenuModel.Action;
+import io.github.chronicle.core.menu.CoreMenuModel.BlockLimitType;
+import io.github.chronicle.core.menu.CoreMenuModel.BlockLimitsForm;
 import io.github.chronicle.core.menu.CoreMenuModel.Control;
 import io.github.chronicle.core.menu.CoreMenuModel.Detail;
 import io.github.chronicle.core.menu.CoreMenuModel.Entry;
@@ -18,6 +20,7 @@ import io.github.chronicle.core.play.ObservationConfiguration;
 import io.github.chronicle.core.play.PlayState;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -83,6 +86,16 @@ public final class CoreMenuScreen extends Screen {
     private final Map<String, ButtonWidget> buttons = new LinkedHashMap<>();
     private final List<RenderLine> renderLines = new ArrayList<>();
     private CoreMenuLayout.Layout layout;
+    private LimitDialogStage limitDialogStage = LimitDialogStage.NONE;
+    private String limitDraft = "";
+    private long limitPolicyRevision = -1;
+    private int limitChooserOffset;
+    private BoundsProbe limitDialogBounds;
+    private TextFieldWidget limitValueInput;
+    private ButtonWidget limitSaveButton;
+    private View limitBackdrop;
+    private boolean limitCloseRequested;
+    private String limitServerProblem = "";
 
     public CoreMenuScreen(View initial) {
         super(Text.literal("Chronicle"));
@@ -119,6 +132,13 @@ public final class CoreMenuScreen extends Screen {
         return new HeaderBoundsForTest(boundsFor("Refresh"), boundsFor(debugLabel()),
                 state.operator() ? boundsFor(state.editing() ? "Stop editing" : "Enable editing") : null);
     }
+    public boolean limitDialogOpenForTest() { return limitDialogStage != LimitDialogStage.NONE; }
+    public String limitDialogStageForTest() { return limitDialogStage.name().toLowerCase(Locale.ROOT); }
+    public String limitValueForTest() { return limitDraft; }
+    public void setLimitValueForTest(String value) { if (limitValueInput == null) throw new IllegalStateException("Block-limit value is not editable."); limitValueInput.setText(value); }
+    public boolean limitFieldEnabledForTest() { return limitValueInput != null && limitValueInput.active; }
+    public Page limitBackgroundPageForTest() { return limitBackdrop == null ? state.page() : limitBackdrop.page(); }
+    public String limitBackgroundSelectedForTest() { return limitBackdrop == null ? state.selected() : limitBackdrop.selected(); }
     public boolean debugForTest() { return debug; }
     public void toggleDebugForTest() { setDebug(!debug); }
     public boolean triggerForTest(String label) {
@@ -128,6 +148,12 @@ public final class CoreMenuScreen extends Screen {
         return true;
     }
     public void selectForTest(String id) {
+        if (limitDialogStage == LimitDialogStage.CHOOSE) {
+            BlockLimitType type = limitForm().types().stream().filter(row -> row.typeId().equals(id)).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Block-limit type is unavailable: " + id));
+            selectLimitType(type);
+            return;
+        }
         var entries = state.picker() == null ? state.entries() : state.picker().entries();
         Entry entry = entries.stream().filter(e -> e.id().equals(id)).findFirst().orElseThrow(() -> new IllegalArgumentException("Entry is not on this page: " + id));
         chooseEntry(entry);
@@ -153,6 +179,7 @@ public final class CoreMenuScreen extends Screen {
         String priorDetail = detailId();
         long priorToken = state.token();
         Action receivedFor = requestedAction;
+        long priorLimitRevision = state.blockLimits() == null ? -1 : state.blockLimits().policyRevision();
         boolean retainPrompt = textInput != null && pickerAction != null && state.picker() == null
                 && updated.picker() == null && (receivedFor == null || receivedFor == Action.REFRESH)
                 && state.page() == updated.page() && state.filter().equals(updated.filter())
@@ -183,6 +210,14 @@ public final class CoreMenuScreen extends Screen {
             confirmation = null;
             if (!retainReview) eventPreview = "";
         }
+        if (limitDialogStage == LimitDialogStage.NONE && receivedFor == Action.REFRESH) limitBackdrop = null;
+        if (limitCloseRequested) {
+            limitCloseRequested = false;
+            pickerAction = null;
+            request(Action.REFRESH, Page.SETUP, "limits", "", 0, "", "", false);
+            return;
+        }
+        updateLimitDialogAfterResponse(receivedFor, priorLimitRevision);
         if (!stableRefresh) {
             if (updated.picker() == null && !retainPrompt) { pickerAction = null; promptDraft = ""; }
             if (updated.detail() != null && !preserveDrafts && (changedAuthority || !updated.detail().id().equals(priorDetail))) loadForms(updated.detail());
@@ -192,14 +227,18 @@ public final class CoreMenuScreen extends Screen {
     }
 
     @Override protected void init() {
-        buttons.clear(); renderLines.clear(); textInput = pickerSearchInput = null; eventSeconds = lootChance = lootMin = lootMax = lootRefill = null;
+        buttons.clear(); renderLines.clear(); textInput = pickerSearchInput = limitValueInput = null; eventSeconds = lootChance = lootMin = lootMax = lootRefill = null;
+        limitSaveButton = null;
+        View liveState = state;
+        boolean showLimitBackdrop = limitBackdrop != null;
+        if (showLimitBackdrop) state = limitBackdrop;
         layout = CoreMenuLayout.forViewport(width, height);
         int top = layout.bodyTop();
         int navWidth = layout.navWidth();
         boolean compact = layout.compact();
         int mainLeft = layout.mainLeft();
         int mainWidth = layout.mainWidth();
-        if (confirmation != null) {
+        if (confirmation != null && !showLimitBackdrop) {
             drawLine(confirmation.title(), layout.content().x(), top, layout.content().width(), 0xFFFFFFFF);
             wrapped(confirmation.body(), layout.content().x(), top + 21, layout.content().width(), 0xFFCCCCCC,
                     Math.max(2, (layout.bodyBottom() - top - 47) / 10));
@@ -238,8 +277,14 @@ public final class CoreMenuScreen extends Screen {
             list(mainLeft, top, listWidth, layout.bodyBottom() - top);
             if (!compact) detail(mainLeft + listWidth + 5, top, mainWidth - listWidth - 5, layout.bodyBottom() - top);
         }
-        if (pickerAction != null && state.picker() == null) promptWidgets(mainLeft, Math.max(top, layout.bodyBottom() - 18), mainWidth);
+        if (!showLimitBackdrop && pickerAction != null && state.picker() == null) promptWidgets(mainLeft, Math.max(top, layout.bodyBottom() - 18), mainWidth);
         button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true);
+        if (showLimitBackdrop) state = liveState;
+        if (limitDialogStage != LimitDialogStage.NONE) {
+            disableUnderlyingWidgets();
+            addDrawable((context, mouseX, mouseY, delta) -> context.fill(layout.content().x(), layout.content().y(), layout.content().right(), layout.content().bottom(), 0x99000000));
+            limitDialog();
+        }
     }
 
     private void list(int x, int y, int w, int h) {
@@ -439,6 +484,9 @@ public final class CoreMenuScreen extends Screen {
         if (input.equals("POSITION1")) { prompt(control.action(), detailId(), "1:"); return; }
         if (input.equals("POSITION2")) { prompt(control.action(), detailId(), "2:"); return; }
         if (input.equals("GAME_SETUP")) { selected="limits";pageSelections.put(Page.SETUP,"limits");open(Page.SETUP); return; }
+        if (input.equals("BLOCK_LIMIT_TYPE") && control.action() == Action.BLOCK_LIMITS) {
+            openLimitChooser(); return;
+        }
         if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS") || input.equals("REGION_PURPOSE") || input.equals("REGION_BOUND") || input.equals("POINT_PURPOSE") || input.equals("POINT_BOUND") || input.equals("BLOCK_LIMIT_TYPE") || input.equals("MANUAL_REFERENCE")) {
             beginPicker(new PendingPicker(control.action(), detailId(), input)); return;
         }
@@ -520,6 +568,234 @@ public final class CoreMenuScreen extends Screen {
     private void beginPicker(PendingPicker action) {
         pickerAction = action; pickerSearch = "";
         request(Action.OPTIONS, state.page(), detailId(), action.kind(), 0, state.filter(), "", false);
+    }
+
+    private void openLimitChooser() {
+        limitBackdrop = state;
+        limitDialogStage = LimitDialogStage.LOADING;
+        limitDraft = "";
+        limitServerProblem = "";
+        limitPolicyRevision = -1;
+        limitChooserOffset = 0;
+        pickerAction = new PendingPicker(Action.BLOCK_LIMITS, detailId(), "BLOCK_LIMIT_TYPE");
+        request(Action.OPTIONS, Page.SETUP, detailId(), "BLOCK_LIMIT_TYPE", 0, state.filter(), "", false);
+    }
+
+    private void selectLimitType(BlockLimitType type) {
+        if (limitDialogStage != LimitDialogStage.CHOOSE) return;
+        limitDialogStage = LimitDialogStage.LOADING;
+        request(Action.BLOCK_LIMITS, Page.SETUP, "limits", type.typeId(), state.index(), state.filter(), "", false);
+    }
+
+    private void limitPickerPage(int delta) {
+        if (state.picker() == null) return;
+        int page = Math.max(0, Math.min(state.picker().pages() - 1, state.picker().page() + delta));
+        if (page == state.picker().page()) return;
+        limitDialogStage = LimitDialogStage.LOADING;
+        request(Action.OPTIONS, Page.SETUP, "limits", "BLOCK_LIMIT_TYPE", page, state.filter(), "", false);
+    }
+
+    private void updateLimitDialogAfterResponse(Action receivedFor, long priorRevision) {
+        if (limitDialogStage == LimitDialogStage.NONE) return;
+        BlockLimitsForm form = state.blockLimits();
+        if (form == null) {
+            limitDialogStage = LimitDialogStage.ERROR;
+            limitServerProblem = blank(state.message(), "Block-limit data is unavailable.");
+            return;
+        }
+        if (!state.success()) {
+            limitServerProblem = blank(state.message(), "The server rejected this block-limit request.");
+            if (receivedFor == Action.OPTIONS || receivedFor == Action.BLOCK_LIMITS) { limitDialogStage = LimitDialogStage.ERROR; return; }
+        } else {
+            limitServerProblem = "";
+        }
+        if (receivedFor == Action.OPTIONS) {
+            limitDialogStage = LimitDialogStage.CHOOSE;
+            limitPolicyRevision = form.policyRevision();
+            limitChooserOffset = Math.clamp(limitChooserOffset, 0, Math.max(0, form.types().size() - 7));
+            return;
+        }
+        BlockLimitType selectedType = form.selected();
+        if (receivedFor == Action.BLOCK_LIMITS && selectedType != null) {
+            limitDialogStage = LimitDialogStage.EDIT;
+            limitPolicyRevision = form.policyRevision();
+            limitDraft = Integer.toString(selectedType.limit());
+            pickerAction = null;
+            return;
+        }
+        if (receivedFor == Action.BLOCK_LIMIT_SET && selectedType != null && state.success()) {
+            limitDialogStage = LimitDialogStage.EDIT;
+            limitPolicyRevision = form.policyRevision();
+            limitDraft = Integer.toString(selectedType.limit());
+            return;
+        }
+        if (limitDialogStage == LimitDialogStage.EDIT && priorRevision >= 0 && form.policyRevision() != limitPolicyRevision) {
+            limitDialogStage = LimitDialogStage.STALE;
+        }
+    }
+
+    private BlockLimitsForm limitForm() {
+        if (state.blockLimits() == null) throw new IllegalStateException("Block-limit dialog data is unavailable.");
+        return state.blockLimits();
+    }
+
+    private void closeLimitDialog() {
+        limitDialogStage = LimitDialogStage.NONE;
+        limitDraft = "";
+        limitPolicyRevision = -1;
+        limitChooserOffset = 0;
+        pickerAction = null;
+        pickerSearch = "";
+        limitServerProblem = "";
+        if (pending) {
+            limitCloseRequested = true;
+            clearAndInit();
+            return;
+        }
+        request(Action.REFRESH, Page.SETUP, "limits", "", state.index(), state.filter(), "", false);
+    }
+
+    private boolean limitCanSave(BlockLimitsForm form, BlockLimitType type) {
+        if (limitDialogStage != LimitDialogStage.EDIT || !form.ready() || !form.editable() || type.fixed()) return false;
+        try {
+            int value = Integer.parseInt(limitDraft);
+            return value >= type.count() && value <= 1024;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
+    }
+
+    private String limitProblem(BlockLimitsForm form, BlockLimitType type) {
+        if (!limitServerProblem.isBlank()) return limitServerProblem;
+        if (limitDialogStage == LimitDialogStage.STALE) return "This block-limit policy changed. Close and reopen it.";
+        if (!form.ready()) return blank(form.problem(), "Block limits are unavailable.");
+        if (!form.editable()) return blank(form.editReason(), "Editing is unavailable.");
+        if (!type.fixed()) {
+            try {
+                int value = Integer.parseInt(limitDraft);
+                if (value < type.count()) return "Limit cannot be below " + type.count() + " placed block" + (type.count() == 1 ? "." : "s.");
+                if (value > 1024) return "Limit cannot exceed 1024.";
+            } catch (NumberFormatException ignored) {
+                return "Enter a whole-number limit.";
+            }
+        }
+        return "";
+    }
+
+    private void saveLimit(BlockLimitsForm form, BlockLimitType type) {
+        if (!limitCanSave(form, type)) return;
+        request(Action.BLOCK_LIMIT_SET, Page.SETUP, "limit:" + type.typeId(), limitDraft, state.index(), state.filter(), "", false);
+    }
+
+    private void disableUnderlyingWidgets() {
+        for (var child : children()) if (child instanceof net.minecraft.client.gui.widget.ClickableWidget widget) {
+            widget.active = false;
+            widget.setFocused(false);
+        }
+    }
+
+    private void limitDialog() {
+        if (limitDialogStage == LimitDialogStage.LOADING) {
+            limitDialogPanel("Block limits", 224, 96);
+            modalText("Loading block types...", limitDialogBounds.x() + 8, limitDialogBounds.y() + 26, limitDialogBounds.width() - 16, 0xFFFFFFFF);
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup without changing limits", true);
+            return;
+        }
+        if (limitDialogStage == LimitDialogStage.ERROR || state.blockLimits() == null) {
+            limitDialogPanel("Block limits", 224, 96);
+            modalWrappedText(blank(limitServerProblem, "Block-limit data is unavailable."), limitDialogBounds.x() + 8,
+                    limitDialogBounds.y() + 26, limitDialogBounds.width() - 16, 0xFFFFCC66, 3);
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup", true);
+            return;
+        }
+        BlockLimitsForm form = limitForm();
+        if (limitDialogStage == LimitDialogStage.CHOOSE) {
+            limitDialogPanel("Choose block type", 248, 206);
+            int rowY = limitDialogBounds.y() + 25;
+            List<BlockLimitType> types = form.types();
+            for (int row = 0; row < 7 && row + limitChooserOffset < types.size(); row++) {
+                BlockLimitType type = types.get(row + limitChooserOffset);
+                button(type.label() + "  " + type.count() + " / " + type.limit(), limitDialogBounds.x() + 8, rowY + row * 18,
+                        limitDialogBounds.width() - 16, 16, () -> selectLimitType(type), type.description(), true);
+            }
+            if (types.size() > 7) modalText("Scroll for more types", limitDialogBounds.x() + 8, rowY + 129, limitDialogBounds.width() - 16, 0xFFA0A0A0);
+            if (types.isEmpty()) modalText(blank(form.problem(), "No registered block types are available."), limitDialogBounds.x() + 8, rowY, limitDialogBounds.width() - 16, 0xFFFFCC66);
+            if (state.picker() != null && state.picker().pages() > 1) {
+                int pageY = limitDialogBounds.y() + 156;
+                button("<", limitDialogBounds.x() + 8, pageY, 18, 16, () -> limitPickerPage(-1), "Previous block-type page", state.picker().page() > 0);
+                button(">", limitDialogBounds.x() + 30, pageY, 18, 16, () -> limitPickerPage(1), "Next block-type page", state.picker().page() + 1 < state.picker().pages());
+                modalText("Page " + (state.picker().page() + 1) + " / " + state.picker().pages(), limitDialogBounds.x() + 52, pageY + 4, 82, 0xFFA0A0A0);
+            }
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup without changing limits", true);
+            return;
+        }
+        BlockLimitType type = form.selected();
+        if (type == null) {
+            limitDialogPanel("Block limits", 224, 96);
+            modalText(blank(form.problem(), "The selected block type is unavailable."), limitDialogBounds.x() + 8, limitDialogBounds.y() + 26, limitDialogBounds.width() - 16, 0xFFFFCC66);
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup", true);
+            return;
+        }
+        limitDialogPanel(type.label(), 224, 158);
+        int x = limitDialogBounds.x() + 8;
+        int y = limitDialogBounds.y() + 29;
+        modalText(Integer.toString(type.count()) + " /", x, y + 5, 34, 0xFFFFFFFF);
+        if (type.fixed()) {
+            modalText(Integer.toString(type.limit()) + "  Fixed", x + 38, y + 5, limitDialogBounds.width() - 46, 0xFFA0A0A0);
+        } else {
+            limitValueInput = addDrawableChild(new TextFieldWidget(textRenderer, x + 38, y, limitDialogBounds.width() - 54, 18, Text.literal("Maximum")));
+            limitValueInput.setMaxLength(4);
+            limitValueInput.setTextPredicate(value -> value.matches("[0-9]{0,4}"));
+            limitValueInput.setText(limitDraft);
+            limitValueInput.setChangedListener(value -> {
+                limitDraft = value;
+                if (limitSaveButton != null) limitSaveButton.active = limitCanSave(form, type) && !pending;
+            });
+            limitValueInput.active = form.ready() && form.editable() && limitDialogStage == LimitDialogStage.EDIT;
+        }
+        if (!type.fixed()) {
+            dynamicModalWrappedText(() -> limitProblem(form, type), x, y + 25, limitDialogBounds.width() - 16, 0xFFFFCC66, 3);
+            button("Save", x, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18,
+                    () -> saveLimit(form, type), "Save this maximum limit", limitCanSave(form, type));
+            limitSaveButton = buttons.get("Save");
+        }
+        button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18,
+                this::closeLimitDialog, "Return to Game setup without changing limits", true);
+    }
+
+    private void limitDialogPanel(String title, int requestedWidth, int requestedHeight) {
+        int dialogWidth = Math.min(requestedWidth, Math.max(1, width - 32));
+        int dialogHeight = Math.min(requestedHeight, Math.max(1, height - 32));
+        int x = layout.frame().x() + (layout.frame().width() - dialogWidth) / 2;
+        int y = layout.frame().y() + (layout.frame().height() - dialogHeight) / 2;
+        limitDialogBounds = new BoundsProbe(x, y, dialogWidth, dialogHeight);
+        addDrawable((context, mouseX, mouseY, delta) -> {
+            context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, x, y, dialogWidth, dialogHeight);
+            draw(context, title, x + 8, y + 8, dialogWidth - 16, 0xFFFFFFFF);
+        });
+    }
+
+    private void modalText(String value, int x, int y, int available, int color) {
+        addDrawable((context, mouseX, mouseY, delta) -> draw(context, value, x, y, available, color));
+    }
+
+    private void modalWrappedText(String value, int x, int y, int available, int color, int maxLines) {
+        addDrawable((context, mouseX, mouseY, delta) -> drawModalWrapped(context, value, x, y, available, color, maxLines));
+    }
+
+    private void dynamicModalWrappedText(java.util.function.Supplier<String> value, int x, int y, int available, int color, int maxLines) {
+        addDrawable((context, mouseX, mouseY, delta) -> drawModalWrapped(context, value.get(), x, y, available, color, maxLines));
+    }
+
+    private void drawModalWrapped(DrawContext context, String value, int x, int y, int available, int color, int maxLines) {
+        int line = 0;
+        for (var ordered : textRenderer.wrapLines(Text.literal(value), Math.max(1, available))) {
+            if (line >= maxLines) break;
+            StringBuilder plain = new StringBuilder();
+            ordered.accept((index, style, codePoint) -> { plain.appendCodePoint(codePoint); return true; });
+            draw(context, plain.toString(), x, y + line * 10, available, color);
+            line++;
+        }
     }
 
     private void chooseEntry(Entry entry) {
@@ -620,11 +896,21 @@ public final class CoreMenuScreen extends Screen {
     }
 
     @Override public void tick() {
-        if (pending) { if (++pendingTicks >= RESPONSE_TIMEOUT) { pending = false; refreshPending = false; notice = "No server response after 10 seconds. Try Refresh."; clearAndInit(); } return; }
-        if (confirmation != null || pickerAction != null) return;
+        if (pending) { if (++pendingTicks >= RESPONSE_TIMEOUT) { pending = false; refreshPending = false; notice = "No server response after 10 seconds. Try Refresh."; if (limitDialogStage != LimitDialogStage.NONE) { limitDialogStage = LimitDialogStage.ERROR; limitServerProblem = "No server response. Close and reopen Block limits."; } clearAndInit(); } return; }
+        if (confirmation != null || pickerAction != null || limitDialogStage == LimitDialogStage.LOADING || limitDialogStage == LimitDialogStage.CHOOSE) return;
         if (++idleTicks >= REFRESH_TICKS) request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", true);
     }
     @Override public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (limitDialogStage != LimitDialogStage.NONE) {
+            if (limitDialogStage == LimitDialogStage.CHOOSE && limitDialogBounds != null
+                    && mouseX >= limitDialogBounds.x() && mouseX < limitDialogBounds.x() + limitDialogBounds.width()
+                    && mouseY >= limitDialogBounds.y() && mouseY < limitDialogBounds.y() + limitDialogBounds.height()) {
+                int entries = limitForm().types().size();
+                limitChooserOffset = Math.clamp(limitChooserOffset + (verticalAmount < 0 ? 1 : -1), 0, Math.max(0, entries - 7));
+                clearAndInit();
+            }
+            return true;
+        }
         if (mouseX >= detailX && mouseX < detailX + detailWidth && mouseY >= detailY && mouseY < detailY + detailHeight && state.detail() != null && state.picker() == null) {
             detailScroll = Math.max(0, Math.min(Math.max(0, detailContentHeight - detailHeight + 12), detailScroll + (verticalAmount < 0 ? 20 : -20)));
             clearAndInit();
@@ -633,6 +919,13 @@ public final class CoreMenuScreen extends Screen {
         CoreMenuLayout.Layout current = activeLayout();
         if (mouseY >= current.bodyTop() && mouseY < current.bodyBottom()) { listOffset = Math.max(0, listOffset + (verticalAmount < 0 ? 1 : -1)); clearAndInit(); return true; }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+    @Override public boolean keyPressed(KeyInput input) {
+        if (limitDialogStage != LimitDialogStage.NONE && input.key() == 256) {
+            closeLimitDialog();
+            return true;
+        }
+        return super.keyPressed(input);
     }
     @Override public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
         CoreMenuLayout.Layout current = activeLayout();
@@ -700,6 +993,7 @@ public final class CoreMenuScreen extends Screen {
     private static String blank(String value, String fallback) { return value == null || value.isBlank() ? fallback : value; }
     private record Confirmation(String title, String body, long token, Runnable execute) { }
     private record PendingPicker(Action action, String id, String kind) { }
+    private enum LimitDialogStage { NONE, LOADING, CHOOSE, EDIT, STALE, ERROR }
     private String debugLabel() { return "Debug: " + (debug ? "on" : "off"); }
     private record RenderLine(String value, int x, int y, int width, int color, int top, int bottom) { }
     public record ButtonProbe(int identity, boolean active, boolean hovered, boolean focused) { }

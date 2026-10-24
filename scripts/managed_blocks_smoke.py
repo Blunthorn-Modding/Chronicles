@@ -35,8 +35,8 @@ def _phase(w, fabric, launch, root, reports, phase):
         data = json.loads(result.read_text(encoding="utf-8"))
         required = {
             "initial": {"second Altar is refused without consuming its item", "relocation preserves alias identity and advances its unbound revision"},
-            "restart": {"unloaded Altar still consumes its quota after restart", "verified removal frees the slot for a replacement", "direct placement is counted even when over limit"},
-            "final": {"persisted lowered policy refuses more placements"},
+            "restart": {"unloaded Altar still consumes its quota after restart", "below-placed limit disables modal Save", "forged below-placed limit is rejected by the authoritative service", "verified removal frees the raised slot for a replacement", "direct placement is counted even when over limit", "rejected policy decrease never deletes discovered or placed blocks"},
+            "final": {"persisted policy refuses additional placements after discovered overage"},
         }[phase]
         if data.get("result") != "PASS" or not required.issubset(data.get("checks", [])):
             raise RuntimeError("Managed block phase lacked required native proof: " + phase)

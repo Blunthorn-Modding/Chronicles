@@ -109,6 +109,8 @@ public final class ManagedBlockService {
         if (definition.limitMode() == ManagedBlockDefinition.LimitMode.FIXED) throw new IllegalStateException(definition.label() + " has a fixed limit.");
         if (value < 0 || value > ManagedBlockDefinition.MAX_LIMIT) throw new IllegalArgumentException("Managed block limit must be 0-" + ManagedBlockDefinition.MAX_LIMIT + ".");
         if (limits.revision() != expectedRevision) throw new IllegalStateException("Managed block limits changed; reopen this page.");
+        int placed = count(typeId);
+        if (value < placed) throw new IllegalArgumentException("Limit cannot be below " + placed + " placed blocks.");
         long revision = next(limits.revision(), "managed limit policy");
         Map<String, Integer> overrides = new TreeMap<>(limits.overrides());
         if (value == definition.defaultLimit()) overrides.remove(typeId); else overrides.put(typeId, value);

@@ -103,6 +103,7 @@ def run() -> None:
                     'Clean and Debug switch facts without changing server authority',
                     'Debug toggle preserves unsaved prompt and server authority',
                     'Game setup owns the sole managed block policy selector',
+                    'Block limits modal preserves the menu and Close discards drafts',
                     'Game setup value edit durably changes the selected cap',
                     'Game setup value edit restores the cap without changing placed blocks',
                     'Locations has no policy editor and forged old policy routes are denied',

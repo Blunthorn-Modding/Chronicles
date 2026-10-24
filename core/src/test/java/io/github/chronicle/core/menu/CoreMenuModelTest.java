@@ -50,6 +50,23 @@ class CoreMenuModelTest {
         assertThrows(RuntimeException.class,()->gson.fromJson("{\"token\":0}",View.class));
     }
 
+    @Test void typedBlockPolicyIsBoundedPrivateAndPartOfControlIdentity() {
+        var type = new BlockLimitType("test:forge","test:forge","Forge","Station",1,2,false);
+        var form = new BlockLimitsForm(4,true,"",true,"","test:forge",List.of(type));
+        var original = new View(1,Page.SETUP,0,1,"POINT","limit:test:forge","PAUSED",1,true,true,true,"","","",true,List.of(),null,null,false,form);
+        assertEquals(original,gson.fromJson(gson.toJson(original),View.class));
+        assertEquals(type,form.selected());
+        var without = new View(1,Page.SETUP,0,1,"POINT","limit:test:forge","PAUSED",1,true,true,true,"","","",true,List.of(),null,null,false);
+        assertFalse(original.sameControls(without));
+        assertThrows(IllegalArgumentException.class,()->new View(1,Page.PLAYERS,0,1,"POINT","player","PAUSED",1,false,false,false,"","","",true,List.of(),null,null,false,form));
+        assertThrows(IllegalArgumentException.class,()->new BlockLimitType("test:forge","test:forge","Forge","",-1,2,false));
+        assertThrows(IllegalArgumentException.class,()->new BlockLimitsForm(4,true,"",true,"","missing:type",List.of(type)));
+        assertThrows(IllegalArgumentException.class,()->new BlockLimitsForm(4,true,"",true,"","",List.of(type,type)));
+        var tooMany = IntStream.range(0,13).mapToObj(i->new BlockLimitType("test:t"+i,"test:t"+i,"Type "+i,"",0,1,false)).toList();
+        assertThrows(IllegalArgumentException.class,()->new BlockLimitsForm(4,true,"",false,"off","",tooMany));
+        assertThrows(IllegalArgumentException.class,()->new BlockLimitsForm(4,false,"Unavailable",true,"","",List.of()));
+    }
+
     private static View view(boolean op,String hold,String clock,String message,List<Entry> entries,Detail detail) {
         return new View(1,Page.LOOT_TABLES,0,1,"POINT","test:cache","PAUSED",2,false,true,op,hold,clock,message,true,entries,detail,null,false);
     }

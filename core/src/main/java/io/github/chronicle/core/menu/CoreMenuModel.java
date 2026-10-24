@@ -40,18 +40,45 @@ public final class CoreMenuModel {
     public record Picker(String kind,String query,int page,int pages,List<Entry> entries) {
         public Picker {text(kind,32);text(query,80);entries=List.copyOf(entries);if(page<0||pages<1||page>=pages||entries.size()>12)throw new IllegalArgumentException("Invalid picker page");}
     }
+    /** Bounded typed policy data; the dialog never parses diagnostic prose for authority. */
+    public record BlockLimitType(String typeId,String blockId,String label,String description,int count,int limit,boolean fixed) {
+        public BlockLimitType {
+            text(typeId,160);text(blockId,160);text(label,80);text(description,256);
+            if(typeId.isBlank()||blockId.isBlank()||label.isBlank()||count<0||limit<0||limit>1024)
+                throw new IllegalArgumentException("Invalid block-limit type");
+        }
+    }
+    public record BlockLimitsForm(long policyRevision,boolean ready,String problem,boolean editable,String editReason,
+                                  String selectedType,List<BlockLimitType> types) {
+        public BlockLimitsForm {
+            text(problem,512);text(editReason,512);text(selectedType,160);types=List.copyOf(types);
+            if(policyRevision<0||types.size()>12||types.stream().map(BlockLimitType::typeId).distinct().count()!=types.size()
+                    ||(!selectedType.isBlank()&&types.stream().noneMatch(type->type.typeId().equals(selectedType))))
+                throw new IllegalArgumentException("Invalid block-limit form");
+            if(editable&&!ready)throw new IllegalArgumentException("Unavailable block-limit form cannot be edited");
+        }
+        public BlockLimitType selected() { return types.stream().filter(type->type.typeId().equals(selectedType)).findFirst().orElse(null); }
+    }
     public record View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
                        boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
-                       List<Entry> entries,Detail detail,Picker picker,boolean close) {
+                       List<Entry> entries,Detail detail,Picker picker,boolean close,BlockLimitsForm blockLimits) {
+        /** Existing callers remain valid when no block-policy dialog data is needed. */
+        public View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
+                    boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
+                    List<Entry> entries,Detail detail,Picker picker,boolean close) {
+            this(token,page,index,pages,filter,selected,phase,session,editing,editable,operator,hold,clock,message,success,
+                    entries,detail,picker,close,null);
+        }
         public View {
             Objects.requireNonNull(page);text(filter,32);text(selected,160);text(phase,32);text(hold,512);text(clock,256);text(message,4096);entries=List.copyOf(entries);
             if(token<1||index<0||pages<1||index>=pages||session<0||entries.size()>12)throw new IllegalArgumentException("Invalid menu view");
+            if(blockLimits!=null&&page!=Page.SETUP)throw new IllegalArgumentException("Block-limit forms belong to Game setup");
             if(!operator) {
-                if(page!=Page.PLAYERS||editing||editable||!hold.isBlank()||!clock.isBlank()||picker!=null||entries.size()>1||entries.stream().anyMatch(e->!e.id().equals(selected)))throw new IllegalArgumentException("Public player view contains management state");
+                if(blockLimits!=null||page!=Page.PLAYERS||editing||editable||!hold.isBlank()||!clock.isBlank()||picker!=null||entries.size()>1||entries.stream().anyMatch(e->!e.id().equals(selected)))throw new IllegalArgumentException("Public player view contains management state");
                 if(detail!=null&&(detail.loot()!=null||detail.event()!=null||detail.region()!=null||detail.controls().stream().anyMatch(c->switch(c.action()){case CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE->false;default->true;})))throw new IllegalArgumentException("Public player view contains management controls");
             }
         }
-        public boolean sameControls(View other) {return other!=null&&token==other.token&&page==other.page&&index==other.index&&pages==other.pages&&filter.equals(other.filter)&&selected.equals(other.selected)&&phase.equals(other.phase)&&session==other.session&&editing==other.editing&&editable==other.editable&&operator==other.operator&&hold.equals(other.hold)&&entries.equals(other.entries)&&Objects.equals(detail,other.detail)&&Objects.equals(picker,other.picker);}
+        public boolean sameControls(View other) {return other!=null&&token==other.token&&page==other.page&&index==other.index&&pages==other.pages&&filter.equals(other.filter)&&selected.equals(other.selected)&&phase.equals(other.phase)&&session==other.session&&editing==other.editing&&editable==other.editable&&operator==other.operator&&hold.equals(other.hold)&&entries.equals(other.entries)&&Objects.equals(detail,other.detail)&&Objects.equals(picker,other.picker)&&Objects.equals(blockLimits,other.blockLimits);}
     }
     private static void text(String value,int max) {if(value==null||value.length()>max||value.indexOf('\0')>=0)throw new IllegalArgumentException("Menu text exceeds bounds");}
 }

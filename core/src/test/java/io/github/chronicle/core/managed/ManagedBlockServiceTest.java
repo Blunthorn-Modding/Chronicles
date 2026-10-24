@@ -26,14 +26,31 @@ class ManagedBlockServiceTest {
         fixture.service.reserve("test:altar", "minecraft:overworld", new BlockPosition(2, 64, 2));
     }
 
-    @Test void discoveryPreservesOverLimitAndLoweringDoesNotDelete() throws IOException {
+    @Test void discoveryPreservesExistingOverLimitButNewPolicyCannotGoBelowCount() throws IOException {
         Fixture fixture = new Fixture();
         fixture.service.adopt("test:altar", "minecraft:overworld", FIRST, ManagedBlockInstance.Origin.DISCOVERED);
-        fixture.service.adopt("test:altar", "minecraft:overworld", new BlockPosition(2, 64, 2), ManagedBlockInstance.Origin.DISCOVERED);
-        assertEquals(2, fixture.service.count("test:altar"));
-        fixture.service.setLimit("test:altar", 0, 0);
-        assertEquals(2, fixture.service.ledger().instances().size());
-        assertThrows(IllegalStateException.class, () -> fixture.service.reserve("test:altar", "minecraft:overworld", new BlockPosition(3, 64, 3)));
+        fixture.service.adopt("test:altar", "minecraft:overworld", new BlockPosition(2,64,2), ManagedBlockInstance.Origin.DISCOVERED);
+        var original = fixture.service.limits();
+        assertThrows(IllegalArgumentException.class, () -> fixture.service.setLimit("test:altar",0,0));
+        assertSame(original,fixture.service.limits());
+        assertEquals(2,fixture.service.count("test:altar"));
+        fixture.service.setLimit("test:altar",3,0);
+        fixture.service.setLimit("test:altar",2,1);
+        assertEquals(2,fixture.service.ledger().instances().size());
+        assertThrows(IllegalStateException.class, () -> fixture.service.reserve("test:altar","minecraft:overworld",new BlockPosition(3,64,3)));
+    }
+
+    @Test void reservationAfterDialogOpenRaisesTheMinimumEvenWithoutAPolicyRevisionChange() throws IOException {
+        Fixture fixture = new Fixture();
+        fixture.service.setLimit("test:altar",2,0);
+        fixture.service.reserve("test:altar","minecraft:overworld",FIRST);
+        long viewedRevision = fixture.service.limits().revision();
+        var second = fixture.service.reserve("test:altar","minecraft:overworld",new BlockPosition(2,64,2));
+        assertThrows(IllegalArgumentException.class,()->fixture.service.setLimit("test:altar",1,viewedRevision));
+        assertEquals(viewedRevision,fixture.service.limits().revision());
+        fixture.service.release(second.id());
+        fixture.service.setLimit("test:altar",1,viewedRevision);
+        assertEquals(1,fixture.service.effectiveLimit(catalog().get("test:altar").orElseThrow()));
     }
 
     @Test void failingSaveNeverPublishesReservationOrRelease() throws IOException {
