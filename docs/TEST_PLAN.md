@@ -1,5 +1,10 @@
 # Bootstrap validation
 
+## 25 October: CF18 existing-feature merge
+
+[Parity matrix](CF18_EXISTING_FEATURE_PARITY.md) maps current Core source controls to the merged mockup. Edge passes133 checks:29 editor,44 lore routing/GM and60 new item/chest parity cases, including fractional refill, invalid draft retention, rich components, combined27-entry capacity, bind/retype/unbind cancellation and preservation, empty lists, stale looked target, ACTIVE locks and compact containment. Exact results/scripts/captures are in `../reports/books-lore-parity/`. Root inspected five desktop/compact views; syntax/frozen journal equality/diff checks pass and independent source review is clear. One initial editor test timeout was a compact-viewport setup error, corrected before PASS29. HTML/docs only; no Java/native build, Minecraft data, permission, persistence, RNG or malformed-configuration proof claimed. This supersedes the earlier ordinary-controls-not-simulated scope note.
+
+
 ## 25 October: CF-18 two-route mockup revision
 
 Installed Edge passes29 existing editor regressions plus44 new routing/GM checks (73 total). New evidence in `../reports/books-lore-routing/report.json` covers direct-chest drafts/range/cancel/save/clear, separate Items/Lore books sections with chance drafts/confirmation, ACTIVE metadata locks but available live placement, central rule rejection and explicit override, allthree placement shortcuts, simulated issuance versus discovery, full/unloaded failures, phase-change rejection, and480px containment. Six updated desktop/compact captures visually inspected. Existing item add/edit/remove/chance/count controls are explicitly retained and out of scope for simulation. All inventories, receipts, probability and authority here are mock data; no Java/native testing or Minecraft changes are claimed. Book prose is unchanged. Revised workflow awaits organizer review before implementation.

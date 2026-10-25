@@ -9,7 +9,7 @@
 <body>
 <div id="books-lore-review">
   <p class="bl-caption">Design mockup — not connected to Minecraft · native-popup direction, not pixel-exact</p>
-  <div class="bl-demo" aria-label="Demo scenario controls"><span>Demo scenario:</span><button type="button" data-scenario="phase">Phase: PAUSED</button><button type="button" data-scenario="target">Target: ready</button><button type="button" data-scenario="book">Book state: unseen</button></div>
+  <div class="bl-demo" aria-label="Demo scenario controls"><span>Demo scenario:</span><button type="button" data-scenario="phase">Phase: PAUSED</button><button type="button" data-scenario="target">Target: ready</button><button type="button" data-scenario="book">Book state: unseen</button><button type="button" data-scenario="looked">Looked: supported chest</button></div>
   <div class="bl-app" aria-label="Books and Lore design mockup"></div>
 </div>
 <style>
@@ -40,6 +40,11 @@
 #books-lore-review .bl-chance {display:flex;align-items:center;gap:4px;flex:0 0 90px;margin:0}
 #books-lore-review .bl-chance input[type="number"] {display:inline-block;width:70px;flex:0 0 70px;margin:0}
 </style>
+<style>
+#books-lore-review .bl-number-row {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+#books-lore-review .bl-item-row button {width:100%;text-align:left;margin:3px 0}
+#books-lore-review .bl-block-outline {width:80px;height:80px;border:2px solid #cf9e35;margin:12px auto}
+</style>
 <script>
 (() => {
   const root=document.querySelector('#books-lore-review .bl-app');
@@ -50,23 +55,49 @@
     {id:'quiet_below:field_journal_iv',title:'Field journal IV',author:'Unknown',description:'Abandoned experiments by a later explorer of the ancient city.',pages:['Most of the gravel flakes vanished without a useful result. I nearly threw the last piece of flint away, then tried it with the bow I keep beside the stores.','The string draws as it did before. But arrows from this bow now bury themselves farther into the same target. I must mark the distance before the next trial.','The growth has reached the stores. Clearing it takes longer each morning. I need it near the forge, but I can no longer keep my work separate from it.'],rule:'until',found:false,issued:false},
     {id:'quiet_below:field_journal_v',title:'Field journal V',author:'Unknown',description:'Abandoned experiments by a later explorer of the ancient city.',pages:['I tried something lighter today: a fallen feather, with the boots I wear on the upper walkways. Both went into the basin. Only the boots came back.','I tested them from the lowest ledge first. The landing hurt less than it should. I am not willing to trust them from the broken bridge.','I am leaving at first light. I cannot keep the workshop clear and continue the trials. The forge and altar must stay. I will leave these volumes here rather than carry all of them.'],rule:'until',found:false,issued:false}
   ];
-  const tables=[{id:'quiet_below:forge_notes',title:'Research journals',items:[['Torch',70,'x4–12'],['Bread',40,'x1–3']],entries:['quiet_below:field_journal_i','quiet_below:field_journal_ii','quiet_below:field_journal_iii','quiet_below:field_journal_iv','quiet_below:field_journal_v'],chances:{'quiet_below:field_journal_i':4,'quiet_below:field_journal_ii':4,'quiet_below:field_journal_iii':4,'quiet_below:field_journal_iv':4,'quiet_below:field_journal_v':4}},{id:'quiet_below:mine_cache',title:'Mine cache',items:[['Coal',70,'x3–8']],entries:[],chances:{}}];
-  const chests=[{id:'chest:city-library',title:'City library chest (0, 64, 0)',table:'quiet_below:forge_notes',direct:'',chance:4},{id:'chest:mine',title:'Mine chest (8, 64, 0)',table:'quiet_below:mine_cache',direct:'',chance:20}];
-  const state={section:'Books & Lore',selected:books[1].id,debug:false,compactDetail:false,modal:null,editing:true,phase:'PAUSED',target:'ready',pageIndex:0,tableDrafts:{},feedback:'Select a book, then choose an action.'};
+  const itemCatalog=['minecraft:apple','minecraft:arrow','minecraft:bread','minecraft:coal','minecraft:compass','minecraft:diamond','minecraft:emerald','minecraft:flint','minecraft:gold_ingot','minecraft:iron_ingot','minecraft:lapis_lazuli','minecraft:map','minecraft:paper','minecraft:raw_iron','minecraft:redstone','minecraft:string','minecraft:torch','minecraft:wheat','minecraft:written_book','minecraft:wooden_pickaxe'];
+  const tables=[{id:'quiet_below:forge_notes',title:'Research journals',items:[{id:'minecraft:torch',chance:70,min:4,max:12,components:'{}'},{id:'minecraft:bread',chance:40,min:1,max:3,components:'{}'},{id:'minecraft:compass',chance:15,min:1,max:1,components:'{"minecraft:custom_name":"Mine compass"}'},{id:'minecraft:coal',chance:65,min:3,max:8,components:'{}'}],refill:20,entries:['quiet_below:field_journal_i','quiet_below:field_journal_ii','quiet_below:field_journal_iii','quiet_below:field_journal_iv','quiet_below:field_journal_v'],chances:{'quiet_below:field_journal_i':4,'quiet_below:field_journal_ii':4,'quiet_below:field_journal_iii':4,'quiet_below:field_journal_iv':4,'quiet_below:field_journal_v':4}},{id:'quiet_below:mine_cache',title:'Mine cache',items:[{id:'minecraft:coal',chance:70,min:3,max:8,components:'{}'}],refill:0,entries:[],chances:{}}];
+  const chests=[{id:'chest:city-library',physical:'overworld 0 64 0',title:'City library chest (0, 64, 0)',table:'quiet_below:forge_notes',direct:'',chance:4,contents:'3 stacks',history:'session 4; timed 2'},{id:'chest:mine',physical:'overworld 8 64 0',title:'Mine chest (8, 64, 0)',table:'quiet_below:mine_cache',direct:'',chance:20,contents:'2 stacks',history:'session 2'}];
+  const looked=[{kind:'supported chest',key:'overworld 20 64 4',title:'Looked-at chest',block:'minecraft:chest'},{kind:'supported barrel',key:'overworld 22 64 4',title:'Looked-at barrel',block:'minecraft:barrel'},{kind:'supported shulker',key:'overworld 24 64 4',title:'Looked-at shulker',block:'minecraft:purple_shulker_box'},{kind:'out of reach',key:'',title:'No container in reach',block:''},{kind:'unsupported',key:'overworld 26 64 4',title:'Unsupported furnace',block:'minecraft:furnace'},{kind:'already bound',key:'overworld 0 64 0',title:'City library chest',block:'minecraft:chest'}];
+  const worldContainers=new Map(chests.map(c=>[c.physical,{key:c.physical,title:c.title,block:'minecraft:chest',contents:c.contents,history:c.history,bindingId:c.id}]));
+  // Mock world blocks preserve contents/history when a binding is removed.
+  for(const target of looked)if(target.key&&!worldContainers.has(target.key))worldContainers.set(target.key,{...target,contents:'Unchanged sample contents',history:'No fill recorded',bindingId:'chest:'+target.key.replaceAll(' ','_')});
+  let savedLoot=JSON.parse(JSON.stringify(tables));
+  const state={tableSection:'items',section:'Books & Lore',selected:books[1].id,debug:false,compactDetail:false,modal:null,editing:true,phase:'PAUSED',target:'ready',looked:0,pageIndex:0,tableDrafts:{},feedback:'Select a book, then choose an action.'};
   const el=(tag,text='',cls='')=>{const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n};
   const button=(text,fn,opts={})=>{const n=el('button',text,opts.primary?'bl-primary':'');n.type='button';if(opts.disabled)n.disabled=true;if(opts.pressed!==undefined)n.setAttribute('aria-pressed',String(opts.pressed));n.addEventListener('click',fn);return n};
   const current=()=>books.find(b=>b.id===state.selected)||books[0];
   const valid=b=>b.pages.some(p=>p.trim());
   const setupEditable=()=>state.editing&&state.phase!=='ACTIVE';
-  const tableDraft=t=>state.tableDrafts[t.id]||(state.tableDrafts[t.id]={entries:[...t.entries],chances:{...(t.chances||{})}});
+  const tableDraft=t=>state.tableDrafts[t.id]||(state.tableDrafts[t.id]={items:t.items.map(item=>({...item})),refill:t.refill,entries:[...t.entries],chances:{...(t.chances||{})},itemPage:0,selectedItem:0});
   const chanceValid=value=>String(value).trim()!==''&&Number.isFinite(Number(value))&&Number(value)>=0&&Number(value)<=100;
-  const tableValid=d=>d.entries.every(id=>chanceValid(d.chances[id]??4));
+  const scalar=v=>(typeof v==='string'||typeof v==='number')&&String(v).trim()!==''&&Number.isFinite(Number(v));
+  const countValid=v=>scalar(v)&&Number.isInteger(Number(v))&&Number(v)>=1&&Number(v)<=64;
+  const tableProblem=d=>{
+    if(d.items.length+d.entries.length>27)return 'A loot table can contain at most 27 entries across items and lore books.';
+    if(!scalar(d.refill)||Number(d.refill)<0||Number(d.refill)>10080)return 'Refill minutes must be between 0 and 10080.';
+    if(d.items.some(i=>!chanceValid(i.chance)))return 'Item chance must be between 0 and 100.';
+    if(d.items.some(i=>!countValid(i.min)||!countValid(i.max)||Number(i.min)>Number(i.max)))return 'Use whole counts from 1 to 64, with Min no greater than Max.';
+    if(d.entries.some(id=>!chanceValid(d.chances[id]??4)))return 'Lore book chance must be between 0 and 100.';
+    return '';
+  };
+  const tableValid=d=>!tableProblem(d);
+  const payload=d=>({items:d.items.map(i=>({...i,chance:Number(i.chance),min:Number(i.min),max:Number(i.max)})),refill:Number(d.refill),entries:[...d.entries],chances:Object.fromEntries(d.entries.map(id=>[id,Number(d.chances[id]??4)]))});
+  const dirtyTable=(d,t)=>!tableValid(d)||JSON.stringify(payload(d))!==JSON.stringify(payload(t));
+  const itemName=i=>{try{const c=JSON.parse(i.components||'{}');if(typeof c['minecraft:custom_name']==='string')return c['minecraft:custom_name'];}catch{}return i.id.replace('minecraft:','').replaceAll('_',' ')};
+  const liveLooked=()=>looked[state.looked];
+  const supported=t=>Boolean(t.key)&&['minecraft:chest','minecraft:barrel','minecraft:purple_shulker_box'].includes(t.block);
+  const boundAt=t=>chests.find(c=>c.physical===t.key);
+  const bindable=()=>supported(liveLooked())&&!boundAt(liveLooked());
+  function selectTable(t,section='items'){state.section='Loot Tables';state.selected=t.id;state.tableSection=section;state.compactDetail=true;render()}
+  function updateField(input,apply){input.addEventListener('change',()=>{apply(input.value);render()})}
+
   const ruleText=r=>({off:'Distribution off',once:'Spawn once',until:'Until found',repeat:'Repeat'}[r]);
   const removeChildren=n=>{while(n.firstChild)n.firstChild.remove()};
   function closeModal(){state.modal=null;render()}
   function openPreview(book,returnTo){state.modal={kind:'preview',book,returnTo};state.pageIndex=0;render()}
   function nav(){const n=el('nav','','bl-nav');['Session','Players','Events'].forEach(x=>n.append(button(x,()=>{state.feedback='This mockup focuses on Books & Lore.'})));n.append(el('div','Advanced','bl-group'));['Chests','Loot Tables','Books & Lore','Regions','Locations','Game setup'].forEach(x=>n.append(button(x,()=>{state.section=x;state.compactDetail=false;render()},{pressed:state.section===x})));return n}
-  function list(){const pane=el('section','','bl-list');if(state.section==='Books & Lore'){pane.append(button('+ New book',newBook,{primary:true,disabled:!setupEditable()}));books.forEach(b=>{const r=button(b.title,()=>{state.selected=b.id;state.compactDetail=true;render()});r.className='bl-row';r.setAttribute('aria-pressed',String(b.id===state.selected));if(state.debug)r.append(el('small',`${b.description} · ${b.id}`));pane.append(r)})}else if(state.section==='Chests'){chests.forEach(c=>{const r=button(c.title,()=>{state.selected=c.id;state.compactDetail=true;render()});r.className='bl-row';r.append(el('small',c.direct?'Specific lore book set':'Normal loot table only'));pane.append(r)})}else if(state.section==='Loot Tables'){tables.forEach(t=>{const r=button(t.title,()=>{state.selected=t.id;state.compactDetail=true;render()});r.className='bl-row';r.setAttribute('aria-pressed',String(t.id===state.selected));r.append(el('small',`${t.entries.length} named-book entries`));pane.append(r)})}else pane.append(el('p','This navigation destination is shown only to preserve the accepted Core menu structure.','bl-note'));return pane}
+  function list(){const pane=el('section','','bl-list');if(state.section==='Books & Lore'){pane.append(button('+ New book',newBook,{primary:true,disabled:!setupEditable()}));books.forEach(b=>{const r=button(b.title,()=>{state.selected=b.id;state.compactDetail=true;render()});r.className='bl-row';r.setAttribute('aria-pressed',String(b.id===state.selected));if(state.debug)r.append(el('small',`${b.description} · ${b.id}`));pane.append(r)})}else if(state.section==='Chests'){chests.forEach(c=>{const r=button(c.title,()=>{state.selected=c.id;state.compactDetail=true;render()});r.className='bl-row';r.append(el('small',c.direct?'Specific lore book set':'Normal loot table only'));pane.append(r)})}else if(state.section==='Loot Tables'){tables.forEach(t=>{const r=button(t.title,()=>{state.selected=t.id;state.tableSection='items';state.compactDetail=true;render()});r.className='bl-row';r.setAttribute('aria-pressed',String(t.id===state.selected));r.append(el('small',`${t.items.length} items; ${t.entries.length} lore books`));pane.append(r)})}else pane.append(el('p','This navigation destination is shown only to preserve the accepted Core menu structure.','bl-note'));return pane}
   function details(){
     const d=el('section','','bl-detail'),back=button('Back to list',()=>{state.compactDetail=false;render()});
     back.className='bl-back';back.style.display='none';d.append(back);
@@ -78,48 +109,70 @@
     d.append(el('p',`Distribution: ${ruleText(b.rule)}${b.rule==='until'?b.found?' - Found':' - Not found':''}`,'bl-note'));
     const actions=el('div','','bl-actions');
     actions.append(button('Edit details',()=>editDetails(b),{disabled:!setupEditable()}),button('Edit pages',()=>editPages(b),{disabled:!setupEditable()}),button('Preview',()=>openPreview(b,null)),button('Distribution...',()=>editRule(b),{disabled:!setupEditable()}),button('Place now...',()=>{state.modal={kind:'place-chest',book:b};render()},{disabled:state.phase!=='ACTIVE'}));d.append(actions,el('h3','Direct chests'));
-    const open=t=>{state.section='Loot Tables';state.selected=t.id;state.compactDetail=true;render()};
+    const open=t=>{state.section='Loot Tables';state.selected=t.id;state.tableSection='lore';state.compactDetail=true;render()};
     directs.forEach(c=>{const row=el('div','','bl-picker-row');row.append(el('span',c.title),button('Open chest',()=>{state.section='Chests';state.selected=c.id;state.compactDetail=true;render()}));d.append(row)});
     if(!directs.length)d.append(el('p','No direct chest settings.','bl-note'));
     d.append(el('h3','Loot tables'));
     appears.forEach(t=>{const row=el('div','','bl-picker-row');row.append(el('span',t.title),button('Open table',()=>open(t)));d.append(row)});
-    if(!appears.length)d.append(el('p','No loot-table references.','bl-note'),button('Choose loot table',()=>{state.section='Loot Tables';state.selected=tables[0].id;state.compactDetail=true;render()}));
+    if(!appears.length)d.append(el('p','No loot-table references.','bl-note'),button('Choose loot table',()=>{state.section='Loot Tables';state.selected=tables[0].id;state.tableSection='lore';state.compactDetail=true;render()}));
     if(!valid(b))d.append(el('p','Write at least one nonblank page before enabling distribution.','bl-warning'));
     if(state.debug){const debug=el('div','','bl-debug');debug.append(el('strong','Debug'),el('p',`ID: ${b.id} (custom identities are assigned by the server)`),el('p',`Issued: ${b.issued?'yes':'no'} - Found by inventory receipt: ${b.found?'yes':'no'}`));d.append(debug)}
     return d;
   }
+  function syncTableUi(t,d){
+    const pane=root.querySelector('.bl-detail');if(!pane)return;
+    const dirty=dirtyTable(d,t),problem=tableProblem(d);
+    pane.querySelector('[data-table-save]').disabled=!setupEditable()||!dirty||Boolean(problem);
+    pane.querySelector('[data-table-discard]').disabled=!dirty;
+    pane.querySelector('[data-table-error]').textContent=problem;
+    pane.querySelector('[data-table-dirty]').textContent=dirty?'Unsaved table changes.':'';
+    pane.querySelectorAll('[data-item-index]').forEach(button=>{const index=Number(button.dataset.itemIndex),i=d.items[index];if(i)button.textContent=`${index===d.selectedItem?'> ':''}${itemName(i)} ${i.chance}% x${i.min}-${i.max}`});
+  }
+  function draftNumber(label,value,set,table,draft,kind='chance'){
+    const l=el('label',label),f=document.createElement('input');f.type='number';f.value=String(value);f.disabled=!setupEditable();f.min=kind==='count'?'1':'0';f.max=kind==='refill'?'10080':kind==='count'?'64':'100';f.step=kind==='count'?'1':'any';
+    f.addEventListener('input',()=>{set(f.value);syncTableUi(table,draft)});l.append(f);return l;
+  }
   function lootDetail(d){
-    const t=tables.find(x=>x.id===state.selected)||tables[0], draft=tableDraft(t),entries=draft.entries;
-    d.append(el('h2',t.title),el('h3','Items'),el('p','Existing item add/edit/remove, chance and quantity controls stay here (unchanged; not simulated).','bl-note'));
-    t.items.forEach(([name,chance,count])=>d.append(el('p',`${name}  ${chance}%  ${count}`,'bl-note')));
-    d.append(el('h3','Lore books'));
-    const actions=el('div','','bl-actions');
-    actions.append(button('Add book...',()=>{state.modal={kind:'picker',table:t};render()},{primary:true,disabled:!setupEditable()}));
-    const dirty=JSON.stringify(draft)!==JSON.stringify({entries:t.entries,chances:t.chances||{}});
-    actions.append(button('Save loot table',()=>{state.modal={kind:'table-confirm',table:t};render()},{disabled:!setupEditable()||!dirty||!tableValid(draft)}));
-    actions.append(button('Discard changes',()=>{delete state.tableDrafts[t.id];render()},{disabled:!dirty}));
-    d.append(actions);
-    if(!entries.length)d.append(el('p','No named books in this table.','bl-note'));
-    entries.forEach(id=>{const b=books.find(x=>x.id===id),row=el('div','','bl-picker-row');
-      row.append(el('span',b?`${b.title}${b.author?` - ${b.author}`:''}`:'Missing registered book'));
-      const chance=document.createElement('input');chance.type='number';chance.min='0';chance.max='100';chance.value=String(draft.chances[id]??4);chance.setAttribute('aria-label','Lore book chance');chance.disabled=!setupEditable();chance.addEventListener('change',()=>{draft.chances[id]=chanceValid(chance.value)?Number(chance.value):chance.value;state.feedback=tableValid(draft)?'Lore-book chance changed in the local table draft.':'Enter a chance from 0 to 100 before saving.';render()});const chanceLabel=el('label','','bl-chance');chanceLabel.append(chance,document.createTextNode('%'));row.append(chanceLabel);
-      row.append(button('Open book',()=>{if(b){state.section='Books & Lore';state.selected=b.id;state.compactDetail=true;render()}}),button('Place now...',()=>{if(b){state.modal={kind:'place-chest',book:b,preferred:t};render()}},{disabled:state.phase!=='ACTIVE'}));d.append(row);
-    });
-    if(dirty)d.append(el('p','Unsaved table changes.','bl-warning'));
-    return d;
-  }
-  function chestDetail(d){
-    const c=chests.find(x=>x.id===state.selected)||chests[0],direct=books.find(b=>b.id===c.direct),table=tables.find(t=>t.id===c.table);
-    d.append(el('h2',c.title),el('p',`Normal table: ${table.title}`,'bl-note'),el('h3','Specific lore book'));
-    d.append(el('p',direct?`${direct.title} - ${direct.author} - ${c.chance}%`:'None; normal table lore only.','bl-note'));
-    const actions=el('div','','bl-actions');
-    actions.append(button('Specific lore book...',()=>{state.modal={kind:'direct-picker',chest:c,draft:{id:c.direct,chance:c.chance}};render()},{disabled:!setupEditable()}),button('Place book now...',()=>{state.modal={kind:'place-book',chest:c};render()},{disabled:state.phase!=='ACTIVE'}));d.append(actions);
-    if(direct){
-      d.append(el('p',`Book rule: ${ruleText(direct.rule)}`,'bl-note'),button('Open book settings',()=>{state.section='Books & Lore';state.selected=direct.id;state.compactDetail=true;render()}));
-      if(table.entries.includes(direct.id))d.append(el('p',"This book uses the chest chance here, replacing its table chance. Other entries are unchanged.",'bl-note'));
+    const t=tables.find(x=>x.id===state.selected)||tables[0],draft=tableDraft(t),dirty=dirtyTable(draft,t);
+    d.append(el('h2',t.title),el('p','Edit independent rolls and the shared refill interval. Saving fills no chest.','bl-note'));
+    const actions=el('div','','bl-actions'),save=button('Save loot table',()=>{state.modal={kind:'table-confirm',table:t};render()},{disabled:!setupEditable()||!dirty||!tableValid(draft)}),discard=button('Discard changes',()=>{delete state.tableDrafts[t.id];render()},{disabled:!dirty});
+    save.dataset.tableSave='';discard.dataset.tableDiscard='';actions.append(save,discard,button('Reload loot configuration',()=>{state.modal={kind:'reload-confirm',table:t};render()},{disabled:!setupEditable()}));d.append(actions);
+    d.append(draftNumber('Refill minutes (0 = off)',draft.refill,v=>draft.refill=v,t,draft,'refill'),el('p','0 disables timed refill; session-start fill still applies.','bl-note'));
+    const error=el('p',tableProblem(draft),'bl-warning'),notice=el('p',dirty?'Unsaved table changes.':'','bl-note');error.dataset.tableError='';notice.dataset.tableDirty='';d.append(error,notice,el('p',`${draft.items.length+draft.entries.length} / 27 entries (items and lore books combined)`,'bl-note'));
+    const tabs=el('div','','bl-actions');tabs.append(button(`Items (${draft.items.length})`,()=>{state.tableSection='items';render()},{pressed:state.tableSection==='items'}),button(`Lore books (${draft.entries.length})`,()=>{state.tableSection='lore';render()},{pressed:state.tableSection==='lore'}));d.append(tabs);
+    if(state.tableSection==='items'){
+      d.append(el('h3',`Items (${draft.items.length})`));
+      draft.itemPage=Math.min(draft.itemPage,Math.max(0,Math.ceil(draft.items.length/3)-1));
+      const start=draft.itemPage*3;
+      draft.items.slice(start,start+3).forEach((i,offset)=>{const index=start+offset,row=el('div','','bl-item-row'),choice=button(`${index===draft.selectedItem?'> ':''}${itemName(i)} ${i.chance}% x${i.min}-${i.max}`,()=>{draft.selectedItem=index;render()},{pressed:index===draft.selectedItem});choice.dataset.itemIndex=String(index);row.append(choice);d.append(row)});
+      if(!draft.items.length)d.append(el('p','No ordinary item entries.','bl-note'));
+      const a=el('div','','bl-actions');a.append(button('< items',()=>{draft.itemPage--;render()},{disabled:draft.itemPage===0}),button('> items',()=>{draft.itemPage++;render()},{disabled:start+3>=draft.items.length}),button('Add item',()=>{state.modal={kind:'item-picker',table:t,query:'',page:0};render()},{disabled:!setupEditable()||draft.items.length+draft.entries.length>=27}),button('Remove item',()=>{draft.items.splice(draft.selectedItem,1);draft.selectedItem=Math.min(draft.selectedItem,Math.max(0,draft.items.length-1));draft.itemPage=Math.floor(draft.selectedItem/3);render()},{disabled:!setupEditable()||!draft.items.length}));d.append(a);
+      const selected=draft.items[draft.selectedItem];if(selected){const fields=el('div','','bl-number-row');fields.append(draftNumber('Chance %',selected.chance,v=>selected.chance=v,t,draft),draftNumber('Min',selected.min,v=>selected.min=v,t,draft,'count'),draftNumber('Max',selected.max,v=>selected.max=v,t,draft,'count'));d.append(el('h3',itemName(selected)),fields);if(state.debug)d.append(el('p',`Item: ${selected.id}; components: ${selected.components}`,'bl-debug'))}
+    }else{
+      d.append(el('h3','Lore books'),button('Add book...',()=>{state.modal={kind:'picker',table:t};render()},{primary:true,disabled:!setupEditable()||draft.items.length+draft.entries.length>=27}));
+      if(!draft.entries.length)d.append(el('p','No named books in this table.','bl-note'));
+      draft.entries.forEach(id=>{const b=books.find(b=>b.id===id),row=el('div','','bl-picker-row');row.append(el('span',b?`${b.title} - ${b.author}`:'Missing registered book'));const wrap=el('label','','bl-chance'),chance=document.createElement('input');chance.type='number';chance.value=String(draft.chances[id]??4);chance.min='0';chance.max='100';chance.step='any';chance.setAttribute('aria-label','Lore book chance');chance.disabled=!setupEditable();chance.addEventListener('input',()=>{draft.chances[id]=chance.value;syncTableUi(t,draft)});wrap.append(chance,document.createTextNode('%'));row.append(wrap,button('Open book',()=>{if(b){state.section='Books & Lore';state.selected=id;state.compactDetail=true;render()}}),button('Remove book',()=>{draft.entries=draft.entries.filter(x=>x!==id);delete draft.chances[id];render()},{disabled:!setupEditable()}),button('Place now...',()=>{if(b){state.modal={kind:'place-chest',book:b,preferred:t};render()}},{disabled:state.phase!=='ACTIVE'}));d.append(row)});
     }
+    if(state.debug)d.append(el('p',`Table ID: ${t.id}; bound chests: ${chests.filter(c=>c.table===t.id).length}; recommended: ${t.recommended||0}`,'bl-debug'));
     return d;
   }
+
+  function chestDetail(d){
+    const c=chests.find(x=>x.id===state.selected)||chests[0],target=liveLooked();
+    d.append(el('h2',c?c.title:'Bound chests'),el('p','Bind a container to a loot table; add an optional specific lore book.'));
+    const bind=button('Bind looked-at chest...',()=>{state.modal={kind:'chest-table-picker',operation:'bind',target:{...target},query:''};render()},{disabled:!setupEditable()||!bindable()});
+    bind.title=!setupEditable()?'Pause play and enable editing.':boundAt(target)?'Already bound: select it and change its loot table.':!supported(target)?'Look at a supported chest, barrel or shulker box within reach.':'';d.append(bind);
+    if(!c){d.append(el('p','No bound chests yet.','bl-note'));return d}
+    const table=tables.find(t=>t.id===c.table),direct=books.find(b=>b.id===c.direct),physical=worldContainers.get(c.physical);
+    d.append(el('p',`Loot table: ${table.title}`));
+    const a=el('div','','bl-actions');a.append(button('Show chest',()=>{state.modal={kind:'show-chest',chest:c};render()}),button('Open loot table',()=>selectTable(table)),button('Change loot table...',()=>{state.modal={kind:'chest-table-picker',operation:'retype',chest:c,expected:c.table,query:''};render()},{disabled:!setupEditable()}),button('Unbind chest',()=>{state.modal={kind:'chest-confirm',operation:'unbind',chest:c,expected:c.table};render()},{disabled:!setupEditable()}));d.append(a,el('h3','Specific lore book'));
+    d.append(el('p',direct?`${direct.title} - ${direct.author} - ${c.chance}%`:'None; table lore applies.','bl-note'));
+    const lore=el('div','','bl-actions');lore.append(button('Specific lore book...',()=>{state.modal={kind:'direct-picker',chest:c,draft:{id:c.direct,chance:c.chance}};render()},{disabled:!setupEditable()}),button('Place book now...',()=>{state.modal={kind:'place-book',chest:c};render()},{disabled:state.phase!=='ACTIVE'}));d.append(lore);
+    if(direct){d.append(el('p',`Book rule: ${ruleText(direct.rule)}`,'bl-note'),button('Open book settings',()=>{state.section='Books & Lore';state.selected=direct.id;state.compactDetail=true;render()}));if(table.entries.includes(direct.id))d.append(el('p',"The direct chance replaces this book's table chance here; other entries are unchanged.",'bl-note'))}
+    if(state.debug)d.append(el('p',`Container: ${c.physical}; ${physical.block}`,'bl-debug'),el('p',`Contents: ${physical.contents}; fill history: ${physical.history}`,'bl-debug'),el('p',`Looked at: ${target.title}; ${target.key||'out of reach'}`,'bl-debug'));
+    return d;
+  }
+
   function newBook(){const b={id:null,title:'',author:'',description:'',pages:[],rule:'off',found:false,issued:false};editDetails(b,true)}
   function editDetails(b,isNew=false){state.modal={kind:'details',book:b,isNew};render()}
   function editPages(b){state.modal={kind:'pages',book:b,draft:b.pages.slice(),index:0};render()}
@@ -185,7 +238,45 @@
     if(m.kind==='picker'){
       const draft=tableDraft(m.table);
       box.append(el('h2','Add book to loot table'),el('p',m.table.title,'bl-note'));
-      books.forEach(b=>{const r=el('div','','bl-picker-row');r.append(el('span',`${b.title}${b.author?` - ${b.author}`:''}`));r.append(button('Add',()=>{draft.entries.push(b.id);draft.chances[b.id]=4;state.feedback='Book added to the table draft. Save the loot table to apply.';close()},{disabled:!valid(b)||draft.entries.includes(b.id)}));box.append(r)});box.append(button('Close',close));
+      books.forEach(b=>{const r=el('div','','bl-picker-row');r.append(el('span',`${b.title}${b.author?` - ${b.author}`:''}`));r.append(button('Add',()=>{if(!setupEditable()||draft.items.length+draft.entries.length>=27||draft.entries.includes(b.id))return;draft.entries.push(b.id);draft.chances[b.id]=4;state.feedback='Book added to the table draft. Save the loot table to apply.';close()},{disabled:!valid(b)||draft.entries.includes(b.id)||draft.items.length+draft.entries.length>=27}));box.append(r)});box.append(button('Close',close));
+    }
+    if(m.kind==='chest-table-picker'){
+      box.append(el('h2',m.operation==='bind'?'Bind looked-at chest':'Change loot table'),el('p',m.operation==='bind'?`${m.target.title}: ${m.target.key}`:m.chest.title,'bl-note'));
+      const label=el('label','Search loot tables'),search=document.createElement('input');search.value=m.query;search.maxLength=80;search.dataset.tableSearch='';search.addEventListener('input',()=>{m.query=search.value;const caret=search.selectionStart;render();const next=root.querySelector('[data-table-search]');next.focus();next.setSelectionRange(caret,caret)});label.append(search);box.append(label);
+      const choices=tables.filter(t=>(t.title+' '+t.id).toLowerCase().includes(m.query.toLowerCase()));
+      if(!choices.length)box.append(el('p','No matching loot tables.','bl-note'));
+      choices.forEach(t=>{const row=el('div','','bl-picker-row');row.append(el('span',t.title),button('Choose',()=>{state.modal={...m,kind:'chest-confirm',table:t};render()}));box.append(row)});box.append(button('Cancel',close));
+    }
+    if(m.kind==='chest-confirm'){
+      const bind=m.operation==='bind',unbind=m.operation==='unbind',title=unbind?'Unbind chest?':bind?'Bind container?':'Change loot table?';
+      box.append(el('h2',title),el('p',bind?`${m.target.title} at ${m.target.key}`:m.chest.title));
+      if(!unbind)box.append(el('p',`Loot table: ${m.table.title}`));
+      box.append(el('p',unbind?'Remove this binding and its direct-book setting. Physical contents, fill history, and book history stay unchanged.':'Changes the binding only. Contents, existing direct-book setting and fill history stay unchanged; no chest fills now.','bl-note'));
+      const confirmName=unbind?'Confirm unbind':bind?'Confirm bind':'Confirm table change';
+      box.append(button('Cancel',close),button(confirmName,()=>{
+        if(!setupEditable())return;
+        if(bind){
+          const live=liveLooked();if(live.key!==m.target.key||live.block!==m.target.block||!bindable()){state.feedback='Looked-at container changed or is already bound. Select it again before binding.';close();return;}
+          const physical=worldContainers.get(live.key),parts=live.key.split(' ');
+          const c={id:physical.bindingId,physical:live.key,title:`${live.title} (${parts.slice(1).join(', ')})`,table:m.table.id,direct:'',chance:4};chests.push(c);state.selected=c.id;
+          state.feedback='Container bound locally. Contents and fill history unchanged; no immediate fill.';
+        }else{
+          const index=chests.findIndex(c=>c.id===m.chest.id);if(index<0||chests[index].table!==m.expected){state.feedback='This binding changed. Review it again.';close();return;}
+          if(unbind){chests.splice(index,1);state.selected=chests[0]?.id||'';state.feedback='Chest unbound locally. World contents, fill history and book history unchanged.';}
+          else{chests[index].table=m.table.id;state.feedback='Loot table changed locally. Direct lore, contents and fill history unchanged.';}
+        }
+        state.compactDetail=true;close();
+      },{primary:true,disabled:!setupEditable()}));
+    }
+    if(m.kind==='show-chest'){
+      box.append(el('h2','Show chest'),el('p',m.chest.title),el('div','','bl-block-outline'),el('p',`Private block outline at ${m.chest.physical} (world preview simulated).`,'bl-note'),button('Close',close));
+    }
+    if(m.kind==='item-picker'){
+      const draft=tableDraft(m.table),query=m.query.toLowerCase(),matches=itemCatalog.filter(id=>id.includes(query)),pageSize=6,start=m.page*pageSize;
+      box.append(el('h2','Add item'),el('p',`Registry items · page ${m.page+1} / ${Math.max(1,Math.ceil(matches.length/pageSize))}`,'bl-note'));
+      const search=el('label','Search registry'),field=document.createElement('input');field.value=m.query;field.maxLength=80;field.dataset.registrySearch='';field.addEventListener('input',()=>{m.query=field.value;m.page=0;const caret=field.selectionStart;render();const next=root.querySelector('[data-registry-search]');next.focus();next.setSelectionRange(caret,caret)});search.append(field);box.append(search);
+      matches.slice(start,start+pageSize).forEach(id=>{const row=el('div','','bl-picker-row');row.append(el('span',id),button('Add',()=>{if(draft.items.length+draft.entries.length<27){draft.items.push({id,chance:100,min:1,max:1,components:'{}'});draft.selectedItem=draft.items.length-1;draft.itemPage=Math.floor(draft.selectedItem/3);state.feedback='New item defaults to 100% x1–1.';}close()},{disabled:draft.items.length+draft.entries.length>=27}));box.append(row)});
+      box.append(button('< page',()=>{m.page=Math.max(0,m.page-1);render()},{disabled:m.page===0}),button('> page',()=>{m.page=Math.min(Math.ceil(matches.length/pageSize)-1,m.page+1);render()},{disabled:start+pageSize>=matches.length}),button('Cancel',close));
     }
     if(m.kind==='direct-picker'){
       box.append(el('h2','Specific lore book'),el('p',`${m.chest.title} · normal table and refill clock remain shared.`,'bl-note'));
@@ -199,6 +290,7 @@
     }
     if(m.kind==='place-chest'){
       box.append(el('h2','Place book now...'),el('p',m.book.title,'bl-note'));
+      if(!chests.length)box.append(el('p','No bound chests. Bind one during setup before live placement.','bl-note'));
       [...chests].sort((a,b)=>Number(b.table===m.preferred?.id)-Number(a.table===m.preferred?.id)).forEach(c=>{const row=el('div','','bl-picker-row');row.append(el('span',c.title));row.append(button('Choose',()=>{state.modal={kind:'place-confirm',book:m.book,chest:c,override:false};render()}));box.append(row)});box.append(button('Cancel',close));
     }
     if(m.kind==='place-confirm'){
@@ -210,12 +302,18 @@
       box.append(button('Cancel',close),button('Confirm place',()=>{if(state.phase!=='ACTIVE'){state.feedback='Resume play before using live placement.';}else if(blocked&&!m.override){state.feedback='Placement blocked by the book rule.';}else if(state.target!=='ready'){state.feedback=`Local illustrative placement failed: target chest is ${state.target}; existing items, issued state, and discovery stay unchanged.`;}else{m.book.issued=true;state.feedback='Local illustrative placement completed without overwriting items; discovery remains unchanged.';}close()},{primary:true,disabled:state.phase!=='ACTIVE'||(blocked&&!m.override)}));
     }
     if(m.kind==='table-confirm'){
-      box.append(el('h2','Save loot table?'),el('p',m.table.title),el('p','Future eligible fills use these book references. No chest fills now.','bl-note'));
-      box.append(button('Cancel',close),button('Confirm table save',()=>{const draft=tableDraft(m.table);if(!setupEditable()||!tableValid(draft))return;m.table.entries=[...draft.entries];m.table.chances={...draft.chances};delete state.tableDrafts[m.table.id];state.feedback='Loot table saved locally.';close()},{primary:true}));
+      box.append(el('h2','Save loot table?'),el('p',m.table.title),el('p','Save all item rolls, quantities, refill settings and lore entries together. No chest fills now.','bl-note'));
+      box.append(button('Cancel',close),button('Confirm table save',()=>{const draft=tableDraft(m.table);if(!setupEditable()||!tableValid(draft))return;Object.assign(m.table,payload(draft));savedLoot=JSON.parse(JSON.stringify(tables));delete state.tableDrafts[m.table.id];state.feedback='Loot table saved locally.';close()},{primary:true}));
     }
+    if(m.kind==='reload-confirm'){
+      box.append(el('h2','Reload loot configuration?'),el('p','Reload the saved sample configuration for all tables. Unsaved table drafts will be discarded after a successful reload. Chest contents and book history stay unchanged.','bl-note'));
+      box.append(button('Cancel',close),button('Confirm reload',()=>{if(!setupEditable())return;tables.splice(0,tables.length,...JSON.parse(JSON.stringify(savedLoot)));state.tableDrafts={};state.feedback='Saved sample loot configuration reloaded; chest contents and book history unchanged.';close()},{primary:true}));
+    }
+
     shade.append(box);return shade;
   }
-  function render(){removeChildren(root);root.dataset.compactDetail=String(state.compactDetail);const header=el('header','','bl-header');header.append(el('span','Chronicle','bl-brand'),button('Refresh',()=>{state.feedback='Mockup refreshed.'}),button(`Debug: ${state.debug?'on':'off'}`,()=>{state.debug=!state.debug;render()},{pressed:state.debug}),button(state.editing?'Stop editing':'Enable editing',()=>{state.editing=!state.editing;render()},{disabled:state.phase==='ACTIVE'}));root.append(header);const columns=el('main','','bl-columns');columns.append(nav(),list(),details());root.append(columns);const footer=el('footer',state.feedback,'bl-footer');root.append(footer);const overlay=modal();if(overlay){root.append(overlay);if(!setupEditable()&&!state.modal.kind.startsWith('place-')){const saves=new Set(['Create and edit pages','Save details','Save pages','Save rule','Confirm rule','Save chest setting','Clear and save','Confirm table save','Add']);overlay.querySelectorAll('button').forEach(b=>{if(saves.has(b.textContent))b.disabled=true})}}document.querySelector('[data-scenario="phase"]').textContent=`Phase: ${state.phase}`;document.querySelector('[data-scenario="target"]').textContent=`Target: ${state.target}`;const bookButton=document.querySelector('[data-scenario="book"]');bookButton.disabled=state.section!=='Books & Lore';bookButton.textContent=`Book state: ${current().found?'found':current().issued?'issued':'unseen'}`}
+  function render(){removeChildren(root);root.dataset.compactDetail=String(state.compactDetail);const header=el('header','','bl-header');header.append(el('span','Chronicle','bl-brand'),button('Refresh',()=>{state.feedback='Mockup refreshed.'}),button(`Debug: ${state.debug?'on':'off'}`,()=>{state.debug=!state.debug;render()},{pressed:state.debug}),button(state.editing?'Stop editing':'Enable editing',()=>{state.editing=!state.editing;render()},{disabled:state.phase==='ACTIVE'}));root.append(header);const columns=el('main','','bl-columns');columns.append(nav(),list(),details());root.append(columns);const footer=el('footer',state.feedback,'bl-footer');root.append(footer);const overlay=modal();if(overlay){root.append(overlay);if(!setupEditable()&&!state.modal.kind.startsWith('place-')){const saves=new Set(['Create and edit pages','Save details','Save pages','Save rule','Confirm rule','Save chest setting','Clear and save','Confirm table save','Confirm reload','Confirm bind','Confirm table change','Confirm unbind','Add']);overlay.querySelectorAll('button').forEach(b=>{if(saves.has(b.textContent))b.disabled=true})}}document.querySelector('[data-scenario="phase"]').textContent=`Phase: ${state.phase}`;document.querySelector('[data-scenario="target"]').textContent=`Target: ${state.target}`;const lookedButton=document.querySelector('[data-scenario="looked"]');lookedButton.textContent=`Looked: ${liveLooked().title}`;const bookButton=document.querySelector('[data-scenario="book"]');bookButton.disabled=state.section!=='Books & Lore';bookButton.textContent=`Book state: ${current().found?'found':current().issued?'issued':'unseen'}`}
+  document.querySelector('[data-scenario="looked"]').addEventListener('click',()=>{state.looked=(state.looked+1)%looked.length;render()});
   document.querySelector('[data-scenario="book"]').addEventListener('click',()=>{const b=current();if(!b.issued)b.issued=true;else if(!b.found)b.found=true;else{b.issued=false;b.found=false}render()});
   document.querySelector('[data-scenario="phase"]').addEventListener('click',()=>{state.phase=state.phase==='ACTIVE'?'PAUSED':'ACTIVE';if(state.phase==='ACTIVE')state.editing=false;render()});document.querySelector('[data-scenario="target"]').addEventListener('click',()=>{state.target=state.target==='ready'?'full':state.target==='full'?'unloaded':'ready';render()});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&state.modal){event.preventDefault();const m=state.modal;state.modal=m.kind==='remove-page'?m.editor:m.returnTo||null;render()}});render();
 })();

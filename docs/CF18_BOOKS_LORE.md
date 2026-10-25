@@ -1,5 +1,7 @@
 # CF-18: Core Books & Lore
 
+**25 October feature-parity revision:** the [merged mockup comparison](CF18_EXISTING_FEATURE_PARITY.md) now covers the existing item editor, shared refill/save/reload and complete bound-chest workflow as interactive fixtures, alongside the two lore routes and GM placement. Direct table navigation opens Items; book handoffs open Lore books. Preserve the current 27-entry bound across both sections. Edge passes133 workflow checks; the earlier73-check result below is historical. Minecraft implementation remains pending the combined design review.
+
 25 October 2026. The operator accepts the journal content as a strong starting point and defers further prose/event/narrative revision until the main mod functionality is complete. The requested next capability is a library-level named-book editor and discovery lifecycle. This is a design and implementation plan, not a delivered feature. The Minecraft server and client remain dev51 while the organizer reviews the [clickable workflow](design/books-lore.html) and the [dedicated UI design](CF18_BOOKS_LORE_UI_DESIGN.md). The lead reviewed the design before this handoff; no additional permission rule is imposed by a skill.
 
 ## Two-route revision,25 October

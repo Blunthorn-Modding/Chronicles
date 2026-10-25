@@ -1,5 +1,8 @@
 # Implementation milestones after the prototype
 
+**25 October CF18 parity revision:** [merged design](CF18_EXISTING_FEATURE_PARITY.md) now makes existing item authoring, refill/save/reload, and chest bind/show/retype/unbind controls interactive alongside both lore routes and live GM placement. PASS133 mockup checks; no mod deployment or CF18b-d completion. Current review is the combined workflow, not a separate review of each control.
+
+
 **25 October two-route update:** CF18c now includes per-binding optional specific-book/chance metadata, a separate Lore books group within existing loot tables, same-book direct precedence, shared central lifecycle/transaction receipts and a distinct live GM placement purpose. Existing ordinary item controls/refill clocks remain. The [revised mockup](design/books-lore.html) passes73 browser workflow checks; this remains CF18a design review, with no mod deployment. Subsequent definitions/editor, routes/receipts/GM and campaign/native milestones remain pending review.
 
 **25 October CF-18 planned:** [Books & Lore](CF18_BOOKS_LORE.md) becomes a Core registry/editor plus campaign-wide item discovery. The operator confirmed inventory receipt as discovery and group-wide scope. Dedicated [UI design](CF18_BOOKS_LORE_UI_DESIGN.md)/[clickable mockup](design/books-lore.html) are the current review gate; implementation is not yet delivered. Follow CF18a workflow review, CF18b definitions/editor, CF18c named loot references/shared issuance and discovery, CF18d campaign adoption/native bundled review. Current journal text stays frozen until the final narrative/events pass. Handcrafted-map/group gates remain pending independently.

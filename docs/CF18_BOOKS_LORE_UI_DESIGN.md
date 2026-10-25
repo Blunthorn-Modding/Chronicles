@@ -183,7 +183,7 @@ Both routes use the existing bound chest registry and its existing refill clock.
 
 If the same named book is also in the chest's normal loot table, the direct chance overrides that book's table chance for this chest. It is one roll and at most one copy, never two competing rolls. Other book entries and ordinary items in the table are unaffected. Clearing the optional direct setting restores the table's normal chance for that book.
 
-**Normal loot-table book.** `Loot Tables` has two explicit sections:
+**Normal loot-table book.** `Loot Tables` has two selectable sections, opening on Items when entered directly:
 
 ```text
 Items
@@ -210,6 +210,16 @@ The selected book's **Appears in** remains read-only and split into **Direct che
 All shortcuts arrive at one confirmation sheet naming the exact chest and book and stating **one copy**, **bypass chance**, **no refill reschedule**, and **no discovery record yet**. It defaults to respecting the selected book's central rule. If that rule blocks placement because distribution is Off, the book has already Spawned once, or it is already found, the sheet visibly offers **Override book spawning rule for this copy**. The toggle is explicit; it does not alter the saved rule or discovery history.
 
 Placing a book never overwrites existing inventory items, consumes no normal refill cycle, and does not count as found. A later real player-inventory receipt may record discovery under the normal central rule. The operation fails clearly if the target chest is unloaded or has no room; it never creates a new physical target or delayed placement job.
+
+### Existing Chest and Loot Table workflow retained
+
+The Books & Lore additions extend, rather than replace, the current Core screens.
+
+**Chests** retains `Bind looked-at chest…`: a supported looked-at chest, barrel, or shulker selects a loot table and requires the usual confirmation. An unsupported, absent, or out-of-reach target cannot bind and explains why. A selected bound chest retains **Show chest** (private outline/coordinates), **Open loot table**, **Change loot table…** (confirmed; preserves its direct-book setting, current contents, and fill history), and **Unbind chest** (confirmed; removes only the binding). Read-only Show/Open remain available; bind/change/unbind and the direct-book setting require non-active Editing. No action creates a second chest registry.
+
+**Loot Tables** retains the native whole-table editor. Its shared draft has ordinary **Items** and **Lore books** sections, one shared `Refill minutes` value (0 disables timed refill; session-start filling still applies), and one confirmed **Save loot table** that commits item entries, rich item components, refill minutes, lore references, and their chances atomically. **Reload loot configuration** is confirmed and reloads configuration only; it does not rewrite discovered books or history and rejects malformed input without changing the loaded draft.
+
+Items keep the current independent row workflow: select an entry; use searchable/paged **Add item** registry picker (new entry defaults to 100%, count 1–1); **Remove item**; edit chance 0–100 and integer min/max 1–64 with min ≤ max; preserve rich components when numeric fields change. The shared cap is 27 total entries across Items and Lore books; both Add controls disable at that combined cap. The selected-entry window shows three rows with previous/next entry controls when needed. Lore rows are stable named-book references with their own chance, open/remove controls, and ACTIVE **Place now…**; they are not raw item-component stacks and never duplicate central rules.
 
 ## Authority, stale saves and failure behavior
 
@@ -255,4 +265,4 @@ Extend the existing Core menu layout/native smoke coverage at 480, 640 and 960 l
 
 All managed named-book copies waiting in bound chests retain refill protection until taken, including copies waiting after global discovery and GM-restored copies. Repeat ignores discovery for future rolls; it does not erase book identity/history. Raw generic written books keep their ordinary replacement behavior. Manual placement has its own operation purpose and never consumes a normal refill cycle.
 
-Entering ACTIVE play clears setup Editing, as in the current Core lifecycle. Metadata/table/direct-setting controls remain locked; live operator placement has no Editing prerequisite. The Items section retains the existing full add/select/edit/remove/chance/min-max quantity editor. Ordinary item controls are deliberately not simulated in this focused lore mockup; the visible note marks that scope, not a proposed removal of those controls.
+Entering ACTIVE play clears setup Editing, as in the current Core lifecycle. Metadata/table/direct-setting controls remain locked; live operator placement has no Editing prerequisite. The Items section retains the existing full add/select/edit/remove/chance/min-max quantity editor. Ordinary item and chest controls are now interactive in this merged mockup, alongside the lore additions. They operate on sample in-memory data; the item picker samples the Minecraft registry and Show chest simulates an outline. Configuration errors, real world inventories, authoritative permissions and persistence require later native implementation verification.
