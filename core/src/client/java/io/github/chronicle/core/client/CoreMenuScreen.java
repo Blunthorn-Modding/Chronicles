@@ -1,5 +1,8 @@
 package io.github.chronicle.core.client;
 
+import com.google.gson.Gson;
+import io.github.chronicle.core.books.BookChance;
+import io.github.chronicle.core.books.BookDefinition;
 import io.github.chronicle.core.loot.LootEntry;
 import io.github.chronicle.core.loot.LootTableDraftJson;
 import io.github.chronicle.core.loot.LootType;
@@ -44,9 +47,9 @@ public final class CoreMenuScreen extends Screen {
     private static final int RESPONSE_TIMEOUT = 20 * 10;
     private static final int REFRESH_TICKS = 20 * 2;
     private static final Page[] NAVIGATION = {Page.SESSION, Page.PLAYERS, Page.EVENTS, Page.CHESTS,
-            Page.LOOT_TABLES, Page.REGIONS, Page.LOCATIONS, Page.SETUP};
+            Page.LOOT_TABLES, Page.BOOKS_LORE, Page.REGIONS, Page.LOCATIONS, Page.SETUP};
     private static final String[] NAVIGATION_LABELS = {"Session", "Players", "Events", "Chests",
-            "Loot Tables", "Regions", "Locations", "Game setup"};
+            "Loot Tables", "Books & Lore", "Regions", "Locations", "Game setup"};
 
     private View state;
     private boolean pending;
@@ -78,11 +81,21 @@ public final class CoreMenuScreen extends Screen {
     private TextFieldWidget lootChance, lootMin, lootMax;
     private String eventMode = "MANUAL", eventRegion = "", eventFlag = "", eventSecondsDraft = "0";
     private String regionFirst = "", regionSecond = "";
-    private LootType lootDraft;
+    private LootType lootDraft, lootBase;
+    private boolean lootDraftStale;
+    private final Map<String,LootHandoff> lootHandoffs = new java.util.HashMap<>();
+    private record LootHandoff(LootType draft,LootType base,int entry,int book,int entryOffset,int bookOffset,
+                               boolean booksTab,String refill,String validation,Map<Integer,String[]> items,Map<Integer,String> books) { }
+
     private int lootEntry = -1;
     private int lootEntryOffset;
+    private int lootBook = -1;
+    private int lootBookOffset;
+    private boolean lootBooksTab;
     private String refillMinutesDraft = "0", lootValidation = "";
     private final Map<Integer, String[]> lootInputDrafts = new java.util.HashMap<>();
+    private final Map<Integer, String> loreChanceDrafts = new java.util.HashMap<>();
+    private final Map<String, io.github.chronicle.core.menu.CoreMenuModel.BookSummary> bookSummaries = new java.util.HashMap<>();
     private final Map<String, ButtonWidget> buttons = new LinkedHashMap<>();
     private final List<RenderLine> renderLines = new ArrayList<>();
     private CoreMenuLayout.Layout layout;
@@ -96,6 +109,8 @@ public final class CoreMenuScreen extends Screen {
     private View limitBackdrop;
     private boolean limitCloseRequested;
     private String limitServerProblem = "";
+    private BookEditorScreen failedBookEditor;
+    private long failedBookToken;
 
     public CoreMenuScreen(View initial) {
         super(Text.literal("Chronicle"));
@@ -205,6 +220,23 @@ public final class CoreMenuScreen extends Screen {
         if (receivedFor == Action.LOOT_SAVE && !updated.success()) notice = notice + " Draft retained; reload before choosing to replace it.";
         if (updated.detail() != null && updated.detail().region() != null && updated.page() == Page.REGIONS) detailOnCompact = true;
         if (updated.success() && (receivedFor == Action.POINT_CREATE || receivedFor == Action.BLOCK_CREATE || receivedFor == Action.BLOCK_LIMITS || receivedFor == Action.MANUAL_REFERENCES)) detailOnCompact = true;
+        if (receivedFor == Action.BOOK_CREATE && updated.success() && updated.detail() != null && updated.detail().book() != null) {
+            failedBookEditor = null;
+            openBookEditor(updated.detail().book(), BookEditorScreen.Mode.PAGES, false);
+            return;
+        }
+        if (receivedFor == Action.BOOK_KEEP && updated.success() && updated.detail() != null && updated.detail().lore() != null && updated.detail().lore().keep() != null) {
+            client.setScreen(new BookKeepScreen(this, updated.detail().lore().keep(), this::sendKeep));
+            return;
+        }
+        if ((receivedFor == Action.BOOK_CREATE || receivedFor == Action.BOOK_SAVE) && !updated.success() && failedBookEditor != null) {
+            BookEditorScreen retry = failedBookEditor;
+            failedBookEditor = null;
+            retry.serverRejected(blank(updated.message(), "The server rejected this book definition. Correct it and save again."), failedBookToken != updated.token());
+            client.setScreen(retry);
+            return;
+        }
+        if (receivedFor == Action.BOOK_CREATE || receivedFor == Action.BOOK_SAVE) { failedBookEditor = null; failedBookToken = 0; }
         boolean changedAuthority = priorToken != updated.token();
         if (changedAuthority) {
             confirmation = null;
@@ -217,13 +249,24 @@ public final class CoreMenuScreen extends Screen {
             request(Action.REFRESH, Page.SETUP, "limits", "", 0, "", "", false);
             return;
         }
+        if(receivedFor==Action.LOOT_RELOAD&&updated.success()&&updated.detail()!=null)lootHandoffs.remove(updated.detail().id());
+        if(receivedFor==Action.LOOT_SAVE&&updated.success()&&updated.detail()!=null)lootHandoffs.remove(updated.detail().id());
         updateLimitDialogAfterResponse(receivedFor, priorLimitRevision);
         if (!stableRefresh) {
             if (updated.picker() == null && !retainPrompt) { pickerAction = null; promptDraft = ""; }
             if (updated.detail() != null && !preserveDrafts && (changedAuthority || !updated.detail().id().equals(priorDetail))) loadForms(updated.detail());
+            if(updated.detail()!=null&&updated.detail().loot()!=null)restoreLootHandoff(updated.detail().loot());
             clearAndInit();
         }
         if (close) client.setScreen(null);
+    }
+
+    /** Applies an unsolicited refresh while a child editor is visible without rebuilding or closing that child. */
+    void acceptWhileEditorOpen(View updated) {
+        state = updated;
+        pending = false; refreshPending = false; pendingTicks = idleTicks = 0; requestedAction = null;
+        if (!updated.selected().isBlank()) selected = updated.selected();
+        if (!updated.message().isBlank()) notice = updated.message();
     }
 
     @Override protected void init() {
@@ -295,7 +338,7 @@ public final class CoreMenuScreen extends Screen {
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE) {
+                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW) {
                     control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
@@ -359,17 +402,43 @@ public final class CoreMenuScreen extends Screen {
             cursor = wrapped(eventPreview, x, cursor + 10, w, 0xFFCCCCCC, 3);
         }
         cursor = wrapped(detail.description(), x, cursor, w, 0xFFFFFFFF, 3);
+        if (detail.book() != null) {
+            drawLine("Author: " + blank(detail.book().author(), "none"), x, cursor, w, 0xFFCCCCCC); cursor += 10;
+            drawLine("Pages: " + detail.book().pages().size(), x, cursor, w, 0xFFCCCCCC); cursor += 10;
+            drawLine("Discovery: " + bookRuleLabel(detail.book().rule()), x, cursor, w, 0xFFCCCCCC); cursor += 10;
+        }
+        if (detail.lore() != null && detail.lore().keep() != null) {
+            var keep = detail.lore().keep();
+            drawLine("Keeping: " + keep.status() + " · " + keep.tableLabel(), x, cursor, w, 0xFFCCCCCC); cursor += 10;
+            if (debug && !keep.location().isBlank()) { drawLine("Kept copy: " + keep.location(), x, cursor, w, 0xFFA0A0A0); cursor += 10; }
+        }
         for (var fact : detail.facts()) if (CoreMenuPresentation.showFact(fact, debug)) {
             cursor = wrapped(fact.label() + ": " + fact.value(), x, cursor, w, 0xFFCCCCCC, 8);
         }
         if (state.page() == Page.EVENTS && detail.event() != null) cursor = eventForm(detail.event(), x, cursor, w);
         if (state.page() == Page.REGIONS && detail.region() != null) cursor = regionForm(detail.region(), x, cursor, w);
         if (state.page() == Page.LOOT_TABLES && detail.loot() != null) cursor = lootForm(x, cursor, w, Math.max(45, h - (cursor - y) - 50));
+        if (detail.book() != null) {
+            button("Preview", x, cursor, w, () -> client.setScreen(new BookPreviewScreen(this, detail.book())),
+                    "Read this definition locally without saving, issuing, or mutating inventory", true);
+            cursor += 20;
+        }
+        if (detail.lore() != null && state.page() == Page.BOOKS_LORE) {
+            for (Entry use : detail.lore().tableUses()) {
+                button("Open table: " + use.label(), x, cursor, w, () -> request(Action.OPEN, Page.LOOT_TABLES, use.id(), "", 0, "", "", false), "Open this read-only usage", true); cursor += 20;
+            }
+            for (Entry use : detail.lore().chestUses()) {
+                button("Open chest: " + use.label(), x, cursor, w, () -> request(Action.OPEN, Page.CHESTS, use.id(), "", 0, "", "", false), "Open this read-only usage", true); cursor += 20;
+            }
+        }
+        if (detail.lore() != null && state.page() == Page.CHESTS && detail.lore().direct() != null) {
+            drawLine("Specific lore book: " + bookLabel(detail.lore().direct().bookId()) + " · " + detail.lore().direct().chancePercent() + "%", x, cursor, w, 0xFFCCCCCC); cursor += 12;
+        }
         for (Control unavailable : detail.controls()) if (!unavailable.enabled() && !unavailable.reason().isBlank()) {
             cursor = wrapped("Unavailable: " + unavailable.reason(), x, cursor, w, 0xFFFFCC66, 2); break;
         }
         for (Control control : detail.controls()) {
-            if (detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
+            if (control.action()==Action.BOOK_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
             control(control, x, cursor, w); cursor += 20;
         }
         detailContentHeight = cursor + detailScroll - y;
@@ -408,7 +477,14 @@ public final class CoreMenuScreen extends Screen {
 
     private int lootForm(int x, int y, int w, int available) {
         if (lootDraft == null) return y;
-        drawLine("Entries " + lootDraft.entries().size() + " / " + LootType.MAX_ENTRIES + " · refill " + lootDraft.refillMinutes() + " min", x, y, w, 0xFFA0A0A0); y += 12;
+        boolean editing = canEditLoot();
+        drawLine("Entries " + (lootDraft.entries().size()+lootDraft.books().size()) + " / " + LootType.MAX_ENTRIES, x,y,w,0xFFA0A0A0);y+=12;
+        drawLine("Refill minutes (0 = off)",x,y,w,0xFFA0A0A0);y+=11;
+        lootRefill=numberField(x,y,Math.max(55,w/2-2),"Refill min",refillMinutesDraft,this::setRefillMinutes);lootRefill.active=editing;
+        drawLine("0 disables timed refill",x+w/2,y+5,w/2,0xFFA0A0A0);y+=21;
+        button(lootBooksTab?"Items":"> Items",x,y,w/2-2,()->{lootBooksTab=false;clearAndInit();},"Ordinary item rolls",true);
+        button(lootBooksTab?"> Lore books":"Lore books",x+w/2,y,w/2-2,()->{lootBooksTab=true;clearAndInit();},"Named book references",true);y+=21;
+        if(lootBooksTab)return loreBooksForm(x,y,w);
         int rows = Math.min(3, Math.max(1, lootDraft.entries().size()));
         lootEntryOffset = Math.max(0, Math.min(lootEntryOffset, Math.max(0, lootDraft.entries().size() - rows)));
         for (int i = 0; i < rows && i + lootEntryOffset < lootDraft.entries().size(); i++) {
@@ -423,12 +499,8 @@ public final class CoreMenuScreen extends Screen {
             button("> entries", x + w / 2, y, w / 2 - 2, () -> { lootEntryOffset = Math.min(Math.max(0, lootDraft.entries().size() - rows), lootEntryOffset + rows); clearAndInit(); }, "Later loot entries", lootEntryOffset + rows < lootDraft.entries().size());
             y += 20;
         }
-        button("Add item", x, y, w / 2 - 2, () -> beginPicker(new PendingPicker(Action.LOOT_SAVE, detailId(), "ITEMS")), "Add an item from the registry", lootDraft.entries().size() < LootType.MAX_ENTRIES);
-        button("Remove item", x + w / 2, y, w / 2 - 2, this::removeLoot, "Remove selected loot entry", lootEntry >= 0 && lootEntry < lootDraft.entries().size());
-        y += 20;
-        drawLine("Refill minutes (0 = off)", x, y, w, 0xFFA0A0A0); y += 11;
-        lootRefill = numberField(x, y, Math.max(55, w / 2 - 2), "Refill min", refillMinutesDraft, this::setRefillMinutes);
-        drawLine("0 disables scheduled refill", x + w / 2, y + 5, w / 2, 0xFFA0A0A0);
+        button("Add item", x, y, w / 2 - 2, () -> beginPicker(new PendingPicker(Action.LOOT_SAVE, detailId(), "ITEMS")), "Add an item from the registry", editing && lootDraft.entries().size() + lootDraft.books().size() < LootType.MAX_ENTRIES);
+        button("Remove item", x + w / 2, y, w / 2 - 2, this::removeLoot, "Remove selected loot entry", editing && lootEntry >= 0 && lootEntry < lootDraft.entries().size());
         y += 20;
         if (lootEntry >= 0 && lootEntry < lootDraft.entries().size()) {
             LootEntry entry = lootDraft.entries().get(lootEntry);
@@ -439,7 +511,40 @@ public final class CoreMenuScreen extends Screen {
             lootChance = numberField(x, y, chanceWidth, "Chance %", raw[0], value -> setLootField(0, value));
             lootMin = numberField(x + chanceWidth + 4, y, Math.max(28, (w - chanceWidth - 4) / 2 - 2), "Min", raw[1], value -> setLootField(1, value));
             lootMax = numberField(x + chanceWidth + 4 + Math.max(28, (w - chanceWidth - 4) / 2), y, Math.max(28, (w - chanceWidth - 4) / 2 - 2), "Max", raw[2], value -> setLootField(2, value));
+            lootChance.active = lootMin.active = lootMax.active = editing;
             y += 20;
+        }
+        return y;
+    }
+
+    private int loreBooksForm(int x, int y, int w) {
+        boolean editing = state.editing() && state.editable();
+        boolean canKeep = state.phase().equals("ACTIVE") && state.hold().isBlank();
+        int rows = Math.min(3, Math.max(1, lootDraft.books().size()));
+        lootBookOffset = Math.max(0, Math.min(lootBookOffset, Math.max(0, lootDraft.books().size() - rows)));
+        for (int i = 0; i < rows && i + lootBookOffset < lootDraft.books().size(); i++) {
+            int index = i + lootBookOffset; BookChance value = lootDraft.books().get(index);
+            button((index == lootBook ? "> " : "") + bookLabel(value.bookId()) + " " + value.chancePercent() + "%", x, y + i * 20, w,
+                    () -> { lootBook = index; clearAndInit(); }, "Named lore-book roll", true);
+        }
+        y += rows * 20;
+        if(lootDraft.books().size()>rows){
+            button("< books",x,y,w/2-2,()->{lootBookOffset=Math.max(0,lootBookOffset-rows);clearAndInit();},"Earlier books",lootBookOffset>0);
+            button("> books",x+w/2,y,w/2-2,()->{lootBookOffset=Math.min(lootDraft.books().size()-rows,lootBookOffset+rows);clearAndInit();},"Later books",lootBookOffset+rows<lootDraft.books().size());y+=20;
+        }
+        button("Add book…", x, y, w / 3 - 2, () -> beginPicker(new PendingPicker(Action.BOOK_REF_ADD, detailId(), "BOOKS")), "Add at the default 4% chance", lootDraft.entries().size() + lootDraft.books().size() < LootType.MAX_ENTRIES);
+        for (ButtonWidget button : buttons.values()) if (button.getMessage().getString().startsWith("Add book")) button.active &= editing;
+        button("Remove book", x + w / 3, y, w / 3 - 2, this::removeBookRef, "Remove this local table reference", editing && lootBook >= 0 && lootBook < lootDraft.books().size());
+        button("Open book", x + 2 * w / 3, y, w / 3 - 2, this::openSelectedBook, "Open this definition read-only", lootBook >= 0 && lootBook < lootDraft.books().size());
+        y += 20;
+        if (lootBook >= 0 && lootBook < lootDraft.books().size()) {
+            BookChance value = lootDraft.books().get(lootBook); String raw = loreChanceDrafts.getOrDefault(lootBook, Double.toString(value.chancePercent()));
+            drawLine("Chance %", x, y, w / 2 - 2, 0xFFA0A0A0);
+            lootChance = numberField(x, y + 11, Math.max(55, w / 2 - 2), "Chance %", raw, this::setBookChance);
+            lootChance.active = editing;
+            button("Keep placed…", x + w / 2 + 2, y + 11, w / 2 - 2, () -> request(Action.BOOK_KEEP, Page.LOOT_TABLES, detailId(), value.bookId(), state.index(), state.filter(), "", false), "Keep a copy available across this table's bound chests", true);
+            for (ButtonWidget button : buttons.values()) if (button.getMessage().getString().startsWith("Keep placed")) button.active &= canKeep;
+            y += 31;
         }
         return y;
     }
@@ -476,6 +581,25 @@ public final class CoreMenuScreen extends Screen {
 
     private void activate(Control control) {
         if (!control.enabled()) return;
+        if (control.action() == Action.BOOK_NEW) {
+            openBookEditor(new BookDefinition("chronicle_core:draft", "Untitled book", "", "Draft lore book", List.of(""), BookDefinition.Rule.OFF), BookEditorScreen.Mode.DETAILS, true);
+            return;
+        }
+        if (state.detail() != null && state.detail().book() != null) {
+            if (control.action() == Action.BOOK_EDIT_DETAILS) { openBookEditor(state.detail().book(), BookEditorScreen.Mode.DETAILS, false); return; }
+            if (control.action() == Action.BOOK_EDIT_PAGES) { openBookEditor(state.detail().book(), BookEditorScreen.Mode.PAGES, false); return; }
+            if (control.action() == Action.BOOK_RULE) { openBookEditor(state.detail().book(), BookEditorScreen.Mode.RULE, false); return; }
+        }
+        if (control.action() == Action.BOOK_KEEP) {
+            if (state.page() == Page.BOOKS_LORE && state.detail() != null && state.detail().lore() != null
+                    && state.detail().lore().keep() != null && state.detail().lore().keep().active()) {
+                request(Action.BOOK_KEEP, Page.BOOKS_LORE, detailId(), state.detail().lore().keep().tableId(), state.index(), state.filter(), "", false);
+                return;
+            }
+            String kind = state.page() == Page.BOOKS_LORE ? "LOOT_TYPE" : "BOOKS";
+            beginPicker(new PendingPicker(Action.BOOK_KEEP, detailId(), kind)); return;
+        }
+        if (control.action() == Action.CHEST_BOOK_SET) { beginPicker(new PendingPicker(Action.CHEST_BOOK_SET, detailId(), "BOOKS")); return; }
         String input = control.input();
         if (input.isBlank()) { applyControl(control, detailId(), ""); return; }
         if (input.startsWith("TOOL:")) { applyControl(control, detailId(), ""); return; }
@@ -507,13 +631,17 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void saveLoot() {
+        if (!canEditLoot()) return;
+        if(lootDraftStale){notice="Table changed while viewing the book. Local draft retained; reload loot configuration to discard it before editing current data.";clearAndInit();return;}
         try {
             List<LootEntry> entries = new ArrayList<>(lootDraft.entries());
             for (var edited : lootInputDrafts.entrySet()) {
                 LootEntry old = entries.get(edited.getKey()); String[] raw = edited.getValue();
                 entries.set(edited.getKey(), new LootEntry(old.item(), Double.parseDouble(raw[0]), Integer.parseInt(raw[1]), Integer.parseInt(raw[2]), old.componentsJson()));
             }
-            lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), Double.parseDouble(refillMinutesDraft), entries);
+            List<BookChance> books=new ArrayList<>(lootDraft.books());
+            for(var raw:loreChanceDrafts.entrySet()){var old=books.get(raw.getKey());books.set(raw.getKey(),new BookChance(old.bookId(),Double.parseDouble(raw.getValue())));}
+            lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), Double.parseDouble(refillMinutesDraft), entries, books);
             lootValidation = "";
         } catch (IllegalArgumentException exception) { lootValidation = "Check chance (0–100), counts (min ≤ max) and refill minutes."; }
         if (!lootValidation.isBlank()) { notice = lootValidation; clearAndInit(); return; }
@@ -522,13 +650,14 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void removeLoot() {
+        if (!canEditLoot()) return;
         if (lootDraft == null || lootEntry < 0 || lootEntry >= lootDraft.entries().size()) return;
         int removed = lootEntry;
         List<LootEntry> entries = new ArrayList<>(lootDraft.entries()); entries.remove(removed); lootEntry = -1;
         Map<Integer, String[]> retained = new java.util.HashMap<>();
         lootInputDrafts.forEach((index, raw) -> { if (index != removed) retained.put(index > removed ? index - 1 : index, raw); });
         lootInputDrafts.clear(); lootInputDrafts.putAll(retained);
-        lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), entries); clearAndInit();
+        lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), entries, lootDraft.books()); clearAndInit();
     }
 
     private TextFieldWidget numberField(int x, int y, int width, String hint, String value, java.util.function.Consumer<String> changed) {
@@ -537,6 +666,7 @@ public final class CoreMenuScreen extends Screen {
         return field;
     }
     private void setLootField(int field, String value) {
+        if (!canEditLoot()) return;
         LootEntry old = lootDraft.entries().get(lootEntry);
         String[] raw = lootInputDrafts.computeIfAbsent(lootEntry, ignored -> new String[] {Double.toString(old.chancePercent()), Integer.toString(old.minCount()), Integer.toString(old.maxCount())});
         raw[field] = value;
@@ -544,14 +674,16 @@ public final class CoreMenuScreen extends Screen {
         catch (NumberFormatException exception) { lootValidation = "Enter a valid chance, minimum and maximum count."; }
     }
     private void setRefillMinutes(String value) {
+        if (!canEditLoot()) return;
         refillMinutesDraft = value;
         try {
             double refill = Double.parseDouble(value);
-            lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), refill, lootDraft.entries());
+            lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), refill, lootDraft.entries(), lootDraft.books());
             lootValidation = "";
         } catch (IllegalArgumentException exception) { lootValidation = "Refill minutes must be between 0 and 10080."; }
     }
     private void replaceLoot(Double chance, Integer min, Integer max) {
+        if (!canEditLoot()) return;
         if (lootDraft == null || lootEntry < 0 || lootEntry >= lootDraft.entries().size()) return;
         LootEntry old = lootDraft.entries().get(lootEntry);
         double updatedChance = chance == null ? old.chancePercent() : chance;
@@ -560,9 +692,47 @@ public final class CoreMenuScreen extends Screen {
         try {
             List<LootEntry> entries = new ArrayList<>(lootDraft.entries());
             entries.set(lootEntry, new LootEntry(old.item(), updatedChance, updatedMin, updatedMax, old.componentsJson()));
-            lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), entries);
+            lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), entries, lootDraft.books());
             lootValidation = "";
         } catch (IllegalArgumentException exception) { lootValidation = exception.getMessage(); }
+    }
+
+    private void addBookRef(String id, String title, String author) {
+        if (!canEditLoot()) return;
+        if (lootDraft == null || lootDraft.entries().size() + lootDraft.books().size() >= LootType.MAX_ENTRIES
+                || lootDraft.books().stream().anyMatch(book -> book.bookId().equals(id))) return;
+        bookSummaries.put(id, new io.github.chronicle.core.menu.CoreMenuModel.BookSummary(id, title, author, "", false, false));
+        List<BookChance> books = new ArrayList<>(lootDraft.books()); books.add(new BookChance(id, 4));
+        lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), lootDraft.entries(), books);
+        lootBook = books.size() - 1; lootBookOffset = Math.max(0, lootBook - 2); lootValidation = "";
+    }
+    private void removeBookRef() {
+        if (!canEditLoot()) return;
+        if (lootDraft == null || lootBook < 0 || lootBook >= lootDraft.books().size()) return;
+        int removed=lootBook;List<BookChance> books=new ArrayList<>(lootDraft.books());books.remove(removed);lootBook=-1;
+        Map<Integer,String> retained=new java.util.HashMap<>();loreChanceDrafts.forEach((index,value)->{if(index!=removed)retained.put(index>removed?index-1:index,value);});loreChanceDrafts.clear();loreChanceDrafts.putAll(retained);
+        lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), lootDraft.entries(), books); clearAndInit();
+    }
+    private void setBookChance(String value) {
+        if (!canEditLoot()) return;
+        if (lootBook < 0 || lootBook >= lootDraft.books().size()) return;
+        loreChanceDrafts.put(lootBook, value);
+        try {
+            List<BookChance> books = new ArrayList<>(lootDraft.books()); BookChance old = books.get(lootBook);
+            books.set(lootBook, new BookChance(old.bookId(), Double.parseDouble(value)));
+            lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), lootDraft.entries(), books);
+            lootValidation = "";
+        } catch (IllegalArgumentException exception) { lootValidation = "Enter a lore-book chance from 0 to 100."; }
+    }
+    private void openSelectedBook() {
+        if (lootBook < 0 || lootBook >= lootDraft.books().size()) return;
+        var items=new java.util.HashMap<Integer,String[]>();lootInputDrafts.forEach((key,value)->items.put(key,value.clone()));
+        lootHandoffs.put(lootDraft.id(),new LootHandoff(lootDraft,lootBase,lootEntry,lootBook,lootEntryOffset,lootBookOffset,lootBooksTab,refillMinutesDraft,lootValidation,items,Map.copyOf(loreChanceDrafts)));
+        request(Action.BOOK_OPEN, Page.LOOT_TABLES, detailId(), lootDraft.books().get(lootBook).bookId(), state.index(), state.filter(), "", false);
+    }
+    private String bookLabel(String id) {
+        var summary = bookSummaries.get(id);
+        return summary == null ? id : summary.title() + (summary.author().isBlank() ? "" : " — " + summary.author());
     }
 
     private void beginPicker(PendingPicker action) {
@@ -801,6 +971,13 @@ public final class CoreMenuScreen extends Screen {
     private void chooseEntry(Entry entry) {
         if (state.picker() != null && pickerAction != null) {
             if (pickerAction.kind().equals("ITEMS")) addLoot(entry.id());
+            else if (pickerAction.action() == Action.BOOK_REF_ADD && pickerAction.kind().equals("BOOKS")) addBookRef(entry.id(), entry.label(), entry.description());
+            else if (pickerAction.action() == Action.CHEST_BOOK_SET && pickerAction.kind().equals("BOOKS")) {
+                pickerAction = null;
+                String name = entry.label().isBlank() ? bookLabel(entry.id()) : entry.label() + (entry.description().isBlank() ? "" : " — " + entry.description());
+                client.setScreen(new BookChanceScreen(this, new BookChance(entry.id(), 4), name, debug, this::saveDirectBook, this::clearDirectBook, this::cancelDirectBookPicker));
+                return;
+            }
             else if (pickerAction.action() == Action.EVENT_SAVE && pickerAction.kind().equals("REGION")) eventRegion = entry.id();
             else if (pickerAction.action() == Action.EVENT_SAVE && pickerAction.kind().equals("FLAG")) eventFlag = entry.id().equals("none") ? "" : entry.id();
             else {
@@ -817,9 +994,10 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void addLoot(String item) {
-        if (lootDraft == null || lootDraft.entries().size() >= LootType.MAX_ENTRIES) return;
+        if (!canEditLoot()) return;
+        if (lootDraft == null || lootDraft.entries().size() + lootDraft.books().size() >= LootType.MAX_ENTRIES) return;
         List<LootEntry> entries = new ArrayList<>(lootDraft.entries()); entries.add(new LootEntry(item, 100, 1, 1, "{}"));
-        lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), entries);
+        lootDraft = new LootType(lootDraft.id(), lootDraft.label(), lootDraft.description(), lootDraft.recommendedChests(), lootDraft.refillMinutes(), entries, lootDraft.books());
         lootEntry = entries.size() - 1; lootEntryOffset = Math.max(0, lootEntry - 2); lootValidation = "";
     }
 
@@ -889,10 +1067,47 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void request(Action action, Page page, String id, String argument, int index, String filter, String query, boolean background) {
+        request(action, page, id, argument, state.token(), index, filter, query, background);
+    }
+    private void request(Action action, Page page, String id, String argument, long token, int index, String filter, String query, boolean background) {
         if (pending || !ClientPlayNetworking.canSend(CoreMenuPayloads.Request.ID)) { notice = "Chronicle menu is unavailable; wait for the server response."; return; }
-        ClientPlayNetworking.send(new CoreMenuPayloads.Request(action, page, id, argument, state.token(), index, filter, query));
+        ClientPlayNetworking.send(new CoreMenuPayloads.Request(action, page, id, argument, token, index, filter, query));
         pending = true; refreshPending = background; requestedAction = action; pendingTicks = idleTicks = 0;
         if (!background) clearAndInit();
+    }
+
+    /** Opens a local book form; only its explicit save callback crosses the menu protocol. */
+    private void openBookEditor(BookDefinition book, BookEditorScreen.Mode mode, boolean creating) {
+        long editorToken = state.token();
+        BookEditorScreen[] editor = new BookEditorScreen[1];
+        editor[0] = new BookEditorScreen(this, book, mode, creating, value -> {
+            failedBookEditor = editor[0];
+            failedBookToken = editorToken;
+            client.setScreen(this);
+            request(creating ? Action.BOOK_CREATE : Action.BOOK_SAVE, Page.BOOKS_LORE, value.id(), new Gson().toJson(value), editorToken,
+                    state.index(), state.filter(), "", false);
+        });
+        client.setScreen(editor[0]);
+    }
+
+    private void sendKeep(BookKeepScreen.Request keep) {
+        com.google.gson.JsonObject value = new com.google.gson.JsonObject();
+        value.addProperty("bookId", keep.bookId()); value.addProperty("tableId", keep.tableId()); value.addProperty("override", keep.override());
+        client.setScreen(this);
+        request(keep.action(), state.page(), detailId(), value.toString(), state.index(), state.filter(), "", false);
+    }
+
+    private void saveDirectBook(BookChance direct) {
+        client.setScreen(this);
+        request(Action.CHEST_BOOK_SET, Page.CHESTS, detailId(), new Gson().toJson(direct), state.index(), state.filter(), "", false);
+    }
+    private void clearDirectBook() {
+        client.setScreen(this);
+        request(Action.CHEST_BOOK_SET, Page.CHESTS, detailId(), "clear", state.index(), state.filter(), "", false);
+    }
+    private void cancelDirectBookPicker() {
+        client.setScreen(this);
+        cancelPicker();
     }
 
     @Override public void tick() {
@@ -955,7 +1170,16 @@ public final class CoreMenuScreen extends Screen {
         if (detail == null) return;
         if (detail.event() != null) { eventMode = detail.event().mode(); eventRegion = detail.event().region(); eventFlag = detail.event().flag(); eventSecondsDraft = Long.toString(detail.event().seconds()); }
         if (detail.region() != null) { regionFirst = detail.region().first(); regionSecond = detail.region().second(); }
-        if (detail.loot() != null) { lootDraft = detail.loot(); lootEntry = -1; lootEntryOffset = 0; refillMinutesDraft = Double.toString(detail.loot().refillMinutes()); lootValidation = ""; lootInputDrafts.clear(); }
+        if (detail.lore() != null) for (var book : detail.lore().refs()) bookSummaries.put(book.id(), book);
+        if (detail.loot() != null) { lootBase = lootDraft = detail.loot(); lootDraftStale=false; lootEntry = lootBook = -1; lootEntryOffset = lootBookOffset = 0; refillMinutesDraft = Double.toString(detail.loot().refillMinutes()); lootValidation = ""; lootInputDrafts.clear(); loreChanceDrafts.clear(); }
+    }
+    private void restoreLootHandoff(LootType current) {
+        var saved=lootHandoffs.remove(current.id());if(saved==null)return;
+        lootDraft=saved.draft();lootBase=saved.base();lootDraftStale=!current.equals(saved.base());
+        lootEntry=saved.entry();lootBook=saved.book();lootEntryOffset=saved.entryOffset();lootBookOffset=saved.bookOffset();lootBooksTab=saved.booksTab();
+        refillMinutesDraft=saved.refill();lootValidation=saved.validation();lootInputDrafts.clear();saved.items().forEach((key,value)->lootInputDrafts.put(key,value.clone()));
+        loreChanceDrafts.clear();loreChanceDrafts.putAll(saved.books());
+        notice=lootDraftStale?"Table changed while viewing the book. Local draft retained; reload loot configuration to discard it.":"Unsaved loot-table draft restored.";
     }
     private CoreMenuLayout.Layout activeLayout() {
         return layout == null ? CoreMenuLayout.forViewport(width, height) : layout;
@@ -965,6 +1189,7 @@ public final class CoreMenuScreen extends Screen {
         return button == null ? null : new BoundsProbe(button.getX(), button.getY(), button.getWidth(), button.getHeight());
     }
     private String detailId() { return state.detail() == null ? selected : state.detail().id(); }
+    private boolean canEditLoot() { return state.editing() && state.editable(); }
     private void button(String label, int x, int y, int w, int h, Runnable action, String hint, boolean enabled) {
         ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(label, Math.max(1, w - 8))), ignored -> action.run()).dimensions(x, y, Math.max(1, w), h).build());
         button.active = enabled && !pending; button.setTooltip(Tooltip.of(Text.literal(hint == null ? "" : hint))); buttons.put(label, button);
@@ -985,6 +1210,7 @@ public final class CoreMenuScreen extends Screen {
         return y + Math.max(1, line) * 10;
     }
     private static String pretty(String value) { return value.isBlank() ? "none" : value.substring(0, 1) + value.substring(1).toLowerCase(Locale.ROOT); }
+    private static String bookRuleLabel(BookDefinition.Rule rule) { return switch (rule) { case OFF -> "Distribution off"; case ONCE -> "Spawn once"; case UNTIL_FOUND -> "Until found"; case REPEAT -> "Repeat"; }; }
     private static String navigationLabel(Page page) {
         for (int index = 0; index < NAVIGATION.length; index++) if (NAVIGATION[index] == page) return NAVIGATION_LABELS[index];
         return page.name();

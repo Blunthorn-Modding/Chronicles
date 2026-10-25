@@ -61,6 +61,6 @@ public final class ForgeRecipeDefaults {
 
     public static LootType notesType() {
         return new LootType(NOTES_TYPE, "Research journals", "Abandoned experiments by a later explorer of the ancient city.", 0, 0,
-                HINTS.stream().map(hint -> new LootEntry("minecraft:written_book", 4, 1, 1, bookComponents(hint))).toList());
+                List.of(), java.util.stream.IntStream.range(0,HINTS.size()).mapToObj(i -> new io.github.chronicle.core.books.BookChance("quiet_below:field_journal_"+List.of("i","ii","iii","iv","v").get(i),4)).toList());
     }
 }

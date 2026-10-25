@@ -277,8 +277,11 @@ public final class ChestAuthoring {
             ResolvedTarget target = resolve(source.getServer(), operation.target());
             requireSavingEnabled(target);
             InventorySnapshot live = snapshot(source.getServer(), target.inventory);
-            RecoveryDecision decision = binding(runtime, operation.bindingId()).typed() && operation.after().equals(live)
-                    ? RecoveryDecision.COMMIT_APPLIED : RecoveryDecision.compare(operation, live);
+            RecoveryDecision decision;
+            if(operation.purpose()==PendingChestOperation.Purpose.MOVE){
+                var sourceTarget=resolve(source.getServer(),operation.sourceTarget());requireSavingEnabled(sourceTarget);
+                decision=RecoveryDecision.compare(operation,snapshot(source.getServer(),sourceTarget.inventory()),live);
+            }else decision=binding(runtime,operation.bindingId()).typed()&&operation.after().equals(live)?RecoveryDecision.COMMIT_APPLIED:RecoveryDecision.compare(operation,live);
             switch (decision) {
                 case ABORT_UNCHANGED -> runtime.service.abortUnchanged(operationId);
                 case COMMIT_APPLIED -> {
@@ -304,7 +307,7 @@ public final class ChestAuthoring {
         return run(source, runtime -> {
             var state = runtime.service.state();
             for (PendingChestOperation operation : state.pending().values()) {
-                source.sendFeedback(() -> Text.literal("Pending " + operation.operationId() + " | binding=" + operation.bindingId() + " | target="
+                source.sendFeedback(() -> Text.literal("Pending " + operation.operationId() + " | purpose="+operation.purpose()+" | source="+operation.sourceBindingId()+" | binding=" + operation.bindingId() + " | target="
                         + operation.target().dimension() + " " + operation.target().x() + " " + operation.target().y() + " " + operation.target().z()), false);
             }
             return "Chest content: templates=" + state.templates().size() + "; bindings=" + state.bindings().size() + "; receipts=" + state.receipts().size()
@@ -388,7 +391,7 @@ public final class ChestAuthoring {
 
     private static void validateCodecPayloads(MinecraftServer server, io.github.chronicle.core.content.ChestContentState state) {
         state.templates().values().forEach(template -> decode(server, template.contents()));
-        state.pending().values().forEach(operation -> { decode(server, operation.before()); decode(server, operation.after()); });
+        state.pending().values().forEach(operation -> { decode(server, operation.before()); decode(server, operation.after());if(operation.sourceTarget()!=null){decode(server,operation.sourceBefore());decode(server,operation.sourceAfter());} });
     }
 
     private static ChestTarget chestTarget(AuthoringSite.Anchor anchor) {
@@ -406,7 +409,7 @@ public final class ChestAuthoring {
         Runtime runtime = WORLDS.get(world.getServer());
         if (runtime == null) return false;
         String dimension = world.getRegistryKey().getValue().toString();
-        return runtime.service.state().pending().values().stream().map(PendingChestOperation::target)
+        return runtime.service.state().pending().values().stream().flatMap(op->op.sourceTarget()==null?java.util.stream.Stream.of(op.target()):java.util.stream.Stream.of(op.target(),op.sourceTarget()))
                 .anyMatch(target -> target.dimension().equals(dimension) && target.x() == pos.getX() && target.y() == pos.getY() && target.z() == pos.getZ());
     }
 

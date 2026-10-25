@@ -50,6 +50,7 @@ public final class CoreMenuCommands {
                         .executes(context -> execute(context.getSource(), Action.SHOW, Page.CHESTS, string(context, "chest"), ""))))
                 .build());
         canonical.addChild(lootTables().build());
+        canonical.addChild(literal("books").executes(context -> CoreMenuServer.open(context.getSource(), Page.BOOKS_LORE)).build());
         canonical.addChild(literal("locations").executes(context -> CoreMenuServer.open(context.getSource(), Page.LOCATIONS))
                 .then(literal("inspect").then(argument("site", StringArgumentType.string()).suggests((c, b) -> sites(c.getSource(), b))
                         .executes(context -> execute(context.getSource(), Action.SHOW, Page.LOCATIONS, string(context, "site"), ""))))

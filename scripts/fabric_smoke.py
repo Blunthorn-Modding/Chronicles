@@ -289,7 +289,9 @@ def run(include_content=True, regression=True):
                                'y': anchor['position']['y'], 'z': anchor['position']['z'],
                                'expectedBlock': anchor['expectedBlock']},
                     'before': {'size': contents['size'], 'stacks': ['{}'] * contents['size']},
-                    'after': contents, 'createdAt': '2026-10-19T12:00:00Z'}]
+                    'after': contents, 'createdAt': '2026-10-19T12:00:00Z',
+                    'purpose': 'FILL', 'sourceBindingId': None, 'sourceBindingRevision': 0,
+                    'sourceTarget': None, 'sourceBefore': None, 'sourceAfter': None, 'bookClaims': []}]
                 chest['revision'] += 1
                 content_file.write_text(json.dumps(chest), encoding='utf-8')
                 automatic_file = root / 'world/chronicle/automatic-spawns.json'

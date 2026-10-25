@@ -105,6 +105,8 @@ public final class TypedChestLoot {
     }
 
     private static void validateTypes(MinecraftServer server, Map<String, LootType> candidate) {
+        for(var type:candidate.values())for(var book:type.books())if(!BookRuntime.books(server).containsKey(book.bookId()))throw new IllegalArgumentException("Unknown named book in "+type.id()+": "+book.bookId());
+        for(var b:ChestAuthoring.service(server).state().bindings().values())if(b.directBook()!=null&&!BookRuntime.books(server).containsKey(b.directBook().bookId()))throw new IllegalArgumentException("Unknown direct chest book: "+b.directBook().bookId());
         for (LootType type : candidate.values()) for (var entry : type.entries()) {
             if (!Registries.ITEM.containsId(Identifier.of(entry.item()))) throw new IllegalArgumentException("Unknown loot item in " + type.id() + ": " + entry.item());
             ItemStack stack = ChestAuthoring.decode(server, new InventorySnapshot(1, List.of(stackJson(entry.item(), entry.maxCount(), entry.componentsJson())))).getFirst();
@@ -262,7 +264,9 @@ public final class TypedChestLoot {
             if (generationChanged || server.getTicks() % 1200 == 0) service.saveSchedule(next);
             if ((long) server.getTicks() - runtime.lastBatchTick < 20) return;
             runtime.lastBatchTick = server.getTicks();
+            if(BookDeliveryRuntime.reconcile(server,next))return;
             List<Prepared> prepared = new ArrayList<>();
+            var reservedBooks = new java.util.HashSet<String>();
             List<ChestBinding> bindings = service.state().bindings().values().stream().filter(ChestBinding::typed).toList();
             // Round-robin prevents broken/unloaded targets at the front from starving later ones.
             for (int checked = 0; checked < bindings.size() && prepared.size() < 4; checked++) {
@@ -273,9 +277,11 @@ public final class TypedChestLoot {
                     var target = ChestAuthoring.resolve(server, binding.directTarget());
                     ChestAuthoring.requireSavingEnabled(target);
                     UUID id = UUID.nameUUIDFromBytes((binding.id() + "|" + next.sessionNumber() + "|" + cycle.generation()).getBytes(StandardCharsets.UTF_8));
-                    InventorySnapshot after = roll(server, runtime.types.get(binding.lootType()), target.inventory().size(), id);
+                    InventorySnapshot before=ChestAuthoring.snapshot(server,target.inventory());
+                    var bookPlan=BookDeliveryRuntime.planFill(server,binding,runtime.types.get(binding.lootType()),before,roll(server,runtime.types.get(binding.lootType()),target.inventory().size(),id),id,reservedBooks);
+                    InventorySnapshot after = bookPlan.after();
                     var operation = new PendingChestOperation(id.toString(), SYSTEM_UUID, "Chronicle loot scheduler", binding.id(), binding.revision(), next.sessionNumber(), cycle.generation(),
-                            binding.directTarget(), ChestAuthoring.snapshot(server, target.inventory()), after, Instant.now().toString());
+                            binding.directTarget(), before, after, Instant.now().toString(),PendingChestOperation.Purpose.FILL,null,0,null,null,null,bookPlan.claims());
                     prepared.add(new Prepared(operation, target, ChestAuthoring.validateForInventory(server, after, target.inventory())));
                     runtime.problems.remove(binding.id());
                 } catch (IllegalArgumentException | IllegalStateException exception) {
@@ -287,7 +293,8 @@ public final class TypedChestLoot {
             if (prepared.isEmpty()) return;
             // Persist the current clock with the intent so a restart cannot rewind to a completed cycle.
             service.saveSchedule(next);
-            for (Prepared item : prepared) service.begin(item.operation, true);
+            var rules=new TreeMap<String,io.github.chronicle.core.books.BookDefinition.Rule>();BookRuntime.books(server).forEach((key,value)->rules.put(key,value.rule()));
+            for (Prepared item : prepared){if(item.operation.bookClaims().isEmpty())service.begin(item.operation,true);else service.beginLore(item.operation,rules,true);}
             ChestAuthoring.refreshHold(server);
             for (Prepared item : prepared) {
                 ChestAuthoring.closeViewers(server, item.target.inventory());

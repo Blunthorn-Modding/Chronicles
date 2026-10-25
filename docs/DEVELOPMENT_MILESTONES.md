@@ -1,5 +1,7 @@
 # Implementation milestones after the prototype
 
+**25 October implementation update:** the organizer approved the merged workflow and authorized CF18b-d. The named catalog/editor, both chest/table routes, durable inventory discovery and table-scoped keeping are implemented and verified for dev52. Earlier design-only gates below are historical. Read [implementation and compatibility](CF18_IMPLEMENTATION.md). All existing item/chest controls and frozen journal prose remain; one combined organizer review is ready at127.0.0.1:25589 with the matching updated pack.
+
 **25 October CF18 keep-placed update:** the accepted mockup gains table-scoped Keep placed until found instead of one-off placement. CF18c now requires persisted requests, revision-aware rule exceptions, same-table availability across ordinary refills, terminal provenance and safely recoverable source/destination transfers. PASS132 browser checks validate mock behavior only. Definitions/editor and native lifecycle/transfer work remain pending the combined workflow review; no client/server update.
 
 

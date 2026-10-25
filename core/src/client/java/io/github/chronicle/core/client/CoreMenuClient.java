@@ -16,8 +16,12 @@ public final class CoreMenuClient {
 
     static void receive(MinecraftClient client, CoreMenuPayloads.Response response) {
         io.github.chronicle.core.client.testing.CoreMenuSmoke.onView(response.view());
+        io.github.chronicle.core.client.testing.BooksLoreSmoke.onView(response.view());
         if (client.currentScreen instanceof CoreMenuScreen screen) {
             screen.accept(response.view());
+        } else if (client.currentScreen instanceof BookEditorScreen editor && editor.parentMenu() != null) {
+            // A refresh arriving behind a local editor must advance the menu frame, but never close the editor.
+            editor.parentMenu().acceptWhileEditorOpen(response.view());
         } else if (response.open() && response.view().token() != closedToken) {
             client.setScreen(new CoreMenuScreen(response.view()));
         }

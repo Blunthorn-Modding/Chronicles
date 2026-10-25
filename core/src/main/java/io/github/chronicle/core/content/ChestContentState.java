@@ -1,5 +1,9 @@
 package io.github.chronicle.core.content;
 
+import io.github.chronicle.core.books.BookDelivery;
+import io.github.chronicle.core.books.BookDeliveryClaim;
+import io.github.chronicle.core.books.BookDeliveryState;
+
 import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -8,7 +12,8 @@ import java.util.Map;
 /** Complete Core chest state. Every map is immutable and insertion ordered for stable persistence. */
 public record ChestContentState(long revision, Map<String, ChestTemplate> templates,
                                 Map<String, ChestBinding> bindings, List<ChestReceipt> receipts,
-                                Map<String, PendingChestOperation> pending, LootSchedule schedule) {
+                                Map<String, PendingChestOperation> pending, LootSchedule schedule,
+                                BookDeliveryState bookDelivery) {
     public static final int MAX_TEMPLATES = 256;
     public static final int MAX_BINDINGS = 512;
     public static final int MAX_RECEIPTS = 8_192;
@@ -21,6 +26,7 @@ public record ChestContentState(long revision, Map<String, ChestTemplate> templa
         receipts = List.copyOf(receipts);
         pending = immutableMap(pending, "pending operations", MAX_PENDING);
         if (schedule == null) throw new IllegalArgumentException("loot schedule is required");
+        if (bookDelivery == null) throw new IllegalArgumentException("book delivery state is required");
         if (receipts.size() > MAX_RECEIPTS) throw new IllegalArgumentException("receipts may contain at most " + MAX_RECEIPTS + " entries");
         for (var entry : templates.entrySet()) {
             String id = entry.getKey(); ChestTemplate value = entry.getValue();
@@ -51,6 +57,8 @@ public record ChestContentState(long revision, Map<String, ChestTemplate> templa
                 if (binding.typed() && !latestTypedBindings.add(binding.id())) throw new IllegalArgumentException("typed binding may retain only its newest receipt");
             }
         }
+        HashSet<String> lockedTargets = new HashSet<>();
+        Map<String, HashSet<String>> claimedOperations = new LinkedHashMap<>();
         for (var entry : pending.entrySet()) {
             String id = entry.getKey(); PendingChestOperation value = entry.getValue();
             if (!id.equals(value.operationId())) throw new IllegalArgumentException("pending map key must match operation ID");
@@ -58,27 +66,59 @@ public record ChestContentState(long revision, Map<String, ChestTemplate> templa
             if (completedOperations.contains(id)) throw new IllegalArgumentException("an operation cannot be both pending and completed");
             ChestBinding binding = bindings.get(value.bindingId());
             if (binding == null || binding.revision() != value.bindingRevision()) throw new IllegalArgumentException("pending operation references a missing or stale binding: " + value.bindingId());
+            if (!lockedTargets.add(physicalKey(value.target()))) throw new IllegalArgumentException("pending operation endpoints must not overlap");
             if (binding.typed()) {
-                if (value.cycle() < 0) throw new IllegalArgumentException("typed pending operation requires a nonnegative cycle");
+                if (value.purpose() == PendingChestOperation.Purpose.FILL && value.cycle() < 0) {
+                    throw new IllegalArgumentException("typed fill operation requires a nonnegative cycle");
+                }
                 if (!value.target().equals(binding.directTarget())) throw new IllegalArgumentException("typed pending target does not match its binding target");
             } else {
+                if (value.purpose() != PendingChestOperation.Purpose.FILL) throw new IllegalArgumentException("legacy bindings support only fill operations");
                 if (value.cycle() != -1) throw new IllegalArgumentException("legacy pending operation cycle must be -1");
                 if (!value.target().anchorId().equals(binding.anchorId()) || value.target().anchorRevision() != binding.anchorRevision()) {
                     throw new IllegalArgumentException("pending target does not match its binding anchor");
                 }
             }
+            if (value.purpose() == PendingChestOperation.Purpose.MOVE) {
+                ChestBinding source = bindings.get(value.sourceBindingId());
+                if (source == null || !source.typed() || source.revision() != value.sourceBindingRevision()) {
+                    throw new IllegalArgumentException("move operation references a missing or stale source binding: " + value.sourceBindingId());
+                }
+                if (!source.directTarget().equals(value.sourceTarget())) throw new IllegalArgumentException("move source target does not match its binding target");
+                if (!source.lootType().equals(binding.lootType())) throw new IllegalArgumentException("move endpoints must belong to the same loot table");
+                if (!lockedTargets.add(physicalKey(value.sourceTarget()))) throw new IllegalArgumentException("pending operation endpoints must not overlap");
+            }
+            for (BookDeliveryClaim claim : value.bookClaims()) {
+                BookDelivery delivery = bookDelivery.deliveries().get(claim.bookId());
+                if (delivery == null || !delivery.deliveryToken().equals(claim.deliveryToken())) {
+                    throw new IllegalArgumentException("pending operation has an unknown managed-book claim: " + claim.bookId());
+                }
+                claimedOperations.computeIfAbsent(claim.bookId(), ignored -> new HashSet<>()).add(value.operationId());
+            }
         }
+        for (BookDelivery delivery : bookDelivery.deliveries().values()) {
+            if (!delivery.pendingOperationIds().equals(claimedOperations.getOrDefault(delivery.bookId(), new HashSet<>()))) {
+                throw new IllegalArgumentException("book pending reservations must match pending operation claims: " + delivery.bookId());
+            }
+        }
+    }
+
+    /** Source-compatible constructor for callers that do not yet manage book delivery state. */
+    public ChestContentState(long revision, Map<String, ChestTemplate> templates,
+                             Map<String, ChestBinding> bindings, List<ChestReceipt> receipts,
+                             Map<String, PendingChestOperation> pending, LootSchedule schedule) {
+        this(revision, templates, bindings, receipts, pending, schedule, BookDeliveryState.create());
     }
 
     /** Source-compatible constructor for callers that do not manage typed refill schedules. */
     public ChestContentState(long revision, Map<String, ChestTemplate> templates,
                              Map<String, ChestBinding> bindings, List<ChestReceipt> receipts,
                              Map<String, PendingChestOperation> pending) {
-        this(revision, templates, bindings, receipts, pending, LootSchedule.empty());
+        this(revision, templates, bindings, receipts, pending, LootSchedule.empty(), BookDeliveryState.create());
     }
 
     public static ChestContentState empty() {
-        return new ChestContentState(0, Map.of(), Map.of(), List.of(), Map.of(), LootSchedule.empty());
+        return new ChestContentState(0, Map.of(), Map.of(), List.of(), Map.of(), LootSchedule.empty(), BookDeliveryState.create());
     }
 
     private static String physicalKey(ChestTarget target) {

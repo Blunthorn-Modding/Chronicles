@@ -22,7 +22,9 @@
     "PausedPickupMixin",
     "PausedPlayerAttackMixin",
     "PausedHazardsMixin",
-    "PausedPeacefulHungerMixin"
+    "PausedPeacefulHungerMixin",
+    "BookClickDiscoveryMixin",
+    "BookPickupDiscoveryMixin"
   ],
   "injectors": {
     "defaultRequire": 1

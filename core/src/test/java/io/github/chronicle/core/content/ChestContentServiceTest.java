@@ -1,14 +1,20 @@
 package io.github.chronicle.core.content;
 
+import io.github.chronicle.core.books.BookCopyLocation;
+import io.github.chronicle.core.books.BookDefinition;
+import io.github.chronicle.core.books.BookDeliveryClaim;
+import io.github.chronicle.core.books.BookKeepRequest;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -206,6 +212,125 @@ class ChestContentServiceTest {
         assertEquals(schedule, service.state().schedule());
     }
 
+    @Test
+    void managedOnceReservationIsAtomicAbortableAndFinalizedOnlyOnCompletion() throws IOException {
+        ChestContentService service = new ChestContentService(new MemoryRepository());
+        ChestBinding binding = service.putTypedBinding("quiet_below:mine", physical("minecraft:barrel", 1), false);
+        String bookId = "quiet_below:journal";
+        String token = service.deliveryToken(bookId);
+        assertTrue(service.state().bookDelivery().deliveries().isEmpty());
+
+        PendingChestOperation first = loreFill(binding, 1, 0, bookId, token, false);
+        service.beginLore(first, Map.of(bookId, BookDefinition.Rule.ONCE), true);
+        assertEquals(Set.of(first.operationId()), service.state().bookDelivery().deliveries().get(bookId).pendingOperationIds());
+        assertThrows(IllegalStateException.class, () -> service.beginLore(
+                loreFill(binding, 1, 0, bookId, token, false), Map.of(bookId, BookDefinition.Rule.ONCE), true));
+
+        service.abortUnchanged(first.operationId());
+        assertFalse(service.state().bookDelivery().deliveries().get(bookId).issued());
+        assertTrue(service.state().bookDelivery().deliveries().get(bookId).pendingOperationIds().isEmpty());
+
+        PendingChestOperation second = loreFill(binding, 1, 0, bookId, token, false);
+        service.beginLore(second, Map.of(bookId, BookDefinition.Rule.ONCE), true);
+        assertEquals(second.operationId(), service.complete(second.operationId(), "2026-10-25T12:01:00Z").operationId());
+        assertTrue(service.state().bookDelivery().deliveries().get(bookId).issued());
+        assertThrows(IllegalStateException.class, () -> service.beginLore(
+                loreFill(binding, 1, 1, bookId, token, false), Map.of(bookId, BookDefinition.Rule.ONCE), true));
+    }
+
+    @Test
+    void manualKeepInsertDoesNotConsumeFillCycleAndDiscoveryRetainsLocation() throws IOException {
+        ChestContentService service = new ChestContentService(new MemoryRepository());
+        ChestBinding binding = service.putTypedBinding("quiet_below:mine", physical("minecraft:barrel", 1), false);
+        PendingChestOperation normal = typedOperation(binding, 4, 7, snapshot("old"), snapshot("loot"));
+        service.begin(normal, true);
+        service.complete(normal.operationId(), "2026-10-25T12:00:00Z");
+
+        String bookId = "quiet_below:journal";
+        assertThrows(IllegalStateException.class, () -> service.startKeep(bookId, binding.lootType(), "rule-a",
+                BookDefinition.Rule.OFF, false, "2026-10-25T12:01:00Z"));
+        service.startKeep(bookId, binding.lootType(), "rule-a", BookDefinition.Rule.OFF, true, "2026-10-25T12:01:00Z");
+        PendingChestOperation insert = loreOperation(PendingChestOperation.Purpose.INSERT, binding, null, 4, -1,
+                bookId, service.deliveryToken(bookId), true);
+        service.beginLore(insert, Map.of(bookId, BookDefinition.Rule.OFF), true);
+        assertNull(service.complete(insert.operationId(), "2026-10-25T12:02:00Z"));
+        assertEquals(1, service.state().receipts().size());
+        assertEquals(7, service.state().receipts().getFirst().cycle());
+        BookKeepRequest placed = service.state().bookDelivery().keepRequests().get(bookId);
+        assertTrue(placed.ownIssuance());
+        assertEquals(BookCopyLocation.State.PRESENT, placed.location().state());
+        assertEquals(-1, placed.lastCycle());
+
+        var discovery = service.recordDiscovery(bookId, service.deliveryToken(bookId),
+                "00000000-0000-0000-0000-000000000099", "2026-10-25T12:03:00Z");
+        assertEquals(discovery, service.recordDiscovery(bookId, service.deliveryToken(bookId),
+                "00000000-0000-0000-0000-000000000098", "2026-10-25T12:04:00Z"));
+        BookKeepRequest completed = service.state().bookDelivery().keepRequests().get(bookId);
+        assertEquals(BookKeepRequest.Status.COMPLETED_FOUND, completed.status());
+        assertEquals(placed.location(), completed.location());
+        assertThrows(IllegalStateException.class, () -> service.startKeep(bookId, binding.lootType(), "rule-a",
+                BookDefinition.Rule.REPEAT, false, "2026-10-25T12:05:00Z"));
+    }
+
+    @Test
+    void moveLocksBothEndpointsRecoversOnlyMatchingPairsAndStampsGeneration() throws IOException {
+        ChestContentService service = new ChestContentService(new MemoryRepository());
+        ChestBinding source = service.putTypedBinding("quiet_below:mine", physical("minecraft:barrel", 1), false);
+        ChestBinding destination = service.putTypedBinding("quiet_below:mine", physical("minecraft:barrel", 2), false);
+        String bookId = "quiet_below:journal";
+        service.startKeep(bookId, source.lootType(), "rule-a", BookDefinition.Rule.REPEAT, false, "2026-10-25T12:00:00Z");
+        PendingChestOperation move = loreOperation(PendingChestOperation.Purpose.MOVE, destination, source, 8, 4,
+                bookId, service.deliveryToken(bookId), true);
+        assertEquals(RecoveryDecision.ABORT_UNCHANGED, RecoveryDecision.compare(move, move.sourceBefore(), move.before()));
+        assertEquals(RecoveryDecision.COMMIT_APPLIED, RecoveryDecision.compare(move, move.sourceAfter(), move.after()));
+        assertEquals(RecoveryDecision.CONFLICT, RecoveryDecision.compare(move, move.sourceAfter(), move.before()));
+        assertThrows(IllegalArgumentException.class, () -> RecoveryDecision.compare(move, move.before()));
+
+        service.beginLore(move, Map.of(bookId, BookDefinition.Rule.REPEAT), true);
+        assertThrows(IllegalStateException.class, () -> service.begin(typedOperation(source, 8, 4,
+                snapshot("source-before"), snapshot("other")), true));
+        assertNull(service.complete(move.operationId(), "2026-10-25T12:01:00Z"));
+        BookKeepRequest request = service.state().bookDelivery().keepRequests().get(bookId);
+        assertEquals(destination.id(), request.location().bindingId());
+        assertEquals(8, request.lastSessionNumber());
+        assertEquals(4, request.lastCycle());
+        assertThrows(IllegalStateException.class, () -> service.saveKeepCycle(bookId, 8, 3, "2026-10-25T12:02:00Z"));
+        assertEquals(5, service.saveKeepCycle(bookId, 8, 5, "2026-10-25T12:03:00Z").lastCycle());
+    }
+
+    @Test
+    void externalOnceIssuanceRequiresExplicitKeepReviewOverride() throws IOException {
+        ChestContentService service = new ChestContentService(new MemoryRepository());
+        ChestBinding binding = service.putTypedBinding("quiet_below:mine", physical("minecraft:barrel", 1), false);
+        String bookId = "quiet_below:journal";
+        service.startKeep(bookId, binding.lootType(), "rule-a", BookDefinition.Rule.ONCE, false, "2026-10-25T12:00:00Z");
+        PendingChestOperation external = loreFill(binding, 1, 0, bookId, service.deliveryToken(bookId), false);
+        service.beginLore(external, Map.of(bookId, BookDefinition.Rule.ONCE), true);
+        service.complete(external.operationId(), "2026-10-25T12:01:00Z");
+        PendingChestOperation keep = loreOperation(PendingChestOperation.Purpose.INSERT, binding, null, 1, -1,
+                bookId, service.deliveryToken(bookId), true);
+        assertThrows(IllegalStateException.class, () -> service.beginLore(keep, Map.of(bookId, BookDefinition.Rule.ONCE), true));
+        service.suspendKeep(bookId, BookKeepRequest.Status.SUSPENDED_ONCE, "2026-10-25T12:02:00Z");
+        service.reviewKeep(bookId, "rule-a", BookDefinition.Rule.ONCE, true, "2026-10-25T12:03:00Z");
+        service.beginLore(keep, Map.of(bookId, BookDefinition.Rule.ONCE), true);
+    }
+
+    @Test void stoppedRequestCanExplicitlySelectAnotherTableWithoutOwningTheOldCopy() throws IOException {
+        var service=new ChestContentService(new MemoryRepository());
+        var source=service.putTypedBinding("test:old",physical("minecraft:barrel",20),false);
+        String id="test:retarget";
+        service.startKeep(id,"test:old","UNTIL_FOUND",BookDefinition.Rule.UNTIL_FOUND,false,"2026-10-25T12:00:00Z");
+        service.reconcileKeepLocation(id,new io.github.chronicle.core.books.BookCopyLocation(source.id(),source.revision(),source.directTarget(),io.github.chronicle.core.books.BookCopyLocation.State.PRESENT),"2026-10-25T12:00:01Z");
+        String token=service.deliveryToken(id);
+        service.stopKeep(id,"2026-10-25T12:00:02Z");
+        var replacement=service.startKeep(id,"test:new","UNTIL_FOUND",BookDefinition.Rule.UNTIL_FOUND,false,"2026-10-25T12:00:03Z");
+        assertNull(replacement.location());assertEquals("test:new",replacement.lootTableId());assertEquals(token,service.deliveryToken(id));
+        assertEquals(source,service.state().bindings().get(source.id()));
+        var marked=service.saveKeepCycle(id,1,4,"2026-10-25T12:00:04Z");
+        long revision=service.state().revision();
+        assertEquals(marked,service.saveKeepCycle(id,1,4,"2026-10-25T12:00:05Z"));assertEquals(revision,service.state().revision());
+    }
+
     private static ChestContentService ready(ChestPolicy policy) throws IOException {
         return configure(new MemoryRepository(), policy);
     }
@@ -232,6 +357,24 @@ class ChestContentServiceTest {
         return new PendingChestOperation(UUID.randomUUID().toString(), UUID.randomUUID().toString(), "operator",
                 binding.id(), binding.revision(), session, cycle, binding.directTarget(), before, after,
                 "2026-10-19T12:00:00Z");
+    }
+
+    private static PendingChestOperation loreFill(ChestBinding binding, int session, long cycle,
+                                                  String bookId, String token, boolean keep) {
+        return loreOperation(PendingChestOperation.Purpose.FILL, binding, null, session, cycle, bookId, token, keep);
+    }
+
+    private static PendingChestOperation loreOperation(PendingChestOperation.Purpose purpose, ChestBinding destination,
+                                                       ChestBinding source, int session, long cycle,
+                                                       String bookId, String token, boolean keep) {
+        InventorySnapshot before = snapshot("destination-before");
+        InventorySnapshot after = snapshot("destination-after");
+        return new PendingChestOperation(UUID.randomUUID().toString(), UUID.randomUUID().toString(), "operator",
+                destination.id(), destination.revision(), session, cycle, destination.directTarget(), before, after,
+                "2026-10-25T12:00:00Z", purpose,
+                source == null ? null : source.id(), source == null ? 0 : source.revision(),
+                source == null ? null : source.directTarget(), source == null ? null : snapshot("source-before"),
+                source == null ? null : snapshot("source-after"), List.of(new BookDeliveryClaim(bookId, token, keep)));
     }
 
     private static InventorySnapshot snapshot(String... values) {

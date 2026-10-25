@@ -31,14 +31,20 @@ public final class LootTableDraftJson {
     }
 
     static LootType decodeObject(JsonObject object, String field) {
-        exactFields(object, Set.of("id", "label", "description", "recommendedChests", "refillMinutes", "entries"), field);
+        var allowed = Set.of("id", "label", "description", "recommendedChests", "refillMinutes", "entries", "books");
+        if(object.keySet().stream().anyMatch(k->!allowed.contains(k)))throw new IllegalArgumentException(field+" has unknown fields");
+        var bookEntries = new ArrayList<io.github.chronicle.core.books.BookChance>();
+        if(object.has("books"))for(var element:array(object.get("books"),field+".books")){
+            var b=object(element,field+".book");exactFields(b,Set.of("bookId","chancePercent"),field+".book");
+            bookEntries.add(new io.github.chronicle.core.books.BookChance(string(required(b,"bookId"),"bookId"),decimal(required(b,"chancePercent"),"chancePercent")));
+        }
         JsonArray entries = array(required(object, "entries"), field + ".entries");
         if (entries.size() > LootType.MAX_ENTRIES) throw new IllegalArgumentException(field + ".entries may contain at most " + LootType.MAX_ENTRIES + " entries");
         List<LootEntry> decoded = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) decoded.add(decodeEntry(object(entries.get(i), field + ".entries[" + i + "]"), field + ".entries[" + i + "]"));
         return new LootType(string(required(object, "id"), field + ".id"), string(required(object, "label"), field + ".label"),
                 string(required(object, "description"), field + ".description"), integer(required(object, "recommendedChests"), field + ".recommendedChests"),
-                decimal(required(object, "refillMinutes"), field + ".refillMinutes"), decoded);
+                decimal(required(object, "refillMinutes"), field + ".refillMinutes"), decoded,bookEntries);
     }
 
     static JsonObject encodeObject(LootType type) {
@@ -54,6 +60,7 @@ public final class LootTableDraftJson {
             entries.add(value);
         }
         result.add("entries", entries);
+        if(!type.books().isEmpty()){JsonArray books=new JsonArray();for(var b:type.books()){JsonObject value=new JsonObject();value.addProperty("bookId",b.bookId());value.addProperty("chancePercent",b.chancePercent());books.add(value);}result.add("books",books);}
         return result;
     }
 

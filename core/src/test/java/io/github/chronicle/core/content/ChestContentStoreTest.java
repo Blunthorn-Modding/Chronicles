@@ -1,5 +1,8 @@
 package io.github.chronicle.core.content;
 
+import io.github.chronicle.core.books.BookChance;
+import io.github.chronicle.core.books.BookDefinition;
+import io.github.chronicle.core.books.BookDeliveryClaim;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -63,7 +66,7 @@ class ChestContentStoreTest {
     }
 
     @Test
-    void schemaOneMigratesOnSaveAndPreservesTheOriginalAsAValidBackup() throws IOException {
+    void schemaOneMigratesToThreeOnSaveAndPreservesTheOriginalAsAValidBackup() throws IOException {
         Path file = directory.resolve("legacy.json");
         String schemaOne = "{\"schemaVersion\":1,\"revision\":2,\"templates\":[{\"id\":\"kit\",\"revision\":1,\"contents\":{\"size\":1,\"stacks\":[\"{}\"]}}],\"bindings\":[{\"id\":\"cache\",\"revision\":2,\"templateId\":\"kit\",\"templateRevision\":1,\"anchorId\":\"quiet_below:forge\",\"anchorRevision\":8,\"policy\":\"MANUAL\"}],\"receipts\":[],\"pending\":[]}";
         Files.writeString(file, schemaOne);
@@ -72,9 +75,10 @@ class ChestContentStoreTest {
         assertEquals(LootSchedule.empty(), migrated.schedule());
         store.save(migrated);
 
-        String schemaTwo = Files.readString(file);
-        assertTrue(schemaTwo.contains("\"schemaVersion\":2"));
-        assertTrue(schemaTwo.contains("\"schedule\""));
+        String schemaThree = Files.readString(file);
+        assertTrue(schemaThree.contains("\"schemaVersion\":3"));
+        assertTrue(schemaThree.contains("\"schedule\""));
+        assertTrue(schemaThree.contains("\"bookDelivery\""));
         assertEquals(schemaOne, Files.readString(file.resolveSibling("legacy.json.bak")));
         assertEquals(migrated, new ChestContentStore(file).load());
         assertEquals(migrated, new ChestContentStore(file.resolveSibling("legacy.json.bak")).load());
@@ -95,6 +99,41 @@ class ChestContentStoreTest {
                 Map.of("quiet_below:mine", new LootCycle(2, 30, 20))));
         store.save(state);
         assertEquals(state, new ChestContentStore(file).load());
+    }
+
+    @Test
+    void schemaTwoPendingFillMigratesUnchangedOnNextMutation() throws IOException {
+        Path file = directory.resolve("schema-two.json");
+        String schemaTwo = "{\"schemaVersion\":2,\"revision\":1,\"templates\":[],\"bindings\":[{\"id\":\"chest_00000000000000000000000000000000\",\"revision\":1,\"templateId\":null,\"templateRevision\":0,\"anchorId\":\"chest_00000000000000000000000000000000\",\"anchorRevision\":1,\"policy\":\"MANUAL\",\"lootType\":\"quiet_below:mine\",\"directTarget\":{\"anchorId\":\"chest_00000000000000000000000000000000\",\"anchorRevision\":1,\"dimension\":\"minecraft:overworld\",\"x\":1,\"y\":64,\"z\":2,\"expectedBlock\":\"minecraft:barrel\"}}],\"receipts\":[],\"pending\":[{\"operationId\":\"00000000-0000-0000-0000-000000000001\",\"actorUuid\":\"00000000-0000-0000-0000-000000000002\",\"actorName\":\"op\",\"bindingId\":\"chest_00000000000000000000000000000000\",\"bindingRevision\":1,\"sessionNumber\":2,\"cycle\":3,\"target\":{\"anchorId\":\"chest_00000000000000000000000000000000\",\"anchorRevision\":1,\"dimension\":\"minecraft:overworld\",\"x\":1,\"y\":64,\"z\":2,\"expectedBlock\":\"minecraft:barrel\"},\"before\":{\"size\":1,\"stacks\":[\"{}\"]},\"after\":{\"size\":1,\"stacks\":[\"{}\"]},\"createdAt\":\"2026-10-25T12:00:00Z\"}],\"schedule\":{\"sessionNumber\":2,\"activeTicks\":0,\"types\":{}}}";
+        Files.writeString(file, schemaTwo);
+        ChestContentStore store = new ChestContentStore(file);
+        ChestContentState loaded = store.load();
+        PendingChestOperation pending = loaded.pending().values().iterator().next();
+        assertEquals(PendingChestOperation.Purpose.FILL, pending.purpose());
+        assertTrue(pending.bookClaims().isEmpty());
+        store.save(loaded);
+        assertTrue(Files.readString(file).contains("\"schemaVersion\":3"));
+        assertEquals(schemaTwo, Files.readString(file.resolveSibling("schema-two.json.bak")));
+        assertEquals(pending, new ChestContentStore(file).load().pending().get(pending.operationId()));
+    }
+
+    @Test
+    void schemaThreeRoundTripsDirectBookLedgerAndPendingInsert() throws IOException {
+        Path file = directory.resolve("lore.json");
+        ChestContentService service = new ChestContentService(new ChestContentStore(file));
+        ChestBinding binding = service.putTypedBinding("quiet_below:mine",
+                new ChestTarget("temporary", 1, "minecraft:overworld", 7, 64, 9, "minecraft:barrel"), false);
+        binding = service.setDirectBook(binding.id(), binding.revision(), new BookChance("quiet_below:journal", 12.5));
+        service.startKeep("quiet_below:journal", binding.lootType(), "rule-a", BookDefinition.Rule.REPEAT,
+                false, "2026-10-25T12:00:00Z");
+        InventorySnapshot before = new InventorySnapshot(1, List.of("{}"));
+        InventorySnapshot after = new InventorySnapshot(1, List.of("{\"id\":\"minecraft:written_book\"}"));
+        PendingChestOperation insert = new PendingChestOperation(UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+                "operator", binding.id(), binding.revision(), 4, -1, binding.directTarget(), before, after,
+                "2026-10-25T12:01:00Z", PendingChestOperation.Purpose.INSERT, null, 0, null, null, null,
+                List.of(new BookDeliveryClaim("quiet_below:journal", service.deliveryToken("quiet_below:journal"), true)));
+        service.beginLore(insert, Map.of("quiet_below:journal", BookDefinition.Rule.REPEAT), true);
+        assertEquals(service.state(), new ChestContentStore(file).load());
     }
 
     private static ChestContentState state(boolean withPending) {

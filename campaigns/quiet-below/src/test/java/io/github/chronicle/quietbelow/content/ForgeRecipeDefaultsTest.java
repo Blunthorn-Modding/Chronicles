@@ -43,31 +43,19 @@ class ForgeRecipeDefaultsTest {
         }
     }
 
-    @Test void notesAreOptionalAndIndependentWithSingleBookComponents() {
+    @Test void notesAreOptionalNamedReferencesWithIndependentChances() {
         LootType defaults = ForgeRecipeDefaults.notesType();
         assertEquals(0, defaults.recommendedChests());
         assertEquals(0, defaults.refillMinutes());
-        assertEquals(5, defaults.entries().size());
-        assertTrue(defaults.entries().stream().allMatch(entry -> entry.chancePercent() == 4));
-        assertEquals(5, defaults.entries().stream().map(io.github.chronicle.core.loot.LootEntryLabel::of).distinct().count());
-        for (double chance : new double[]{0, 100}) {
-            LootType type = new LootType(defaults.id(), defaults.label(), defaults.description(), 0, 0,
-                    defaults.entries().stream().map(entry -> new LootEntry(entry.item(), chance, 1, 1, entry.componentsJson())).toList());
-            for (int seed = 0; seed < 100; seed++) {
-                var result = LootRoller.roll(type, new Random(seed));
-                assertEquals(chance == 0 ? 0 : 5, result.size());
-                for (int i = 0; i < result.size(); i++) {
-                    assertEquals(1, result.get(i).count());
-                    assertEquals(ForgeRecipeDefaults.bookComponents(ForgeRecipeDefaults.HINTS.get(i)), result.get(i).entry().componentsJson());
-                }
-            }
-        }
-        var partial = LootRoller.roll(defaults, new Random() {
-            private int entry;
-            @Override public double nextDouble() { return entry++ % 2 == 0 ? 0 : 0.5; }
-        });
-        assertEquals(List.of(defaults.entries().get(0), defaults.entries().get(2), defaults.entries().get(4)),
-                partial.stream().map(LootRoller.RolledEntry::entry).toList());
+        assertTrue(defaults.entries().isEmpty());
+        assertEquals(5, defaults.books().size());
+        assertTrue(defaults.books().stream().allMatch(entry -> entry.chancePercent() == 4));
+        assertEquals(List.of("quiet_below:field_journal_i","quiet_below:field_journal_ii","quiet_below:field_journal_iii","quiet_below:field_journal_iv","quiet_below:field_journal_v"),defaults.books().stream().map(io.github.chronicle.core.books.BookChance::bookId).toList());
+        // Rich ordinary written books remain supported, independently of named references.
+        var legacy = new LootType(defaults.id(),defaults.label(),defaults.description(),0,0,
+            ForgeRecipeDefaults.HINTS.stream().map(hint -> new LootEntry("minecraft:written_book",100,1,1,ForgeRecipeDefaults.bookComponents(hint))).toList());
+        var rolled=LootRoller.roll(legacy,new Random(5));assertEquals(5,rolled.size());
+        for(int i=0;i<5;i++)assertEquals(ForgeRecipeDefaults.bookComponents(ForgeRecipeDefaults.HINTS.get(i)),rolled.get(i).entry().componentsJson());
     }
 
     @Test void newDefaultDoesNotRewriteExistingConfigAndConfiguredNotesWin() throws Exception {

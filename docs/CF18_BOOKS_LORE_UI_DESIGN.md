@@ -1,5 +1,7 @@
 # CF-18: Books & Lore authoring and discovery design
 
+**25 October implementation update:** the organizer approved the merged workflow and authorized CF18b-d. The named catalog/editor, both chest/table routes, durable inventory discovery and table-scoped keeping are implemented and verified for dev52. Earlier design-only gates below are historical. Read [implementation and compatibility](CF18_IMPLEMENTATION.md). All existing item/chest controls and frozen journal prose remain; one combined organizer review is ready at127.0.0.1:25589 with the matching updated pack.
+
 **Current revision,25 October:** Keep placed until found replaces one-off Place now. It maintains availability across the selected loot table's bound chests, may relocate on normal rerolls, and ends on inventory discovery. Existing item/chest functionality stays; PASS132 current mockup checks are recorded in `../reports/books-lore-keep/report.json`. Earlier one-off-placement results are historical. Design only; dev51 is unchanged.
 
 **Status:** lead reviewed; awaiting organizer workflow review. Design only; no implementation authorization is implied.

@@ -7,6 +7,7 @@ import io.github.chronicle.core.campaign.Actor;
 import io.github.chronicle.core.campaign.CampaignEvent;
 import io.github.chronicle.core.content.ChestBinding;
 import io.github.chronicle.core.loot.*;
+import io.github.chronicle.core.books.*;
 import io.github.chronicle.core.menu.CoreMenuModel.*;
 import io.github.chronicle.core.managed.*;
 import io.github.chronicle.core.network.CoreMenuPayloads.*;
@@ -99,12 +100,13 @@ public final class CoreMenuServer {
             Frame current=frame(player);
             if(!read&&(request.token()!=context.token||!Objects.equals(current,context.frame))){invalidate(context);send(player,context,"Server state changed. Review the refreshed selection before retrying.",false,false,false);return;}
             if(!Objects.equals(current,context.frame))invalidate(context);
-            if(request.action()==Action.OPEN){context.token=0;context.visible=true;}
+            if(request.action()==Action.OPEN){context.token=0;context.visible=true;context.keepBook="";context.keepTable="";}
             context.page=gm?request.page():Page.PLAYERS;
             context.filter=gm&&"BLOCK".equals(request.filter())?"BLOCK":"POINT";
             context.index=request.index();
             context.selected=gm?request.id():player.getUuidAsString();
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
+            if(request.action()==Action.OPEN&&context.page==Page.BOOKS_LORE)context.expectedBook=null;
             context.picker=null;
             String message="";boolean close=false;
             if(request.action()==Action.OPTIONS){
@@ -190,6 +192,41 @@ public final class CoreMenuServer {
                 ChestAuthoring.resolve(server,binding.directTarget());ChestAuthoring.service(server).putTypedBinding(arg,binding.directTarget(),true);return "Chest table changed. Existing contents and fill history are unchanged.";
             }
             case LOOT_SAVE -> {var type=LootTableDraftJson.decode(arg);if(!type.id().equals(id)||c.expectedLoot==null||!id.equals(c.expectedLoot.id()))throw new IllegalArgumentException("Review this loot table before saving.");TypedChestLoot.saveType(source,type,c.expectedLoot);c.expectedLoot=type;return "Loot table saved. Future fills use these independent entries; no chest filled now.";}
+            case BOOK_OPEN -> {if(!BookRuntime.books(server).containsKey(arg))throw new IllegalArgumentException("Choose a registered book.");c.page=Page.BOOKS_LORE;c.selected=arg;c.expectedBook=null;return "";}
+            case CHEST_BOOK_SET -> {
+                if(c.page!=Page.CHESTS)throw new IllegalArgumentException("Choose a bound chest.");
+                BookChance direct=null;if(!arg.equals("clear")){var json=BookConfig.strictObject(arg);if(!json.keySet().equals(Set.of("bookId","chancePercent"))||!json.get("bookId").isJsonPrimitive()||!json.get("bookId").getAsJsonPrimitive().isString()||!json.get("chancePercent").isJsonPrimitive()||!json.get("chancePercent").getAsJsonPrimitive().isNumber())throw new IllegalArgumentException("Choose one book and a finite chance.");direct=new BookChance(json.get("bookId").getAsString(),json.get("chancePercent").getAsDouble());}
+                BookDeliveryRuntime.setDirect(source,id,chest(server,id).revision(),direct);return "Direct book setting saved. No chest filled and no history reset.";
+            }
+            case BOOK_KEEP -> {
+                if(!source.hasPermissionLevel(2)||ChronicleRuntime.service(server).state().phase()!=io.github.chronicle.core.campaign.SessionPhase.ACTIVE)throw new IllegalStateException("Keep placed until found requires active play and an operator.");
+                if(c.page==Page.BOOKS_LORE){c.keepBook=id;c.keepTable=arg;}
+                else if(c.page==Page.LOOT_TABLES){c.keepBook=arg;c.keepTable=id;}
+                else if(c.page==Page.CHESTS){c.keepBook=arg;c.keepTable=chest(server,id).lootType();}
+                else throw new IllegalArgumentException("Choose a book, loot table or bound chest.");
+                if(!BookRuntime.books(server).containsKey(c.keepBook))throw new IllegalArgumentException("Choose a registered book.");
+                var existingKeep=ChestAuthoring.service(server).state().bookDelivery().keepRequests().get(c.keepBook);
+                if(!TypedChestLoot.types(server).containsKey(c.keepTable)&&(existingKeep==null||existingKeep.status()==BookKeepRequest.Status.CANCELLED))throw new IllegalArgumentException("Choose a registered loot table.");
+                var keep=BookDeliveryRuntime.keepForm(server,c.keepBook,c.keepTable);c.keepTable=keep.tableId();return "Review keeping this book available across the selected table's chests.";
+            }
+            case BOOK_KEEP_START,BOOK_KEEP_STOP,BOOK_KEEP_REVIEW -> {
+                var json=BookConfig.strictObject(arg);if(!json.keySet().equals(Set.of("bookId","tableId","override"))||!json.get("bookId").isJsonPrimitive()||!json.get("bookId").getAsJsonPrimitive().isString()||!json.get("tableId").isJsonPrimitive()||!json.get("tableId").getAsJsonPrimitive().isString()||!json.get("override").isJsonPrimitive()||!json.get("override").getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException("Review the selected keep request.");
+                if(!json.get("bookId").getAsString().equals(c.keepBook)||!json.get("tableId").getAsString().equals(c.keepTable))throw new IllegalStateException("Keep request selection changed; review it again.");
+                return BookDeliveryRuntime.keep(source,c.keepBook,c.keepTable,json.get("override").getAsBoolean(),request.action()==Action.BOOK_KEEP_STOP?"stop":request.action()==Action.BOOK_KEEP_REVIEW?"review":"start");
+            }
+            case BOOK_CREATE -> {
+                if(c.page!=Page.BOOKS_LORE)throw new IllegalArgumentException("Books are managed under Books & Lore.");
+                var created=BookRuntime.create(source,BookDraftJson.decode(arg));c.selected=created.id();c.expectedBook=created;
+                return "Book created with distribution off. Edit its pages and rule when ready.";
+            }
+            case BOOK_SAVE -> {
+                if(c.page!=Page.BOOKS_LORE)throw new IllegalArgumentException("Books are managed under Books & Lore.");
+                var replacement=BookDraftJson.decode(arg);
+                if(!replacement.id().equals(id)||c.expectedBook==null)throw new IllegalArgumentException("Review this book before saving.");
+                BookRuntime.save(source,replacement,c.expectedBook);c.expectedBook=replacement;
+                return "Book saved. Existing physical books and discovery history are unchanged.";
+            }
+            case BOOK_RELOAD -> {BookRuntime.reload(source);c.expectedBook=null;return "Book configuration reloaded. Existing books and discovery history retained.";}
             case LOOT_RELOAD -> {String result=command(source,"chronicle author chest reload");c.expectedLoot=null;return result;}
             case REGION_NEW -> {AuthoringRuntime.get(server).beginRegionDraft(player,arg);c.selected=arg;return "Draft created. Continue in world activates the outline; use pos1 and pos2, then return to save.";}
             case REGION_EDIT -> {AuthoringRuntime.get(server).resumeRegionDraft(player,id);return "Both saved bounds loaded. Change either position independently; the region ID stays the same.";}
@@ -303,6 +340,7 @@ public final class CoreMenuServer {
                 ChronicleRuntime.service(server).state().flags().forEach((id,value)->result.add(entry("flag:"+id,id,"Game condition: "+value,"FLAG",id,0)));yield result;
             }
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
+            case BOOKS_LORE -> BookRuntime.books(server).values().stream().map(b->entry(b.id(),b.title(),b.description(),"BOOK",b.id(),0)).toList();
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
             case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
             case LOCATIONS -> "BLOCK".equals(filter)?blockEntries(server):sites(server).values().stream().filter(AuthoringSite.Location.class::isInstance).map(CoreMenuServer::siteEntry).toList();
@@ -320,7 +358,7 @@ public final class CoreMenuServer {
         boolean gm=source.hasPermissionLevel(2),editing=gm&&AuthoringRuntime.isAuthor(player),active=ChronicleRuntime.service(server).state().phase().name().equals("ACTIVE");
         boolean canEdit=editing&&AuthoringRuntime.editable(server);String editReason=active?"Pause play to edit these settings.":"Enable editing to change these settings.";
         var facts=new ArrayList<Fact>();var controls=new ArrayList<Control>();String title="Choose an item",description="Select an item in the middle to inspect its details.";
-        LootType loot=null;EventForm event=null;RegionForm region=null;
+        LootType loot=null;EventForm event=null;RegionForm region=null;BookDefinition book=null;LoreForm lore=null;
         switch(c.page) {
             case SESSION -> {
                 title=id.equals("activity")?"Activity":"Play controls";
@@ -420,6 +458,22 @@ public final class CoreMenuServer {
                     controls.add(control(Action.SHOW,"Show chest",true,"",false,""));controls.add(control(Action.TABLE_OPEN,"Open loot table",true,"",false,""));controls.add(control(Action.CHEST_RETYPE,"Change loot table…",canEdit,editReason,true,"LOOT_TYPE"));controls.add(control(Action.CHEST_UNBIND,"Unbind chest",canEdit,editReason,true,""));
                 }
             }
+            case BOOKS_LORE -> {
+                title="Books & Lore";description="Create named books, edit their pages and choose how they appear in the world.";
+                controls.add(control(Action.BOOK_NEW,"New book...",canEdit,editReason,false,""));
+                if(!id.isBlank()){
+                    book=BookRuntime.books(server).get(id);
+                    if(book!=null){
+                        title=book.title();description=book.description();
+                        facts.add(new Fact("Book ID",book.id()));facts.add(new Fact("Author",book.author()));facts.add(new Fact("Pages",Integer.toString(book.pages().size())));facts.add(new Fact("Distribution",book.rule().name()));
+                        c.expectedBook=book;
+                        controls.add(control(Action.BOOK_EDIT_DETAILS,"Edit details",canEdit,editReason,false,""));
+                        controls.add(control(Action.BOOK_EDIT_PAGES,"Edit pages",canEdit,editReason,false,""));
+                        controls.add(control(Action.BOOK_RULE,"Distribution...",canEdit,editReason,false,""));
+                    }
+                }
+                controls.add(control(Action.BOOK_RELOAD,"Reload book configuration",canEdit,editReason,true,""));
+            }
             case LOOT_TABLES -> {
                 title="Loot Tables";description="Reusable independent item rolls. Scheduled fills replace all managed chest contents; changes do not fill immediately.";
                 if(!id.isBlank()) {
@@ -495,12 +549,30 @@ public final class CoreMenuServer {
         }
         if(SessionBuilding.enabled(server)&&facts.stream().noneMatch(f->f.label().equals("Building Mode")))
             facts.add(new Fact("Building Mode","On - anyone may change the map; survival remains frozen."));
-        return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region);
+        if(gm&&(c.page==Page.BOOKS_LORE||c.page==Page.LOOT_TABLES||c.page==Page.CHESTS)){
+            var refs=new ArrayList<BookSummary>();var tableUses=new ArrayList<Entry>();var chestUses=new ArrayList<Entry>();BookChance direct=null;
+            if(c.page==Page.LOOT_TABLES&&loot!=null)for(var ref:loot.books()){var b=BookRuntime.books(server).get(ref.bookId());if(b!=null)refs.add(BookDeliveryRuntime.summary(server,b));}
+            if(c.page==Page.CHESTS&&!id.isBlank()){
+                direct=chest(server,id).directBook();if(direct!=null){var b=BookRuntime.books(server).get(direct.bookId());if(b!=null)refs.add(BookDeliveryRuntime.summary(server,b));}
+                controls.add(control(Action.CHEST_BOOK_SET,"Specific lore book...",canEdit,editReason,false,"BOOKS"));
+                controls.add(control(Action.BOOK_KEEP,"Keep book placed until found...",active&&!held(server),"Requires active play without a hold.",false,"BOOKS"));
+            }
+            if(c.page==Page.BOOKS_LORE&&book!=null){
+                String bookId=book.id();TypedChestLoot.types(server).values().stream().filter(t->t.books().stream().anyMatch(r->r.bookId().equals(bookId))).limit(12).forEach(t->tableUses.add(entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)));
+                ChestAuthoring.service(server).state().bindings().values().stream().filter(b->b.typed()&&b.directBook()!=null&&b.directBook().bookId().equals(bookId)).limit(12).forEach(b->chestUses.add(entry(b.id(),"Chest at "+b.directTarget().x()+" "+b.directTarget().y()+" "+b.directTarget().z(),b.directTarget().dimension(),"CHEST",b.id(),b.revision())));
+                controls.add(control(Action.BOOK_KEEP,"Keep placed until found...",active&&!held(server),"Requires active play without a hold.",false,"LOOT_TYPE"));
+            }
+            KeepForm keep=null;if(!c.keepBook.isBlank())keep=BookDeliveryRuntime.keepForm(server,c.keepBook,c.keepTable);
+            else if(book!=null){var existing=ChestAuthoring.service(server).state().bookDelivery().keepRequests().get(book.id());if(existing!=null)keep=BookDeliveryRuntime.keepForm(server,book.id(),existing.lootTableId());}
+            lore=new LoreForm(refs,tableUses,chestUses,direct,keep);
+        }
+        return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region,book,lore);
     }
 
     private static Picker picker(ServerPlayerEntity player,String kind,String query,int index) {
         var server=player.getEntityWorld().getServer();String needle=query.toLowerCase(Locale.ROOT);var choices=new ArrayList<Entry>();
         switch(kind) {
+            case "BOOKS" -> BookRuntime.books(server).values().forEach(b->choices.add(entry(b.id(),b.title(),b.author(),"BOOK",b.id(),0)));
             case "ITEMS" -> Registries.ITEM.getIds().stream().sorted().forEach(id->{var item=Registries.ITEM.get(id);String label=item.getName().getString();if((id+" "+label).toLowerCase(Locale.ROOT).contains(needle))choices.add(entry(id.toString(),shortText(label,160),id.toString(),"ITEM",Integer.toString(item.getMaxCount()),0));});
             case "LOOT_TYPE" -> TypedChestLoot.types(server).values().forEach(t->choices.add(entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)));
             case "DESTINATION","POINT","BLOCK","REGION" -> sites(server).values().stream().filter(site->switch(kind){case "DESTINATION","POINT"->site instanceof AuthoringSite.Location;case "BLOCK"->site instanceof AuthoringSite.Anchor;default->site instanceof AuthoringSite.Region;}).forEach(s->choices.add(siteEntry(s)));
@@ -524,7 +596,7 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
         var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries());
-        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
+        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
     private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
@@ -662,10 +734,10 @@ public final class CoreMenuServer {
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
     private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries) { }
-    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object automatic,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
+    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private static final class Context {
-        long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="";Frame frame,reviewFrame;
-        PlayRuntime.Preview observation;LootType expectedLoot;Picker picker;
+        long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
+        PlayRuntime.Preview observation;LootType expectedLoot;BookDefinition expectedBook;Picker picker;
         boolean visible;
     }
 }

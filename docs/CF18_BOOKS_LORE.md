@@ -1,5 +1,7 @@
 # CF-18: Core Books & Lore
 
+**25 October implementation update:** the organizer approved the merged workflow and authorized CF18b-d. The named catalog/editor, both chest/table routes, durable inventory discovery and table-scoped keeping are implemented and verified for dev52. Earlier design-only gates below are historical. Read [implementation and compatibility](CF18_IMPLEMENTATION.md). All existing item/chest controls and frozen journal prose remain; one combined organizer review is ready at127.0.0.1:25589 with the matching updated pack.
+
 **Current revision,25 October:** Keep placed until found replaces one-off Place now. It maintains availability across the selected loot table's bound chests, may relocate on normal rerolls, and ends on inventory discovery. Existing item/chest functionality stays; PASS132 current mockup checks are recorded in `../reports/books-lore-keep/report.json`. Earlier one-off-placement results are historical. Design only; dev51 is unchanged.
 
 **25 October feature-parity revision:** the [merged mockup comparison](CF18_EXISTING_FEATURE_PARITY.md) now covers the existing item editor, shared refill/save/reload and complete bound-chest workflow as interactive fixtures, alongside the two lore routes and GM placement. Direct table navigation opens Items; book handoffs open Lore books. Preserve the current 27-entry bound across both sections. Edge passes133 workflow checks; the earlier73-check result below is historical. Minecraft implementation remains pending the combined design review.

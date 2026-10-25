@@ -125,6 +125,10 @@ public final class QuietBelow implements ModInitializer {
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",
                 "Optional contextual Forge site. Placed Ancient Forge blocks work without this registration.", AuthoringCatalog.Kind.BLOCK));
         // Map-authoring defaults, adjustable in the server's Core loot configuration.
+        io.github.chronicle.quietbelow.content.ForgeRecipeDefaults.HINTS.forEach(hint -> ChronicleCore.books().register(
+                new io.github.chronicle.core.books.BookDefinition("quiet_below:field_journal_" + switch(hint.ingredient()) {
+                    case "echo_shard" -> "i"; case "amethyst_shard" -> "ii"; case "prismarine_shard" -> "iii"; case "flint" -> "iv"; default -> "v";
+                }, hint.title(), "Unknown", "Abandoned experiments by a later explorer of the ancient city.", hint.pages(), io.github.chronicle.core.books.BookDefinition.Rule.UNTIL_FOUND)));
         ChronicleCore.chestTypes().register(io.github.chronicle.quietbelow.content.ForgeRecipeDefaults.notesType());
         ChronicleCore.chestTypes().register(new LootType("quiet_below:settlement_supplies", "Settlement supplies",
                 "Everyday supplies; a suggested starting distribution, editable by the organizer.", 4, 0, List.of(
