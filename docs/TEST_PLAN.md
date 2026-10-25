@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 25 October: CF-18 Books & Lore design validation only
+
+[Plan](CF18_BOOKS_LORE.md), [dedicated UI design](CF18_BOOKS_LORE_UI_DESIGN.md) and [clickable mockup](design/books-lore.html) define the requested library capability. Playwright/installed Edge passes29 workflow checks at desktop and480px compact width, including create/cancel/title validation, page/draft/preview retention, explicit rule/page/table confirmations, named-reference draft/save and Clean/Debug. Final editor/rules/compact captures were visually inspected; syntax and diff checks pass. Independent design review found and closed three prototype workflow mismatches before handoff. No Java build or native gameplay verification was needed or claimed for this documentation/HTML-only slice. The dev51 implementation evidence below remains current; Books & Lore itself awaits organizer workflow review and implementation.
+
 ## 25 October: dev51 separate research journals
 
 [Research journals](RESEARCH_JOURNALS.md) supersede the dev50 compendium.409 Java/87 Python tests pass; final build27s. Native114653 passes71 initial/3 restart checks: five separate3-page books through normal loot filling, every received title/page checked and opened normally, all15pages fitGUI2,0% replacement, custom components and all original inventory books survive save/restart, config startup bytes unchanged. All15screenshots visually inspected. Core uses plain book titles in existing loot rows; focused fallback/independent-roll/recipe/config tests pass. Independent code/lore/docs/evidence reviews clear. Fresh authenticated review115145 has allfivebooks at0,64,0, spawn2,64,2, ENDED/BuildingModeON; previous093935 saved/stopped158files unchanged. Native proof used naturally loaded chunks; only review construction briefly ticketed0,0 and removed all tickets before handoff. Dev50 evidence below is historical.

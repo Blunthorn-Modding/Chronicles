@@ -1,5 +1,7 @@
 # The later researcher
 
+**Provisional content accepted,25 October:** the operator calls these books a strong start and defers further prose/lore/event revision until main mod functionality is complete. Keep the current five journals unchanged during [Core Books & Lore](CF18_BOOKS_LORE.md). Named editing and discovery are the next library capability; the new workflow is a design awaiting review, not installed in dev51.
+
 25 October operator direction: the recipe notes become journals left by a long-dead researcher. This person discovered the ancient city; they did not belong to its original civilization or build it. They constructed the Forge and Altar through experiments after finding the city, eventually abandoned their work, and are long dead by the present campaign. Their name, exact dates, origin and manner of death remain undecided. Keep the author anonymous until the organizer chooses those details.
 
 This is shared authorship for later lore books, not a new NPC, faction, quest sequence or compulsory reveal. The journals record incomplete firsthand observations. The writer cannot know current players or narrate events after their own departure/death. Players may find volumes in any order; entry numbers do not schedule sessions. Avoid cryptic closing slogans, recipe lists, enchantment names and narrator explanations. Describe materials, experiments and observed results so a recipe can be inferred. Do not add player corruption or a barrier preventing departure.
