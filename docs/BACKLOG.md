@@ -1,5 +1,7 @@
 # Chronicle work tracking
 
+**25 October resumed:** dev49 is accepted; the handcrafted map is not ready. [M13a](M13_RECOVERY_REHEARSAL.md) independently verifies forced-stop/partial-cleanup recovery, natural unload and final restart with4098 exact targets and preserved edits. Map/group integration and prolonged real-map soak stay pending; this backend rehearsal needs no additional human UI review.
+
 **24 October acceptance:** the operator confirms dev49 works; UI and Heart corrections are accepted. Implementation is explicitly paused until the operator resumes tomorrow. Reassess remaining milestones and the M13 handcrafted-map/group prerequisites on resumption.
 
 **Dev49 Heart correction:** the operator accepted the UI and supplied the missing warning/reconnect/recut sequence. The first warning incorrectly claimed the cooldown, suppressing the later actual defence. The fix claims only the final attempt, with transient cancellable warnings; existing receipts remain respected. The new native regression fails on old code and passes on the fix, including full defence, cooldown and restart. See [confirmed diagnosis](M12_HEART_DIAGNOSIS.md).

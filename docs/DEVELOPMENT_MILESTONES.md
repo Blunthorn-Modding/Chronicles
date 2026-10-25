@@ -1,5 +1,7 @@
 # Implementation milestones after the prototype
 
+**25 October:** operator resumes after accepting dev49; handcrafted map is not ready. [M13a crash/unload recovery](M13_RECOVERY_REHEARSAL.md) now passes an actual forced-stop, partial rollback/replay, natural unload hold and final restart with preserved edits. This closes the synthetic operations rehearsal, not the handcrafted-map/group or prolonged-load gate. Accepted UI and Heart behavior remain unchanged.
+
 **24 October dev.47 follow-up:** Core freezes paused player gameplay with explicit global Building Mode for everyone, sends ACTIVE status once and provides the native popup/Clean-Debug menu. Block limits has one Game setup destination; Locations remains the physical registry. Quiet Below's last stand has a bounded surface-adaptive5x5 burst, preserving the sixty-second weakening, one Warden and persisted ten ACTIVE-minute cooldown. See [combined review](M12_COMBINED_REVIEW.md) and [evidence](TEST_PLAN.md). M13 remains pending hands-on review, handcrafted-map integration and group testing. Older dated checkpoints are historical.
 
 

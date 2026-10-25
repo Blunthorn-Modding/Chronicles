@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 25 October: interrupted eradication and natural-unload recovery
+
+[M13a rehearsal](M13_RECOVERY_REHEARSAL.md) passes native091538: abrupt runner-owned server termination after65 saved/129 actual completions, restart recovers65 with per-chunk bitmap/terrain agreement, zero affected chunks loaded for100 occupied ACTIVE ticks at149 completions, then4098/4098 restored or explicitly preserved targets. Two foreign gold edits and a later diamond edit survive; final conflict count3, max completion delta4/tick, terminal journal SHA unchanged across crash and final restart. Native steps7/6/2; independent source review clear. Fullbuild26s404Java and87Python checks pass. Only opt-in test infrastructure/read-only receipt inspection is added; no gameplay or review deployment. Handcrafted map is explicitly not ready, so M13 map/group gate stays pending.
+
 ## 24 October: dev49 interrupted-warning cooldown fix
 
 **Human review accepted:** the operator confirms all now works, following prior UI acceptance. Implementation is paused at the operator's request until tomorrow.

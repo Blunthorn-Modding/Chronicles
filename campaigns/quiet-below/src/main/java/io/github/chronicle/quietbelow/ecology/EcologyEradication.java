@@ -204,6 +204,13 @@ public final class EcologyEradication {
     public String failure() { return failure; }
 
     List<ChunkPlan> plansForTest() { return plans; }
+    Marker markerForTest(ServerWorld world, ChunkPlan plan) {
+        WorldChunk chunk = world.getChunkManager().getWorldChunk(plan.x(), plan.z());
+        if (chunk == null) return null;
+        Marker marker = attached(chunk);
+        if (marker != null) validate(marker, plan);
+        return marker;
+    }
     int cursorForTest(ChunkPlan plan) { return cursors[index(plan)]; }
     void observeForTest(ChunkPlan plan, Marker marker) { observe(plan, marker); }
 
