@@ -414,7 +414,7 @@ public final class CoreMenuScreen extends Screen {
         for (int i = 0; i < rows && i + lootEntryOffset < lootDraft.entries().size(); i++) {
             int index = i + lootEntryOffset;
             LootEntry entry = lootDraft.entries().get(index);
-            button((index == lootEntry ? "> " : "") + entry.item() + " " + entry.chancePercent() + "% x" + entry.minCount() + "-" + entry.maxCount(),
+            button((index == lootEntry ? "> " : "") + io.github.chronicle.core.loot.LootEntryLabel.of(entry) + " " + entry.chancePercent() + "% x" + entry.minCount() + "-" + entry.maxCount(),
                     x, y + i * 20, w, () -> { lootEntry = index; clearAndInit(); }, "Select this independent loot roll", true);
         }
         y += rows * 20;

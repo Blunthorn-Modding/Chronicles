@@ -12,7 +12,6 @@ import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.item.Items;
-import net.minecraft.text.Text;
 import net.minecraft.util.Hand;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,20 +64,33 @@ final class ForgeNotesSmoke {
         delay("load the chest chunk", 2500);
         if (PHASE.equals("restart")) { probe(client, "restart"); return; }
         probe(client, "prepare"); delay("allow real session-start fill", 1500); probe(client, "collect");
-        step("receive the real loot book in hand", () -> { }, () -> client.player.getMainHandStack().isOf(Items.WRITTEN_BOOK));
-        step("use written book to open vanilla reader", () -> client.interactionManager.interactItem(client.player, Hand.MAIN_HAND),
-                () -> client.currentScreen instanceof BookScreen);
-        for (int page = 0; page < ForgeRecipeDefaults.pages().size(); page++) {
-            int number = page;
-            step("measure vanilla page " + (page + 1), () -> {
-                require(client.options.getGuiScale().getValue() == 2, "Expected GUI scale 2");
-                require(client.textRenderer.wrapLines(Text.literal(ForgeRecipeDefaults.pages().get(number)), 114).size() * 9 <= 128, "Page overflows vanilla text area");
-                require(((BookScreen) client.currentScreen).setPage(number) || number == 0, "Cannot select book page");
+        step("receive all five real loot books", () -> { }, () -> {
+            for (int i = 0; i < 5; i++) if (!client.player.getInventory().getStack(i).isOf(Items.WRITTEN_BOOK)) return false;
+            return true;
+        });
+        for (int book = 0; book < ForgeRecipeDefaults.HINTS.size(); book++) {
+            int slot = book;
+            var hint = ForgeRecipeDefaults.HINTS.get(book);
+            step("select " + hint.title(), () -> {
+                client.player.getInventory().setSelectedSlot(slot);
+                client.player.networkHandler.sendPacket(new net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket(slot));
             }, () -> true);
-            delay("render page " + (page + 1), 300);
-            screenshot(client, "notes-page-" + (page + 1) + ".png");
+            step("use " + hint.title() + " to open vanilla reader", () -> client.interactionManager.interactItem(client.player, Hand.MAIN_HAND),
+                    () -> client.currentScreen instanceof BookScreen);
+            for (int page = 0; page < hint.pages().size(); page++) {
+                int number = page;
+                step("measure " + hint.title() + " page " + (page + 1), () -> {
+                    require(client.options.getGuiScale().getValue() == 2, "Expected GUI scale 2");
+                    var content = client.player.getMainHandStack().get(net.minecraft.component.DataComponentTypes.WRITTEN_BOOK_CONTENT);
+                    require(content != null && content.title().raw().equals(hint.title()) && content.getPages(false).get(number).getString().equals(hint.pages().get(number)), "Reader has wrong journal content");
+                    require(client.textRenderer.wrapLines(content.getPages(false).get(number), 114).size() * 9 <= 128, "Page overflows vanilla text area");
+                    require(((BookScreen) client.currentScreen).setPage(number) || number == 0, "Cannot select book page");
+                }, () -> true);
+                delay("render page " + (page + 1), 300);
+                screenshot(client, "journal-" + (book + 1) + "-page-" + (page + 1) + ".png");
+            }
+            step("close " + hint.title(), () -> client.setScreen(null), () -> client.currentScreen == null);
         }
-        step("close vanilla reader", () -> client.setScreen(null), () -> client.currentScreen == null);
         probe(client, "zero"); delay("allow zero-chance replacement", 1500); probe(client, "empty");
         delay("allow custom-components fill", 1500); probe(client, "custom");
     }

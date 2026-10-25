@@ -12,6 +12,10 @@ A community discovers an ancient city beneath its familiar surroundings. Sculk c
 
 The central question is: **what does this community do when something it cannot fully understand starts becoming part of its home?** The mod creates evidence, consequences and opportunities to act. It does not decide the answer.
 
+### The later researcher
+
+The Forge, Altar and abandoned research journals belong to a later explorer who discovered the ancient city and experimented there. They did not build the city or belong to its original civilization. They developed the two stations through their own trials, eventually abandoned the work, and are long dead by the current campaign. Their name, origin, exact dates and manner of death remain undecided. The journals reveal partial observations rather than a recipe manual, and may be found in any order. See [shared writing contract](RESEARCH_JOURNALS.md). This adds no living quest-giver, compulsory sequence or explanation of the ancient city's builders.
+
 ### Direction established by the operator
 
 - The operator handcrafts the production map. Agent-built worlds are disposable technical fixtures.

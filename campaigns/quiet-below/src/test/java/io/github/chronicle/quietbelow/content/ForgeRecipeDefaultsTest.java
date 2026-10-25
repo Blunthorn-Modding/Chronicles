@@ -32,30 +32,42 @@ class ForgeRecipeDefaultsTest {
             assertEquals(1, recipe.count());
             assertTrue(recipe.enabled());
         }
-        var book = JsonParser.parseString(ForgeRecipeDefaults.bookComponents()).getAsJsonObject()
-                .getAsJsonObject("minecraft:written_book_content");
-        assertEquals(6, book.getAsJsonArray("pages").size());
-        for (int i = 0; i < 6; i++) assertEquals(ForgeRecipeDefaults.pages().get(i),
-                book.getAsJsonArray("pages").get(i).getAsJsonObject().get("text").getAsString());
+        assertEquals(5, ForgeRecipeDefaults.HINTS.stream().map(ForgeRecipeDefaults.Hint::title).distinct().count());
+        for (var hint : ForgeRecipeDefaults.HINTS) {
+            var book = JsonParser.parseString(ForgeRecipeDefaults.bookComponents(hint)).getAsJsonObject()
+                    .getAsJsonObject("minecraft:written_book_content");
+            assertEquals(hint.title(), book.get("title").getAsString());
+            assertEquals(3, book.getAsJsonArray("pages").size());
+            for (int i = 0; i < 3; i++) assertEquals(hint.pages().get(i),
+                    book.getAsJsonArray("pages").get(i).getAsJsonObject().get("text").getAsString());
+        }
     }
 
     @Test void notesAreOptionalAndIndependentWithSingleBookComponents() {
         LootType defaults = ForgeRecipeDefaults.notesType();
         assertEquals(0, defaults.recommendedChests());
         assertEquals(0, defaults.refillMinutes());
-        assertEquals(20, defaults.entries().getFirst().chancePercent());
+        assertEquals(5, defaults.entries().size());
+        assertTrue(defaults.entries().stream().allMatch(entry -> entry.chancePercent() == 4));
+        assertEquals(5, defaults.entries().stream().map(io.github.chronicle.core.loot.LootEntryLabel::of).distinct().count());
         for (double chance : new double[]{0, 100}) {
             LootType type = new LootType(defaults.id(), defaults.label(), defaults.description(), 0, 0,
-                    List.of(new LootEntry("minecraft:written_book", chance, 1, 1, ForgeRecipeDefaults.bookComponents())));
+                    defaults.entries().stream().map(entry -> new LootEntry(entry.item(), chance, 1, 1, entry.componentsJson())).toList());
             for (int seed = 0; seed < 100; seed++) {
                 var result = LootRoller.roll(type, new Random(seed));
-                assertEquals(chance == 0 ? 0 : 1, result.size());
-                if (!result.isEmpty()) {
-                    assertEquals(1, result.getFirst().count());
-                    assertEquals(ForgeRecipeDefaults.bookComponents(), result.getFirst().entry().componentsJson());
+                assertEquals(chance == 0 ? 0 : 5, result.size());
+                for (int i = 0; i < result.size(); i++) {
+                    assertEquals(1, result.get(i).count());
+                    assertEquals(ForgeRecipeDefaults.bookComponents(ForgeRecipeDefaults.HINTS.get(i)), result.get(i).entry().componentsJson());
                 }
             }
         }
+        var partial = LootRoller.roll(defaults, new Random() {
+            private int entry;
+            @Override public double nextDouble() { return entry++ % 2 == 0 ? 0 : 0.5; }
+        });
+        assertEquals(List.of(defaults.entries().get(0), defaults.entries().get(2), defaults.entries().get(4)),
+                partial.stream().map(LootRoller.RolledEntry::entry).toList());
     }
 
     @Test void newDefaultDoesNotRewriteExistingConfigAndConfiguredNotesWin() throws Exception {

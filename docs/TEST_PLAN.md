@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 25 October: dev51 separate research journals
+
+[Research journals](RESEARCH_JOURNALS.md) supersede the dev50 compendium.409 Java/87 Python tests pass; final build27s. Native114653 passes71 initial/3 restart checks: five separate3-page books through normal loot filling, every received title/page checked and opened normally, all15pages fitGUI2,0% replacement, custom components and all original inventory books survive save/restart, config startup bytes unchanged. All15screenshots visually inspected. Core uses plain book titles in existing loot rows; focused fallback/independent-roll/recipe/config tests pass. Independent code/lore/docs/evidence reviews clear. Fresh authenticated review115145 has allfivebooks at0,64,0, spawn2,64,2, ENDED/BuildingModeON; previous093935 saved/stopped158files unchanged. Native proof used naturally loaded chunks; only review construction briefly ticketed0,0 and removed all tickets before handoff. Dev50 evidence below is historical.
+
 ## 25 October: dev50 Forge discovery notes
 
 [Recipe notes](M11_FORGE_RECIPE_NOTES.md) pass407 Java/87 Python tests, independent source review and native093552 with31 initial/3 restart steps. Real typed-chest session fills exercise100% single-book,0% empty replacement and customized components; restart preserves the configured title and earlier inventory book. Existing startup config bytes remain unchanged. All six vanilla pages pass wrap-height checks and were visually inspected at640x480/GUI2. First native093352 passed functionally but had toast-obscured screenshots; the helper now waits after clearing overlays. Matching dev50 pack and fresh authenticated book-only review25589 are prepared; see the recipe-notes review instructions. No handcrafted map, group soak or new Forge UI is claimed.
