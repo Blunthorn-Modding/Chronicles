@@ -1,5 +1,8 @@
 # Implementation milestones after the prototype
 
+**25 October CF18 keep-placed update:** the accepted mockup gains table-scoped Keep placed until found instead of one-off placement. CF18c now requires persisted requests, revision-aware rule exceptions, same-table availability across ordinary refills, terminal provenance and safely recoverable source/destination transfers. PASS132 browser checks validate mock behavior only. Definitions/editor and native lifecycle/transfer work remain pending the combined workflow review; no client/server update.
+
+
 **25 October CF18 parity revision:** [merged design](CF18_EXISTING_FEATURE_PARITY.md) now makes existing item authoring, refill/save/reload, and chest bind/show/retype/unbind controls interactive alongside both lore routes and live GM placement. PASS133 mockup checks; no mod deployment or CF18b-d completion. Current review is the combined workflow, not a separate review of each control.
 
 

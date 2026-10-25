@@ -1,5 +1,8 @@
 # Chronicle work tracking
 
+**25 October keep-until-found revision:** replace one-off GM placement with a persistent request for one book across an existing loot-table chest group. It tries immediately without rerolling normal loot, survives later refills and may relocate within the group until inventory discovery. Existing chest/item features stay. Read [CF18](CF18_BOOKS_LORE.md); PASS132 mockup checks, no gameplay deployment. Safe relocation/recovery is explicit CF18c work.
+
+
 **25 October merged CF18 mockup:** [feature comparison](CF18_EXISTING_FEATURE_PARITY.md) restores every current item/table and bound-chest control alongside the lore additions. Existing Items opens first; Lore books is a second section of the same draft/save/refill model. Shared 27-entry cap, rich items preserved, and chest changes preserve contents/history. Edge passes133 checks; this is design evidence only. Same mockup URL; CF18b-d implementation awaits workflow review.
 
 

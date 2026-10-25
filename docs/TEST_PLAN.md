@@ -1,5 +1,10 @@
 # Bootstrap validation
 
+## 25 October: CF18 keep placed until found
+
+Edge passes132 current mockup checks:29 book-editor regressions,60 retained item/chest parity cases and43 keep-request cases. The new suite verifies allthree shortcuts, immediate ensure versus chance settings, repeated same-table relocation, pending full/unloaded/uncertain/empty groups, pause/resume, no duplicate request, inventory-discovery completion with retained last-known provenance, no post-found restart, Stop without history reset, Off/issued-once exceptions, paused rule changes requiring fresh review/override, source retyping deferral, stale phase confirmation and480px layout. Exact report/scripts/captures: `../reports/books-lore-keep/`. Three new desktop/compact captures visually checked; syntax/frozen five journals/15pages/diff checks pass. This supersedes one-off GM tests in earlier dated entries. HTML/docs only: actual inventory transfer, durable restart, permission and crash recovery remain native implementation gates, not browser claims.
+
+
 ## 25 October: CF18 existing-feature merge
 
 [Parity matrix](CF18_EXISTING_FEATURE_PARITY.md) maps current Core source controls to the merged mockup. Edge passes133 checks:29 editor,44 lore routing/GM and60 new item/chest parity cases, including fractional refill, invalid draft retention, rich components, combined27-entry capacity, bind/retype/unbind cancellation and preservation, empty lists, stale looked target, ACTIVE locks and compact containment. Exact results/scripts/captures are in `../reports/books-lore-parity/`. Root inspected five desktop/compact views; syntax/frozen journal equality/diff checks pass and independent source review is clear. One initial editor test timeout was a compact-viewport setup error, corrected before PASS29. HTML/docs only; no Java/native build, Minecraft data, permission, persistence, RNG or malformed-configuration proof claimed. This supersedes the earlier ordinary-controls-not-simulated scope note.

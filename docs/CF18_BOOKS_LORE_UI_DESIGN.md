@@ -1,5 +1,7 @@
 # CF-18: Books & Lore authoring and discovery design
 
+**Current revision,25 October:** Keep placed until found replaces one-off Place now. It maintains availability across the selected loot table's bound chests, may relocate on normal rerolls, and ends on inventory discovery. Existing item/chest functionality stays; PASS132 current mockup checks are recorded in `../reports/books-lore-keep/report.json`. Earlier one-off-placement results are historical. Design only; dev51 is unchanged.
+
 **Status:** lead reviewed; awaiting organizer workflow review. Design only; no implementation authorization is implied.
 
 ## Purpose and boundary
@@ -47,7 +49,7 @@ Session            Books & Lore               Field journal II
 Players            [ + New book ]             Selected description; Author; 3 pages
 Events             Field journal I            [Edit details] [Edit pages] [Preview]
 Chests             Field journal II           Distribution: Until found [Change...]
-Loot Tables        Field journal III          [Place now...] (ACTIVE operator control)
+Loot Tables        Field journal III          [Keep placed until found...] (ACTIVE operator control)
 Books & Lore       ...                        Direct chests: Library chest [Open chest]
 Regions                                       Loot tables: Mine cache [Open table]
 Locations
@@ -199,17 +201,30 @@ The Lore books section uses the existing table's independent chance controls and
 
 The selected book's **Appears in** remains read-only and split into **Direct chests** and **Loot tables**, each with an appropriate hand-off. It shows neither chance nor rule controls, so each distribution source owns its chance while Books & Lore remains the only lifecycle authority.
 
-### Operator placement during ACTIVE play
+### Keep placed until found during ACTIVE play
 
-`Place book now…` is an operator play control, not metadata editing. It is available during **ACTIVE** play without requiring Editing, from all three shortcuts:
+This replaces the previous one-off Place now control. The ACTIVE operator action requires no Editing. From a book, choose a loot table; from its table row, use that table; from a bound chest, choose a book and use the chest's current loot table. There is no fixed chest picker. Requests do not edit the ordinary direct-book/table chance settings or central rules.
 
-- From a selected bound chest, choose any registered valid book.
-- From a selected book, choose an existing bound chest.
-- From a table Lore books row, choose an existing bound chest; table-linked chests are preferred.
+```text
+Keep Field journal II placed until found?
+Loot table: Research journals
 
-All shortcuts arrive at one confirmation sheet naming the exact chest and book and stating **one copy**, **bypass chance**, **no refill reschedule**, and **no discovery record yet**. It defaults to respecting the selected book's central rule. If that rule blocks placement because distribution is Off, the book has already Spawned once, or it is already found, the sheet visibly offers **Override book spawning rule for this copy**. The toggle is explicit; it does not alter the saved rule or discovery history.
+Keep one copy available across this table's bound chests.
+Try now; later refills may move it. Stops when a player
+ takes the book into their inventory.
 
-Placing a book never overwrites existing inventory items, consumes no normal refill cycle, and does not count as found. A later real player-inventory receipt may record discovery under the normal central rule. The operation fails clearly if the target chest is unloaded or has no room; it never creates a new physical target or delayed placement job.
+[Cancel] [Enable until found]
+```
+
+One request per campaign/book. Activation tries a book-only insertion without rerolling other loot or resetting the refill timer. A scheduled reroll may retain it or move it to another chest using the SAME table, rather than losing it on the20-minute refill. No available/full/unloaded/uncertain targets leave a pending request and preserve any known copy safely. No duplicate request, arbitrary overwrite or forced chunk load. Existing normal fills provide later opportunities; no second scheduler.
+
+Off or previously issued Spawn once requires a visible **Override spawning rule for this request only** checkbox. This request-specific exception persists through its own future refills and does not change the central rule/history. A book already found is complete, with no override/restart. Actual inventory receipt ends the request campaign-wide. Pause/session end/restart retains it; the initial implementation must persist this state, although the HTML fixture itself does not.
+
+If the central rule changes or an external Spawn once claim appears while a request is deferred, suspend new placement/relocation, retain the known copy and show **Review updated rule** in Manage. **Confirm updated rule** requires a fresh request-specific override where the new rule blocks it; Stop keeping remains available. Completion on finding retains last-known provenance for later authoritative reconciliation rather than assuming every copy vanished.
+
+The selected book shows a concise table/status line and **Manage kept placement...**. That sheet has **Stop keeping**, which cancels future maintenance without deleting waiting books, editing chance settings or clearing history. The same row/chest shortcut opens the existing request if present; it cannot silently retarget it.
+
+Outside game chrome, **Simulate scheduled refill** demonstrates the fixture copy moving between the City library and Gallery chests (both Research journals). Target scenarios include ready/full/unloaded/uncertain; the selected-book scenario marks inventory discovery. Debug shows the current sample copy location. These are visual state demonstrations, not real cross-inventory transaction or persistence proof.
 
 ### Existing Chest and Loot Table workflow retained
 
@@ -219,11 +234,11 @@ The Books & Lore additions extend, rather than replace, the current Core screens
 
 **Loot Tables** retains the native whole-table editor. Its shared draft has ordinary **Items** and **Lore books** sections, one shared `Refill minutes` value (0 disables timed refill; session-start filling still applies), and one confirmed **Save loot table** that commits item entries, rich item components, refill minutes, lore references, and their chances atomically. **Reload loot configuration** is confirmed and reloads configuration only; it does not rewrite discovered books or history and rejects malformed input without changing the loaded draft.
 
-Items keep the current independent row workflow: select an entry; use searchable/paged **Add item** registry picker (new entry defaults to 100%, count 1–1); **Remove item**; edit chance 0–100 and integer min/max 1–64 with min ≤ max; preserve rich components when numeric fields change. The shared cap is 27 total entries across Items and Lore books; both Add controls disable at that combined cap. The selected-entry window shows three rows with previous/next entry controls when needed. Lore rows are stable named-book references with their own chance, open/remove controls, and ACTIVE **Place now…**; they are not raw item-component stacks and never duplicate central rules.
+Items keep the current independent row workflow: select an entry; use searchable/paged **Add item** registry picker (new entry defaults to 100%, count 1–1); **Remove item**; edit chance 0–100 and integer min/max 1–64 with min ≤ max; preserve rich components when numeric fields change. The shared cap is 27 total entries across Items and Lore books; both Add controls disable at that combined cap. The selected-entry window shows three rows with previous/next entry controls when needed. Lore rows are stable named-book references with their own chance, open/remove controls, and ACTIVE **Keep placed until found…**; they are not raw item-component stacks and never duplicate central rules.
 
 ## Authority, stale saves and failure behavior
 
-Metadata, pages, rules, direct-book settings, and loot-table entry edits require the established three conditions: permission level 2, author editing enabled, and non-active/editable server state. Controls remain visible but disabled with the current plain-language reason (for example, “Pause play to edit these settings” or “Enable editing to change these settings”). `Place book now…` is the narrow exception: it requires an operator and ACTIVE play, but not Editing; it does not change metadata, schedules, rules, or discovery history. Preview and browsing are read-only and never issue an item or make a discovery receipt.
+Metadata, pages, rules, direct-book settings, and loot-table entry edits require the established three conditions: permission level 2, author editing enabled, and non-active/editable server state. Controls remain visible but disabled with the current plain-language reason (for example, “Pause play to edit these settings” or “Enable editing to change these settings”). `Keep placed until found…` is the narrow exception: it requires an operator and ACTIVE play, but not Editing; it changes only its own request; it does not edit definitions, normal refill schedules, central rules or discovery history. Preview and browsing are read-only and never issue an item or make a discovery receipt.
 
 Book catalog revision and campaign-wide issuance/discovery state must be included in the server view frame. Each save carries the viewed book revision plus the menu token. If another organizer, a reload, an issue, or an inventory receipt changes relevant state, server rejects the mutation, returns a refreshed view, and says: **“This book changed elsewhere. Review the refreshed version before saving.”** No blind overwrite, silent merge, or retry occurs.
 
@@ -241,7 +256,7 @@ The smallest coherent slice is deliberately narrower than a full lore system:
 4. Extend the existing typed loot entry model only enough to reference a named book definition by stable ID and render title/author; give Loot Tables separate Items and Lore books sections. Add an optional per-bound-chest direct named-book chance with same-book override semantics, plus bidirectional hand-offs. Reuse the current chance, whole-table save, bound-chest registry and chest-fill scheduling—without duplicating them in Books & Lore.
 5. Seed/migrate nothing automatically. Quiet Below registered campaign defaults and organizer-created custom books can coexist; existing `quiet_below:forge_notes` defaults and ordinary configured books remain compatible.
 
-Out of slice: global search across all written books, rich text styling beyond normal components, custom reading UI, player-facing book catalog, quest/event unlocks, story ordering, placement maps, session quotas, respawn delivery, and a reset/discovery-history administration tool. The one bounded operator-only ACTIVE placement control above is the sole direct grant-like path.
+Out of slice: global search across all written books, rich text styling beyond normal components, custom reading UI, player-facing book catalog, quest/event unlocks, story ordering, placement maps, session quotas, respawn delivery, and a reset/discovery-history administration tool. The bounded operator-only ACTIVE keep-placed request above is the only deliberate availability override in this slice.
 
 ## Settled product decisions and remaining risks
 
@@ -263,6 +278,6 @@ At minimum, cover server-side bounds/authorization/stale-revision tests; title/a
 
 Extend the existing Core menu layout/native smoke coverage at 480, 640 and 960 logical widths: Books & Lore navigation, Clean facts hidden, Debug facts visible, compact Back to list, page editor/preview scroll and modal containment, disabled editing during ACTIVE, stale-save message/draft behavior, picker/table hand-off and confirmation cancellation. Verify all interactive controls stay within the vanilla popup and that the actual received named item opens with the normal Minecraft reader.
 
-All managed named-book copies waiting in bound chests retain refill protection until taken, including copies waiting after global discovery and GM-restored copies. Repeat ignores discovery for future rolls; it does not erase book identity/history. Raw generic written books keep their ordinary replacement behavior. Manual placement has its own operation purpose and never consumes a normal refill cycle.
+All managed named-book copies waiting in bound chests retain protection from refill loss until taken, including copies waiting after global discovery and maintained copies. This does not pin a kept copy to one chest: its active request may safely relocate it within the selected table group. Repeat ignores discovery for future rolls; it does not erase book identity/history. Raw generic written books keep their ordinary replacement behavior. Keep-placed requests use the shared delivery ledger and normal refill opportunities. Cross-chest relocation requires the exact recoverable transfer design in CF18; it is not a pair of independent one-off grants.
 
-Entering ACTIVE play clears setup Editing, as in the current Core lifecycle. Metadata/table/direct-setting controls remain locked; live operator placement has no Editing prerequisite. The Items section retains the existing full add/select/edit/remove/chance/min-max quantity editor. Ordinary item and chest controls are now interactive in this merged mockup, alongside the lore additions. They operate on sample in-memory data; the item picker samples the Minecraft registry and Show chest simulates an outline. Configuration errors, real world inventories, authoritative permissions and persistence require later native implementation verification.
+Entering ACTIVE play clears setup Editing, as in the current Core lifecycle. Metadata/table/direct-setting controls remain locked; the operator keep-placed control has no Editing prerequisite. The Items section retains the existing full add/select/edit/remove/chance/min-max quantity editor. Ordinary item and chest controls are now interactive in this merged mockup, alongside the lore additions. They operate on sample in-memory data; the item picker samples the Minecraft registry and Show chest simulates an outline. Configuration errors, real world inventories, authoritative permissions and persistence require later native implementation verification.
