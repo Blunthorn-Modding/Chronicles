@@ -19,6 +19,16 @@ Existing managed copies remain protected during refills. A copy already waiting 
 
 During active play an operator can choose **Keep placed until found** without enabling Editing. Choose the existing loot-table group; it immediately tries a book-only insertion/adoption, then uses that table's normal refill opportunities. The maintained copy may move between same-table chests. This does not reroll ordinary contents, reset the refill clock or create another scheduler. Full, missing or uncertain inventories defer. Known missing sources are not blindly replaced. Off/already-issued Spawn once requires a request-specific override; changed rules suspend maintenance for review. Stop keeps existing copies/history. Found books cannot restart keeping.
 
+## GM discovery and direct copies (dev53)
+
+Books & Lore now shows **Found / Not found**, the first finder's cached name and online/offline state in Clean mode. Debug adds the durable UUID and UTC timestamp. The first receipt remains visible after disconnect, leaving participation and restart; an unavailable cached name falls back to an offline-participant label without erasing the UUID.
+
+**Give book to player...** opens a native popup of online eligible participants (enrolled, alive, not spectating/editing; Creative participants may receive deliberate GM copies), followed by a separate confirmation. This requires active play and an operator, with no Editing prerequisite. Cancel inserts nothing. The server pins the book definition, target UUID and menu frame, rechecks eligibility and an empty main-inventory slot on confirmation, and consumes the review before attempting the grant. Reviews expire after30seconds. A full inventory is refused without overwriting or dropping anything. No offline queue or automatic retry is added.
+
+A deliberate give bypasses automatic chance/rule restrictions. Per organizer confirmation, an unfound volume becomes found by the selected recipient and its keep request completes. Further copies retain the original finder/time. The rule, normal refill clock and existing chest copies stay unchanged. The campaign audit records an administrative request before a conservative issuance claim and insertion. Failure before that claim inserts nothing; a caught post-claim failure holds play with an uncertain-outcome message. A process crash between claim and insertion can leave issued/not-found history: inspect the inventory and explicitly review another give if needed. No recovery path silently inserts a second copy.
+
+Dev53 uses matching menu protocol **v3** (bounded private view262144characters); chest schema3 remains unchanged. Existing journal/config/discovery data is retained. This follow-up adds no narrative content.
+
 ## Files and API
 
 Campaign mods register `BookDefinition` defaults through `ChronicleCore.books()` before the registry freezes. `config/chronicle/books.json` schema1 stores complete configured overrides. Namespaced IDs are stable; UI creation uses server-generated `chronicle:book/<uuid>` IDs. Bounds are 256 books, title32/author80/description256 Unicode code points, 64 pages, 1024 code points/page and 16384 total/page content; the aggregate encoded JSON cap is8MiB. Deliberate blank pages retain their order. Use preview to inspect actual wrapping with the chosen resource pack/font.

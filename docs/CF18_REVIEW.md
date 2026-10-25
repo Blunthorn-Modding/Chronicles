@@ -1,6 +1,8 @@
-# CF18 combined review (dev52)
+# CF18 combined review (dev53)
 
-Use the updated [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and the preset Current review server, `127.0.0.1:25589`. The matching Core menu protocol is v2. The journal fixture is a disposable review map, separate from the unfinished handcrafted map.
+Use the updated [client pack](../../client/Chronicle-M9-1.21.10.mrpack) and the preset Current review server, `127.0.0.1:25589`. The matching Core menu protocol is v3. The journal fixture is a disposable review map, separate from the unfinished handcrafted map.
+
+The dev53 follow-up adds discovery status and **Give book to player...** directly on the selected Books & Lore detail. Start/resume play, open the popup, choose an enrolled online participant, then confirm one copy. The Players page controls participation; an empty list explains this. Check that Cancel does nothing, an unfound book records the recipient, and replacement copies retain the original finder/time. Found information remains after that player leaves. Debug includes the receipt timestamp/UUID. The existing review world and its discovery history are preserved.
 
 At spawn, chests at **0 64 0** and **4 64 0** use the same Research journals table. It has normal bread/iron loot, two named volumes with independent25% chances, and a30-active-second refill interval for this review. The chest at **8 64 0** uses Settlement supplies and a direct100% setting for Field journal III. Volumes IV/V can be kept in a chosen table group without adding them to its normal chances. New campaign defaults outside this review retain their original4% journal chances and no timed refill.
 

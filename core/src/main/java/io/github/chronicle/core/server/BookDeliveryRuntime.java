@@ -42,7 +42,7 @@ public final class BookDeliveryRuntime {
         var t=tag(stack);if(t==null)return null;var ledger=service(s).state().bookDelivery();var d=ledger.deliveries().get(t.book);
         return ledger.campaignId().equals(t.campaign)&&d!=null&&d.deliveryToken().equals(t.token)&&(d.issued()||!d.pendingOperationIds().isEmpty())?t:null;
     }
-    private static String stackJson(MinecraftServer s,BookDefinition b){
+    static String stackJson(MinecraftServer s,BookDefinition b){
         JsonObject content=new JsonObject();content.addProperty("title",b.title());content.addProperty("author",b.author());content.addProperty("generation",0);content.addProperty("resolved",true);
         JsonArray pages=new JsonArray();for(String page:b.pages()){JsonObject text=new JsonObject();text.addProperty("text",page);pages.add(text);}content.add("pages",pages);
         JsonObject marker=new JsonObject();marker.addProperty("campaign",service(s).state().bookDelivery().campaignId());marker.addProperty("book",b.id());marker.addProperty("token",service(s).deliveryToken(b.id()));

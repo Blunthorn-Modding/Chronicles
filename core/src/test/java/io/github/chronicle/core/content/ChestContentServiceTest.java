@@ -381,6 +381,21 @@ class ChestContentServiceTest {
         return new InventorySnapshot(values.length, java.util.Arrays.stream(values).map(value -> "\"" + value + "\"").toList());
     }
 
+    @Test void operatorIssuancePreservesFirstDiscoveryAndNeverMarksFoundBeforeInventory() throws Exception {
+        var repo=new MemoryRepository();var service=new ChestContentService(repo);String id="test:gift";
+        service.claimOperatorIssuance(id);var issued=service.state().bookDelivery().deliveries().get(id);
+        assertTrue(issued.issued());assertNull(issued.firstDiscovery());
+        var first=service.recordDiscovery(id,service.deliveryToken(id),UUID.randomUUID().toString(),"2026-10-25T20:00:00Z");
+        long revision=service.state().revision();service.claimOperatorIssuance(id);
+        assertEquals(revision,service.state().revision());
+        assertEquals(first,service.recordDiscovery(id,service.deliveryToken(id),UUID.randomUUID().toString(),"2026-10-25T20:01:00Z"));
+        assertEquals(first,new ChestContentService(repo).state().bookDelivery().deliveries().get(id).firstDiscovery());
+    }
+    @Test void failedOperatorIssuanceSavePublishesNoProvenance() throws Exception {
+        var repo=new MemoryRepository();var service=new ChestContentService(repo);var before=service.state();repo.fail=true;
+        assertThrows(IOException.class,()->service.claimOperatorIssuance("test:gift"));assertEquals(before,service.state());
+    }
+
     private static final class MemoryRepository implements ChestContentRepository {
         private ChestContentState state = ChestContentState.empty();
         private boolean fail;

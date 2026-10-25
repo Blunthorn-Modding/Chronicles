@@ -114,7 +114,9 @@ public final class BooksLoreSmoke {
                         + "x" + client.getWindow().getScaledHeight() + ".png", client.getFramebuffer(), 1, ignored -> { });
                 checks.add("Books delivery provenance survived restart");screen.selectForTest("quiet_below:field_journal_i");step=4;return;
             }
-            if(step==4&&RESTART){if(screen==null||screen.pending()||!screen.state().selected().equals("quiet_below:field_journal_i")||screen.state().detail().book()==null)return;capture(client,"books-narrow-detail.png");checks.add("narrow layout rendered selected book details");finish(client,true,"completed restart verification");return;}
+            if(step==4&&RESTART){if(screen==null||screen.pending()||!screen.state().selected().equals("quiet_below:field_journal_i")||screen.state().detail().book()==null)return;waitTicks=4;step=5;return;}
+            if(step==5&&RESTART){if(waitTicks-->0)return;capture(client,"books-narrow-detail.png");checks.add("narrow layout rendered selected book details");require(screen.triggerForTest("Give book to player..."),"narrow give action missing");waitTicks=4;step=6;return;}
+            if(step==6&&RESTART){if(!giveScreen(client)||waitTicks-->0)return;capture(client,"books-give-narrow.png");press(client,"Cancel");checks.add("narrow native participant popup rendered");finish(client,true,"completed restart verification");return;}
             if (step == 2 && !DELIVERY) {
                 var bounds = screen.contentBoundsForTest();
                 if (bounds.width() < 1 || bounds.height() < 1) throw new IllegalStateException("Books page has no visible content bounds");
@@ -147,9 +149,34 @@ public final class BooksLoreSmoke {
             if(step==15){if(!passed())return;checks.add("real fleeting inventory receipt persisted; cursor and full transfers did not count");command(client,"uncertain");step++;return;}
             if(step==16){if(!passed())return;checks.add("uncertain same-table existing copy deferred without duplication");command(client,"occupied");step++;waitTicks=100;return;}
             if(step==17){if(!passed()||waitTicks-->0)return;command(client,"occupied_check");step++;return;}
-            if(step==18){if(!passed())return;checks.add("refill did not move onto another chest holding the same book");finish(client,true,"completed "+checks.size()+" Books delivery checks");}
+            if(step==18){if(!passed())return;checks.add("refill did not move onto another chest holding the same book");command(client,"gift_prepare");step=20;return;}
+            if(step>=20&&step<=39){gifts(client,screen);return;}
         } catch (Throwable error) { finish(client, false, error.getClass().getSimpleName() + ": " + error.getMessage()); }
     }
+
+    private void gifts(MinecraftClient client,CoreMenuScreen menu) {
+        switch(step){
+            case 20 -> {if(!passed())return;client.player.networkHandler.sendChatCommand("chronicle books");step++;}
+            case 21 -> {if(menu==null||menu.pending()||menu.state().page()!=Page.BOOKS_LORE)return;menu.selectForTest("test:gift");step++;}
+            case 22 -> {if(menu==null||menu.pending()||!menu.state().selected().equals("test:gift")||menu.state().detail().lore()==null)return;require(!menu.state().detail().lore().status().found(),"new gift was already found");require(menu.triggerForTest("Give book to player..."),"give action missing");waitTicks=4;step++;}
+            case 23 -> {if(!giveScreen(client)||waitTicks-->0)return;require(!hasButton(client,"ChronicleFabricA"),"nonparticipant appeared in give picker");capture(client,"books-give-empty.png");press(client,"Cancel");command(client,"gift_checks");step=25;}
+            case 25 -> {if(!passed())return;checks.add("GM give rejected full, paused and nonparticipant recipients without issuance");client.player.networkHandler.sendChatCommand("chronicle books");step++;}
+            case 26 -> {if(menu==null||menu.pending()||menu.state().page()!=Page.BOOKS_LORE)return;menu.selectForTest("test:gift");step++;}
+            case 27 -> {if(menu==null||menu.pending()||!menu.state().selected().equals("test:gift"))return;require(menu.triggerForTest("Give book to player..."),"give action missing");step++;waitTicks=4;}
+            case 28 -> {if(!giveScreen(client)||waitTicks-->0)return;capture(client,"books-give-picker.png");press(client,"ChronicleFabricA");step++;waitTicks=4;}
+            case 29 -> {if(!giveScreen(client)||!hasButton(client,"Give one copy")||waitTicks-->0)return;var cancel=button(client,"Cancel");var give=button(client,"Give one copy");require(cancel.getX()+cancel.getWidth()<=give.getX(),"confirmation buttons overlap");checks.add("confirmation Cancel and Give have separate non-overlapping bounds");capture(client,"books-give-confirm.png");step=39;waitTicks=4;}
+            case 39 -> {if(waitTicks-->0)return;press(client,"Cancel");command(client,"gift_empty");step=30;}
+            case 30 -> {if(!passed()||menu==null||menu.pending())return;checks.add("native participant selection and confirmation Cancel issued nothing");require(menu.triggerForTest("Give book to player..."),"give reopen missing");step++;}
+            case 31,35 -> {if(!giveScreen(client))return;press(client,"ChronicleFabricA");step++;}
+            case 32,36 -> {if(!giveScreen(client)||!hasButton(client,"Give one copy"))return;press(client,"Give one copy");step++;}
+            case 33 -> {if(menu==null||menu.pending()||menu.state().detail()==null||menu.state().detail().lore()==null||!menu.state().detail().lore().status().found())return;require(menu.state().detail().lore().status().finderUuid().equals(client.player.getUuidAsString()),"visible first finder incorrect");command(client,"gift_first");step++;}
+            case 34 -> {if(!passed()||menu==null||menu.pending())return;checks.add("native confirmed give inserted one copy and showed first finder");require(menu.triggerForTest("Give book to player..."),"replacement action unavailable for found book");step++;}
+            case 37 -> {if(menu==null||menu.pending())return;command(client,"gift_repeat");step++;}
+            case 38 -> {if(!passed())return;checks.add("replacement copy retained original discovery and timestamp");finish(client,true,"completed "+checks.size()+" Books delivery checks");}
+        }
+    }
+    private static ButtonWidget button(MinecraftClient c,String label){return c.currentScreen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).filter(b->b.getMessage().getString().equals(label)).findFirst().orElseThrow();}
+    private static boolean giveScreen(MinecraftClient client){return client.currentScreen!=null&&client.currentScreen.getClass().getSimpleName().equals("BookGiveScreen");}
 
     private void editor(MinecraftClient client, CoreMenuScreen menu) {
         if(step>=200){editorExtra(client,menu);return;}

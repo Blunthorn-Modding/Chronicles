@@ -40,9 +40,18 @@ public final class BooksLoreTrial {
         if (!"true".equals(System.getenv("CHRONICLE_BOOKS_TRIAL"))) return;
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("chronicle_books_trial").requires(s -> s.hasPermissionLevel(2));
-            for (String verb : List.of("prepare", "keep", "cycles", "cursor", "full", "failed", "found", "uncertain", "occupied", "occupied_check", "restart"))
+            for (String verb : List.of("prepare", "keep", "cycles", "cursor", "full", "failed", "found", "uncertain", "occupied", "occupied_check", "gift_prepare", "gift_checks", "gift_empty", "gift_first", "gift_repeat", "restart"))
                 root.then(literal(verb).executes(c -> run(c.getSource(), verb)));
             dispatcher.register(root);
+        });
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            try {
+                var status=io.github.chronicle.core.server.BookGifts.status(server,"test:gift");
+                if(!status.found())return;
+                var root=server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize().getParent();
+                String result=!status.finderOnline()&&status.finderName().equals("ChronicleFabricA")?"PASS":"FAIL: offline first-finder status was not retained";
+                Files.writeString(root.resolve(".books-gift-offline"),result);
+            } catch(Exception error){io.github.chronicle.core.ChronicleCore.LOGGER.error("Offline gift-status probe failed",error);}
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             try { var request = ChestAuthoring.service(server).state().bookDelivery().keepRequests().get(KEPT);
@@ -70,6 +79,11 @@ public final class BooksLoreTrial {
                 case "uncertain" -> uncertain(source);
                 case "occupied" -> occupied(source);
                 case "occupied_check" -> occupiedCheck(source);
+                case "gift_prepare" -> {player.closeHandledScreen();interval(source,10);for(int i=0;i<36;i++)player.getInventory().setStack(i,ItemStack.EMPTY);io.github.chronicle.core.server.PlayRuntime.setSelfParticipant(player,false);}
+                case "gift_checks" -> giftChecks(source,player);
+                case "gift_empty" -> {require(managedPlayer(player,"test:gift")==0,"cancel issued a book");require(!ChestAuthoring.service(source.getServer()).state().bookDelivery().deliveries().containsKey("test:gift"),"cancel changed issuance");}
+                case "gift_first" -> giftVerify(source,player,false);
+                case "gift_repeat" -> giftVerify(source,player,true);
                 case "restart" -> restart(source);
                 default -> throw new IllegalArgumentException("unknown Books trial action");
             }
@@ -161,11 +175,37 @@ public final class BooksLoreTrial {
             io.github.chronicle.core.server.TypedChestLoot.saveType(source,new io.github.chronicle.core.loot.LootType(old.id(),old.label(),old.description(),old.recommendedChests(),minutes,old.entries(),old.books()),old);
         } finally {author.disable(player.getUuid());ChronicleRuntime.service(server).resume(actor);}
     }
+    private static void giftChecks(ServerCommandSource source,ServerPlayerEntity player) throws Exception {
+        var server=source.getServer();var book=io.github.chronicle.core.server.BookRuntime.books(server).get("test:gift");
+        io.github.chronicle.core.server.PlayRuntime.setSelfParticipant(player,true);
+        full(player);var before=ChestAuthoring.service(server).state();var audit=ChronicleRuntime.service(server).state();
+        try{io.github.chronicle.core.server.BookGifts.give(source,book,player.getUuidAsString());throw new IllegalStateException("full inventory accepted a book");}catch(IllegalStateException e){require(e.getMessage().contains("empty inventory slot"),e.getMessage());}
+        require(before.equals(ChestAuthoring.service(server).state())&&audit.equals(ChronicleRuntime.service(server).state()),"full rejection changed delivery or audit");
+        for(int i=0;i<36;i++)player.getInventory().setStack(i,ItemStack.EMPTY);
+        var actor=new Actor("books-trial",null);ChronicleRuntime.service(server).pause(actor);
+        try{io.github.chronicle.core.server.BookGifts.give(source,book,player.getUuidAsString());throw new IllegalStateException("paused give accepted");}catch(IllegalStateException e){require(e.getMessage().contains("active play"),e.getMessage());}finally{ChronicleRuntime.service(server).resume(actor);}
+        io.github.chronicle.core.server.PlayRuntime.setSelfParticipant(player,false);
+        try{io.github.chronicle.core.server.BookGifts.give(source,book,player.getUuidAsString());throw new IllegalStateException("nonparticipant accepted");}catch(IllegalStateException e){require(e.getMessage().contains("active participant"),e.getMessage());}
+        io.github.chronicle.core.server.PlayRuntime.setSelfParticipant(player,true);player.currentScreenHandler.sendContentUpdates();
+    }
+    private static int managedPlayer(ServerPlayerEntity player,String book){int count=0;for(int i=0;i<36;i++)if(marker(player.getInventory().getStack(i),book))count+=player.getInventory().getStack(i).getCount();return count;}
+    private static void giftVerify(ServerCommandSource source,ServerPlayerEntity player,boolean repeat) throws Exception {
+        require(managedPlayer(player,"test:gift")==(repeat?2:1),"GM give did not insert exactly one copy");
+        var d=ChestAuthoring.service(source.getServer()).state().bookDelivery().deliveries().get("test:gift");
+        require(d!=null&&d.firstDiscovery()!=null&&d.firstDiscovery().playerUuid().equals(player.getUuidAsString()),"GM give did not record actual recipient as finder");
+        var file=source.getServer().getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize().getParent().resolve(".books-gift-receipt");
+        if(repeat)require(Files.readString(file).equals(d.firstDiscovery().discoveredAt()),"replacement overwrote first discovery");else Files.writeString(file,d.firstDiscovery().discoveredAt());
+    }
     private static void restart(ServerCommandSource source) {
         var delivery = ChestAuthoring.service(source.getServer()).state().bookDelivery().deliveries().get(KEPT);
         require(delivery != null && delivery.firstDiscovery() != null && delivery.issued(), "discovery/provenance was not retained after restart");
         var once = ChestAuthoring.service(source.getServer()).state().bookDelivery().deliveries().get(ONCE);
         require(once != null && once.issued(), "Spawn once issuance reset after restart");
+        var gift=ChestAuthoring.service(source.getServer()).state().bookDelivery().deliveries().get("test:gift");
+        require(gift!=null&&gift.firstDiscovery()!=null,"GM discovery did not survive restart");
+        var receipt=source.getServer().getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize().getParent().resolve(".books-gift-receipt");
+        try{require(Files.readString(receipt).equals(gift.firstDiscovery().discoveredAt()),"GM discovery timestamp changed after restart");}catch(java.io.IOException e){throw new IllegalStateException(e);}
+
     }
     private static net.minecraft.inventory.Inventory inventory(ServerCommandSource source, BlockPos pos) {
         require(source.getWorld().getBlockEntity(pos) instanceof net.minecraft.inventory.Inventory, "missing fixture chest " + pos);

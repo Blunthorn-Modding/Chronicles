@@ -18,7 +18,7 @@ public final class CoreMenuModel {
         POINT_CREATE, POINT_UPDATE, BLOCK_CREATE, BLOCK_UPDATE, SITE_DELETE, SETUP_ASSIGN, SETUP_CLEAR, TOOL_ACTION,
         REGION_ASSIGN, REGION_UNASSIGN, POINT_ASSIGN, POINT_UNASSIGN, BLOCK_LIMITS, BLOCK_LIMIT_SET, MANAGED_SHOW,
         MANUAL_REFERENCES, SESSION_BUILD_ON, SESSION_BUILD_OFF,
-        BOOK_NEW, BOOK_EDIT_DETAILS, BOOK_EDIT_PAGES, BOOK_RULE, BOOK_CREATE, BOOK_SAVE, BOOK_RELOAD, BOOK_REF_ADD, BOOK_REF_REMOVE, BOOK_OPEN, CHEST_BOOK_SET, BOOK_KEEP, BOOK_KEEP_START, BOOK_KEEP_STOP, BOOK_KEEP_REVIEW
+        BOOK_NEW, BOOK_EDIT_DETAILS, BOOK_EDIT_PAGES, BOOK_RULE, BOOK_CREATE, BOOK_SAVE, BOOK_RELOAD, BOOK_REF_ADD, BOOK_REF_REMOVE, BOOK_OPEN, CHEST_BOOK_SET, BOOK_KEEP, BOOK_KEEP_START, BOOK_KEEP_STOP, BOOK_KEEP_REVIEW, BOOK_GIVE_OPEN, BOOK_GIVE_REVIEW, BOOK_GIVE
     }
     public record Entry(String id, String label, String description, String kind, String reference, long revision) {
         public Entry { text(id,160);text(label,160);text(description,2048);text(kind,32);text(reference,160);if(revision<0)throw new IllegalArgumentException("Invalid revision"); }
@@ -47,7 +47,14 @@ public final class CoreMenuModel {
                            boolean requiresReview,boolean overrideNeeded,boolean found,boolean canAct,String reason,String location) {
         public KeepForm{text(bookId,160);text(bookTitle,64);text(tableId,160);text(tableLabel,160);text(status,512);text(reason,512);text(location,256);}
     }
-    public record LoreForm(List<BookSummary> refs,List<Entry> tableUses,List<Entry> chestUses,io.github.chronicle.core.books.BookChance direct,KeepForm keep) {
+    public record BookStatus(boolean found,String finderName,String finderUuid,String foundAt,boolean finderOnline) {
+        public BookStatus{text(finderName,160);text(finderUuid,36);text(foundAt,64);if(!found&&(!finderName.isEmpty()||!finderUuid.isEmpty()||!foundAt.isEmpty()||finderOnline))throw new IllegalArgumentException("Unfound book cannot have discovery details");}
+    }
+    public record BookGiveForm(String bookId,String bookTitle,List<Entry> players,String targetId,String targetName,boolean canGive,String reason) {
+        public BookGiveForm{text(bookId,160);text(bookTitle,64);text(targetId,36);text(targetName,160);text(reason,512);players=List.copyOf(players);if(players.size()>512)throw new IllegalArgumentException("Too many book recipients");}
+    }
+    public record LoreForm(List<BookSummary> refs,List<Entry> tableUses,List<Entry> chestUses,io.github.chronicle.core.books.BookChance direct,KeepForm keep,BookStatus status,BookGiveForm give) {
+        public LoreForm(List<BookSummary> refs,List<Entry> tableUses,List<Entry> chestUses,io.github.chronicle.core.books.BookChance direct,KeepForm keep){this(refs,tableUses,chestUses,direct,keep,null,null);}
         public LoreForm{refs=List.copyOf(refs);tableUses=List.copyOf(tableUses);chestUses=List.copyOf(chestUses);if(refs.size()>27||tableUses.size()>12||chestUses.size()>12)throw new IllegalArgumentException("Lore form exceeds bounds");}
     }
     public record Picker(String kind,String query,int page,int pages,List<Entry> entries) {

@@ -229,6 +229,11 @@ public final class CoreMenuScreen extends Screen {
             client.setScreen(new BookKeepScreen(this, updated.detail().lore().keep(), this::sendKeep));
             return;
         }
+        if ((receivedFor == Action.BOOK_GIVE_OPEN || receivedFor == Action.BOOK_GIVE_REVIEW) && updated.success()
+                && updated.detail() != null && updated.detail().lore() != null && updated.detail().lore().give() != null) {
+            client.setScreen(new BookGiveScreen(this, updated.detail().lore().give(), updated.token(), this::sendBookGive));
+            return;
+        }
         if ((receivedFor == Action.BOOK_CREATE || receivedFor == Action.BOOK_SAVE) && !updated.success() && failedBookEditor != null) {
             BookEditorScreen retry = failedBookEditor;
             failedBookEditor = null;
@@ -268,6 +273,9 @@ public final class CoreMenuScreen extends Screen {
         if (!updated.selected().isBlank()) selected = updated.selected();
         if (!updated.message().isBlank()) notice = updated.message();
     }
+
+    /** Used by child popups to keep their parent current while a background refresh arrives. */
+    long token() { return state.token(); }
 
     @Override protected void init() {
         buttons.clear(); renderLines.clear(); textInput = pickerSearchInput = limitValueInput = null; eventSeconds = lootChance = lootMin = lootMax = lootRefill = null;
@@ -405,7 +413,19 @@ public final class CoreMenuScreen extends Screen {
         if (detail.book() != null) {
             drawLine("Author: " + blank(detail.book().author(), "none"), x, cursor, w, 0xFFCCCCCC); cursor += 10;
             drawLine("Pages: " + detail.book().pages().size(), x, cursor, w, 0xFFCCCCCC); cursor += 10;
-            drawLine("Discovery: " + bookRuleLabel(detail.book().rule()), x, cursor, w, 0xFFCCCCCC); cursor += 10;
+            if (detail.lore() != null && detail.lore().status() != null) {
+                var status = detail.lore().status();
+                String discovery = status.found()
+                        ? "Discovery: Found by " + (status.finderName().isBlank() ? "an offline participant" : status.finderName()
+                        + (status.finderOnline() ? " (online)" : " (offline)"))
+                        : "Discovery: Not found";
+                drawLine(discovery, x, cursor, w, 0xFFCCCCCC); cursor += 10;
+                if (debug && status.found()) {
+                    drawLine("First receipt: " + status.foundAt(), x, cursor, w, 0xFFA0A0A0); cursor += 10;
+                    drawLine("First finder UUID: " + status.finderUuid(), x, cursor, w, 0xFFA0A0A0); cursor += 10;
+                }
+            }
+            drawLine("Rule: " + bookRuleLabel(detail.book().rule()), x, cursor, w, 0xFFCCCCCC); cursor += 10;
         }
         if (detail.lore() != null && detail.lore().keep() != null) {
             var keep = detail.lore().keep();
@@ -598,6 +618,10 @@ public final class CoreMenuScreen extends Screen {
             }
             String kind = state.page() == Page.BOOKS_LORE ? "LOOT_TYPE" : "BOOKS";
             beginPicker(new PendingPicker(Action.BOOK_KEEP, detailId(), kind)); return;
+        }
+        if (control.action() == Action.BOOK_GIVE_OPEN) {
+            request(Action.BOOK_GIVE_OPEN, Page.BOOKS_LORE, detailId(), "", state.index(), state.filter(), "", false);
+            return;
         }
         if (control.action() == Action.CHEST_BOOK_SET) { beginPicker(new PendingPicker(Action.CHEST_BOOK_SET, detailId(), "BOOKS")); return; }
         String input = control.input();
@@ -1095,6 +1119,16 @@ public final class CoreMenuScreen extends Screen {
         value.addProperty("bookId", keep.bookId()); value.addProperty("tableId", keep.tableId()); value.addProperty("override", keep.override());
         client.setScreen(this);
         request(keep.action(), state.page(), detailId(), value.toString(), state.index(), state.filter(), "", false);
+    }
+
+    private void sendBookGive(BookGiveScreen.Request give) {
+        if (give.openingToken() != state.token()) {
+            notice = "The Chronicle state changed. Review the book again.";
+            clearAndInit();
+            return;
+        }
+        request(give.action(), Page.BOOKS_LORE, give.bookId(), give.targetId(), give.openingToken(),
+                state.index(), state.filter(), "", false);
     }
 
     private void saveDirectBook(BookChance direct) {

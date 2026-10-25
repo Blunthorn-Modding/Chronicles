@@ -19,6 +19,10 @@ public final class CoreMenuClient {
         io.github.chronicle.core.client.testing.BooksLoreSmoke.onView(response.view());
         if (client.currentScreen instanceof CoreMenuScreen screen) {
             screen.accept(response.view());
+        } else if (client.currentScreen instanceof BookGiveScreen give && give.parentMenu() instanceof CoreMenuScreen parent) {
+            // A background refresh must keep the menu current, while the popup becomes read-only if its frame changed.
+            parent.acceptWhileEditorOpen(response.view());
+            give.serverUpdated(response.view());
         } else if (client.currentScreen instanceof BookEditorScreen editor && editor.parentMenu() != null) {
             // A refresh arriving behind a local editor must advance the menu frame, but never close the editor.
             editor.parentMenu().acceptWhileEditorOpen(response.view());

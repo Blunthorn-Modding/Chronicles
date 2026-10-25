@@ -233,6 +233,17 @@ public final class ChestContentService {
     /** Computes the campaign/book token without allocating ledger state. */
     public synchronized String deliveryToken(String bookId) { return current.bookDelivery().deliveryToken(bookId); }
 
+    /** A deliberate GM issuance is claimed before inserting an inventory item; it is never auto-replayed. */
+    public synchronized void claimOperatorIssuance(String bookId) throws IOException {
+        String token=deliveryToken(bookId);
+        BookDelivery old=current.bookDelivery().deliveries().get(bookId);
+        if(old!=null&&!old.pendingOperationIds().isEmpty())throw new IllegalStateException("Resolve pending book deliveries first.");
+        if(old!=null&&old.issued())return;
+        var deliveries=new LinkedHashMap<>(current.bookDelivery().deliveries());
+        deliveries.put(bookId,new BookDelivery(bookId,token,true,Set.of(),null));
+        saveBookDelivery(deliveries,current.bookDelivery().keepRequests());
+    }
+
     /** Records only the first real player-inventory receipt; later observations are idempotent. */
     public synchronized BookDiscovery recordDiscovery(String bookId, String deliveryToken,
                                                       String playerUuid, String discoveredAt) throws IOException {

@@ -50,6 +50,7 @@ def run() -> None:
     (config / "books.json").write_text(json.dumps({"schemaVersion": 1, "books": [
         {"id": "test:kept", "title": "Kept", "author": "", "description": "fixture", "pages": ["kept page"], "rule": "UNTIL_FOUND"},
         {"id": "test:once", "title": "Once", "author": "", "description": "fixture", "pages": ["once page"], "rule": "ONCE"},
+        {"id": "test:gift", "title": "Gift", "author": "Fixture author", "description": "GM delivery fixture", "pages": ["A deliberate gift."], "rule": "OFF"},
         {"id": "test:editing", "title": "Editing", "author": "Fixture author", "description": "editor fixture", "pages": ["alpha", "", "omega"], "rule": "OFF"},
     ]}), encoding="utf-8")
     (config / "chest-loot.json").write_text(json.dumps({"schemaVersion": 1, "types": [
@@ -88,6 +89,9 @@ def run() -> None:
             clients = []
             if label == "desktop":
                 fabric_smoke._stop(server); server = None
+                if (root / ".books-gift-offline").read_text(encoding="utf-8") != "PASS":
+                    raise RuntimeError("Offline historical finder status failed")
+                report["checks"].append("first finder remains visible after the actual recipient disconnects")
                 handle.close(); handle = (reports / "server-restart.log").open("w", encoding="utf-8")
                 menu_smoke._reserve_ports()
                 server = subprocess.Popen(w.server_command(), cwd=root, env=environment, stdin=subprocess.PIPE,

@@ -100,7 +100,7 @@ public final class CoreMenuServer {
             Frame current=frame(player);
             if(!read&&(request.token()!=context.token||!Objects.equals(current,context.frame))){invalidate(context);send(player,context,"Server state changed. Review the refreshed selection before retrying.",false,false,false);return;}
             if(!Objects.equals(current,context.frame))invalidate(context);
-            if(request.action()==Action.OPEN){context.token=0;context.visible=true;context.keepBook="";context.keepTable="";}
+            if(request.action()==Action.OPEN){context.token=0;context.visible=true;context.keepBook="";context.keepTable="";clearGive(context);}
             context.page=gm?request.page():Page.PLAYERS;
             context.filter=gm&&"BLOCK".equals(request.filter())?"BLOCK":"POINT";
             context.index=request.index();
@@ -128,7 +128,8 @@ public final class CoreMenuServer {
     }
 
     private static boolean publicAction(Action action){return switch(action){case OPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE->true;default->false;};}
-    private static void invalidate(Context c){c.token=0;c.observation=null;c.reviewId="";c.reviewFrame=null;}
+    private static void invalidate(Context c){c.token=0;c.observation=null;c.reviewId="";c.reviewFrame=null;clearGive(c);}
+    private static void clearGive(Context c){c.giveBook="";c.giveTarget="";c.giveDefinition=null;c.giveAt=0;}
 
     private static String act(ServerPlayerEntity player,Request request,Context c) throws Exception {
         var source=player.getCommandSource();var server=source.getServer();String id=c.selected,arg=request.argument();
@@ -213,6 +214,21 @@ public final class CoreMenuServer {
                 var json=BookConfig.strictObject(arg);if(!json.keySet().equals(Set.of("bookId","tableId","override"))||!json.get("bookId").isJsonPrimitive()||!json.get("bookId").getAsJsonPrimitive().isString()||!json.get("tableId").isJsonPrimitive()||!json.get("tableId").getAsJsonPrimitive().isString()||!json.get("override").isJsonPrimitive()||!json.get("override").getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException("Review the selected keep request.");
                 if(!json.get("bookId").getAsString().equals(c.keepBook)||!json.get("tableId").getAsString().equals(c.keepTable))throw new IllegalStateException("Keep request selection changed; review it again.");
                 return BookDeliveryRuntime.keep(source,c.keepBook,c.keepTable,json.get("override").getAsBoolean(),request.action()==Action.BOOK_KEEP_STOP?"stop":request.action()==Action.BOOK_KEEP_REVIEW?"review":"start");
+            }
+            case BOOK_GIVE_OPEN -> {
+                if(c.page!=Page.BOOKS_LORE)throw new IllegalStateException("Give books under Books & Lore.");
+                BookGifts.requireActive(source);var definition=BookRuntime.books(server).get(id);if(definition==null)throw new IllegalArgumentException("Choose a registered book.");
+                c.giveBook=id;c.giveTarget="";c.giveDefinition=definition;c.giveAt=0;return "Choose an active participant; no copy has been given.";
+            }
+            case BOOK_GIVE_REVIEW -> {
+                if(c.page!=Page.BOOKS_LORE||!id.equals(c.giveBook)||c.giveDefinition==null||!c.giveDefinition.equals(BookRuntime.books(server).get(id)))throw new IllegalStateException("Reopen Give book to player for the selected book.");
+                BookGifts.requireActive(source);var target=BookGifts.recipient(server,arg);
+                c.giveTarget=target.getUuidAsString();c.giveAt=System.nanoTime();return "Confirm the book and selected player. No copy has been given.";
+            }
+            case BOOK_GIVE -> {
+                if(c.page!=Page.BOOKS_LORE||!id.equals(c.giveBook)||!arg.equals(c.giveTarget)||c.giveDefinition==null||c.giveAt==0||System.nanoTime()-c.giveAt>30_000_000_000L)throw new IllegalStateException("Review the selected player again; confirmation expires after 30 seconds.");
+                var expected=c.giveDefinition;var target=c.giveTarget;clearGive(c); // Consume review even on failure; no packet replay.
+                return BookGifts.give(source,expected,target);
             }
             case BOOK_CREATE -> {
                 if(c.page!=Page.BOOKS_LORE)throw new IllegalArgumentException("Books are managed under Books & Lore.");
@@ -561,10 +577,14 @@ public final class CoreMenuServer {
                 String bookId=book.id();TypedChestLoot.types(server).values().stream().filter(t->t.books().stream().anyMatch(r->r.bookId().equals(bookId))).limit(12).forEach(t->tableUses.add(entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)));
                 ChestAuthoring.service(server).state().bindings().values().stream().filter(b->b.typed()&&b.directBook()!=null&&b.directBook().bookId().equals(bookId)).limit(12).forEach(b->chestUses.add(entry(b.id(),"Chest at "+b.directTarget().x()+" "+b.directTarget().y()+" "+b.directTarget().z(),b.directTarget().dimension(),"CHEST",b.id(),b.revision())));
                 controls.add(control(Action.BOOK_KEEP,"Keep placed until found...",active&&!held(server),"Requires active play without a hold.",false,"LOOT_TYPE"));
+                controls.add(control(Action.BOOK_GIVE_OPEN,"Give book to player...",active&&!held(server),"Requires active play without a hold.",false,""));
             }
             KeepForm keep=null;if(!c.keepBook.isBlank())keep=BookDeliveryRuntime.keepForm(server,c.keepBook,c.keepTable);
             else if(book!=null){var existing=ChestAuthoring.service(server).state().bookDelivery().keepRequests().get(book.id());if(existing!=null)keep=BookDeliveryRuntime.keepForm(server,book.id(),existing.lootTableId());}
-            lore=new LoreForm(refs,tableUses,chestUses,direct,keep);
+            var status=book==null?null:BookGifts.status(server,book.id());
+            BookGiveForm give=null;
+            if(book!=null&&c.giveBook.equals(book.id()))give=BookGifts.form(player.getCommandSource(),book,c.giveTarget);
+            lore=new LoreForm(refs,tableUses,chestUses,direct,keep,status,give);
         }
         return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region,book,lore);
     }
@@ -737,7 +757,8 @@ public final class CoreMenuServer {
     private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private static final class Context {
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
-        PlayRuntime.Preview observation;LootType expectedLoot;BookDefinition expectedBook;Picker picker;
+        PlayRuntime.Preview observation;LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;
+        String giveBook="",giveTarget="";long giveAt;
         boolean visible;
     }
 }

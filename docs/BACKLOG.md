@@ -1,5 +1,7 @@
 # Chronicle work tracking
 
+**25 October dev53:** organizer accepts CF18 and requests GM discovery visibility plus a participant-picker/confirmation inventory give. Implemented with first-finder history retained and user-confirmed first GM receipt counting as found; [follow-up design](CF18_GM_BOOK_UI.md), [behavior](CF18_IMPLEMENTATION.md) and latest TEST_PLAN record the checks. Narrative and handcrafted-map gates remain pending.
+
 **25 October implementation update:** the organizer approved the merged workflow and authorized CF18b-d. The named catalog/editor, both chest/table routes, durable inventory discovery and table-scoped keeping are implemented and verified for dev52. Earlier design-only gates below are historical. Read [implementation and compatibility](CF18_IMPLEMENTATION.md). All existing item/chest controls and frozen journal prose remain; one combined organizer review is ready at127.0.0.1:25589 with the matching updated pack.
 
 **25 October keep-until-found revision:** replace one-off GM placement with a persistent request for one book across an existing loot-table chest group. It tries immediately without rerolling normal loot, survives later refills and may relocate within the group until inventory discovery. Existing chest/item features stay. Read [CF18](CF18_BOOKS_LORE.md); PASS132 mockup checks, no gameplay deployment. Safe relocation/recovery is explicit CF18c work.
