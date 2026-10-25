@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 25 October: CF-18 two-route mockup revision
+
+Installed Edge passes29 existing editor regressions plus44 new routing/GM checks (73 total). New evidence in `../reports/books-lore-routing/report.json` covers direct-chest drafts/range/cancel/save/clear, separate Items/Lore books sections with chance drafts/confirmation, ACTIVE metadata locks but available live placement, central rule rejection and explicit override, allthree placement shortcuts, simulated issuance versus discovery, full/unloaded failures, phase-change rejection, and480px containment. Six updated desktop/compact captures visually inspected. Existing item add/edit/remove/chance/count controls are explicitly retained and out of scope for simulation. All inventories, receipts, probability and authority here are mock data; no Java/native testing or Minecraft changes are claimed. Book prose is unchanged. Revised workflow awaits organizer review before implementation.
+
 ## 25 October: CF-18 Books & Lore design validation only
 
 [Plan](CF18_BOOKS_LORE.md), [dedicated UI design](CF18_BOOKS_LORE_UI_DESIGN.md) and [clickable mockup](design/books-lore.html) define the requested library capability. Playwright/installed Edge passes29 workflow checks at desktop and480px compact width, including create/cancel/title validation, page/draft/preview retention, explicit rule/page/table confirmations, named-reference draft/save and Clean/Debug. Final editor/rules/compact captures were visually inspected; syntax and diff checks pass. Independent design review found and closed three prototype workflow mismatches before handoff. No Java build or native gameplay verification was needed or claimed for this documentation/HTML-only slice. The dev51 implementation evidence below remains current; Books & Lore itself awaits organizer workflow review and implementation.

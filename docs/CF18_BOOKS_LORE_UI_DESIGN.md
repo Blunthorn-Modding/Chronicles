@@ -9,7 +9,7 @@ Named lore books are campaign definitions with their own discovery lifecycle. Th
 This design adds one operator-facing **Books & Lore** section under the existing Advanced part of the Chronicle menu. It keeps two concerns visibly separate:
 
 1. **Definition** — the reusable named book: title, author, ordered pages and discovery/issuance rule.
-2. **Placement** — a selected named book is one possible entry in an existing typed chest loot table; chests remain the only physical placement registry.
+2. **Placement** — two routes share the existing bound-chest registry and refill clock: an optional direct book with a per-chest chance, or a named-book entry in a normal loot table. Chests remain the only physical placement registry.
 
 It deliberately does not add a second chest registry, another loot-table editor, recipe-only controls, graphical book art, a custom book reader, session-bound respawns, per-session quotas, or a lore-quest requirement. A discovered item still opens in Minecraft's ordinary written-book reader.
 
@@ -37,19 +37,19 @@ Session / Players / Events
 Chests / Loot Tables / Books & Lore / Regions / Locations / Game setup
 ```
 
-`Books & Lore` is beside, not inside, `Loot Tables`: it is the definition catalog. `Chests` remains where a physical container is bound. The menu never shows a duplicate list of chest coordinates below a book definition; it may show a read-only placement summary and an **Open loot table** hand-off when a linked table is known.
+`Books & Lore` is beside, not inside, `Loot Tables`: it is the definition catalog. `Chests` remains where a physical container is bound. The book page owns no second chest registry. It shows read-only **Direct chests** and **Loot tables** usage pointers with hand-offs, never mirrored rules or probabilities.
 
 ### List and detail (normal width)
 
 ```text
-Chronicle                                             Refresh  Debug: off  Enable editing
-Session              Books & Lore                     Field journal II
-Players              [ + New book ]                   A later explorer's notes on a hard violet shard,
-Events               Field journal I                  and the first tool that endured it.
-Chests               Field journal II                 [Edit details] [Edit pages] [Preview]
-Loot Tables          The courier's letter             Discovery: Not found · Until found [Change…]
-Books & Lore         (search / page controls)         Appears in: Research journals (5 entries) [Open table]
-Regions                                                 [Delete book…]
+Chronicle                                     Refresh  Debug: off  Enable editing
+Session            Books & Lore               Field journal II
+Players            [ + New book ]             Selected description; Author; 3 pages
+Events             Field journal I            [Edit details] [Edit pages] [Preview]
+Chests             Field journal II           Distribution: Until found [Change...]
+Loot Tables        Field journal III          [Place now...] (ACTIVE operator control)
+Books & Lore       ...                        Direct chests: Library chest [Open chest]
+Regions                                       Loot tables: Mine cache [Open table]
 Locations
 Game setup
 ```
@@ -140,7 +140,7 @@ Discovery rule
 (*) Until found (recommended default for recipe books)
     Continue eligible chest rolls until a player receives this book in inventory.
 ( ) Repeat
-    Use ordinary loot behavior without campaign discovery or issuance tracking.
+    Continue eligible rolls even after discovery.
 
                    [Cancel] [Save rule]
 ```
@@ -165,18 +165,55 @@ Field journal II
 
 Conversely, within `Loot Tables`, **Add book…** opens the named-book picker (title and author visible; stable ID is Debug-only), and a named-book entry displays title, author when present, and a small **Lore book** kind label. **Open book** is a read-only hand-off back to Books & Lore. A missing/deleted definition must be plainly shown as unavailable and must prevent a new save rather than silently degrading to a generic written book. Existing arbitrary written-book components remain ordinary loot entries; do not automatically migrate or claim them as named lore.
 
-`Appears in` is a read-only summary of referencing tables (and entry counts), with **Open table** as the only placement hand-off. It deliberately contains no mirrored chance, count or chest controls. `Chests` remains unchanged: a physical chest binds to one selected loot table and existing fill rules determine when that table is used. It should not grow a book picker. The distinction is intentional:
+`Appears in` is a read-only split summary of **Direct chests** and **Loot tables**, with **Open chest** or **Open table** hand-offs only. It deliberately contains no mirrored chance, count or rule controls. `Chests` keeps the existing physical bound-chest registry and refill clock, but now has the optional direct named-book setting described below; it does not create another registry or scheduler. The distinction is intentional:
 
 ```text
-Books & Lore definition  --Add to loot table-->  Loot table  --bind-->  Physical chest
-  title/pages/rule                                   chance              coordinates/fill schedule
+Books & Lore definition  --Add to loot table--> Loot table --bind--> Physical chest
+  title/pages/rule                                  chance             coordinates/refill clock
+           \---------------- direct book + chance ------------------/
 ```
 
 This avoids duplicate placement/discovery records while still making important named books discoverable through chests.
 
+### Two automatic distribution routes
+
+Both routes use the existing bound chest registry and its existing refill clock. They do not create a second placement registry, scheduler, or lifecycle record.
+
+**Direct chest book.** In `Chests`, a selected already-bound chest has an optional **Specific lore book…** picker and a **Chance** field. The picker lists registered, valid books by title and author. The chosen book is one independent direct roll beside ordinary table items and the table's other lore entries. The field is local to that chest; it does not change the central book rule or any other chest.
+
+If the same named book is also in the chest's normal loot table, the direct chance overrides that book's table chance for this chest. It is one roll and at most one copy, never two competing rolls. Other book entries and ordinary items in the table are unaffected. Clearing the optional direct setting restores the table's normal chance for that book.
+
+**Normal loot-table book.** `Loot Tables` has two explicit sections:
+
+```text
+Items
+  Torch                         70%  x4–12
+  Bread                         40%  x1–3
+
+Lore books
+  Field journal II — Unknown     4%  [Open book]
+  [Add book…]
+```
+
+The Lore books section uses the existing table's independent chance controls and references a registered book by stable ID. It never displays or edits central book discovery/issuance rules. Its **Add book…** picker shows title and author; Debug may additionally show the stable ID. `Open book` is a read-only hand-off.
+
+The selected book's **Appears in** remains read-only and split into **Direct chests** and **Loot tables**, each with an appropriate hand-off. It shows neither chance nor rule controls, so each distribution source owns its chance while Books & Lore remains the only lifecycle authority.
+
+### Operator placement during ACTIVE play
+
+`Place book now…` is an operator play control, not metadata editing. It is available during **ACTIVE** play without requiring Editing, from all three shortcuts:
+
+- From a selected bound chest, choose any registered valid book.
+- From a selected book, choose an existing bound chest.
+- From a table Lore books row, choose an existing bound chest; table-linked chests are preferred.
+
+All shortcuts arrive at one confirmation sheet naming the exact chest and book and stating **one copy**, **bypass chance**, **no refill reschedule**, and **no discovery record yet**. It defaults to respecting the selected book's central rule. If that rule blocks placement because distribution is Off, the book has already Spawned once, or it is already found, the sheet visibly offers **Override book spawning rule for this copy**. The toggle is explicit; it does not alter the saved rule or discovery history.
+
+Placing a book never overwrites existing inventory items, consumes no normal refill cycle, and does not count as found. A later real player-inventory receipt may record discovery under the normal central rule. The operation fails clearly if the target chest is unloaded or has no room; it never creates a new physical target or delayed placement job.
+
 ## Authority, stale saves and failure behavior
 
-Every mutation requires the established three conditions: permission level 2, author editing enabled, and non-active/editable server state. Controls remain visible but disabled with the current plain-language reason (for example, “Pause play to edit these settings” or “Enable editing to change these settings”). Preview and browsing are read-only and may be available whenever the existing menu allows operator browsing; they never weaken authoring authority, issue an item, or make a discovery receipt.
+Metadata, pages, rules, direct-book settings, and loot-table entry edits require the established three conditions: permission level 2, author editing enabled, and non-active/editable server state. Controls remain visible but disabled with the current plain-language reason (for example, “Pause play to edit these settings” or “Enable editing to change these settings”). `Place book now…` is the narrow exception: it requires an operator and ACTIVE play, but not Editing; it does not change metadata, schedules, rules, or discovery history. Preview and browsing are read-only and never issue an item or make a discovery receipt.
 
 Book catalog revision and campaign-wide issuance/discovery state must be included in the server view frame. Each save carries the viewed book revision plus the menu token. If another organizer, a reload, an issue, or an inventory receipt changes relevant state, server rejects the mutation, returns a refreshed view, and says: **“This book changed elsewhere. Review the refreshed version before saving.”** No blind overwrite, silent merge, or retry occurs.
 
@@ -191,10 +228,10 @@ The smallest coherent slice is deliberately narrower than a full lore system:
 1. Add `Books & Lore` to the existing Core navigation with a server-owned named-book catalog of stable ID, title, optional author, description, ordinary book pages, revision, campaign-default/custom source, and issuance/discovery rule.
 2. Implement list/detail, metadata/page edit, read-only vanilla-component preview and Clean/Debug behavior above.
 3. Add the four settled rule choices, revision-pinned server validation, campaign-wide inventory-receipt discovery records, and the one-issued-undiscovered-copy retention requirement. The exact server API and storage/transaction shape remain root architecture work.
-4. Extend the existing typed loot entry model only enough to reference a named book definition by stable ID and render title/author; add the bidirectional book/table hand-offs. Reuse current chance, whole-table save and chest-fill scheduling—without duplicating them in Books & Lore.
+4. Extend the existing typed loot entry model only enough to reference a named book definition by stable ID and render title/author; give Loot Tables separate Items and Lore books sections. Add an optional per-bound-chest direct named-book chance with same-book override semantics, plus bidirectional hand-offs. Reuse the current chance, whole-table save, bound-chest registry and chest-fill scheduling—without duplicating them in Books & Lore.
 5. Seed/migrate nothing automatically. Quiet Below registered campaign defaults and organizer-created custom books can coexist; existing `quiet_below:forge_notes` defaults and ordinary configured books remain compatible.
 
-Out of slice: global search across all written books, rich text styling beyond normal components, custom reading UI, direct item grants, player-facing book catalog, quest/event unlocks, story ordering, placement maps, session quotas, respawn delivery, and a reset/discovery-history administration tool.
+Out of slice: global search across all written books, rich text styling beyond normal components, custom reading UI, player-facing book catalog, quest/event unlocks, story ordering, placement maps, session quotas, respawn delivery, and a reset/discovery-history administration tool. The one bounded operator-only ACTIVE placement control above is the sole direct grant-like path.
 
 ## Settled product decisions and remaining risks
 
@@ -204,8 +241,8 @@ Out of slice: global search across all written books, rich text styling beyond n
 | Discovery scope | Campaign-wide, never per character or session. | Receipt schema, audit data and reload compatibility. |
 | Incomplete/new book | `Distribution off` until pages are valid; no separate draft registry. | Validation boundary and whether metadata-only books may be saved. |
 | Recipe-book default | `Until found`. | How typed fill consults the registered rule without changing its scheduler. |
-| Spawn once | One issuance only, even if it is never found; retain its undiscovered managed copy through normal refills. | Locating/retaining that managed copy without a second chest registry. |
-| Repeat | Existing ordinary repeated rolls; no discovery/issuance tracking. | Exact UI warning and legacy/config migration handling. |
+| Spawn once | One issuance only, even if it is never found; retain managed copies waiting in chests through normal refills. | Locating/retaining that managed copy without a second chest registry. |
+| Repeat | Repeat eligible rolls even after recorded discovery; history is not reset. | Exact UI warning and legacy/config migration handling. |
 | Preview audience | Operators only; author preview is not issuance or discovery. | Rendering implementation only. |
 
 The main risk is transactional, not visual: a campaign-wide discovery receipt must be durable and idempotent across restart/reconnect, and recorded with the approved inventory transition. The system must define behavior for a full inventory, failed transfer, dropped item, disconnected player, simultaneous pickups and a normal refill while a once-issued book remains undiscovered. It must not use client-open/read events as authority, turn preview into issuance, or create a parallel chest registry/scheduler. Those backend decisions belong to the root implementation plan.
@@ -215,3 +252,7 @@ The main risk is transactional, not visual: a campaign-wide discovery receipt mu
 At minimum, cover server-side bounds/authorization/stale-revision tests; title/author/page round-trip; normal vanilla item components and read-only vanilla BookScreen preview/return; all four rules with campaign-wide inventory-receipt discovery; receipt idempotency across restart; failed/full-inventory and simultaneous-discovery behavior; one-issued-undiscovered-copy retention across normal refill; named-book stable-reference validation; preservation of unrelated generic written-book loot; no immediate chest refill on attaching/saving; and old configured `quiet_below:forge_notes` preservation.
 
 Extend the existing Core menu layout/native smoke coverage at 480, 640 and 960 logical widths: Books & Lore navigation, Clean facts hidden, Debug facts visible, compact Back to list, page editor/preview scroll and modal containment, disabled editing during ACTIVE, stale-save message/draft behavior, picker/table hand-off and confirmation cancellation. Verify all interactive controls stay within the vanilla popup and that the actual received named item opens with the normal Minecraft reader.
+
+All managed named-book copies waiting in bound chests retain refill protection until taken, including copies waiting after global discovery and GM-restored copies. Repeat ignores discovery for future rolls; it does not erase book identity/history. Raw generic written books keep their ordinary replacement behavior. Manual placement has its own operation purpose and never consumes a normal refill cycle.
+
+Entering ACTIVE play clears setup Editing, as in the current Core lifecycle. Metadata/table/direct-setting controls remain locked; live operator placement has no Editing prerequisite. The Items section retains the existing full add/select/edit/remove/chance/min-max quantity editor. Ordinary item controls are deliberately not simulated in this focused lore mockup; the visible note marks that scope, not a proposed removal of those controls.
