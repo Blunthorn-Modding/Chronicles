@@ -1,5 +1,7 @@
 # Ancient Forge original implementation contract
 
+**25 October discovery addition:** [Forge recipe notes](M11_FORGE_RECIPE_NOTES.md) supplies an optional ordinary written-book chest type, using existing Core loot components. Bundled hints share the default recipe list; organizer overrides require corresponding book edits. The accepted Forge workstation is unchanged.
+
 **Historical held-item workflow:** the native workstation supersedes the player workflow and transaction/lifecycle text below. See [current workstation contract](CF11_FORGE_WORKSTATION.md) and [current ritual UI](M11_FORGE_RITUAL_DESIGN.md) and [retained model/readiness contract](M11_FORGE_PRESENTATION.md). Recipes, power requirements and original block assets remain applicable. Dev.37 replaces transient post-craft heat with sustained readiness: off below halfway, kindling from half Established, active/light12 when powered.
 
 21 October2026. This is the next QB-12/CF-11 slice after permanent enchantment caps. Balance values are review defaults. There is no story/session unlock or authored sculk route.

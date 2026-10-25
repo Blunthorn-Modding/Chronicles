@@ -1,5 +1,7 @@
 # Chronicle work tracking
 
+**25 October dev50:** [Forge recipe notes](M11_FORGE_RECIPE_NOTES.md) are implemented through an optional vanilla written-book loot type. Registered recipes and notes share campaign defaults; Core's existing component/config/refill machinery is reused. Build407Java/87Python, native31/3 and independent source review pass. Readability/discovery tone can be reviewed in one small authenticated book fixture. Handcrafted map/group/long soak remain pending; optional temporary Altar concepts and encounter groups are not silently added.
+
 **25 October resumed:** dev49 is accepted; the handcrafted map is not ready. [M13a](M13_RECOVERY_REHEARSAL.md) independently verifies forced-stop/partial-cleanup recovery, natural unload and final restart with4098 exact targets and preserved edits. Map/group integration and prolonged real-map soak stay pending; this backend rehearsal needs no additional human UI review.
 
 **24 October acceptance:** the operator confirms dev49 works; UI and Heart corrections are accepted. Implementation is explicitly paused until the operator resumes tomorrow. Reassess remaining milestones and the M13 handcrafted-map/group prerequisites on resumption.

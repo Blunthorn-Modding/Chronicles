@@ -1,6 +1,5 @@
 package io.github.chronicle.quietbelow.content;
 
-import io.github.chronicle.core.enchanting.IngredientEnchantmentRecipe;
 import io.github.chronicle.core.server.ItemEnchantingRuntime;
 import io.github.chronicle.core.server.PlayRuntime;
 import io.github.chronicle.quietbelow.QuietBelow;
@@ -21,15 +20,14 @@ import java.util.*;
 
 /** Campaign power/models. Core owns recipe configuration and inventory transactions. */
 public final class AncientForges {
-    public static final String GROUP="quiet_below:forge";
+    public static final String GROUP=ForgeRecipeDefaults.GROUP;
     private static final int MAX_LOADED=1024,MODEL_CHECKS=8;
     public static final int MAX_REFRESH_TICKS=(MAX_LOADED+MODEL_CHECKS-1)/MODEL_CHECKS;
     private static final Map<MinecraftServer,LinkedHashSet<AncientForgeBlockEntity>> LOADED=new IdentityHashMap<>();
     private AncientForges() { }
     public static void register() {
         var recipes=ItemEnchantingRuntime.catalog();
-        for(var mapping:List.of(new String[]{"echo_shard","sharpness"},new String[]{"amethyst_shard","unbreaking"},new String[]{"prismarine_shard","protection"},new String[]{"flint","power"},new String[]{"feather","feather_falling"}))
-            recipes.register(new IngredientEnchantmentRecipe("quiet_below:"+mapping[0],GROUP,"minecraft:"+mapping[0],"minecraft:"+mapping[1],1,1,true));
+        for(var hint:ForgeRecipeDefaults.HINTS) recipes.register(hint.recipe());
         ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((block,world)->{if(block instanceof AncientForgeBlockEntity forge)admit(world.getServer(),forge);});
         ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.register((block,world)->{var loaded=LOADED.get(world.getServer());if(loaded!=null)loaded.remove(block);});
         ServerChunkEvents.CHUNK_LOAD.register((world,chunk)->{

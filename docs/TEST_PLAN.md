@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 25 October: dev50 Forge discovery notes
+
+[Recipe notes](M11_FORGE_RECIPE_NOTES.md) pass407 Java/87 Python tests, independent source review and native093552 with31 initial/3 restart steps. Real typed-chest session fills exercise100% single-book,0% empty replacement and customized components; restart preserves the configured title and earlier inventory book. Existing startup config bytes remain unchanged. All six vanilla pages pass wrap-height checks and were visually inspected at640x480/GUI2. First native093352 passed functionally but had toast-obscured screenshots; the helper now waits after clearing overlays. Matching dev50 pack and fresh authenticated book-only review25589 are prepared; see the recipe-notes review instructions. No handcrafted map, group soak or new Forge UI is claimed.
+
 ## 25 October: interrupted eradication and natural-unload recovery
 
 [M13a rehearsal](M13_RECOVERY_REHEARSAL.md) passes native091538: abrupt runner-owned server termination after65 saved/129 actual completions, restart recovers65 with per-chunk bitmap/terrain agreement, zero affected chunks loaded for100 occupied ACTIVE ticks at149 completions, then4098/4098 restored or explicitly preserved targets. Two foreign gold edits and a later diamond edit survive; final conflict count3, max completion delta4/tick, terminal journal SHA unchanged across crash and final restart. Native steps7/6/2; independent source review clear. Fullbuild26s404Java and87Python checks pass. Only opt-in test infrastructure/read-only receipt inspection is added; no gameplay or review deployment. Handcrafted map is explicitly not ready, so M13 map/group gate stays pending.

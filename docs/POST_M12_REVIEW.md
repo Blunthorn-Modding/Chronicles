@@ -1,5 +1,7 @@
 # Sequential review corrections — 22 October 2026
 
+**25 October:** accepted dev49 corrections remain accepted. [Forge recipe notes](M11_FORGE_RECIPE_NOTES.md) now implement the earlier future discovery tool using vanilla written books and existing chest loot. Human review concerns the hints/readability, not another workstation redesign. M13a crash/unload recovery is verified; the handcrafted map is explicitly not ready.
+
 **Latest dev.46 correction:** point6's nested binding design below is superseded by the operator's follow-up. [Regions](M12_REGIONS_WORKFLOW.md) is the sole region workflow; [automatic managed blocks](M12_MANAGED_BLOCK_IMPLEMENTATION.md) replace manual supplied-block registration and nested tabs. [Heart last stand](M12_HEART_LAST_STAND.md) adds the confirmed ten-minute cooldown/direct Warden while retaining sixty seconds of weakness. Use the updated combined review.
 
 The operator reviewed dev.31 and requests one correction at a time, with an independent review agent. Workstation UI must first be designed by a dedicated UI agent, reviewed by the lead, and then implemented. A separate human review after each correction is permitted. Do not implement these in parallel.

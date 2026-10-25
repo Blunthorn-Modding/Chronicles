@@ -105,6 +105,7 @@ public final class QuietBelow implements ModInitializer {
         io.github.chronicle.quietbelow.ecology.EcologyHeartDefianceTrial.register();
         io.github.chronicle.quietbelow.ecology.EcologyHeartAirCutTrial.register();
         io.github.chronicle.quietbelow.ecology.EradicationRecoveryTrial.register();
+        io.github.chronicle.quietbelow.content.ForgeNotesTrial.register();
         io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
                 new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));
         io.github.chronicle.quietbelow.content.SculkAppearanceHandshake.register();
@@ -124,6 +125,7 @@ public final class QuietBelow implements ModInitializer {
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",
                 "Optional contextual Forge site. Placed Ancient Forge blocks work without this registration.", AuthoringCatalog.Kind.BLOCK));
         // Map-authoring defaults, adjustable in the server's Core loot configuration.
+        ChronicleCore.chestTypes().register(io.github.chronicle.quietbelow.content.ForgeRecipeDefaults.notesType());
         ChronicleCore.chestTypes().register(new LootType("quiet_below:settlement_supplies", "Settlement supplies",
                 "Everyday supplies; a suggested starting distribution, editable by the organizer.", 4, 0, List.of(
                 new LootEntry("minecraft:bread", 65, 2, 5, "{}"),
