@@ -1,5 +1,11 @@
 # Bootstrap validation
 
+## 26 October: CF19?CF21/QB14 design-only verification
+
+[Implementation contract](CF19_CF21_IMPLEMENTATION_PLAN.md) and [UI design](CF19_CF21_UI_DESIGN.md) cover new Core roles, captured-area changes and irreversible Spectator group departure. Dedicated UI design/repair and independent architecture review precede code. Root's final EdgeCLI prototype regression passes56 checks/zero JavaScript errors, including role drafts/capacities/private selection, creation, target preflight/ACTIVE apply, two-stage stale-roster handling, partial/full departure and480px layout. Four captures were visually inspected; popup overlay/focus/Tab/privacy defects were corrected. Evidence `../reports/roles-departures-design/report.json` pins the exact HTML; script/syntax/diff/local-link checks pass. No Java/Python suites repeated for this docs/HTML-only change; their last dev54 runtime evidence remains below.
+
+The mockup simulates state only: no YAML/native permission/inventory/NBT/world/save/recovery claim. Existing setup editors are retained as named read-only placeholders. Organizer workflow review of the localhost8924 preview is the current gate; the approved live dev54 world/pack remain untouched. Earlier checkpoints below are historical.
+
 ## 26 October: dev54 automatic ecology journal maintenance
 
 The operator accepts dev53 and requests the next outstanding task. [Automatic maintenance](M9_AUTOMATIC_JOURNAL_MAINTENANCE.md) is implemented on `feat/qb-08-automatic-journal-maintenance`: dedicated mutation barrier, sealed off-thread exact snapshot/checkpoint verification, original archives, atomic replacement, same live-engine handle rebinding and shutdown join before world-lock release. Core holds/presentation are reused; all new storage policy stays campaign-owned. Heart raw-clock continuation and Forge model writes during a hold have regression coverage. No schema, gameplay setting, UI layout or narrative change.
