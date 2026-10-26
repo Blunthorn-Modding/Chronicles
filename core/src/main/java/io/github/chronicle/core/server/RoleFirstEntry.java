@@ -325,7 +325,8 @@ public final class RoleFirstEntry {
     private static boolean eligible(MinecraftServer server, ServerPlayerEntity player) {
         var play = PlayRuntime.available(server);
         return play != null && play.participants().contains(player.getUuid()) && player.isAlive()
-                && !player.isSpectator() && !AuthoringRuntime.isAuthor(player);
+                && !player.isSpectator() && !AuthoringRuntime.isAuthor(player)
+                && Departures.ready(server) && !Departures.concluded(server) && !Departures.departed(server,player.getUuid());
     }
 
     private static InventorySnapshot snapshot(MinecraftServer server, ServerPlayerEntity player) {

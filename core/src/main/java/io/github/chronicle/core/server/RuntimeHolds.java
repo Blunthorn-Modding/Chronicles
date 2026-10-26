@@ -27,5 +27,6 @@ public final class RuntimeHolds {
         return holds == null || holds.isEmpty() ? null : holds.values().iterator().next();
     }
     public static boolean heldByOther(MinecraftServer server,String owner) {var holds=HOLDS.get(server);return holds!=null&&holds.keySet().stream().anyMatch(key->!key.equals(owner));}
+    public static boolean heldByOthers(MinecraftServer server,java.util.Set<String> owners) {var holds=HOLDS.get(server);return holds!=null&&holds.keySet().stream().anyMatch(key->!owners.contains(key));}
     public static void stop(MinecraftServer server) { HOLDS.remove(server); }
 }

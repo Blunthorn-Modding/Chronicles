@@ -29,6 +29,14 @@ class AuthoringMutationGuardTest {
         assertThrows(IllegalStateException.class, () -> assignments.clear("test:root"));
         assertEquals(before, repository.saves); assertEquals(anchor.id(), assignments.state().bindings().get("test:root").siteId());
     }
+    @Test void additiveGuardsComposeWithoutReplacingEarlierProtection() throws IOException {
+        Memory repository=new Memory();AuthoringService service=new AuthoringService(repository);
+        java.util.List<String> calls=new java.util.ArrayList<>();
+        service.mutationGuard((existing,proposed,operation)->calls.add("managed"));
+        service.addMutationGuard((existing,proposed,operation)->calls.add("area"));
+        service.put(new AuthoringSite.Region("test:area","minecraft:overworld",1,new BlockPosition(0,0,0),new BlockPosition(1,1,1)),false);
+        assertEquals(java.util.List.of("managed","area"),calls);
+    }
     private static final class Memory implements AuthoringRepository {
         AuthoringRegistry state = AuthoringRegistry.empty(); int saves;
         public AuthoringRegistry load() { return state; }

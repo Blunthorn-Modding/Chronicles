@@ -33,12 +33,15 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
-/** Strict, atomic schema-3 persistence with read-only schema-1/2 migration support. */
+/** Strict, atomic schema-4 persistence with read-only schema-1/2/3 migration support. */
 public final class ChestContentStore implements ChestContentRepository {
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
     public static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
     private static final int MAX_JSON_DEPTH = 32;
     private final Path file;
@@ -150,7 +153,16 @@ public final class ChestContentStore implements ChestContentRepository {
         root.add("pending", pending);
         root.add("schedule", schedule(state.schedule()));
         root.add("bookDelivery", bookDelivery(state.bookDelivery()));
+        JsonArray areaRemovals=new JsonArray();state.areaRemovals().values().forEach(removal->areaRemovals.add(areaRemoval(removal)));root.add("areaRemovals",areaRemovals);
         return root.toString();
+    }
+
+    private static JsonObject areaRemoval(AreaContentRemoval removal){
+        JsonObject object=new JsonObject();object.addProperty("operationId",removal.operationId().toString());object.addProperty("expectedContentRevision",removal.expectedContentRevision());
+        JsonArray affected=new JsonArray();removal.affectedBindingRevisions().forEach((id,revision)->{JsonObject value=new JsonObject();value.addProperty("bindingId",id);value.addProperty("bindingRevision",revision);affected.add(value);});object.add("affectedBindings",affected);
+        JsonArray retired=new JsonArray();removal.retiredBindingIds().forEach(retired::add);object.add("retiredBindingIds",retired);
+        JsonArray books=new JsonArray();removal.managedBooks().forEach(book->{JsonObject value=new JsonObject();value.addProperty("bookId",book.bookId());value.addProperty("deliveryToken",book.deliveryToken());books.add(value);});object.add("managedBooks",books);
+        object.addProperty("stage",removal.stage().name());object.addProperty("preparedAt",removal.preparedAt());object.addProperty("durableWorldReceipt",removal.durableWorldReceipt().orElse(null));object.addProperty("committedAt",removal.committedAt().orElse(null));return object;
     }
 
     private static JsonObject bookChance(BookChance chance) {
@@ -248,7 +260,8 @@ public final class ChestContentStore implements ChestContentRepository {
         int schema = integer(required(root, "schemaVersion"), "schemaVersion");
         if (schema == 1) exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending"), "root");
         else if (schema == 2) exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending", "schedule"), "root");
-        else if (schema == SCHEMA_VERSION) exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending", "schedule", "bookDelivery"), "root");
+        else if (schema == 3) exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending", "schedule", "bookDelivery"), "root");
+        else if (schema == SCHEMA_VERSION) exact(root, Set.of("schemaVersion", "revision", "templates", "bindings", "receipts", "pending", "schedule", "bookDelivery", "areaRemovals"), "root");
         else throw new IllegalArgumentException("unsupported chest content schema");
         long revision = number(required(root, "revision"), "revision");
         Map<String, ChestTemplate> templates = new LinkedHashMap<>();
@@ -297,7 +310,18 @@ public final class ChestContentStore implements ChestContentRepository {
         }
         LootSchedule schedule = schema == 1 ? LootSchedule.empty() : schedule(required(root, "schedule"));
         BookDeliveryState bookDelivery = schema < 3 ? BookDeliveryState.migrateLegacy(source) : bookDelivery(required(root, "bookDelivery"));
-        return new ChestContentState(revision, templates, bindings, receipts, pending, schedule, bookDelivery);
+        LinkedHashMap<UUID,AreaContentRemoval> areaRemovals=new LinkedHashMap<>();
+        if(schema>=4){JsonArray values=array(required(root,"areaRemovals"),"area-content removals");if(values.size()>ChestContentState.MAX_AREA_REMOVALS)throw new IllegalArgumentException("too many area-content removals");for(JsonElement value:values){AreaContentRemoval removal=areaRemoval(value);if(areaRemovals.putIfAbsent(removal.operationId(),removal)!=null)throw new IllegalArgumentException("duplicate area-content operation UUID");}}
+        return new ChestContentState(revision, templates, bindings, receipts, pending, schedule, bookDelivery,areaRemovals);
+    }
+
+    private static AreaContentRemoval areaRemoval(JsonElement element){
+        JsonObject item=object(element,"area-content removal");exact(item,Set.of("operationId","expectedContentRevision","affectedBindings","retiredBindingIds","managedBooks","stage","preparedAt","durableWorldReceipt","committedAt"),"area-content removal");
+        JsonArray affectedValues=array(required(item,"affectedBindings"),"affected bindings");if(affectedValues.size()>AreaContentRemoval.MAX_AFFECTED_BINDINGS)throw new IllegalArgumentException("too many affected bindings");LinkedHashMap<String,Long> affected=new LinkedHashMap<>();for(JsonElement value:affectedValues){JsonObject binding=object(value,"affected binding");exact(binding,Set.of("bindingId","bindingRevision"),"affected binding");String id=string(required(binding,"bindingId"),"affected binding ID");if(affected.putIfAbsent(id,number(required(binding,"bindingRevision"),"affected binding revision"))!=null)throw new IllegalArgumentException("duplicate affected binding ID");}
+        JsonArray retiredValues=array(required(item,"retiredBindingIds"),"retired binding IDs");if(retiredValues.size()>AreaContentRemoval.MAX_AFFECTED_BINDINGS)throw new IllegalArgumentException("too many retired bindings");LinkedHashSet<String> retired=new LinkedHashSet<>();for(JsonElement value:retiredValues)if(!retired.add(string(value,"retired binding ID")))throw new IllegalArgumentException("duplicate retired binding ID");
+        JsonArray bookValues=array(required(item,"managedBooks"),"managed books");if(bookValues.size()>AreaContentRemoval.MAX_MANAGED_BOOKS)throw new IllegalArgumentException("too many managed books");LinkedHashSet<ManagedBookRemoval> books=new LinkedHashSet<>();for(JsonElement value:bookValues){JsonObject book=object(value,"managed book");exact(book,Set.of("bookId","deliveryToken"),"managed book");ManagedBookRemoval removal=new ManagedBookRemoval(string(required(book,"bookId"),"managed book ID"),string(required(book,"deliveryToken"),"delivery token"));if(!books.add(removal))throw new IllegalArgumentException("duplicate managed-book evidence");}
+        AreaContentRemoval.Stage stage;try{stage=AreaContentRemoval.Stage.valueOf(string(required(item,"stage"),"area-content stage"));}catch(IllegalArgumentException exception){throw new IllegalArgumentException("unknown area-content stage",exception);}
+        return new AreaContentRemoval(uuid(required(item,"operationId"),"area-content operation ID"),number(required(item,"expectedContentRevision"),"expected content revision"),affected,retired,books,stage,string(required(item,"preparedAt"),"preparation time"),optionalString(item,"durableWorldReceipt","durable world receipt"),optionalString(item,"committedAt","completion time"));
     }
 
     private static PendingChestOperation operation(JsonElement value, int schema) {
@@ -460,6 +484,8 @@ public final class ChestContentStore implements ChestContentRepository {
     private static JsonArray array(JsonElement value, String field) { if (value == null || !value.isJsonArray()) throw new IllegalArgumentException(field + " must be an array"); return value.getAsJsonArray(); }
     private static String string(JsonElement value, String field) { if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) throw new IllegalArgumentException(field + " must be a string"); return value.getAsString(); }
     private static String nullableString(JsonObject object, String name, String field) { JsonElement value = object.get(name); if (value == null) throw new IllegalArgumentException("missing " + name); return value.isJsonNull() ? null : string(value, field); }
+    private static Optional<String> optionalString(JsonObject object,String name,String field){return Optional.ofNullable(nullableString(object,name,field));}
+    private static UUID uuid(JsonElement value,String field){try{return UUID.fromString(string(value,field));}catch(IllegalArgumentException exception){throw new IllegalArgumentException(field+" must be a UUID",exception);}}
     private static boolean bool(JsonElement value, String field) { if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) throw new IllegalArgumentException(field + " must be a boolean"); return value.getAsBoolean(); }
     private static int integer(JsonElement value, String field) { long result = number(value, field); if (result < Integer.MIN_VALUE || result > Integer.MAX_VALUE) throw new IllegalArgumentException(field + " is outside integer range"); return (int) result; }
     private static long number(JsonElement value, String field) { if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) throw new IllegalArgumentException(field + " must be an integer"); String source = value.getAsString(); if (!source.matches("-?(0|[1-9][0-9]*)")) throw new IllegalArgumentException(field + " must be an integer"); try { return Long.parseLong(source); } catch (NumberFormatException exception) { throw new IllegalArgumentException(field + " is outside long range", exception); } }

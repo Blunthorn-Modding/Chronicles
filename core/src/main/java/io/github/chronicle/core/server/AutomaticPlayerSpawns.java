@@ -131,14 +131,16 @@ public final class AutomaticPlayerSpawns {
     }
     private static boolean active(MinecraftServer server) {
         var campaign = ChronicleRuntime.available(server);
-        return campaign != null && campaign.state().phase() == SessionPhase.ACTIVE && RuntimeHolds.reason(server) == null;
+        return campaign != null && campaign.state().phase() == SessionPhase.ACTIVE && RuntimeHolds.reason(server) == null
+                && Departures.ready(server)&&!Departures.concluded(server);
     }
-    private static boolean eligible(ServerPlayerEntity player) { return player.isAlive() && !player.isSpectator() && !AuthoringRuntime.isAuthor(player); }
+    private static boolean eligible(ServerPlayerEntity player) {var server=player.getEntityWorld().getServer();return player.isAlive()&&!player.isSpectator()&&!AuthoringRuntime.isAuthor(player)&&Departures.ready(server)&&!Departures.concluded(server)&&!Departures.departed(server,player.getUuid());}
 
     private static void tick(MinecraftServer server) {
         var runtime = WORLDS.get(server); if (runtime == null || runtime.failure != null) return;
         var campaign = ChronicleRuntime.available(server);
-        boolean phaseActive = campaign != null && campaign.state().phase() == SessionPhase.ACTIVE;
+        boolean phaseActive = campaign != null && campaign.state().phase() == SessionPhase.ACTIVE
+                && Departures.ready(server)&&!Departures.concluded(server);
         var queued = runtime.events.next(phaseActive, RuntimeHolds.reason(server) != null,
                 server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList());
         for (UUID id : queued) {
@@ -154,6 +156,7 @@ public final class AutomaticPlayerSpawns {
     }
     private static void arrival(ServerPlayerEntity player, SpawnBinding binding) throws IOException {
         var server = player.getEntityWorld().getServer();
+        Departures.requireParticipation(server,player.getUuid());
         var service = service(server);
         if (!service.claim(player.getUuid(), binding.purpose())) return;
         try {

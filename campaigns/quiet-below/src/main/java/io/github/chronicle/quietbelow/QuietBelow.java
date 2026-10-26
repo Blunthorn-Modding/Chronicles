@@ -152,6 +152,14 @@ public final class QuietBelow implements ModInitializer {
                 new LootEntry("minecraft:echo_shard", 10, 1, 1, "{}"))));
         QuietBelowStages.register();
         io.github.chronicle.quietbelow.ecology.QuietBelowEcology.register();
+        io.github.chronicle.quietbelow.ecology.QuietBelowAreaChanges.register();
+        io.github.chronicle.core.server.Departures.registerDefaults(java.util.List.of(
+            new io.github.chronicle.core.departures.DepartureDefinition("quiet_below:ship", "The only ship", 1,
+                java.util.Optional.empty(), java.util.Optional.empty(),
+                "You are taking the only ship off this island. Everyone aboard will come with you. Those left behind will have to fend for themselves. Are you sure?",
+                "This is a point of no return. You and all characters aboard will leave the island, ending your participation. If all remaining participants are aboard, the campaign will end.",
+                java.util.Optional.empty(), true)));
+
         io.github.chronicle.quietbelow.content.AncientForges.register();
         io.github.chronicle.quietbelow.content.AncientAltars.register();
         io.github.chronicle.quietbelow.ecology.AncientForgeTrial.register();

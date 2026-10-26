@@ -1,6 +1,6 @@
 # CF19 — Player Roles
 
-26 October 2026. Implemented on `feat/core-roles-areas-departures`; not yet deployed. This is the first verified part of the approved roles/area-changes/departures bundle. It does not request an intermediate organizer review or mark CF20/CF21 complete.
+26 October 2026. Implemented and deployed on `feat/core-roles-areas-departures` for the combined dev55 review with CF20/CF21. Human acceptance remains pending.
 
 ## Organizer workflow
 
@@ -40,4 +40,4 @@ On restart, unresolved entry operations install holds. PREPARED plus exact befor
 - Three clean desktop/480px captures were visually inspected; Create is above existing rows and appears once, default Clean omits diagnostics. Native opt-in trial commands require a disposable marker, exact test-runs path, dedicated offline loopback port25575 and operator permission. They are absent without the trial environment flag.
 - Independent read-only source review is clear after corrections to generated IDs, clear-role routing, malformed nested JSON, initialization recovery and unresolved prior arrival handling.
 
-Native injected disk/kill interruption, maximum-account native load and an ordinary non-GM/multiple-player role run are not claimed by the finite fixture. The combined area/departure tests and authenticated review deployment remain separate work. Accepted dev54 world/pack/server are untouched.
+Native injected disk/kill interruption, maximum-account native load and an ordinary non-GM/multiple-player role run are not claimed by the finite fixture. The combined area/departure/editor fixtures also pass; see TEST_PLAN for the combined build and deployment evidence. A later regression test verifies that shared empty role lists emit no YAML aliases and can reload after restart; the writer now validates its own strict round trip.

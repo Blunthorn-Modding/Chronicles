@@ -249,6 +249,7 @@ public final class QuietBelowEcology {
             long began=System.nanoTime();finishMaintenance(server,r,false);r.maintenanceTickNanos=System.nanoTime()-began;
             EcologyCostEffects.clear(server);return;
         }
+        if(io.github.chronicle.core.server.WorldAreaOperations.hasReservation(server)){EcologyCostEffects.clear(server);return;}
         if(r.engine.failure()!=null){heartRestingAppearance(server,r);EcologyCostEffects.clear(server);return;}
         if(r.engine.setup()==null){EcologyCostEffects.clear(server);return;}
         long started=System.nanoTime();
@@ -734,6 +735,20 @@ public final class QuietBelowEcology {
         Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Ecology unavailable; inspect quiet-below/ecology.jsonl and server log.");if(maintenanceBusy(r))throw new IllegalStateException("Ecology journal maintenance is holding writes; wait for completion or inspect the server log.");return r;
     }
     static EcologyEngine engineForTest(MinecraftServer server){return runtime(server).engine;}
+    /** Area operations require known ecology authority and cannot race maintenance or a failed topology. */
+    static void requireAreaOperation(MinecraftServer server){
+        Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Quiet Below ecology is unavailable; Area changes are held until its journal recovers.");
+        if(maintenanceBusy(r))throw new IllegalStateException("Quiet Below maintenance is holding world writes.");
+        if(r.engine.failure()!=null)throw new IllegalStateException("Quiet Below ecology is held: "+r.engine.failure());
+    }
+    static boolean areaNetworkEnded(ServerWorld world){Runtime r=WORLDS.get(world.getServer());return r!=null&&r.engine.setup()!=null&&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString())&&r.engine.ending()!=null;}
+    static void requireAreaCell(ServerWorld world,BlockPos position){Runtime r=WORLDS.get(world.getServer());if(!areaNetworkEnded(world))return;if(r.eradication==null)r.eradication=new EcologyEradication(r.engine.ending(),r.engine.endingRoot(),r.engine.endingRootState(),r.engine.cells());if(r.eradication.pendingAt(world,position))throw new IllegalStateException("This Area cell overlaps unfinished sculk eradication: "+position.toShortString());}
+    /** Core calls this before publishing its area receipt; engine journal checkpoints are idempotent. */
+    static void flushAreaOperation(MinecraftServer server){
+        requireAreaOperation(server);
+        Runtime r=WORLDS.get(server);
+        try{r.engine.flushHeart();r.engine.flushVitality();}catch(IOException failure){throw new IllegalStateException("Quiet Below ecology checkpoint failed before Area completion.",failure);}
+    }
     static EcologyEradication endingForTest(MinecraftServer server){return runtime(server).eradication;}
     static long tickNanosForTest(MinecraftServer server){return runtime(server).lastTickNanos;}
     public static boolean protectsRoot(ServerWorld world,BlockPos at){
@@ -1108,7 +1123,7 @@ public final class QuietBelowEcology {
             Runtime r=find(w);if(r==null)return proposed;
             if(maintenanceBusy(r))return r.engine.owns(pos(p))&&!before.equals(proposed)?null:proposed;
             if(r.engine.ending()!=null)return proposed;
-            if(r.engine.owns(pos(p))&&before.getBlock()==proposed.getBlock()&&before.contains(SculkAppearance.VITALITY))
+            if(!io.github.chronicle.core.server.WorldAreaOperations.writing(w,p)&&r.engine.owns(pos(p))&&before.getBlock()==proposed.getBlock()&&before.contains(SculkAppearance.VITALITY))
                 proposed=proposed.with(SculkAppearance.VITALITY,before.get(SculkAppearance.VITALITY));
             var origin=EcologyHooks.catalystOrigin();
             if(origin==null||origin.world()!=w||!r.engine.owns(pos(origin.pos())))return proposed;

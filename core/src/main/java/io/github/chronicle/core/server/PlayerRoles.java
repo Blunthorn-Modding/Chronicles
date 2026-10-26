@@ -84,6 +84,7 @@ public final class PlayerRoles {
     }
     public static void choose(ServerPlayerEntity player, String id) throws IOException {
         var server = player.getEntityWorld().getServer(); requireUnheld(server);
+        Departures.requireParticipation(server,player.getUuid());
         if (assignments(server).started().contains(player.getUuid())) throw new IllegalStateException("You have already entered play; ask the GM to reassign your role.");
         var role = definitions(server).get(id);
         if (role == null || !role.selectable()) throw new IllegalArgumentException("Choose an available player role.");
@@ -93,6 +94,7 @@ public final class PlayerRoles {
         if (!source.hasPermissionLevel(2) || source.getPlayer() == null) throw new IllegalStateException("An operator must assign roles.");
         requireUnheld(source.getServer());
         if (!known(source.getServer(),player)) throw new IllegalArgumentException("Choose a known player in this campaign.");
+        if (assignmentRequiresParticipation(id)) Departures.requireParticipation(source.getServer(),player);
         if (id.isBlank()||id.equals("-")) state(source.getServer()).assignments.unassign(player);
         else state(source.getServer()).assignments.assign(player,id,definitions(source.getServer()));
     }
@@ -101,12 +103,13 @@ public final class PlayerRoles {
         boolean gm=viewer.getCommandSource().hasPermissionLevel(2),own=target.equals(viewer.getUuid());
         if(!gm&&!own)throw new IllegalStateException("Player-role assignments are private.");
         boolean started=st.started().contains(target),unheld=RuntimeHolds.reason(server)==null;
+        boolean participation=Departures.ready(server)&&!Departures.concluded(server)&&!Departures.departed(server,target);
         String id=st.assigned().getOrDefault(target,"");var current=definitions(server).get(id);
         var choices=new ArrayList<RoleChoice>();
         if(gm)choices.add(new RoleChoice("-","No role","Clear this assignment; starting history remains.",0,512,unheld));
         for(var r:definitions(server).values())if(gm||r.selectable()){
             int count=(int)assigned(server,r.id());
-            choices.add(new RoleChoice(r.id(),r.name(),r.description(),count,r.capacity(),unheld&&(count<r.capacity()||r.id().equals(id))));
+            choices.add(new RoleChoice(r.id(),r.name(),r.description(),count,r.capacity(),unheld&&participation&&(count<r.capacity()||r.id().equals(id))));
         }
         var candidate=definitions(server).get(pending);
         return new RoleAssignmentForm(target.toString(),id,pending.equals("-")?"No role":candidate!=null?candidate.name():current==null?"Unassigned":current.name(),own&&!started&&unheld,gm&&unheld,started,choices,pending);
@@ -146,6 +149,7 @@ public final class PlayerRoles {
         }
     }
     private static void requireUnheld(MinecraftServer server){if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the active Chronicle operation before changing roles.");}
+    static boolean assignmentRequiresParticipation(String id){return id!=null&&!id.isBlank()&&!id.equals("-");}
     private static void requireEditor(ServerCommandSource source){if(!source.hasPermissionLevel(2)||source.getPlayer()==null||!AuthoringRuntime.isAuthor(source.getPlayer())||!AuthoringRuntime.editable(source.getServer()))throw new IllegalStateException("Role definitions require non-active operator Editing.");requireUnheld(source.getServer());}
     private static State state(MinecraftServer server){if(!server.isOnThread())throw new IllegalStateException("Player roles require the server thread.");var result=WORLDS.get(server);if(result==null)throw new IllegalStateException("Player roles unavailable; inspect the server log and role files.");return result;}
     private static final class State {

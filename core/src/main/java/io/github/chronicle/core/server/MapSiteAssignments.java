@@ -75,6 +75,7 @@ public final class MapSiteAssignments {
     }
 
     private static ServerPlayerEntity editor(ServerCommandSource source) {
+        if (RuntimeHolds.reason(source.getServer()) != null) throw new IllegalStateException("Resolve the current operation before changing map assignments.");
         if (!source.hasPermissionLevel(2)) throw new IllegalStateException("Map assignment requires operator permission level 2.");
         if (!AuthoringRuntime.editable(source.getServer())) throw new IllegalStateException("Map assignments require a non-active Chronicle session.");
         ServerPlayerEntity player = source.getPlayer();

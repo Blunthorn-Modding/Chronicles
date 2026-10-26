@@ -67,6 +67,16 @@ class CoreMenuModelTest {
         assertThrows(IllegalArgumentException.class,()->new BlockLimitsForm(4,false,"Unavailable",true,"","",List.of()));
     }
 
+    @Test void areaAndDepartureFormsRemainTypedInThePrivateDetailEnvelope() {
+        var site = new Entry("test:gangplank","Gangplank","Exact boarding block","BLOCK","",3);
+        var region = new Entry("test:deck","Deck","Boarding bounds","REGION","",4);
+        var area = new Entry("test:ship","Ship","Saved ship states","AREA","",5);
+        var areaForm = new AreaForm("test:ship","Ship",5,"minecraft:overworld","0,64,0","2,66,2",true,false,false,false,List.of("Departure: test:ferry"),"","","");
+        var departure = new DepartureForm("test:ferry","Ferry",2,site.id(),site.revision(),region.id(),region.revision(),area.id(),"start","Board now?","This cannot be undone.",false,false,List.of(site),List.of(region),List.of(area));
+        var detail = new Detail("test:ferry","Ferry","Departure point",List.of(),List.of(),null,null,null,null,null,null,null,areaForm,departure);
+        assertEquals(detail,gson.fromJson(gson.toJson(detail),Detail.class));
+    }
+
     private static View view(boolean op,String hold,String clock,String message,List<Entry> entries,Detail detail) {
         return new View(1,Page.LOOT_TABLES,0,1,"POINT","test:cache","PAUSED",2,false,true,op,hold,clock,message,true,entries,detail,null,false);
     }

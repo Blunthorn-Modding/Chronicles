@@ -107,7 +107,7 @@ public final class CoreMenuServer {
             context.selected=gm?request.id():player.getUuidAsString();
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
             if(request.action()==Action.OPEN&&context.page==Page.BOOKS_LORE)context.expectedBook=null;
-            if(request.action()==Action.OPEN){context.roleDraft=null;context.roleCreating=false;context.pendingRole="";}
+            if(request.action()==Action.OPEN){context.departureDraft=null;context.departureCreating=false;context.roleDraft=null;context.roleCreating=false;context.pendingRole="";}
             context.picker=null;
             String message="";boolean close=false;
             if(request.action()==Action.OPTIONS){
@@ -117,7 +117,7 @@ public final class CoreMenuServer {
                 context.index=0;
             } else if(!read || request.action()==Action.EVENT_PREVIEW || request.action()==Action.EVENT_AUDIO || request.action()==Action.EVENT_CHECK) {
                 message=act(player,request,context);
-                close=request.action()==Action.REGION_CONTINUE;
+                close=request.action()==Action.REGION_CONTINUE||request.action()==Action.AREA_BEGIN;
                 if(close)context.visible=false;
                 if(!read)context.token=0;
             }
@@ -128,6 +128,9 @@ public final class CoreMenuServer {
         }
     }
 
+    private static io.github.chronicle.core.areas.AreaState areaState(String value){return switch(value.toLowerCase(Locale.ROOT)){case "start"->io.github.chronicle.core.areas.AreaState.START;case "end"->io.github.chronicle.core.areas.AreaState.END;default->throw new IllegalArgumentException("Choose Start or End.");};}
+    private static io.github.chronicle.core.areas.AreaChange area(MinecraftServer server,String id){return Optional.ofNullable(AreaChanges.catalog(server).areas().get(id)).orElseThrow(()->new IllegalStateException("Choose an existing Area change."));}
+    private static void requireAreaOperator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2)||(!ChronicleRuntime.service(player.getEntityWorld().getServer()).state().phase().name().equals("ACTIVE")&&!AuthoringRuntime.isAuthor(player)))throw new IllegalStateException("Enable Editing, or apply during active play.");}
     private static boolean publicAction(Action action){return switch(action){case OPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->true;default->false;};}
     private static void invalidate(Context c){c.token=0;c.observation=null;c.reviewId="";c.reviewFrame=null;clearGive(c);c.pendingRole="";c.roleReview=null;}
     private static void clearGive(Context c){c.giveBook="";c.giveTarget="";c.giveDefinition=null;c.giveAt=0;}
@@ -135,6 +138,48 @@ public final class CoreMenuServer {
     private static String act(ServerPlayerEntity player,Request request,Context c) throws Exception {
         var source=player.getCommandSource();var server=source.getServer();String id=c.selected,arg=request.argument();
         switch(request.action()) {
+            case DEPARTURE_NEW,DEPARTURE_EDIT -> {
+                editor(player);if(c.page!=Page.DEPARTURES||held(server))throw new IllegalStateException("Manage Departures after finishing pending operations.");c.departureCreating=request.action()==Action.DEPARTURE_NEW;
+                c.departureDraft=c.departureCreating?CoreDepartureMenu.fresh():Departures.state(server).definitions().get(id);if(c.departureDraft==null)throw new IllegalStateException("Choose an existing departure.");c.selected=c.departureDraft.id();return "";
+            }
+            case DEPARTURE_CREATE,DEPARTURE_SAVE,DEPARTURE_BIND_LOOK -> {
+                editor(player);if(c.page!=Page.DEPARTURES||held(server)||c.departureDraft==null)throw new IllegalStateException("Open the Departure editor first.");
+                var draft=CoreDepartureMenu.decode(arg,c.departureDraft.revision());if(!draft.id().equals(c.departureDraft.id()))throw new IllegalStateException("Departure draft identity changed.");
+                if(request.action()==Action.DEPARTURE_BIND_LOOK){c.departureDraft=CoreDepartureMenu.bindLook(source,draft);return "Block site selected. Your other draft settings are retained.";}
+                if(c.departureCreating!=(request.action()==Action.DEPARTURE_CREATE))throw new IllegalStateException("Departure editor changed; reopen it.");
+                if(c.departureCreating)Departures.create(source,draft,Departures.state(server).revision());else Departures.save(source,draft,c.departureDraft.revision(),Departures.state(server).revision());c.departureDraft=null;c.departureCreating=false;return "Departure saved.";
+            }
+            case DEPARTURE_DELETE -> {
+                editor(player);if(c.page!=Page.DEPARTURES)throw new IllegalArgumentException("Use Departures.");var def=Departures.state(server).definitions().get(id);if(def==null)throw new IllegalStateException("Departure missing.");Departures.delete(source,id,def.revision(),Departures.state(server).revision());c.departureDraft=null;c.selected="";return "Unused departure deleted. History retained.";
+            }
+            case AREA_NEW,AREA_CAPTURE_OPEN -> {if(c.page!=Page.AREA_CHANGES)throw new IllegalArgumentException("Use Area changes.");return "";}
+            case AREA_BEGIN -> {
+                editor(player);if(c.page!=Page.AREA_CHANGES||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation before creating an Area.");
+                var json=BookConfig.strictObject(arg);if(!json.keySet().equals(Set.of("name","state")))throw new IllegalArgumentException("Invalid Area draft.");
+                var draft=AreaChanges.begin(source,json.get("name").getAsString(),areaState(json.get("state").getAsString()));c.selected=draft.id();return "Select both corners, then use /chronicle area change save.";
+            }
+            case AREA_CAPTURE -> {
+                if(c.page!=Page.AREA_CHANGES||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation first.");
+                var area=area(server,id);AreaChanges.currentRegion(server,area);AreaChanges.captureCurrent(source,id,areaState(arg),area.revision());return "Saving the current Region as "+arg+". You will receive a message when verification finishes.";
+            }
+            case AREA_PREVIEW -> {
+                if(c.page!=Page.AREA_CHANGES)throw new IllegalArgumentException("Use Area changes.");var area=area(server,id);var region=AreaChanges.currentRegion(server,area);area.requireSnapshot(areaState(arg));AuthoringRuntime.get(server).preview(player,region);return "Private outline shown for "+area.name()+" ("+arg+"). Applying replaces the outlined blocks and container contents.";
+            }
+            case AREA_APPLY_REVIEW,AREA_DELETE_REVIEW -> {
+                if(c.page!=Page.AREA_CHANGES||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation first.");
+                boolean deleting=request.action()==Action.AREA_DELETE_REVIEW;if(deleting)editor(player);else requireAreaOperator(player);
+                var area=area(server,id);if(!deleting||!arg.equals("unchanged")){AreaChanges.currentRegion(server,area);area.requireSnapshot(areaState(arg));}
+                c.reviewId="area:"+id+":"+arg+":"+deleting;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();
+                String uses=String.join(", ",CoreAreaMenu.consumers(server,id));return (deleting?"Delete this Area definition after ":"Apply ")+arg+" for '"+area.name()+"'. "+(arg.equals("unchanged")?"Terrain stays unchanged.":"This replaces every block and container content inside the Region; replaced contents are discarded. Move non-spectator players clear first.")+(uses.isBlank()?"":" Linked uses will become unavailable: "+uses);
+            }
+            case AREA_APPLY,AREA_DELETE -> {
+                boolean deleting=request.action()==Action.AREA_DELETE;requireReview(player,c,"area:"+id+":"+arg+":"+deleting);if(deleting)editor(player);else requireAreaOperator(player);
+                var area=area(server,id);c.reviewId="";if(deleting&&arg.equals("unchanged")){WorldAreaOperations.deleteUnchanged(source,id,area.revision());c.selected="";return "Area definition deleted. Terrain and the Core Region were retained.";}
+                UUID operation=WorldAreaOperations.apply(source,id,areaState(arg),area.revision(),deleting);return "Area operation "+operation+" is preparing. The world stays held until its saved result verifies.";
+            }
+            case AREA_RECOVER -> {
+                if(c.page!=Page.AREA_CHANGES)throw new IllegalArgumentException("Use Area changes.");var op=AreaChanges.operations(server).state().operations().values().stream().filter(o->o.areaId().equals(id)&&(o.unresolved()||o.deletionObligation())).reduce((a,b)->b).orElseGet(()->WorldAreaOperations.pendingPrepared(server,id).orElseThrow(()->new IllegalStateException("No pending Area operation.")));WorldAreaOperations.recover(source,op.operationId());return "Rechecking original before/after evidence. Conflicting cells will remain held.";
+            }
             case ROLE_NEW,ROLE_EDIT -> {
                 editor(player);if(c.page!=Page.PLAYER_ROLES)throw new IllegalArgumentException("Manage definitions under Player Roles.");
                 c.roleCreating=request.action()==Action.ROLE_NEW;
@@ -201,6 +246,7 @@ public final class CoreMenuServer {
             case PLAYER_MOVE_REVIEW -> {String result=MenuPlayerDestinations.review(source,UUID.fromString(id),arg);c.reviewId=id;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();return result;}
             case PLAYER_MOVE -> {requireReview(player,c,id);c.reviewId="";return MenuPlayerDestinations.move(source,UUID.fromString(id));}
             case EVENT_PREVIEW -> {
+                if(id.startsWith("world:"))return AreaWorldEvents.preview(player,id);
                 if(id.startsWith("cue:")){var d=cue(id);previewCue(player,d);return d.text()+"\nSound: "+(d.sound().isBlank()?"none":d.sound())+"\nPreview sent only to you. No event completion or trigger changed.";}
                 var event=gameEvent(id);return event.description()+"\nState action only. Required conditions: "+event.requiredFlags()+". This preview does not invoke its handler.";
             }
@@ -209,6 +255,7 @@ public final class CoreMenuServer {
                 previewCue(player,d);return "Message and sound previewed only to you. No event completion, timer or world state changed.";
             }
             case EVENT_CHECK,EVENT_REVIEW -> {
+                if(id.startsWith("world:")){requireAreaOperator(player);String result=AreaWorldEvents.review(player,id);if(request.action()==Action.EVENT_REVIEW){c.reviewId=id;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();}return result;}
                 String result;
                 if(id.startsWith("cue:")){var preview=PlayRuntime.preview(server,raw(id));result=preview.description();if(request.action()==Action.EVENT_REVIEW)c.observation=preview;}
                 else {result=ChronicleRuntime.service(server).preview(raw(id));if(!result.equals("Ready."))throw new IllegalStateException(result);if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the active operation hold first.");}
@@ -216,6 +263,7 @@ public final class CoreMenuServer {
             }
             case EVENT_RUN -> {
                 requireReview(player,c,id);c.reviewId="";
+                if(id.startsWith("world:"))return AreaWorldEvents.run(source,id);
                 if(id.startsWith("cue:")){var preview=c.observation;c.observation=null;PlayRuntime.fire(server,raw(id),preview,player.getUuid());return "Event delivered once. Manual and automatic runs share completion history.";}
                 return command(source,"chronicle event trigger "+quote(raw(id)));
             }
@@ -392,13 +440,14 @@ public final class CoreMenuServer {
                 yield players.entrySet().stream().map(e->entry(e.getKey(),e.getValue(),server.getPlayerManager().getPlayer(UUID.fromString(e.getKey()))==null?"Offline saved participant":"Online","PLAYER","",0)).toList();
             }
             case EVENTS -> {
-                var result=new ArrayList<Entry>();ChronicleCore.observations().definitions().forEach(d->result.add(entry("cue:"+d.id(),d.label(),d.text(),"CUE",d.id(),0)));
+                var result=new ArrayList<Entry>();result.addAll(AreaWorldEvents.entries(server));ChronicleCore.observations().definitions().forEach(d->result.add(entry("cue:"+d.id(),d.label(),d.text(),"CUE",d.id(),0)));
                 ChronicleCore.events().events().forEach(e->result.add(entry("action:"+e.id(),eventLabel(e.id()),e.description(),"ACTION",e.id(),0)));
                 ChronicleRuntime.service(server).state().flags().forEach((id,value)->result.add(entry("flag:"+id,id,"Game condition: "+value,"FLAG",id,0)));yield result;
             }
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
             case PLAYER_ROLES -> !PlayerRoles.ready(server)?List.of():PlayerRoles.definitions(server).values().stream().map(r->entry(r.id(),r.name(),r.description(),"PLAYER_ROLE",r.id(),0)).toList();
-            case AREA_CHANGES,DEPARTURES -> List.of();
+            case AREA_CHANGES -> CoreAreaMenu.entries(server);
+            case DEPARTURES -> CoreDepartureMenu.entries(server);
             case BOOKS_LORE -> BookRuntime.books(server).values().stream().map(b->entry(b.id(),b.title(),b.description(),"BOOK",b.id(),0)).toList();
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
             case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
@@ -434,7 +483,8 @@ public final class CoreMenuServer {
                     controls.add(control(Action.ROLE_DELETE,"Delete role",canEdit&&PlayerRoles.assigned(server,r.id())==0,canEdit?"Reassign its accounts before deleting this role.":editReason,true,""));
                 }
             }
-            case AREA_CHANGES,DEPARTURES -> {description="This integration slice is still being implemented.";}
+            case AREA_CHANGES -> {return CoreAreaMenu.detail(player,id);}
+            case DEPARTURES -> {return CoreDepartureMenu.detail(player,id,c.departureDraft,c.departureCreating);}
             case SESSION -> {
                 title=id.equals("activity")?"Activity":"Play controls";
                 description="Start, pause or finish a play window. The world and story carry on between meetings.";
@@ -498,6 +548,7 @@ public final class CoreMenuServer {
             }
             case EVENTS -> {
                 if(id.isBlank())break;
+                if(id.startsWith("world:"))return AreaWorldEvents.detail(player,id,c.reviewId.equals(id));
                 if(id.startsWith("flag:")) {
                     title=raw(id);description="A game condition used by event triggers. Changing it can make an event ready to run.";
                     facts.add(new Fact("Value",Boolean.toString(ChronicleRuntime.service(server).state().flag(raw(id)))));
@@ -683,7 +734,7 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
         var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries());
-        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),PlayerRoles.revision(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
+        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),PlayerRoles.revision(server),optional(()->WorldAreaOperations.revision(server)),optional(()->Departures.state(server)),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
     private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
@@ -784,15 +835,16 @@ public final class CoreMenuServer {
         if(!(hit instanceof BlockHitResult block)||hit.getType()!=HitResult.Type.BLOCK)return false;
         return ManagedBlocks.isManagedBlock(Registries.BLOCK.getId(world.getBlockState(block.getBlockPos()).getBlock()).toString());
     }
-    private static String nonRegionReferences(MinecraftServer server,String id){var refs=new ArrayList<String>();SpawnAuthoring.service(server).state().bindings().values().stream().filter(binding->binding.locationId().equals(id)).forEach(binding->refs.add("Player destination: "+binding.purpose()));var play=PlayRuntime.available(server);if(play!=null)play.bindings().values().stream().filter(binding->binding.regionId().equals(id)).forEach(binding->refs.add("Event: "+binding.id()));return refs.isEmpty()?"None":summary(refs,4096);}
+    private static String nonRegionReferences(MinecraftServer server,String id){var refs=new ArrayList<String>();refs.addAll(newReferences(server,id));SpawnAuthoring.service(server).state().bindings().values().stream().filter(binding->binding.locationId().equals(id)).forEach(binding->refs.add("Player destination: "+binding.purpose()));var play=PlayRuntime.available(server);if(play!=null)play.bindings().values().stream().filter(binding->binding.regionId().equals(id)).forEach(binding->refs.add("Event: "+binding.id()));return refs.isEmpty()?"None":summary(refs,4096);}
     private static String summary(List<String> values,int max){StringBuilder result=new StringBuilder();for(int index=0;index<values.size();index++){String next=result.isEmpty()?values.get(index):"; "+values.get(index);if(result.length()+next.length()>max){String suffix="; and "+(values.size()-index)+" more";return shortText(result.toString(),Math.max(0,max-suffix.length()))+suffix;}result.append(next);}return result.toString();}
     private static String targetKey(ServerPlayerEntity player) {
         try{var pos=ChestAuthoring.target(player.getCommandSource());return pos.toShortString()+":"+player.getEntityWorld().getBlockState(pos);}
         catch(IllegalArgumentException|IllegalStateException exception){return "";}
     }
     private static Map<String,AuthoringSite> sites(MinecraftServer server){return AuthoringRuntime.get(server).service().state().sites();}
+    private static List<String> newReferences(MinecraftServer server,String id){List<String> refs=new ArrayList<>();AreaChanges.catalog(server).areas().values().stream().filter(a->a.bounds().regionId().equals(id)).forEach(a->refs.add("Area change: "+a.name()+(AreaChanges.stale(server,a)?" (stale)":"")));Departures.state(server).definitions().values().stream().filter(d->d.boardingRegion().filter(r->r.id().equals(id)).isPresent()||d.exactBlockAnchor().filter(r->r.id().equals(id)).isPresent()).forEach(d->refs.add("Departure: "+d.name()));PlayerRoles.definitions(server).values().stream().filter(r->r.starting()!=null&&r.starting().locationId().equals(id)||r.respawn()!=null&&r.respawn().locationId().equals(id)).forEach(r->refs.add("Player role: "+r.name()));return refs;}
     private static String references(MinecraftServer server,String id) {
-        var refs=new ArrayList<String>();MapSiteAssignments.bindings(server).values().stream().filter(b->b.siteId().equals(id)).forEach(b->refs.add("Setup: "+b.requirementId()));
+        var refs=new ArrayList<String>();refs.addAll(newReferences(server,id));MapSiteAssignments.bindings(server).values().stream().filter(b->b.siteId().equals(id)).forEach(b->refs.add("Setup: "+b.requirementId()));
         SpawnAuthoring.service(server).state().bindings().values().stream().filter(b->b.locationId().equals(id)).forEach(b->refs.add("Player destination: "+b.purpose()));
         var play=PlayRuntime.available(server);if(play!=null)play.bindings().values().stream().filter(b->b.regionId().equals(id)).forEach(b->refs.add("Event: "+b.id()));
         return shortText(refs.isEmpty()?"No current references":String.join("; ",refs),2048);
@@ -821,11 +873,11 @@ public final class CoreMenuServer {
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
     private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries) { }
-    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
+    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object areas,Object departures,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private static final class Context {
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
         PlayRuntime.Preview observation;LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;
         String giveBook="",giveTarget="";long giveAt;
-        boolean visible,roleCreating;io.github.chronicle.core.roles.PlayerRole roleDraft,expectedRole;String pendingRole="",roleTarget="";Frame roleReview;long roleReviewAt;
+        boolean visible,roleCreating,departureCreating;io.github.chronicle.core.departures.DepartureDefinition departureDraft;io.github.chronicle.core.roles.PlayerRole roleDraft,expectedRole;String pendingRole="",roleTarget="";Frame roleReview;long roleReviewAt;
     }
 }

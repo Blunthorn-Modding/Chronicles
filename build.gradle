@@ -47,6 +47,13 @@ configure([project(':core'), project(':campaigns:quiet-below')]) {
         options.encoding = 'UTF-8'
     }
 
+    // Keep JUnit's real-path/atomic-file fixtures inside the writable workspace.
+    tasks.withType(Test).configureEach {
+        def testTemp = layout.buildDirectory.dir("tmp/${name}/junit").get().asFile
+        systemProperty 'java.io.tmpdir', testTemp.absolutePath
+        doFirst { testTemp.mkdirs() }
+    }
+
     tasks.withType(ProcessResources).configureEach {
         inputs.property 'version', project.version
         filesMatching('fabric.mod.json') {

@@ -38,14 +38,17 @@ public final class ChronicleCommands {
                         .then(argument("number", IntegerArgumentType.integer(0, 1_000_000))
                                 .executes(context -> start(context.getSource(), IntegerArgumentType.getInteger(context, "number")))))
                 .then(literal("pause").requires(ChronicleCommands::isGm).executes(context -> mutate(context.getSource(), (service, actor) -> {
+                    Departures.requireNoPending(context.getSource().getServer());
                     service.pause(actor);
                     return "Paused Chronicle session " + service.state().sessionNumber() + ".";
                 })))
                 .then(literal("resume").requires(ChronicleCommands::isGm).executes(context -> mutate(context.getSource(), (service, actor) -> {
+                    Departures.requireCampaignOpen(context.getSource().getServer());
                     service.resume(actor);
                     return "Resumed Chronicle session " + service.state().sessionNumber() + ".";
                 })))
                 .then(literal("end").requires(ChronicleCommands::isGm).executes(context -> mutate(context.getSource(), (service, actor) -> {
+                    Departures.requireNoPending(context.getSource().getServer());
                     service.end(actor);
                     return "Ended Chronicle session " + service.state().sessionNumber() + ".";
                 })));
@@ -125,6 +128,7 @@ public final class ChronicleCommands {
 
     private static int start(ServerCommandSource source, Integer number) {
         return mutate(source, (service, actor) -> {
+            Departures.requireCampaignOpen(source.getServer());
             service.start(actor, number);
             return "Started Chronicle session " + service.state().sessionNumber() + ".";
         });

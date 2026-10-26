@@ -21,6 +21,9 @@ abstract class PausedInteractionsMixin {
 
     @Inject(method="onPlayerInteractBlock", at=@At(value="INVOKE", target=ACK, shift=At.Shift.AFTER), cancellable=true, require=1, allow=1)
     private void chronicle$block(PlayerInteractBlockC2SPacket packet, CallbackInfo ci) {
+        if(io.github.chronicle.core.server.AreaChanges.selectPacket(player,packet.getHand(),packet.getBlockHitResult().getBlockPos(),2)){
+            SessionGameplay.correctBlock(player,packet.getBlockHitResult().getBlockPos());SessionGameplay.correctInventory(player);ci.cancel();return;
+        }
         if (!SessionGameplay.canUseBlock(player, player.getStackInHand(packet.getHand()), packet.getBlockHitResult().getBlockPos())) {
             SessionGameplay.correctBlock(player, packet.getBlockHitResult().getBlockPos());
             SessionGameplay.correctBlock(player, packet.getBlockHitResult().getBlockPos().offset(packet.getBlockHitResult().getSide()));
@@ -31,6 +34,7 @@ abstract class PausedInteractionsMixin {
 
     @Inject(method="onPlayerInteractItem", at=@At(value="INVOKE", target=ACK, shift=At.Shift.AFTER), cancellable=true, require=1, allow=1)
     private void chronicle$item(PlayerInteractItemC2SPacket packet, CallbackInfo ci) {
+        if(io.github.chronicle.core.server.AreaChanges.isDebugTool(player.getStackInHand(packet.getHand()))){SessionGameplay.correctInventory(player);ci.cancel();return;}
         if (!SessionGameplay.canUseItem(player, player.getStackInHand(packet.getHand()))) {
             player.clearActiveItem();
             SessionGameplay.correctInventory(player);
@@ -40,6 +44,9 @@ abstract class PausedInteractionsMixin {
 
     @Inject(method="onPlayerAction", at=@At(value="INVOKE", target=MAIN_THREAD, shift=At.Shift.AFTER), cancellable=true, require=1, allow=1)
     private void chronicle$action(PlayerActionC2SPacket packet, CallbackInfo ci) {
+        if(packet.getAction()==PlayerActionC2SPacket.Action.START_DESTROY_BLOCK&&io.github.chronicle.core.server.AreaChanges.selectPacket(player,net.minecraft.util.Hand.MAIN_HAND,packet.getPos(),1)){
+            updateSequence(packet.getSequence());SessionGameplay.correctBlock(player,packet.getPos());SessionGameplay.correctInventory(player);ci.cancel();return;
+        }
         if (!SessionGameplay.canBuild(player) && packet.getAction() != PlayerActionC2SPacket.Action.ABORT_DESTROY_BLOCK) {
             if (packet.getAction() == PlayerActionC2SPacket.Action.START_DESTROY_BLOCK
                     || packet.getAction() == PlayerActionC2SPacket.Action.STOP_DESTROY_BLOCK) {

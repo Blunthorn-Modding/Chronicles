@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
+import io
 from pathlib import Path
 import re
 from urllib.parse import urlsplit, unquote
@@ -58,6 +60,9 @@ def notices(mods):
     for mod in mods:
         lines += [f"{mod['slug']} {mod['version']} - {mod['license']}",
                   mod['project_url'], 'License: ' + mod['license_url'], '']
+    library = bundled_library_lock()
+    lines += ['Core bundled library: ' + library['coordinate'] + ' - ' + library['license'],
+              library['upstreamUrl'], 'Full license inside chronicle_core.jar: ' + library['licensePath'], '']
     return '\n'.join(lines)
 
 
@@ -73,14 +78,65 @@ def cached_jars(mods):
     return result
 
 
+# Updating the approved library requires a reviewed code change as well as a lock edit.
+BUNDLED_LIBRARY_PIN = "d991e1e83c5c43313fa23e13875de6f6c8df884ec534edb172c681f93e7db073"
+
+
+def bundled_library_lock(path=None):
+    """Code-sealed repository pin for the sole Apache-2.0 Core library."""
+    lock = json.loads(Path(path or w.REPO / 'config/bundled-library.lock.json').read_text(encoding='utf-8'))
+    fingerprint = hashlib.sha256(json.dumps(lock, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    if fingerprint != BUNDLED_LIBRARY_PIN:
+        raise ValueError('Unapproved bundled library pin; review identity, upstream hashes and full license before changing it')
+    return lock
+
+
+def _library_payload(archive):
+    files = [entry for entry in archive.infolist() if not entry.is_dir()]
+    if len({entry.filename for entry in files}) != len(files) or sum(entry.file_size for entry in files) > 8 * 1024 * 1024:
+        raise RuntimeError('Duplicate or oversized bundled library payload')
+    manifest = {entry.filename: hashlib.sha256(archive.read(entry)).hexdigest()
+                for entry in files if entry.filename != 'fabric.mod.json'}
+    return hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+
+def _verify_bundled_library(archive, metadata, name):
+    lock = bundled_library_lock()
+    if metadata['id'] != 'chronicle_core' or name != lock['nestedPath'] or metadata.get('jars') != [{'file': name}]:
+        raise RuntimeError('Unapproved nested library or declaration')
+    if hashlib.sha256(archive.read(lock['licensePath'])).hexdigest() != lock['licenseSha256']:
+        raise RuntimeError('Bundled library full license is missing or changed')
+    data = archive.read(name)
+    if len(data) > 2 * 1024 * 1024:
+        raise RuntimeError('Oversized nested library')
+    with zipfile.ZipFile(io.BytesIO(data)) as library:
+        if _library_payload(library) != lock['payloadSha256']:
+            raise RuntimeError('Bundled library differs from the pinned upstream payload')
+        generated = json.loads(library.read('fabric.mod.json'))
+        if generated != {'schemaVersion': 1, 'id': lock['modId'], 'version': lock['version'],
+                         'name': 'snakeyaml-engine', 'custom': {'fabric-loom:generated': True}}:
+            raise RuntimeError('Unexpected Fabric library metadata')
+
+
 def verify_owned_jar(jar):
-    if w.validate_mod_target(jar)['id'] not in {'chronicle_core', 'quiet_below'}:
+    metadata = w.validate_mod_target(jar)
+    if metadata['id'] not in {'chronicle_core', 'quiet_below'}:
         raise RuntimeError('Only Chronicle-owned artifacts may be embedded')
     with zipfile.ZipFile(jar) as archive:
+        if len(set(archive.namelist())) != len(archive.namelist()):
+            raise RuntimeError('Duplicate artifact entries')
+        nested = []
         for name in archive.namelist():
-            if name.endswith('.jar') or name.startswith(('de/keksuccino/', 'assets/fancymenu/',
-                    'assets/spiffyhud/', 'assets/konkrete/', 'assets/melody/')):
-                raise RuntimeError('Nested/vendor files in Chronicle artifact; review licensing before distribution')
+            if name.startswith(('de/keksuccino/', 'assets/fancymenu/', 'assets/spiffyhud/', 'assets/konkrete/', 'assets/melody/')):
+                raise RuntimeError('Vendor files in Chronicle artifact; review licensing before distribution')
+            if name.endswith('.jar'):
+                try:
+                    _verify_bundled_library(archive, metadata, name)
+                except (KeyError, ValueError, zipfile.BadZipFile) as failure:
+                    raise RuntimeError('Invalid or unlicensed nested library') from failure
+                nested.append(name)
+        if {entry.get('file') for entry in metadata.get('jars', [])} != set(nested):
+            raise RuntimeError('Nested artifact declarations do not match files')
 
 
 def pack():

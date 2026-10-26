@@ -28,7 +28,8 @@ public final class AuthoringRuntime {
     private final AuthoringService service;
     private final Map<UUID, Selection> authors = new HashMap<>();
     private final Map<UUID, RegionDraft> regionDrafts = new HashMap<>();
-    private final Map<UUID, String> previews = new HashMap<>();
+    private final Map<UUID, Preview> previews = new HashMap<>();
+    private final Map<UUID, Long> presentationEpochs = new HashMap<>();
 
     private AuthoringRuntime(AuthoringService service) { this.service = service; }
 
@@ -60,6 +61,7 @@ public final class AuthoringRuntime {
             runtime.authors.remove(player.getUuid());
             runtime.regionDrafts.remove(player.getUuid());
             runtime.previews.remove(player.getUuid());
+            runtime.presentationEpochs.remove(player.getUuid());
         }
     }
 
@@ -79,17 +81,34 @@ public final class AuthoringRuntime {
     public void disable(UUID player) {
         authors.remove(player);
         regionDrafts.remove(player);
+        bump(player);
     }
     public Selection selection(UUID player) {
         var selection = authors.get(player);
         if (selection == null) throw new IllegalStateException("Enable author mode first: /chronicle author mode on");
         return selection;
     }
-    public void selection(UUID player, Selection selection) { selection(player); authors.put(player, selection); }
+    public void selection(UUID player, Selection selection) { selection(player); authors.put(player, selection); bump(player); }
+
+    /** Captures private selection/preview identity so a typed draft can restore it only if still current. */
+    public Presentation presentation(UUID player) {
+        Selection selection=selection(player);Preview preview=previews.get(player);
+        return new Presentation(selection,preview==null?null:preview.site(),presentationEpochs.getOrDefault(player,0L));
+    }
+
+    public long presentationEpoch(UUID player){return presentationEpochs.getOrDefault(player,0L);}
+
+    public boolean restorePresentation(ServerPlayerEntity player,long expectedEpoch,Presentation previous){
+        if(presentationEpoch(player.getUuid())!=expectedEpoch)return false;
+        authors.put(player.getUuid(),previous.selection());bump(player.getUuid());
+        if(previous.preview()==null)clearPreview(player);else preview(player,previous.preview());
+        return true;
+    }
 
     /** Begins a new, unsaved draft. The draft remains while the author menu is closed. */
     public RegionDraft beginRegionDraft(ServerPlayerEntity player, String id) {
         requireEditableAuthor(player);
+        requireNoAreaDraft(player);
         if (service.state().sites().containsKey(id)) {
             throw new IllegalStateException("Region already exists: " + id + "; use region edit " + id + ".");
         }
@@ -113,6 +132,7 @@ public final class AuthoringRuntime {
      */
     public RegionDraft resumeRegionDraft(ServerPlayerEntity player, String id) {
         requireEditableAuthor(player);
+        requireNoAreaDraft(player);
         RegionDraft current = regionDrafts.get(player.getUuid());
         if (current != null && current.id().equals(id)) {
             previewRegionDraft(player);
@@ -135,6 +155,7 @@ public final class AuthoringRuntime {
     /** Reopens the current draft after a menu close without changing either selected corner. */
     public RegionDraft resumeRegionDraft(ServerPlayerEntity player) {
         requireEditableAuthor(player);
+        requireNoAreaDraft(player);
         RegionDraft draft = regionDrafts.get(player.getUuid());
         if (draft == null) throw new IllegalStateException("No region draft is open; use region edit <id> or region create <id>.");
         previewRegionDraft(player);
@@ -146,6 +167,7 @@ public final class AuthoringRuntime {
     /** Replaces one selected corner only and refreshes the private draft outline. */
     public RegionDraft setRegionDraftCorner(ServerPlayerEntity player, int corner, BlockPosition position) {
         requireEditableAuthor(player);
+        requireNoAreaDraft(player);
         RegionDraft draft = regionDrafts.get(player.getUuid());
         if (draft == null) throw new IllegalStateException("Start a region with region create <id> or region edit <id> first.");
         if (!draft.dimension().equals(dimension(player))) {
@@ -180,6 +202,7 @@ public final class AuthoringRuntime {
     /** Saves a new draft or exact-revision replacement, and keeps the saved outline open. */
     public AuthoringSite.Region saveRegionDraft(ServerPlayerEntity player) throws IOException {
         requireEditableAuthor(player);
+        requireNoAreaDraft(player);
         RegionDraft draft = regionDrafts.get(player.getUuid());
         if (draft == null) throw new IllegalStateException("No region draft is open.");
         if (!draft.dimension().equals(dimension(player))) throw new IllegalStateException("Region draft is in another dimension.");
@@ -226,12 +249,13 @@ public final class AuthoringRuntime {
             payload = new AuthoringPreviewPayload(site.dimension(), true, pos.x(), pos.y(), pos.z(), pos.x() + 1.0, pos.y() + 1.0, pos.z() + 1.0, false, 0, 0);
         }
         ServerPlayNetworking.send(player, payload);
-        previews.put(player.getUuid(), site.dimension());
+        previews.put(player.getUuid(), new Preview(site));
+        bump(player.getUuid());
     }
 
     public static void clearPreview(ServerPlayerEntity player) {
         var runtime = WORLDS.get(player.getEntityWorld().getServer());
-        if (runtime != null) runtime.previews.remove(player.getUuid());
+        if (runtime != null) {runtime.previews.remove(player.getUuid());runtime.bump(player.getUuid());}
         if (ServerPlayNetworking.canSend(player, AuthoringPreviewPayload.ID)) {
             ServerPlayNetworking.send(player, AuthoringPreviewPayload.clear(player.getEntityWorld().getRegistryKey().getValue().toString()));
         }
@@ -252,11 +276,13 @@ public final class AuthoringRuntime {
             var player = server.getPlayerManager().getPlayer(entry.getKey());
             if (player == null) runtime.previews.remove(entry.getKey());
             else if (!player.getCommandSource().hasPermissionLevel(2)
-                    || !entry.getValue().equals(player.getEntityWorld().getRegistryKey().getValue().toString())) clearPreview(player);
+                    || !entry.getValue().site().dimension().equals(player.getEntityWorld().getRegistryKey().getValue().toString())) clearPreview(player);
         }
     }
 
     public record Selection(String dimension, BlockPosition first, BlockPosition second) { }
+    public record Presentation(Selection selection,AuthoringSite preview,long epoch){ }
+    private record Preview(AuthoringSite site){ }
 
     private static String dimension(ServerPlayerEntity player) {
         return player.getEntityWorld().getRegistryKey().getValue().toString();
@@ -268,6 +294,12 @@ public final class AuthoringRuntime {
         }
         selection(player.getUuid());
     }
+
+    private void requireNoAreaDraft(ServerPlayerEntity player){
+        if(AreaChanges.hasDraft(player.getEntityWorld().getServer(),player.getUuid()))throw new IllegalStateException("An Area change draft is active. Save it with /chronicle area change save or cancel it first.");
+    }
+
+    private void bump(UUID player){presentationEpochs.put(player,presentationEpochs.getOrDefault(player,0L)+1);}
 
     private static void checkBounds(ServerWorld world, BlockPosition position) {
         var block = new net.minecraft.util.math.BlockPos(position.x(), position.y(), position.z());

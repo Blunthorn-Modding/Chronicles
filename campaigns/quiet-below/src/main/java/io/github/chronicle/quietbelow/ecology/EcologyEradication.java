@@ -199,6 +199,10 @@ public final class EcologyEradication {
     public int completed() { return completedCount; }
     public int conflicts() { return conflictCount; }
     public int pendingChunks() { return pendingPlanCount; }
+    /** Metadata-only overlap check; it never reads or loads a chunk. */
+    public boolean pendingAt(EcologyTerrain.Pos position){TargetRef ref=targetsByPosition.get(position);return ref!=null&&!observedDone.get(ref.plan().globalOffset()+ref.local());}
+    /** Reconstructs known completion from an already-loaded chunk receipt without advancing cleanup. */
+    public boolean pendingAt(ServerWorld world,BlockPos position){TargetRef ref=targetsByPosition.get(QuietBelowEcology.pos(position));if(ref==null)return false;WorldChunk chunk=EcologyLoadedBlocks.chunk(world,position);if(chunk==null)return true;Marker saved=attached(chunk);if(saved==null)return true;validate(saved,ref.plan());observe(ref.plan(),saved);return !saved.done(ref.local());}
     /** The root stays protected until its durable chunk receipt observes completion. */
     public boolean rootComplete() { return observedDone.get(0); }
     public String failure() { return failure; }

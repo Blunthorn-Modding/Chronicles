@@ -32,6 +32,60 @@ public final class ChestContentService {
 
     public synchronized ChestContentState state() { return current; }
 
+    /**
+     * Reserves exact target-before content before terrain mutation. Managed-book entries must be
+     * the tokens actually observed by native snapshot inspection, never inferred from a rule.
+     */
+    public synchronized AreaContentRemoval prepareAreaRemoval(UUID operationId,long expectedContentRevision,
+                                                               Set<String> affectedBindingIds,Set<String> retiredBindingIds,
+                                                               Set<ManagedBookRemoval> managedBooks,String preparedAt)throws IOException{
+        if(operationId==null)throw new IllegalArgumentException("area-content operation ID is required");
+        if(affectedBindingIds==null||retiredBindingIds==null||managedBooks==null)throw new IllegalArgumentException("area-content removal sets are required");
+        Set<String> affected=Set.copyOf(affectedBindingIds),retired=Set.copyOf(retiredBindingIds);Set<ManagedBookRemoval> books=Set.copyOf(managedBooks);
+        AreaContentRemoval existing=current.areaRemovals().get(operationId);
+        if(existing!=null){if(!existing.matchesPrepare(expectedContentRevision,affected,retired,books,preparedAt))throw new IllegalStateException("area-content operation UUID was reused for different intent");return existing;}
+        if(current.revision()!=expectedContentRevision)throw new IllegalStateException("chest-content revision changed before area removal preparation");
+        if(!current.pending().isEmpty())throw new IllegalStateException("resolve pending chest operations before preparing area-content removal");
+        requireNoPreparedAreaRemoval();
+        if(current.areaRemovals().size()>=ChestContentState.MAX_AREA_REMOVALS)throw new IllegalStateException("area-content removal journal is full");
+        String id=operationId.toString();
+        if(current.receipts().stream().anyMatch(receipt->receipt.operationId().equals(id)))throw new IllegalStateException("area-content operation UUID is already used by a chest receipt");
+        LinkedHashMap<String,Long> affectedRevisions=new LinkedHashMap<>();
+        affected.stream().sorted().forEach(bindingId->{ChestBinding binding=current.bindings().get(bindingId);if(binding==null)throw new IllegalArgumentException("unknown affected chest binding: "+bindingId);affectedRevisions.put(bindingId,binding.revision());});
+        AreaContentRemoval removal=AreaContentRemoval.prepared(operationId,expectedContentRevision,affectedRevisions,retired,books,preparedAt);
+        Map<String,ManagedBookRemoval> evidence=new LinkedHashMap<>();for(ManagedBookRemoval book:removal.managedBooks())evidence.put(book.bookId(),book);
+        for(BookKeepRequest request:current.bookDelivery().keepRequests().values()){
+            BookCopyLocation location=request.location();
+            if(location!=null&&location.state()==BookCopyLocation.State.PRESENT&&affected.contains(location.bindingId())&&!evidence.containsKey(request.bookId()))throw new IllegalStateException("affected binding contains a recorded managed book that was not observed: "+request.bookId());
+        }
+        var deliveries=new LinkedHashMap<>(current.bookDelivery().deliveries());
+        for(ManagedBookRemoval book:removal.managedBooks()){
+            BookDelivery delivery=deliveries.get(book.bookId());
+            if(delivery==null||!delivery.deliveryToken().equals(book.deliveryToken())||!delivery.issued())throw new IllegalStateException("managed-book removal evidence is unknown or unissued for this campaign: "+book.bookId());
+            if(!delivery.pendingOperationIds().isEmpty())throw new IllegalStateException("managed book already has a pending operation: "+book.bookId());
+            HashSet<String> pending=new HashSet<>(delivery.pendingOperationIds());pending.add(id);
+            deliveries.put(book.bookId(),new BookDelivery(book.bookId(),delivery.deliveryToken(),delivery.issued(),pending,delivery.firstDiscovery()));
+        }
+        BookDeliveryState deliveryState=new BookDeliveryState(current.bookDelivery().campaignId(),deliveries,current.bookDelivery().keepRequests());
+        var removals=new LinkedHashMap<>(current.areaRemovals());removals.put(operationId,removal);long revision=nextRevision();
+        commit(new ChestContentState(revision,current.templates(),current.bindings(),current.receipts(),current.pending(),current.schedule(),deliveryState,removals));return removal;
+    }
+
+    /** Finalizes only after the caller has durably saved the exact world result. There is no abort path. */
+    public synchronized AreaContentRemoval commitAreaRemoval(UUID operationId,String durableWorldReceipt,String committedAt)throws IOException{
+        AreaContentRemoval removal=requireAreaRemoval(operationId);
+        if(removal.stage()==AreaContentRemoval.Stage.COMMITTED){if(!removal.durableWorldReceipt().orElseThrow().equals(durableWorldReceipt)||!removal.committedAt().orElseThrow().equals(committedAt))throw new IllegalStateException("area-content completion retry used different evidence");return removal;}
+        AreaContentRemoval completed=removal.committed(durableWorldReceipt,committedAt);String id=operationId.toString();
+        var bindings=new LinkedHashMap<>(current.bindings());for(String bindingId:removal.retiredBindingIds()){ChestBinding binding=bindings.get(bindingId);Long expected=removal.affectedBindingRevisions().get(bindingId);if(binding==null||binding.revision()!=expected)throw new IllegalStateException("retired binding changed before area-content completion: "+bindingId);bindings.remove(bindingId);}
+        for(var entry:removal.affectedBindingRevisions().entrySet())if(!removal.retiredBindingIds().contains(entry.getKey())){ChestBinding binding=bindings.get(entry.getKey());if(binding==null||binding.revision()!=entry.getValue())throw new IllegalStateException("surviving affected binding changed before area-content completion: "+entry.getKey());}
+        var deliveries=new LinkedHashMap<>(current.bookDelivery().deliveries());for(ManagedBookRemoval book:removal.managedBooks()){BookDelivery delivery=deliveries.get(book.bookId());if(delivery==null||!delivery.deliveryToken().equals(book.deliveryToken())||!delivery.pendingOperationIds().contains(id))throw new IllegalStateException("managed-book area-removal claim is missing: "+book.bookId());HashSet<String> pending=new HashSet<>(delivery.pendingOperationIds());pending.remove(id);deliveries.put(book.bookId(),new BookDelivery(book.bookId(),delivery.deliveryToken(),delivery.issued(),pending,delivery.firstDiscovery()));}
+        Set<String> removedBooks=removal.managedBookIds();var requests=new LinkedHashMap<>(current.bookDelivery().keepRequests());for(BookKeepRequest request:current.bookDelivery().keepRequests().values()){BookCopyLocation location=request.location();if(location!=null&&removal.affectedBindingRevisions().containsKey(location.bindingId())&&removedBooks.contains(request.bookId())){BookCopyLocation absent=new BookCopyLocation(location.bindingId(),location.bindingRevision(),location.target(),BookCopyLocation.State.ABSENT);requests.put(request.bookId(),copyRequest(request,request.ruleFingerprint(),request.approvedRule(),request.overrideRule(),request.ownIssuance(),request.status(),absent,request.lastSessionNumber(),request.lastCycle(),committedAt));}}
+        BookDeliveryState deliveryState=new BookDeliveryState(current.bookDelivery().campaignId(),deliveries,requests);var removals=new LinkedHashMap<>(current.areaRemovals());removals.put(operationId,completed);long revision=nextRevision();
+        commit(new ChestContentState(revision,current.templates(),bindings,current.receipts(),current.pending(),current.schedule(),deliveryState,removals));return completed;
+    }
+
+    public synchronized AreaContentRemoval requireAreaRemoval(UUID operationId){if(operationId==null)throw new IllegalArgumentException("area-content operation ID is required");AreaContentRemoval removal=current.areaRemovals().get(operationId);if(removal==null)throw new IllegalArgumentException("unknown area-content operation: "+operationId);return removal;}
+
     public synchronized ChestTemplate putTemplate(String id, InventorySnapshot contents, boolean replace) throws IOException {
         requireNoPendingEdits();
         boolean exists = current.templates().containsKey(id);
@@ -40,7 +94,7 @@ public final class ChestContentService {
         ChestTemplate template = new ChestTemplate(id, revision, contents);
         var templates = new LinkedHashMap<>(current.templates());
         templates.put(id, template);
-        commit(new ChestContentState(revision, templates, current.bindings(), current.receipts(), current.pending(), current.schedule(), current.bookDelivery()));
+        commit(new ChestContentState(revision, templates, current.bindings(), current.receipts(), current.pending(), current.schedule(), current.bookDelivery(), current.areaRemovals()));
         return template;
     }
 
@@ -57,7 +111,7 @@ public final class ChestContentService {
         ChestBinding binding = new ChestBinding(id, revision, templateId, templateRevision, anchorId, anchorRevision, policy);
         var bindings = new LinkedHashMap<>(current.bindings());
         bindings.put(id, binding);
-        commit(new ChestContentState(revision, current.templates(), bindings, current.receipts(), current.pending(), current.schedule(), current.bookDelivery()));
+        commit(new ChestContentState(revision, current.templates(), bindings, current.receipts(), current.pending(), current.schedule(), current.bookDelivery(), current.areaRemovals()));
         return binding;
     }
 
@@ -83,7 +137,7 @@ public final class ChestContentService {
         var bindings = new LinkedHashMap<>(current.bindings());
         bindings.put(id, binding);
         var receipts = translatedReceiptForRetype(existing, binding);
-        commit(new ChestContentState(revision, current.templates(), bindings, receipts, current.pending(), current.schedule(), current.bookDelivery()));
+        commit(new ChestContentState(revision, current.templates(), bindings, receipts, current.pending(), current.schedule(), current.bookDelivery(), current.areaRemovals()));
         return binding;
     }
 
@@ -98,11 +152,12 @@ public final class ChestContentService {
         ChestBinding replacement = ChestBinding.typed(existing.id(), revision, existing.lootType(), existing.directTarget(), directBook);
         var bindings = new LinkedHashMap<>(current.bindings());
         bindings.put(bindingId, replacement);
-        commit(new ChestContentState(revision, current.templates(), bindings, current.receipts(), current.pending(), current.schedule(), current.bookDelivery()));
+        commit(new ChestContentState(revision, current.templates(), bindings, current.receipts(), current.pending(), current.schedule(), current.bookDelivery(), current.areaRemovals()));
         return replacement;
     }
 
     public synchronized void removeTypedBinding(String id) throws IOException {
+        requireNoPreparedAreaRemoval();
         ChestBinding binding = current.bindings().get(id);
         if (binding == null) throw new IllegalArgumentException("Unknown chest binding: " + id);
         if (!binding.typed()) throw new IllegalArgumentException("Chest binding is not typed: " + id);
@@ -112,7 +167,7 @@ public final class ChestContentService {
         var bindings = new LinkedHashMap<>(current.bindings());
         bindings.remove(id);
         long revision = nextRevision();
-        commit(new ChestContentState(revision, current.templates(), bindings, current.receipts(), current.pending(), current.schedule(), current.bookDelivery()));
+        commit(new ChestContentState(revision, current.templates(), bindings, current.receipts(), current.pending(), current.schedule(), current.bookDelivery(), current.areaRemovals()));
     }
 
     public synchronized PendingChestOperation begin(PendingChestOperation proposed, boolean targetWasEmpty) throws IOException {
@@ -133,6 +188,7 @@ public final class ChestContentService {
 
     private PendingChestOperation beginOperation(PendingChestOperation proposed, boolean targetMutationAuthorized,
                                                  Map<String, BookDefinition.Rule> currentRules, boolean lore) throws IOException {
+        requireNoPreparedAreaRemoval();
         if (proposed == null) throw new IllegalArgumentException("pending chest operation is required");
         ChestBinding binding = requireCurrentBinding(proposed.bindingId(), proposed.bindingRevision());
         if (!targetMutationAuthorized) throw new IllegalStateException(binding.typed()
@@ -179,7 +235,7 @@ public final class ChestContentService {
         long revision = nextRevision();
         var pending = new LinkedHashMap<>(current.pending());
         pending.put(proposed.operationId(), proposed);
-        commit(new ChestContentState(revision, current.templates(), current.bindings(), current.receipts(), pending, current.schedule(), deliveryState));
+        commit(new ChestContentState(revision, current.templates(), current.bindings(), current.receipts(), pending, current.schedule(), deliveryState, current.areaRemovals()));
         return proposed;
     }
 
@@ -200,7 +256,7 @@ public final class ChestContentService {
         pending.remove(operationId);
         BookDeliveryState deliveryState = finalizeClaims(operation, completedAt);
         long revision = nextRevision();
-        commit(new ChestContentState(revision, current.templates(), current.bindings(), receipts, pending, current.schedule(), deliveryState));
+        commit(new ChestContentState(revision, current.templates(), current.bindings(), receipts, pending, current.schedule(), deliveryState, current.areaRemovals()));
         return receipt;
     }
 
@@ -211,7 +267,7 @@ public final class ChestContentService {
         pending.remove(operationId);
         BookDeliveryState deliveryState = releaseClaims(requirePending(operationId));
         long revision = nextRevision();
-        commit(new ChestContentState(revision, current.templates(), current.bindings(), current.receipts(), pending, current.schedule(), deliveryState));
+        commit(new ChestContentState(revision, current.templates(), current.bindings(), current.receipts(), pending, current.schedule(), deliveryState, current.areaRemovals()));
     }
 
     public synchronized boolean hasCompletedCycle(String bindingId, int sessionNumber, long cycle) {
@@ -227,7 +283,7 @@ public final class ChestContentService {
         if (schedule == null) throw new IllegalArgumentException("loot schedule is required");
         if (schedule.equals(current.schedule())) return;
         long revision = nextRevision();
-        commit(new ChestContentState(revision, current.templates(), current.bindings(), current.receipts(), current.pending(), schedule, current.bookDelivery()));
+        commit(new ChestContentState(revision, current.templates(), current.bindings(), current.receipts(), current.pending(), schedule, current.bookDelivery(), current.areaRemovals()));
     }
 
     /** Computes the campaign/book token without allocating ledger state. */
@@ -235,6 +291,7 @@ public final class ChestContentService {
 
     /** A deliberate GM issuance is claimed before inserting an inventory item; it is never auto-replayed. */
     public synchronized void claimOperatorIssuance(String bookId) throws IOException {
+        requireNoPreparedAreaRemoval();
         String token=deliveryToken(bookId);
         BookDelivery old=current.bookDelivery().deliveries().get(bookId);
         if(old!=null&&!old.pendingOperationIds().isEmpty())throw new IllegalStateException("Resolve pending book deliveries first.");
@@ -269,6 +326,7 @@ public final class ChestContentService {
     public synchronized BookKeepRequest startKeep(String bookId, String lootTableId, String ruleFingerprint,
                                                   BookDefinition.Rule rule, boolean overrideRule,
                                                   String requestedAt) throws IOException {
+        requireNoPreparedAreaRemoval();
         if (rule == null) throw new IllegalArgumentException("book rule is required");
         BookDelivery delivery = current.bookDelivery().deliveries().get(bookId);
         if (delivery != null && delivery.firstDiscovery() != null) throw new IllegalStateException("A found book cannot be kept again: " + bookId);
@@ -290,6 +348,7 @@ public final class ChestContentService {
     public synchronized BookKeepRequest reviewKeep(String bookId, String ruleFingerprint,
                                                    BookDefinition.Rule rule, boolean overrideRule,
                                                    String reviewedAt) throws IOException {
+        requireNoPreparedAreaRemoval();
         BookKeepRequest request = requireKeepRequest(bookId);
         if (request.status() != BookKeepRequest.Status.SUSPENDED_RULE
                 && request.status() != BookKeepRequest.Status.SUSPENDED_ONCE) {
@@ -307,6 +366,7 @@ public final class ChestContentService {
 
     public synchronized BookKeepRequest suspendKeep(String bookId, BookKeepRequest.Status reason,
                                                     String suspendedAt) throws IOException {
+        requireNoPreparedAreaRemoval();
         if (reason != BookKeepRequest.Status.SUSPENDED_RULE && reason != BookKeepRequest.Status.SUSPENDED_ONCE) {
             throw new IllegalArgumentException("keep suspension reason must be SUSPENDED_RULE or SUSPENDED_ONCE");
         }
@@ -319,6 +379,7 @@ public final class ChestContentService {
     }
 
     public synchronized BookKeepRequest stopKeep(String bookId, String stoppedAt) throws IOException {
+        requireNoPreparedAreaRemoval();
         BookKeepRequest request = requireKeepRequest(bookId);
         if (request.status() == BookKeepRequest.Status.COMPLETED_FOUND) throw new IllegalStateException("A found keep request is already complete: " + bookId);
         if (request.status() == BookKeepRequest.Status.CANCELLED) return request;
@@ -332,6 +393,7 @@ public final class ChestContentService {
     /** Publishes authoritative copy-location evidence without creating or completing an inventory intent. */
     public synchronized BookKeepRequest reconcileKeepLocation(String bookId, BookCopyLocation location,
                                                               String reconciledAt) throws IOException {
+        requireNoPreparedAreaRemoval();
         if (location == null) throw new IllegalArgumentException("authoritative copy location is required; use ABSENT to retain its pinned target");
         BookKeepRequest request = requireKeepRequest(bookId);
         BookKeepRequest reconciled = copyRequest(request, request.ruleFingerprint(), request.approvedRule(), request.overrideRule(),
@@ -343,6 +405,7 @@ public final class ChestContentService {
     /** Marks a safely reconciled no-move/adoption generation so restart cannot relocate it again. */
     public synchronized BookKeepRequest saveKeepCycle(String bookId, int sessionNumber, long cycle,
                                                       String reconciledAt) throws IOException {
+        requireNoPreparedAreaRemoval();
         if (sessionNumber < 0 || cycle < 0) throw new IllegalArgumentException("keep reconciliation session and cycle must be nonnegative");
         BookKeepRequest request = requireKeepRequest(bookId);
         if (sessionNumber < request.lastSessionNumber()
@@ -542,7 +605,7 @@ public final class ChestContentService {
         long revision = nextRevision();
         BookDeliveryState state = new BookDeliveryState(current.bookDelivery().campaignId(), deliveries, requests);
         commit(new ChestContentState(revision, current.templates(), current.bindings(), current.receipts(),
-                current.pending(), current.schedule(), state));
+                current.pending(), current.schedule(), state, current.areaRemovals()));
     }
 
     private static BookKeepRequest copyRequest(BookKeepRequest request, String fingerprint,
@@ -571,7 +634,10 @@ public final class ChestContentService {
 
     private void requireNoPendingEdits() {
         if (!current.pending().isEmpty()) throw new IllegalStateException("Resolve pending chest operations before editing templates or bindings.");
+        requireNoPreparedAreaRemoval();
     }
+
+    private void requireNoPreparedAreaRemoval(){if(current.areaRemovals().values().stream().anyMatch(removal->removal.stage()==AreaContentRemoval.Stage.PREPARED))throw new IllegalStateException("Resolve the pending area-content removal before changing chest or book state.");}
 
     private void requireTypedEligible(String bindingId, int sessionNumber, long cycle) {
         ChestReceipt last = current.receipts().stream()

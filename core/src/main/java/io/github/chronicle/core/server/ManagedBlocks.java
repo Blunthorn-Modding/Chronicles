@@ -94,7 +94,48 @@ public final class ManagedBlocks {
     public static void verifyAfterReplacement(ServerWorld world, BlockPos position, String typeId) {
         Runtime runtime = WORLDS.get(world.getServer()); if (runtime == null || runtime.service == null) return;
         String dimension = dimension(world); BlockPosition pure = pure(position);
+        if (runtime.areaReplacementLocked()) {
+            runtime.queueScan(world, new ChunkPos(position));
+            return;
+        }
         runtime.service.at(dimension, pure).filter(instance -> instance.typeId().equals(typeId)).ifPresent(instance -> runtime.verifications.addLast(instance.id()));
+    }
+
+    public static ManagedAreaReplacementPlan planAreaReplacement(MinecraftServer server, UUID operationId,
+            String dimension, Set<BlockPosition> affected, List<ManagedAreaReplacementPlan.Placement> after) {
+        requireThread(server);
+        return required(server).service.planAreaReplacement(operationId, dimension, affected, after);
+    }
+
+    /** Applies scenario policies and locks the exact persisted plan before any world mutation. */
+    public static void prepareAreaReplacement(MinecraftServer server, ManagedAreaReplacementPlan plan) {
+        requireThread(server); Runtime runtime = required(server);
+        AreaReplacementRequest request = new AreaReplacementRequest(server, plan);
+        for (PlacementPolicy policy : POLICIES.values()) {
+            String denied = policy.denyAreaReplacement(request);
+            if (denied != null) throw new IllegalStateException(denied);
+        }
+        runtime.service.lockAreaReplacement(plan); runtime.bumpStatus();
+    }
+
+    /** Restores a previously approved durable lock before gameplay/ticks resume. */
+    public static void reinstateAreaReplacement(MinecraftServer server, ManagedAreaReplacementPlan plan) {
+        requireThread(server); Runtime runtime = required(server);
+        runtime.service.lockAreaReplacement(plan); runtime.bumpStatus();
+    }
+
+    /** Caller must invoke this only after the exact planned world cells are durably saved. */
+    public static void commitAreaReplacement(MinecraftServer server, ManagedAreaReplacementPlan plan) throws IOException {
+        requireThread(server); Runtime runtime = required(server);
+        runtime.service.commitAreaReplacement(plan); runtime.bumpStatus();
+    }
+
+    /** Unlocks a proved outcome and schedules buffered world reconciliation without inventing identities mid-operation. */
+    public static void releaseAreaReplacement(MinecraftServer server, ManagedAreaReplacementPlan plan,
+                                              ManagedAreaReplacementPlan.Outcome outcome) {
+        requireThread(server); Runtime runtime = required(server);
+        runtime.service.unlockAreaReplacement(plan, outcome);
+        runtime.resumeAfterReplacement(server, plan); runtime.bumpStatus();
     }
 
     public static ReservationTicket reservePlacement(ServerWorld world, BlockPos position, String typeId) {
@@ -124,6 +165,7 @@ public final class ManagedBlocks {
 
     public static void placementSucceeded(ReservationTicket ticket) {
         Runtime runtime = WORLDS.get(ticket.server()); if (runtime == null || runtime.service == null) return;
+        if (runtime.areaReplacementLocked()) { runtime.verifications.addLast(ticket.id()); return; }
         try {
             ManagedBlockInstance instance = runtime.service.confirm(ticket.id());
             runtime.observeStatus(instance.id(), ManagedBlockStatus.PRESENT, instance.blockId());
@@ -135,6 +177,7 @@ public final class ManagedBlocks {
 
     public static void placementFailed(ReservationTicket ticket) {
         Runtime runtime = WORLDS.get(ticket.server()); if (runtime == null || runtime.service == null) return;
+        if (runtime.areaReplacementLocked()) { runtime.verifications.addLast(ticket.id()); return; }
         try {
             if (runtime.service.release(ticket.id())) {
                 runtime.observations.remove(ticket.id());
@@ -250,8 +293,15 @@ public final class ManagedBlocks {
 
     public record ReservationTicket(MinecraftServer server, UUID id) { }
     public record PlacementRequest(MinecraftServer server, String typeId, String dimension, BlockPosition position) { }
+    public record AreaReplacementRequest(MinecraftServer server, ManagedAreaReplacementPlan plan) {
+        public AreaReplacementRequest {
+            Objects.requireNonNull(server, "server is required");
+            Objects.requireNonNull(plan, "managed area replacement plan is required");
+        }
+    }
     public interface PlacementPolicy {
         default String deny(PlacementRequest request) { return null; }
+        default String denyAreaReplacement(AreaReplacementRequest request) { return null; }
         default void afterReservation(PlacementRequest request) throws Exception { }
         default String protectsAuthoringSite(MinecraftServer server, String siteId) { return null; }
         default String protectsAssignment(MinecraftServer server, String requirementId) { return null; }
@@ -263,6 +313,7 @@ public final class ManagedBlocks {
         private final Deque<UUID> verifications = new ArrayDeque<>();
         private final Deque<Scan> scans = new ArrayDeque<>();
         private final Set<String> scanKeys = new HashSet<>();
+        private final Set<PendingChunk> deferredScans = new HashSet<>();
         private final Set<Conflict> conflicts = new HashSet<>();
         private long statusRevision;
         private int verifyCursor;
@@ -270,8 +321,11 @@ public final class ManagedBlocks {
         private String problem = "";
 
         private Runtime(ManagedBlockService service) { this.service = service; }
-        private boolean ready() { return service != null && problem.isEmpty() && !checking; }
-        private String problem() { return problem.isEmpty() ? checking ? "Checking loaded managed blocks; placement will be available shortly." : "" : problem; }
+        private boolean ready() { return service != null && problem.isEmpty() && !checking && !areaReplacementLocked(); }
+        private String problem() { return problem.isEmpty() ? areaReplacementLocked()
+                ? "Managed blocks are locked while an area change is being saved."
+                : checking ? "Checking loaded managed blocks; placement will be available shortly." : "" : problem; }
+        private boolean areaReplacementLocked() { return service != null && service.lockedAreaReplacement().isPresent(); }
         private ManagedBlockRevision revision() {
             return new ManagedBlockRevision(service == null ? 0 : service.ledger().revision(), service == null ? 0 : service.limits().revision(), statusRevision, ready());
         }
@@ -314,6 +368,7 @@ public final class ManagedBlocks {
         }
 
         private void tick(MinecraftServer server) {
+            if (areaReplacementLocked()) return;
             int verified = 0;
             while (verified++ < VERIFY_PER_TICK && !verifications.isEmpty()) verify(server, verifications.removeFirst());
             scan(server);
@@ -357,6 +412,10 @@ public final class ManagedBlocks {
         }
 
         private void observe(ServerWorld world, BlockPos position, String typeId, ManagedBlockInstance.Origin origin) {
+            if (areaReplacementLocked()) {
+                queueScan(world, new ChunkPos(position));
+                return;
+            }
             try {
                 Optional<ManagedBlockInstance> claimed = service.at(dimension(world), pure(position));
                 if (claimed.isPresent() && !claimed.get().typeId().equals(typeId)) {
@@ -375,9 +434,40 @@ public final class ManagedBlocks {
         }
 
         private void queueScan(ServerWorld world, ChunkPos position) {
+            if (areaReplacementLocked()) {
+                deferredScans.add(new PendingChunk(dimension(world), position.x, position.z));
+                return;
+            }
             String key = dimension(world) + ":" + position.x + ":" + position.z;
             if (!scanKeys.add(key)) return;
             scans.addLast(new Scan(dimension(world), position.x, position.z)); setChecking(true);
+        }
+
+        private void resumeAfterReplacement(MinecraftServer server, ManagedAreaReplacementPlan plan) {
+            Set<PendingChunk> restart = new HashSet<>(deferredScans);
+            for (Scan scan : scans) restart.add(new PendingChunk(scan.dimension, scan.chunkX, scan.chunkZ));
+            deferredScans.clear(); scans.clear(); scanKeys.clear();
+            for (PendingChunk pending : restart) {
+                ServerWorld world = world(server, pending.dimension());
+                if (world != null && world.getChunkManager().getWorldChunk(pending.x(), pending.z()) != null)
+                    queueScan(world, new ChunkPos(pending.x(), pending.z()));
+            }
+            queueAffected(server, plan);
+        }
+
+        private void queueAffected(MinecraftServer server, ManagedAreaReplacementPlan plan) {
+            ServerWorld world = world(server, plan.dimension());
+            if (world == null) return;
+            Set<Long> chunks = new HashSet<>();
+            for (BlockPosition position : plan.affected()) {
+                int x = position.x() >> 4, z = position.z() >> 4;
+                long key = ((long) x << 32) ^ (z & 0xffffffffL);
+                if (chunks.add(key) && world.getChunkManager().getWorldChunk(x, z) != null)
+                    queueScan(world, new ChunkPos(x, z));
+            }
+            for (ManagedBlockInstance instance : service.ledger().instances())
+                if (instance.dimension().equals(plan.dimension()) && plan.affects(instance.dimension(), instance.position()))
+                    verifications.addLast(instance.id());
         }
 
         private void scan(MinecraftServer server) {

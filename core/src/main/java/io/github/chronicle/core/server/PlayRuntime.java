@@ -86,6 +86,9 @@ public final class PlayRuntime {
         return runtime == null || runtime.failure != null ? null : runtime.service.state();
     }
 
+    /** Connection-scoped review pin: clocks/events do not change it, every membership edit does. */
+    public static long membershipRevision(MinecraftServer server){Runtime r=runtime(server);r.observeMembership();return r.membershipRevision;}
+
     /** Includes uncheckpointed active ticks so the UI can display the live clock. */
     public static long elapsedTicks(MinecraftServer server) {
         requireServerThread(server);
@@ -142,6 +145,8 @@ public final class PlayRuntime {
     public static void setParticipant(ServerCommandSource source, UUID player, boolean participating) throws IOException {
         requireAuthor(source);
         Objects.requireNonNull(player, "participant UUID is required");
+        Departures.requireNoPending(source.getServer());
+        if (participating) Departures.requireParticipation(source.getServer(), player);
         write(source.getServer(), () -> service(source.getServer()).setParticipant(player, participating));
     }
 
@@ -149,6 +154,8 @@ public final class PlayRuntime {
     public static void setSelfParticipant(ServerPlayerEntity player, boolean participating) throws IOException {
         Objects.requireNonNull(player, "player is required");
         MinecraftServer server = player.getEntityWorld().getServer();
+        Departures.requireNoPending(server);
+        if (participating) Departures.requireParticipation(server, player.getUuid());
         write(server, () -> service(server).setParticipant(player.getUuid(), participating));
     }
 
@@ -333,14 +340,19 @@ public final class PlayRuntime {
     }
 
     private static List<ServerPlayerEntity> eligiblePlayers(MinecraftServer server, PlayState state) {
+        if (!Departures.ready(server) || Departures.concluded(server)) return List.of();
+        var departures=Departures.state(server);
         return server.getPlayerManager().getPlayerList().stream()
                 .filter(player -> state.participants().contains(player.getUuid()))
                 .filter(ServerPlayerEntity::isAlive)
                 .filter(player -> !player.isSpectator())
                 .filter(player -> !AuthoringRuntime.isAuthor(player))
+                .filter(player -> departureAllows(true,false,departures.isDeparted(player.getUuid())))
                 .sorted(Comparator.comparing(player -> player.getUuid().toString()))
                 .toList();
     }
+
+    static boolean departureAllows(boolean ready,boolean concluded,boolean departed){return ready&&!concluded&&!departed;}
 
     private static List<ServerPlayerEntity> audience(MinecraftServer server, PlayState state,
                                                      ObservationCatalog.Definition definition, PlayState.Binding binding,
@@ -447,6 +459,7 @@ public final class PlayRuntime {
         try {
             operation.run();
             Runtime runtime = runtime(server);
+            runtime.observeMembership();
             runtime.lastCheckpointTicks = runtime.service.elapsedTicks();
         } catch (IOException exception) {
             disable(server, exception, "play state persistence failed");
@@ -496,7 +509,8 @@ public final class PlayRuntime {
     private static final class Runtime {
         final PlayService service;
         final Map<String, String> invalidBindings = new LinkedHashMap<>();
-        long lastCheckpointTicks;
+        long lastCheckpointTicks,membershipRevision;
+        java.util.Set<UUID> membership;
         SessionPhase lastPhase;
         Boolean lastOccupied;
         Boolean lastHeld;
@@ -504,8 +518,11 @@ public final class PlayRuntime {
 
         Runtime(PlayService service) {
             this.service = service;
+            this.membership=java.util.Set.copyOf(service.state().participants());
             this.lastCheckpointTicks = service.elapsedTicks();
         }
+
+        void observeMembership(){var current=service.state().participants();if(!current.equals(membership)){membership=java.util.Set.copyOf(current);membershipRevision=Math.addExact(membershipRevision,1);}}
 
         void valid(String id) { invalidBindings.remove(id); }
 

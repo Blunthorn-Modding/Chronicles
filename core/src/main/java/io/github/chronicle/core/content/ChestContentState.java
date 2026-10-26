@@ -8,16 +8,19 @@ import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /** Complete Core chest state. Every map is immutable and insertion ordered for stable persistence. */
 public record ChestContentState(long revision, Map<String, ChestTemplate> templates,
                                 Map<String, ChestBinding> bindings, List<ChestReceipt> receipts,
                                 Map<String, PendingChestOperation> pending, LootSchedule schedule,
-                                BookDeliveryState bookDelivery) {
+                                BookDeliveryState bookDelivery,
+                                Map<UUID, AreaContentRemoval> areaRemovals) {
     public static final int MAX_TEMPLATES = 256;
     public static final int MAX_BINDINGS = 512;
     public static final int MAX_RECEIPTS = 8_192;
     public static final int MAX_PENDING = 64;
+    public static final int MAX_AREA_REMOVALS = 4_096;
 
     public ChestContentState {
         if (revision < 0) throw new IllegalArgumentException("content revision cannot be negative");
@@ -27,6 +30,7 @@ public record ChestContentState(long revision, Map<String, ChestTemplate> templa
         pending = immutableMap(pending, "pending operations", MAX_PENDING);
         if (schedule == null) throw new IllegalArgumentException("loot schedule is required");
         if (bookDelivery == null) throw new IllegalArgumentException("book delivery state is required");
+        areaRemovals = immutableUuidMap(areaRemovals, "area-content removals", MAX_AREA_REMOVALS);
         if (receipts.size() > MAX_RECEIPTS) throw new IllegalArgumentException("receipts may contain at most " + MAX_RECEIPTS + " entries");
         for (var entry : templates.entrySet()) {
             String id = entry.getKey(); ChestTemplate value = entry.getValue();
@@ -96,6 +100,27 @@ public record ChestContentState(long revision, Map<String, ChestTemplate> templa
                 claimedOperations.computeIfAbsent(claim.bookId(), ignored -> new HashSet<>()).add(value.operationId());
             }
         }
+        int preparedRemovals=0;
+        for(var entry:areaRemovals.entrySet()){
+            AreaContentRemoval removal=entry.getValue();
+            if(!entry.getKey().equals(removal.operationId()))throw new IllegalArgumentException("area-content removal map key must match operation ID");
+            if(completedOperations.contains(removal.operationId().toString())||pending.containsKey(removal.operationId().toString()))throw new IllegalArgumentException("area-content operation UUID collides with chest operation history");
+            if(removal.expectedContentRevision()>revision)throw new IllegalArgumentException("area-content removal revision cannot exceed state revision");
+            if(removal.stage()==AreaContentRemoval.Stage.PREPARED){
+                preparedRemovals++;
+                for(var binding:removal.affectedBindingRevisions().entrySet()){
+                    ChestBinding current=bindings.get(binding.getKey());
+                    if(current==null||current.revision()!=binding.getValue())throw new IllegalArgumentException("prepared area removal references a missing or stale binding: "+binding.getKey());
+                }
+                for(ManagedBookRemoval book:removal.managedBooks()){
+                    BookDelivery delivery=bookDelivery.deliveries().get(book.bookId());
+                    if(delivery==null||!delivery.deliveryToken().equals(book.deliveryToken()))throw new IllegalArgumentException("area removal has unknown managed-book evidence: "+book.bookId());
+                    claimedOperations.computeIfAbsent(book.bookId(),ignored->new HashSet<>()).add(removal.operationId().toString());
+                }
+            }
+        }
+        if(preparedRemovals>1)throw new IllegalArgumentException("only one area-content removal may await world evidence");
+        if(preparedRemovals>0&&!pending.isEmpty())throw new IllegalArgumentException("area-content removal cannot overlap pending chest operations");
         for (BookDelivery delivery : bookDelivery.deliveries().values()) {
             if (!delivery.pendingOperationIds().equals(claimedOperations.getOrDefault(delivery.bookId(), new HashSet<>()))) {
                 throw new IllegalArgumentException("book pending reservations must match pending operation claims: " + delivery.bookId());
@@ -106,19 +131,27 @@ public record ChestContentState(long revision, Map<String, ChestTemplate> templa
     /** Source-compatible constructor for callers that do not yet manage book delivery state. */
     public ChestContentState(long revision, Map<String, ChestTemplate> templates,
                              Map<String, ChestBinding> bindings, List<ChestReceipt> receipts,
+                             Map<String, PendingChestOperation> pending, LootSchedule schedule,
+                             BookDeliveryState bookDelivery) {
+        this(revision, templates, bindings, receipts, pending, schedule, bookDelivery, Map.of());
+    }
+
+    /** Source-compatible constructor for callers that do not yet manage book delivery state. */
+    public ChestContentState(long revision, Map<String, ChestTemplate> templates,
+                             Map<String, ChestBinding> bindings, List<ChestReceipt> receipts,
                              Map<String, PendingChestOperation> pending, LootSchedule schedule) {
-        this(revision, templates, bindings, receipts, pending, schedule, BookDeliveryState.create());
+        this(revision, templates, bindings, receipts, pending, schedule, BookDeliveryState.create(), Map.of());
     }
 
     /** Source-compatible constructor for callers that do not manage typed refill schedules. */
     public ChestContentState(long revision, Map<String, ChestTemplate> templates,
                              Map<String, ChestBinding> bindings, List<ChestReceipt> receipts,
                              Map<String, PendingChestOperation> pending) {
-        this(revision, templates, bindings, receipts, pending, LootSchedule.empty(), BookDeliveryState.create());
+        this(revision, templates, bindings, receipts, pending, LootSchedule.empty(), BookDeliveryState.create(), Map.of());
     }
 
     public static ChestContentState empty() {
-        return new ChestContentState(0, Map.of(), Map.of(), List.of(), Map.of(), LootSchedule.empty(), BookDeliveryState.create());
+        return new ChestContentState(0, Map.of(), Map.of(), List.of(), Map.of(), LootSchedule.empty(), BookDeliveryState.create(), Map.of());
     }
 
     private static String physicalKey(ChestTarget target) {
@@ -129,5 +162,11 @@ public record ChestContentState(long revision, Map<String, ChestTemplate> templa
         if (values == null) throw new IllegalArgumentException(field + " are required");
         if (values.size() > max) throw new IllegalArgumentException(field + " may contain at most " + max + " entries");
         return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(values));
+    }
+
+    private static <T> Map<UUID,T> immutableUuidMap(Map<UUID,T> values,String field,int max){
+        if(values==null)throw new IllegalArgumentException(field+" are required");
+        if(values.size()>max)throw new IllegalArgumentException(field+" may contain at most "+max+" entries");
+        LinkedHashMap<UUID,T> result=new LinkedHashMap<>();values.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry->{if(entry.getKey()==null||entry.getValue()==null)throw new IllegalArgumentException(field+" must not contain null");result.put(entry.getKey(),entry.getValue());});return java.util.Collections.unmodifiableMap(result);
     }
 }

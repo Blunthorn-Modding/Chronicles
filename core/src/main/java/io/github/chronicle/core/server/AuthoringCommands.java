@@ -54,12 +54,14 @@ public final class AuthoringCommands {
                             return "Author mode enabled. Select two corners or save a location/block anchor.";
                         })))
                         .then(literal("off").executes(context -> run(context.getSource(), runtime -> {
+                            AreaChanges.cancelIfPresent(context.getSource());
                             runtime.disable(player(context.getSource()).getUuid());
                             AuthoringRuntime.clearPreview(player(context.getSource()));
                             return "Author mode disabled; selection cleared.";
                         }))));
         var select = literal("select")
                 .then(literal("clear").executes(context -> edit(context.getSource(), runtime -> {
+                    requireNoAreaDraft(context.getSource());
                     runtime.selection(player(context.getSource()).getUuid(), new AuthoringRuntime.Selection(null, null, null));
                     AuthoringRuntime.clearPreview(player(context.getSource()));
                     return "Author selection cleared.";
@@ -84,6 +86,7 @@ public final class AuthoringCommands {
                     .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, replace, builder))
                     .executes(context -> edit(context.getSource(), runtime -> {
                         var source = context.getSource();
+                        requireNoAreaDraft(source);
                         var selected = runtime.selection(player(source).getUuid());
                         if (selected.first() == null || selected.second() == null) throw new IllegalStateException("Select both corners first.");
                         var site = new AuthoringSite.Region(id(context), selected.dimension(), 1, selected.first(), selected.second());
@@ -155,6 +158,7 @@ public final class AuthoringCommands {
                     return selected.dimension() == null ? "No region positions selected." : "Selected positions in " + selected.dimension()
                             + ": pos1=" + selected.first() + "; pos2=" + selected.second() + ".";
                 }))).then(literal("clear").executes(context -> edit(context.getSource(), runtime -> {
+                    requireNoAreaDraft(context.getSource());
                     runtime.selection(player(context.getSource()).getUuid(), new AuthoringRuntime.Selection(null, null, null));
                     AuthoringRuntime.clearPreview(player(context.getSource()));
                     return "Region positions cleared.";
@@ -179,6 +183,7 @@ public final class AuthoringCommands {
         author.then(literal("remove").then(argument("id", StringArgumentType.string())
                 .suggests((context, builder) -> suggest(context.getSource(), null, true, builder))
                 .executes(context -> edit(context.getSource(), runtime -> {
+                    requireNoAreaDraft(context.getSource());
                     runtime.service().remove(id(context));
                     AuthoringRuntime.clearPreview(player(context.getSource()));
                     log(context.getSource(), "remove", id(context), runtime.service().state().revision());
@@ -202,12 +207,16 @@ public final class AuthoringCommands {
     }
 
     private static int corner(ServerCommandSource source, int which, BlockPos position) {
-        return edit(source, runtime -> setCorner(source, runtime, which, position));
+        return edit(source, runtime -> { requireNoAreaDraft(source); return setCorner(source, runtime, which, position); });
     }
 
     private static int regionCorner(ServerCommandSource source, int which, BlockPos position) {
         return edit(source, runtime -> {
             var player = player(source);
+            if (AreaChanges.hasDraft(source.getServer(), player.getUuid())) {
+                var draft = AreaChanges.setDraftCorner(player, which, position(position));
+                return "Set Area change " + draft.name() + " position " + which + " at " + coordinates(position(position)) + ".";
+            }
             if (runtime.regionDraft(player.getUuid()).isPresent()) {
                 var draft = runtime.setRegionDraftCorner(player, which, position(position));
                 return "Set region draft " + draft.id() + " position " + which + " at " + coordinates(position(position)) + ".";
@@ -324,6 +333,9 @@ public final class AuthoringCommands {
     }
     private static void requireEditable(ServerCommandSource source) {
         if (!AuthoringRuntime.editable(source.getServer())) throw new IllegalStateException("Authoring edits require a non-active, available Chronicle session.");
+    }
+    private static void requireNoAreaDraft(ServerCommandSource source) {
+        if (AreaChanges.hasDraft(source.getServer(), player(source).getUuid())) throw new IllegalStateException("An Area change draft is active. Use /chronicle area change save or cancel it first.");
     }
 
     private static CompletableFuture<Suggestions> suggest(ServerCommandSource source, AuthoringCatalog.Kind kind, boolean existing, SuggestionsBuilder builder) {

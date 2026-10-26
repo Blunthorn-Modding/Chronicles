@@ -66,7 +66,7 @@ class ChestContentStoreTest {
     }
 
     @Test
-    void schemaOneMigratesToThreeOnSaveAndPreservesTheOriginalAsAValidBackup() throws IOException {
+    void schemaOneMigratesToFourOnSaveAndPreservesTheOriginalAsAValidBackup() throws IOException {
         Path file = directory.resolve("legacy.json");
         String schemaOne = "{\"schemaVersion\":1,\"revision\":2,\"templates\":[{\"id\":\"kit\",\"revision\":1,\"contents\":{\"size\":1,\"stacks\":[\"{}\"]}}],\"bindings\":[{\"id\":\"cache\",\"revision\":2,\"templateId\":\"kit\",\"templateRevision\":1,\"anchorId\":\"quiet_below:forge\",\"anchorRevision\":8,\"policy\":\"MANUAL\"}],\"receipts\":[],\"pending\":[]}";
         Files.writeString(file, schemaOne);
@@ -75,10 +75,11 @@ class ChestContentStoreTest {
         assertEquals(LootSchedule.empty(), migrated.schedule());
         store.save(migrated);
 
-        String schemaThree = Files.readString(file);
-        assertTrue(schemaThree.contains("\"schemaVersion\":3"));
-        assertTrue(schemaThree.contains("\"schedule\""));
-        assertTrue(schemaThree.contains("\"bookDelivery\""));
+        String schemaFour = Files.readString(file);
+        assertTrue(schemaFour.contains("\"schemaVersion\":4"));
+        assertTrue(schemaFour.contains("\"schedule\""));
+        assertTrue(schemaFour.contains("\"bookDelivery\""));
+        assertTrue(schemaFour.contains("\"areaRemovals\""));
         assertEquals(schemaOne, Files.readString(file.resolveSibling("legacy.json.bak")));
         assertEquals(migrated, new ChestContentStore(file).load());
         assertEquals(migrated, new ChestContentStore(file.resolveSibling("legacy.json.bak")).load());
@@ -112,13 +113,13 @@ class ChestContentStoreTest {
         assertEquals(PendingChestOperation.Purpose.FILL, pending.purpose());
         assertTrue(pending.bookClaims().isEmpty());
         store.save(loaded);
-        assertTrue(Files.readString(file).contains("\"schemaVersion\":3"));
+        assertTrue(Files.readString(file).contains("\"schemaVersion\":4"));
         assertEquals(schemaTwo, Files.readString(file.resolveSibling("schema-two.json.bak")));
         assertEquals(pending, new ChestContentStore(file).load().pending().get(pending.operationId()));
     }
 
     @Test
-    void schemaThreeRoundTripsDirectBookLedgerAndPendingInsert() throws IOException {
+    void schemaFourRoundTripsDirectBookLedgerAndPendingInsert() throws IOException {
         Path file = directory.resolve("lore.json");
         ChestContentService service = new ChestContentService(new ChestContentStore(file));
         ChestBinding binding = service.putTypedBinding("quiet_below:mine",
@@ -134,6 +135,18 @@ class ChestContentStoreTest {
                 List.of(new BookDeliveryClaim("quiet_below:journal", service.deliveryToken("quiet_below:journal"), true)));
         service.beginLore(insert, Map.of("quiet_below:journal", BookDefinition.Rule.REPEAT), true);
         assertEquals(service.state(), new ChestContentStore(file).load());
+    }
+
+    @Test void schemaThreeLoadsWithoutInventingAreaRemovalsAndMigratesOnSave()throws IOException{
+        Path file=directory.resolve("schema-three.json");String campaign=UUID.randomUUID().toString();
+        String schemaThree="{\"schemaVersion\":3,\"revision\":0,\"templates\":[],\"bindings\":[],\"receipts\":[],\"pending\":[],\"schedule\":{\"sessionNumber\":-1,\"activeTicks\":0,\"types\":{}},\"bookDelivery\":{\"campaignId\":\""+campaign+"\",\"deliveries\":[],\"keepRequests\":[]}}";
+        Files.writeString(file,schemaThree);ChestContentStore store=new ChestContentStore(file);ChestContentState loaded=store.load();assertTrue(loaded.areaRemovals().isEmpty());store.save(loaded);assertTrue(Files.readString(file).contains("\"schemaVersion\":4"));assertEquals(schemaThree,Files.readString(file.resolveSibling("schema-three.json.bak")));
+    }
+
+    @Test void schemaFourRoundTripsPreparedAndCommittedAreaRemovalEvidence()throws IOException{
+        Path file=directory.resolve("area-removal.json");ChestContentService service=new ChestContentService(new ChestContentStore(file));String bookId="test:journal";service.claimOperatorIssuance(bookId);UUID operation=UUID.randomUUID();ManagedBookRemoval book=new ManagedBookRemoval(bookId,service.deliveryToken(bookId));
+        AreaContentRemoval prepared=service.prepareAreaRemoval(operation,service.state().revision(),java.util.Set.of(),java.util.Set.of(),java.util.Set.of(book),"2026-10-26T12:00:00Z");ChestContentState reloaded=new ChestContentStore(file).load();assertEquals(prepared,reloaded.areaRemovals().get(operation));assertEquals(java.util.Set.of(operation.toString()),reloaded.bookDelivery().deliveries().get(bookId).pendingOperationIds());
+        service.commitAreaRemoval(operation,"world-save:abc","2026-10-26T12:01:00Z");reloaded=new ChestContentStore(file).load();assertEquals(AreaContentRemoval.Stage.COMMITTED,reloaded.areaRemovals().get(operation).stage());assertTrue(reloaded.bookDelivery().deliveries().get(bookId).pendingOperationIds().isEmpty());
     }
 
     private static ChestContentState state(boolean withPending) {
