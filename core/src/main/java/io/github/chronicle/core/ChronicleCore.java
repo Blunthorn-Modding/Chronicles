@@ -46,6 +46,7 @@ public final class ChronicleCore implements ModInitializer {
     private static final CampaignEvents EVENTS = new CampaignEvents();
     private static final AuthoringCatalog AUTHORING = new AuthoringCatalog();
     private static final io.github.chronicle.core.books.BookCatalog BOOKS = new io.github.chronicle.core.books.BookCatalog();
+    private static final io.github.chronicle.core.roles.PlayerRoleCatalog PLAYER_ROLES = new io.github.chronicle.core.roles.PlayerRoleCatalog();
     private static final LootCatalog CHEST_TYPES = new LootCatalog();
     private static final ObservationCatalog OBSERVATIONS = new ObservationCatalog();
     private static final ManagedBlockCatalog MANAGED_BLOCKS = new ManagedBlockCatalog();
@@ -54,6 +55,7 @@ public final class ChronicleCore implements ModInitializer {
     public static CampaignEvents events() { return EVENTS; }
     public static AuthoringCatalog authoring() { return AUTHORING; }
     public static io.github.chronicle.core.books.BookCatalog books() { return BOOKS; }
+    public static io.github.chronicle.core.roles.PlayerRoleCatalog playerRoles() { return PLAYER_ROLES; }
     public static LootCatalog chestTypes() { return CHEST_TYPES; }
     public static ObservationCatalog observations() { return OBSERVATIONS; }
     public static ManagedBlockCatalog managedBlocks() { return MANAGED_BLOCKS; }
@@ -76,12 +78,14 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.enchanting.EnchantmentCapsTrial.register();
         io.github.chronicle.core.server.testing.SessionPauseTrial.register();
         io.github.chronicle.core.server.testing.BooksLoreTrial.register();
+        io.github.chronicle.core.server.testing.PlayerRolesTrial.register();
         AuthoringPreviewPayload.register();
         Profiles.registerNetworking();
         ServerLifecycleEvents.SERVER_STARTING.register(server -> EVENTS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> AUTHORING.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> CHEST_TYPES.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> BOOKS.freeze());
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> PLAYER_ROLES.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> OBSERVATIONS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> MANAGED_BLOCKS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> GameSetupTools.freeze());
@@ -97,6 +101,8 @@ public final class ChronicleCore implements ModInitializer {
         SpawnAuthoring.register();
         AutomaticPlayerSpawns.register();
         PlayRuntime.register();
+        io.github.chronicle.core.server.PlayerRoles.register();
+        io.github.chronicle.core.server.RoleFirstEntry.register();
         io.github.chronicle.core.server.OfferingStats.register();
         io.github.chronicle.core.server.LastingBargains.register();
         io.github.chronicle.core.server.ActionConfirmations.register();

@@ -107,6 +107,7 @@ public final class CoreMenuServer {
             context.selected=gm?request.id():player.getUuidAsString();
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
             if(request.action()==Action.OPEN&&context.page==Page.BOOKS_LORE)context.expectedBook=null;
+            if(request.action()==Action.OPEN){context.roleDraft=null;context.roleCreating=false;context.pendingRole="";}
             context.picker=null;
             String message="";boolean close=false;
             if(request.action()==Action.OPTIONS){
@@ -127,13 +128,51 @@ public final class CoreMenuServer {
         }
     }
 
-    private static boolean publicAction(Action action){return switch(action){case OPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE->true;default->false;};}
-    private static void invalidate(Context c){c.token=0;c.observation=null;c.reviewId="";c.reviewFrame=null;clearGive(c);}
+    private static boolean publicAction(Action action){return switch(action){case OPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->true;default->false;};}
+    private static void invalidate(Context c){c.token=0;c.observation=null;c.reviewId="";c.reviewFrame=null;clearGive(c);c.pendingRole="";c.roleReview=null;}
     private static void clearGive(Context c){c.giveBook="";c.giveTarget="";c.giveDefinition=null;c.giveAt=0;}
 
     private static String act(ServerPlayerEntity player,Request request,Context c) throws Exception {
         var source=player.getCommandSource();var server=source.getServer();String id=c.selected,arg=request.argument();
         switch(request.action()) {
+            case ROLE_NEW,ROLE_EDIT -> {
+                editor(player);if(c.page!=Page.PLAYER_ROLES)throw new IllegalArgumentException("Manage definitions under Player Roles.");
+                c.roleCreating=request.action()==Action.ROLE_NEW;
+                c.roleDraft=c.roleCreating?new io.github.chronicle.core.roles.PlayerRole(io.github.chronicle.core.roles.PlayerRole.generatedId(UUID.randomUUID()),"New role","",true,1,null,null,List.of(),List.of()):PlayerRoles.definitions(server).get(id);
+                if(c.roleDraft==null)throw new IllegalArgumentException("Choose an existing role.");c.expectedRole=c.roleCreating?null:c.roleDraft;c.selected=c.roleDraft.id();return "";
+            }
+            case ROLE_CREATE,ROLE_SAVE -> {
+                editor(player);if(c.page!=Page.PLAYER_ROLES||c.roleDraft==null)throw new IllegalStateException("Open the role editor first.");
+                var role=PlayerRoles.decode(arg);
+                if(!role.id().equals(c.roleDraft.id())||c.roleCreating!=(request.action()==Action.ROLE_CREATE))throw new IllegalStateException("Role editor identity changed; reopen it.");
+                if(c.roleCreating)PlayerRoles.create(source,role);else PlayerRoles.save(source,role,c.expectedRole);
+                c.roleDraft=null;c.roleCreating=false;c.expectedRole=role;c.selected=role.id();return "Role saved. Existing players were not moved or resupplied.";
+            }
+            case ROLE_DELETE -> {
+                editor(player);if(c.page!=Page.PLAYER_ROLES)throw new IllegalStateException("Delete definitions under Player Roles.");
+                PlayerRoles.delete(source,id,c.expectedRole);c.selected="";c.roleDraft=null;c.expectedRole=null;return "Unassigned role removed. Starting history is retained.";
+            }
+            case ROLE_RELOAD -> {PlayerRoles.reload(source);c.roleDraft=null;c.expectedRole=null;return "Player-role YAML reloaded. No player was moved or resupplied.";}
+            case ROLE_CHOICE_OPEN -> {
+                if(c.page!=Page.PLAYERS)throw new IllegalArgumentException("Choose roles under Players.");
+                var target=UUID.fromString(id);if(!source.hasPermissionLevel(2)&&!target.equals(player.getUuid()))throw new IllegalStateException("Role choice is private.");
+                c.pendingRole="";return "";
+            }
+            case ROLE_CHOOSE -> {
+                if(c.page!=Page.PLAYERS||!id.equals(player.getUuidAsString()))throw new IllegalStateException("Choose your own role under Players.");
+                PlayerRoles.choose(player,arg);c.pendingRole="";return "Role selected. Your first entry will use its starting policy once.";
+            }
+            case ROLE_ASSIGN_REVIEW -> {
+                if(!source.hasPermissionLevel(2)||c.page!=Page.PLAYERS||held(server))throw new IllegalStateException("Operator role assignment requires Players and no operation hold.");
+                var target=UUID.fromString(id);var selected=PlayerRoles.definitions(server).get(arg);
+                if(selected==null&&!arg.equals("-"))throw new IllegalArgumentException("Choose an existing role or clear the assignment.");
+                var form=PlayerRoles.form(player,target,arg);if(form.choices().stream().noneMatch(r->r.id().equals(arg)&&r.available()))throw new IllegalStateException("Role capacity is full.");
+                c.pendingRole=arg;c.roleReview=frame(player);c.roleReviewAt=System.nanoTime();c.roleTarget=id;return "";
+            }
+            case ROLE_ASSIGN -> {
+                if(c.page!=Page.PLAYERS||!id.equals(c.roleTarget)||!arg.equals(c.pendingRole)||!Objects.equals(c.roleReview,frame(player))||System.nanoTime()-c.roleReviewAt>30_000_000_000L)throw new IllegalStateException("Review this role and player again; the confirmation changed or expired.");
+                PlayerRoles.assign(source,UUID.fromString(id),arg);c.pendingRole="";c.roleReview=null;return "Role assigned; no teleport or starting-kit replay.";
+            }
             case EDIT_ON -> {return command(source,"chronicle author mode on");}
             case EDIT_OFF -> {return command(source,"chronicle author mode off");}
             case SESSION_BUILD_ON,SESSION_BUILD_OFF -> {
@@ -157,6 +196,7 @@ public final class CoreMenuServer {
             }
             case STARTING_SET,RESPAWN_SET -> {MenuPlayerDestinations.set(source,UUID.fromString(id),arg,request.action()==Action.STARTING_SET);return "Destination saved for this player. No player moved now; existing claim history is retained.";}
             case STARTING_OFF,RESPAWN_OFF -> {AutomaticPlayerSpawns.disable(source,UUID.fromString(id),request.action()==Action.STARTING_OFF);return "Automatic destination disabled. Existing placement history and vanilla respawn are retained.";}
+            case STARTING_DEFAULT,RESPAWN_DEFAULT -> {AutomaticPlayerSpawns.useRoleDefault(source,UUID.fromString(id),request.action()==Action.STARTING_DEFAULT);return "Role destination policy selected. No player moved and no supplies repeated.";}
             case STARTING_RESET -> {AutomaticPlayerSpawns.reset(source,UUID.fromString(id));return "Starting-position claim reset deliberately; the next eligible entry into play may place this player again.";}
             case PLAYER_MOVE_REVIEW -> {String result=MenuPlayerDestinations.review(source,UUID.fromString(id),arg);c.reviewId=id;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();return result;}
             case PLAYER_MOVE -> {requireReview(player,c,id);c.reviewId="";return MenuPlayerDestinations.move(source,UUID.fromString(id));}
@@ -347,6 +387,7 @@ public final class CoreMenuServer {
             case PLAYERS -> {
                 var players=new TreeMap<String,String>();var play=PlayRuntime.available(server);if(play!=null)play.participants().forEach(id->players.put(id.toString(),id.toString()));
                 var automatic=AutomaticPlayerSpawns.available(server);if(automatic!=null){automatic.policies().keySet().forEach(id->players.put(id.toString(),id.toString()));automatic.arrivals().keySet().forEach(id->players.put(id.toString(),id.toString()));}
+                if(PlayerRoles.ready(server))PlayerRoles.assignments(server).assigned().keySet().forEach(id->players.put(id.toString(),server.getApiServices().nameToIdCache().getByUuid(id).map(p->p.name()).orElse(id.toString())));
                 server.getPlayerManager().getPlayerList().forEach(p->players.put(p.getUuidAsString(),p.getName().getString()));
                 yield players.entrySet().stream().map(e->entry(e.getKey(),e.getValue(),server.getPlayerManager().getPlayer(UUID.fromString(e.getKey()))==null?"Offline saved participant":"Online","PLAYER","",0)).toList();
             }
@@ -356,6 +397,8 @@ public final class CoreMenuServer {
                 ChronicleRuntime.service(server).state().flags().forEach((id,value)->result.add(entry("flag:"+id,id,"Game condition: "+value,"FLAG",id,0)));yield result;
             }
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
+            case PLAYER_ROLES -> !PlayerRoles.ready(server)?List.of():PlayerRoles.definitions(server).values().stream().map(r->entry(r.id(),r.name(),r.description(),"PLAYER_ROLE",r.id(),0)).toList();
+            case AREA_CHANGES,DEPARTURES -> List.of();
             case BOOKS_LORE -> BookRuntime.books(server).values().stream().map(b->entry(b.id(),b.title(),b.description(),"BOOK",b.id(),0)).toList();
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
             case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
@@ -374,8 +417,24 @@ public final class CoreMenuServer {
         boolean gm=source.hasPermissionLevel(2),editing=gm&&AuthoringRuntime.isAuthor(player),active=ChronicleRuntime.service(server).state().phase().name().equals("ACTIVE");
         boolean canEdit=editing&&AuthoringRuntime.editable(server);String editReason=active?"Pause play to edit these settings.":"Enable editing to change these settings.";
         var facts=new ArrayList<Fact>();var controls=new ArrayList<Control>();String title="Choose an item",description="Select an item in the middle to inspect its details.";
-        LootType loot=null;EventForm event=null;RegionForm region=null;BookDefinition book=null;LoreForm lore=null;
+        LootType loot=null;EventForm event=null;RegionForm region=null;BookDefinition book=null;LoreForm lore=null;RoleForm roleForm=null;RoleAssignmentForm roleAssignment=null;
         switch(c.page) {
+            case PLAYER_ROLES -> {
+                title="Player Roles";description="Define characters or shared backgrounds, their starting supplies and their destinations.";
+                controls.add(control(Action.ROLE_RELOAD,"Reload role YAML",canEdit&&!RuntimeHolds.heldByOther(server,"chronicle_core:player_roles"),editReason,true,""));
+                if(!PlayerRoles.ready(server)){description="Role configuration is unavailable. Correct player-roles.yaml or restore the role ledger, then reload.";break;}
+                controls.add(control(Action.ROLE_NEW,"Create new role",canEdit&&!held(server),editReason,false,""));
+                var r=c.roleDraft!=null&&c.roleDraft.id().equals(id)?c.roleDraft:PlayerRoles.definitions(server).get(id);
+                if(r!=null){
+                    title=r.name();description=r.description();roleForm=PlayerRoles.editorForm(server,r,c.roleCreating);
+                    if(c.roleDraft==null)c.expectedRole=r;
+                    facts.add(new Fact("Role ID",r.id()));facts.add(new Fact("Assigned accounts",PlayerRoles.assigned(server,r.id())+" / "+r.capacity()));
+                    facts.add(new Fact("Selection",r.selectable()?"Players may choose this role before first entry":"GM assignment only"));
+                    controls.add(control(Action.ROLE_EDIT,"Edit role",canEdit,editReason,false,""));
+                    controls.add(control(Action.ROLE_DELETE,"Delete role",canEdit&&PlayerRoles.assigned(server,r.id())==0,canEdit?"Reassign its accounts before deleting this role.":editReason,true,""));
+                }
+            }
+            case AREA_CHANGES,DEPARTURES -> {description="This integration slice is still being implemented.";}
             case SESSION -> {
                 title=id.equals("activity")?"Activity":"Play controls";
                 description="Start, pause or finish a play window. The world and story carry on between meetings.";
@@ -414,19 +473,27 @@ public final class CoreMenuServer {
                 controls.add(control(member?Action.PARTICIPANT_REMOVE:Action.PARTICIPANT_ADD,member?"Remove participation":"Add participation",!gm||canEdit,editReason,member,""));
                 controls.add(control(Action.CARD_OPEN,uuid.equals(player.getUuid())?"Edit my character card":"Read character card",target!=null,"Select an online account for the card screen.",false,""));
                 if(uuid.equals(player.getUuid()))controls.add(control(Action.LEAVE,"Leave Chronicle",true,"",true,""));
+                if(PlayerRoles.ready(server)){
+                    roleAssignment=PlayerRoles.form(player,uuid,c.pendingRole);
+                    facts.add(new Fact("Player role",roleAssignment.roleName()));
+                    controls.add(control(Action.ROLE_CHOICE_OPEN,gm?"Assign player role…":"Choose my role…",gm?roleAssignment.canAssign():roleAssignment.canChoose(),"Role selection is available before first entry; GM reassignment requires no operation hold.",false,"ROLE_CHOICE"));
+                }
                 if(gm) {
                     var state=AutomaticPlayerSpawns.available(server);var policy=state==null?null:state.policies().get(uuid);var attempt=state==null?null:state.arrivals().get(uuid);
-                    facts.add(new Fact("Starting position",policy==null||policy.arrival()==null?"Off":destination(server,policy.arrival().purpose())));
-                    facts.add(new Fact("After death",policy==null||policy.respawn()==null?"Vanilla bed / anchor / world spawn":destination(server,policy.respawn().purpose())));
+                    var assignedRole=PlayerRoles.roleFor(server,uuid);boolean startOff=PlayerRoles.ready(server)&&PlayerRoles.assignments(server).startingDisabled().contains(uuid),respawnOff=PlayerRoles.ready(server)&&PlayerRoles.assignments(server).respawnDisabled().contains(uuid);
+                    facts.add(new Fact("Starting position",policy!=null&&policy.arrival()!=null?"Manual: "+destination(server,policy.arrival().purpose()):!startOff&&assignedRole!=null&&assignedRole.starting()!=null?"Role default: "+assignedRole.starting().locationId():"Off / vanilla starting position"));
+                    facts.add(new Fact("After death",policy!=null&&policy.respawn()!=null?"Manual: "+destination(server,policy.respawn().purpose()):!respawnOff&&assignedRole!=null&&assignedRole.respawn()!=null?"Role default: "+assignedRole.respawn().locationId():"Vanilla bed / anchor / world spawn"));
                     facts.add(new Fact("Starting-position history",attempt==null?"Never attempted":attempt.status()+" · "+attempt.detail()));
                     facts.add(new Fact("Saving settings","Saving does not move this player. Without an after-death destination, vanilla respawn still applies."));
                     controls.add(control(Action.PLAYER_MOVE_REVIEW,"Move player…",active&&target!=null&&!held(server),"Requires active play, online target and no unresolved operation.",false,"DESTINATION"));
                     if(c.reviewId.equals(id))controls.add(control(Action.PLAYER_MOVE,"Confirm player move",active&&target!=null&&!held(server),"Review a current safe destination first.",true,""));
                     controls.add(control(Action.STARTING_SET,"Set starting position…",canEdit&&state!=null,editReason,false,"DESTINATION"));
                     controls.add(control(Action.RESPAWN_SET,"Set after-death destination…",canEdit&&state!=null,editReason,false,"DESTINATION"));
-                    if(policy!=null&&policy.arrival()!=null)controls.add(control(Action.STARTING_OFF,"Disable starting position",canEdit,editReason,true,""));
-                    if(policy!=null&&policy.respawn()!=null)controls.add(control(Action.RESPAWN_OFF,"Use vanilla respawn",canEdit,editReason,true,""));
-                    if(attempt!=null)controls.add(control(Action.STARTING_RESET,"Allow another placement attempt",canEdit,editReason,true,""));
+                    if(policy!=null&&policy.arrival()!=null||assignedRole!=null&&assignedRole.starting()!=null&&!startOff)controls.add(control(Action.STARTING_OFF,"Disable starting position",canEdit,editReason,true,""));
+                    if(policy!=null&&policy.respawn()!=null||assignedRole!=null&&assignedRole.respawn()!=null&&!respawnOff)controls.add(control(Action.RESPAWN_OFF,"Use vanilla respawn",canEdit,editReason,true,""));
+                    if(assignedRole!=null&&(startOff||policy!=null&&policy.arrival()!=null))controls.add(control(Action.STARTING_DEFAULT,"Use role starting position",canEdit,editReason,true,""));
+                    if(assignedRole!=null&&(respawnOff||policy!=null&&policy.respawn()!=null))controls.add(control(Action.RESPAWN_DEFAULT,"Use role after-death destination",canEdit,editReason,true,""));
+                    if(attempt!=null&&policy!=null&&policy.arrival()!=null)controls.add(control(Action.STARTING_RESET,"Allow another placement attempt",canEdit,editReason,true,""));
                 }
             }
             case EVENTS -> {
@@ -586,7 +653,7 @@ public final class CoreMenuServer {
             if(book!=null&&c.giveBook.equals(book.id()))give=BookGifts.form(player.getCommandSource(),book,c.giveTarget);
             lore=new LoreForm(refs,tableUses,chestUses,direct,keep,status,give);
         }
-        return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region,book,lore);
+        return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region,book,lore,roleForm,roleAssignment);
     }
 
     private static Picker picker(ServerPlayerEntity player,String kind,String query,int index) {
@@ -616,7 +683,7 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
         var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries());
-        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
+        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),PlayerRoles.revision(server),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
     private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
@@ -754,11 +821,11 @@ public final class CoreMenuServer {
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
     private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries) { }
-    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
+    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private static final class Context {
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
         PlayRuntime.Preview observation;LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;
         String giveBook="",giveTarget="";long giveAt;
-        boolean visible;
+        boolean visible,roleCreating;io.github.chronicle.core.roles.PlayerRole roleDraft,expectedRole;String pendingRole="",roleTarget="";Frame roleReview;long roleReviewAt;
     }
 }

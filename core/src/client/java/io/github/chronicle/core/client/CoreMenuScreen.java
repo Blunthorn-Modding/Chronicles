@@ -17,6 +17,8 @@ import io.github.chronicle.core.menu.CoreMenuModel.Entry;
 import io.github.chronicle.core.menu.CoreMenuModel.EventForm;
 import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import io.github.chronicle.core.menu.CoreMenuModel.RegionForm;
+import io.github.chronicle.core.menu.CoreMenuModel.RoleAssignmentForm;
+import io.github.chronicle.core.menu.CoreMenuModel.RoleForm;
 import io.github.chronicle.core.menu.CoreMenuModel.View;
 import io.github.chronicle.core.network.CoreMenuPayloads;
 import io.github.chronicle.core.play.ObservationConfiguration;
@@ -47,9 +49,10 @@ public final class CoreMenuScreen extends Screen {
     private static final int RESPONSE_TIMEOUT = 20 * 10;
     private static final int REFRESH_TICKS = 20 * 2;
     private static final Page[] NAVIGATION = {Page.SESSION, Page.PLAYERS, Page.EVENTS, Page.CHESTS,
-            Page.LOOT_TABLES, Page.BOOKS_LORE, Page.REGIONS, Page.LOCATIONS, Page.SETUP};
+            Page.LOOT_TABLES, Page.BOOKS_LORE, Page.REGIONS, Page.LOCATIONS, Page.PLAYER_ROLES,
+            Page.DEPARTURES, Page.AREA_CHANGES, Page.SETUP};
     private static final String[] NAVIGATION_LABELS = {"Session", "Players", "Events", "Chests",
-            "Loot Tables", "Books & Lore", "Regions", "Locations", "Game setup"};
+            "Loot Tables", "Books & Lore", "Regions", "Locations", "Player Roles", "Departures", "Area changes", "Game setup"};
 
     private View state;
     private boolean pending;
@@ -58,6 +61,8 @@ public final class CoreMenuScreen extends Screen {
     private int pendingTicks;
     private int idleTicks;
     private int listOffset;
+    /** Scrolls only the Advanced tab group so Session/Players/Events never disappear. */
+    private int advancedNavOffset;
     private int actionOffset;
     private int factOffset;
     private boolean detailOnCompact;
@@ -111,6 +116,8 @@ public final class CoreMenuScreen extends Screen {
     private String limitServerProblem = "";
     private BookEditorScreen failedBookEditor;
     private long failedBookToken;
+    private PlayerRoleEditorScreen failedRoleEditor;
+    private long failedRoleToken;
 
     public CoreMenuScreen(View initial) {
         super(Text.literal("Chronicle"));
@@ -234,6 +241,25 @@ public final class CoreMenuScreen extends Screen {
             client.setScreen(new BookGiveScreen(this, updated.detail().lore().give(), updated.token(), this::sendBookGive));
             return;
         }
+        if ((receivedFor == Action.ROLE_NEW || receivedFor == Action.ROLE_EDIT) && updated.success()
+                && updated.detail() != null && updated.detail().role() != null) {
+            openRoleEditor(updated.detail().role());
+            return;
+        }
+        if ((receivedFor == Action.ROLE_CHOICE_OPEN || receivedFor == Action.ROLE_ASSIGN_REVIEW) && updated.success()
+                && updated.detail() != null && updated.detail().roleAssignment() != null) {
+            RoleAssignmentForm form = updated.detail().roleAssignment();
+            client.setScreen(new PlayerRoleChoiceScreen(this, form, updated.token(), this::sendRoleChoice));
+            return;
+        }
+        if ((receivedFor == Action.ROLE_CREATE || receivedFor == Action.ROLE_SAVE) && !updated.success() && failedRoleEditor != null) {
+            PlayerRoleEditorScreen retry = failedRoleEditor;
+            failedRoleEditor = null;
+            retry.serverRejected(blank(updated.message(), "The server rejected this player role. Correct it and save again."));
+            client.setScreen(retry);
+            return;
+        }
+        if (receivedFor == Action.ROLE_CREATE || receivedFor == Action.ROLE_SAVE) { failedRoleEditor = null; failedRoleToken = 0; }
         if ((receivedFor == Action.BOOK_CREATE || receivedFor == Action.BOOK_SAVE) && !updated.success() && failedBookEditor != null) {
             BookEditorScreen retry = failedBookEditor;
             failedBookEditor = null;
@@ -303,14 +329,37 @@ public final class CoreMenuScreen extends Screen {
             button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true);
             return;
         }
-        Page[] navigation = state.operator() ? NAVIGATION : new Page[] {Page.PLAYERS};
-        for (int i = 0; i < navigation.length; i++) {
-            Page page = navigation[i];
-            String label = navigationLabel(page);
-            int navY = top + i * 19 + (i >= 3 ? 10 : 0);
-            button(label, layout.content().x(), navY, navWidth, 18, () -> open(page), page == state.page() ? "Current page" : "", true);
+        if (!state.operator()) {
+            button("Players", layout.content().x(), top, navWidth, 18, () -> open(Page.PLAYERS),
+                    state.page() == Page.PLAYERS ? "Current page" : "", true);
+        } else {
+            for (int index = 0; index < 3; index++) {
+                Page page = NAVIGATION[index];
+                button(navigationLabel(page), layout.content().x(), top + index * 19, navWidth, 18, () -> open(page),
+                        page == state.page() ? "Current page" : "", true);
+            }
+            int advancedY = top + 3 * 19 + 10;
+            drawLine("Advanced", layout.content().x(), top + 3 * 19, navWidth, 0xFFA0A0A0);
+            int advancedTotal = NAVIGATION.length - 3;
+            int advancedRows = Math.max(1, Math.min(advancedTotal, (layout.bodyBottom() - advancedY - 20) / 19));
+            advancedNavOffset = Math.clamp(advancedNavOffset, 0, Math.max(0, advancedTotal - advancedRows));
+            for (int index = 0; index < advancedTotal; index++) if (NAVIGATION[index + 3] == state.page()
+                    && (index < advancedNavOffset || index >= advancedNavOffset + advancedRows)) {
+                advancedNavOffset = Math.clamp(index, 0, Math.max(0, advancedTotal - advancedRows));
+            }
+            for (int row = 0; row < advancedRows; row++) {
+                Page page = NAVIGATION[3 + advancedNavOffset + row];
+                button(navigationLabel(page), layout.content().x(), advancedY + row * 19, navWidth, 18, () -> open(page),
+                        page == state.page() ? "Current page" : "", true);
+            }
+            if (advancedTotal > advancedRows) {
+                int controlsY = advancedY + advancedRows * 19;
+                button("^", layout.content().x(), controlsY, navWidth / 2 - 2, 18,
+                        () -> { advancedNavOffset--; clearAndInit(); }, "Earlier advanced tabs", advancedNavOffset > 0);
+                button("v", layout.content().x() + navWidth / 2 + 2, controlsY, navWidth / 2 - 2, 18,
+                        () -> { advancedNavOffset++; clearAndInit(); }, "More advanced tabs", advancedNavOffset + advancedRows < advancedTotal);
+            }
         }
-        if (state.operator()) drawLine("Advanced", layout.content().x(), top + 3 * 19, navWidth, 0xFFA0A0A0);
         int refreshX = layout.content().right() - 54;
         button("Refresh", refreshX, layout.headerY(), 54, 18, () -> request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false), "Request current data", true);
         if (state.operator()) {
@@ -346,7 +395,7 @@ public final class CoreMenuScreen extends Screen {
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW) {
+                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW) {
                     control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
@@ -458,7 +507,7 @@ public final class CoreMenuScreen extends Screen {
             cursor = wrapped("Unavailable: " + unavailable.reason(), x, cursor, w, 0xFFFFCC66, 2); break;
         }
         for (Control control : detail.controls()) {
-            if (control.action()==Action.BOOK_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
+            if (control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
             control(control, x, cursor, w); cursor += 20;
         }
         detailContentHeight = cursor + detailScroll - y;
@@ -605,6 +654,10 @@ public final class CoreMenuScreen extends Screen {
             openBookEditor(new BookDefinition("chronicle_core:draft", "Untitled book", "", "Draft lore book", List.of(""), BookDefinition.Rule.OFF), BookEditorScreen.Mode.DETAILS, true);
             return;
         }
+        if (control.action() == Action.ROLE_NEW || control.action() == Action.ROLE_EDIT) {
+            request(control.action(), Page.PLAYER_ROLES, detailId(), "", state.index(), state.filter(), "", false);
+            return;
+        }
         if (state.detail() != null && state.detail().book() != null) {
             if (control.action() == Action.BOOK_EDIT_DETAILS) { openBookEditor(state.detail().book(), BookEditorScreen.Mode.DETAILS, false); return; }
             if (control.action() == Action.BOOK_EDIT_PAGES) { openBookEditor(state.detail().book(), BookEditorScreen.Mode.PAGES, false); return; }
@@ -621,6 +674,10 @@ public final class CoreMenuScreen extends Screen {
         }
         if (control.action() == Action.BOOK_GIVE_OPEN) {
             request(Action.BOOK_GIVE_OPEN, Page.BOOKS_LORE, detailId(), "", state.index(), state.filter(), "", false);
+            return;
+        }
+        if (control.input().equals("ROLE_CHOICE")) {
+            request(control.action(), Page.PLAYERS, detailId(), "", state.index(), state.filter(), "", false);
             return;
         }
         if (control.action() == Action.CHEST_BOOK_SET) { beginPicker(new PendingPicker(Action.CHEST_BOOK_SET, detailId(), "BOOKS")); return; }
@@ -1114,6 +1171,20 @@ public final class CoreMenuScreen extends Screen {
         client.setScreen(editor[0]);
     }
 
+    /** Opens the local draft editor after the server has pinned the available points and books. */
+    private void openRoleEditor(RoleForm form) {
+        long editorToken = state.token();
+        PlayerRoleEditorScreen[] editor = new PlayerRoleEditorScreen[1];
+        editor[0] = new PlayerRoleEditorScreen(this, form.definition(), form.points(), form.books(), editorToken, form.creating(), value -> {
+            failedRoleEditor = editor[0];
+            failedRoleToken = editorToken;
+            client.setScreen(this);
+            request(form.creating() ? Action.ROLE_CREATE : Action.ROLE_SAVE, Page.PLAYER_ROLES, value.id(), new Gson().toJson(value), editorToken,
+                    state.index(), state.filter(), "", false);
+        });
+        client.setScreen(editor[0]);
+    }
+
     private void sendKeep(BookKeepScreen.Request keep) {
         com.google.gson.JsonObject value = new com.google.gson.JsonObject();
         value.addProperty("bookId", keep.bookId()); value.addProperty("tableId", keep.tableId()); value.addProperty("override", keep.override());
@@ -1128,6 +1199,16 @@ public final class CoreMenuScreen extends Screen {
             return;
         }
         request(give.action(), Page.BOOKS_LORE, give.bookId(), give.targetId(), give.openingToken(),
+                state.index(), state.filter(), "", false);
+    }
+
+    private void sendRoleChoice(PlayerRoleChoiceScreen.Request choice) {
+        if (choice.token() != state.token()) {
+            notice = "The Chronicle state changed. Review the player role again.";
+            clearAndInit();
+            return;
+        }
+        request(choice.action(), Page.PLAYERS, choice.playerId(), choice.roleId(), choice.token(),
                 state.index(), state.filter(), "", false);
     }
 

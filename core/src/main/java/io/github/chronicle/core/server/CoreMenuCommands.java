@@ -49,6 +49,7 @@ public final class CoreMenuCommands {
                 .then(literal("inspect").then(argument("chest", StringArgumentType.string()).suggests((c, b) -> chests(c.getSource(), b))
                         .executes(context -> execute(context.getSource(), Action.SHOW, Page.CHESTS, string(context, "chest"), ""))))
                 .build());
+        canonical.addChild(literal("roles").executes(context -> CoreMenuServer.open(context.getSource(),Page.PLAYER_ROLES)).then(literal("reload").requires(source->source.hasPermissionLevel(2)).executes(context->{try{PlayerRoles.reload(context.getSource());context.getSource().sendFeedback(()->Text.literal("Player roles reloaded."),false);return 1;}catch(Exception failure){context.getSource().sendError(Text.literal(failure.getMessage()));return 0;}})).build());
         canonical.addChild(lootTables().build());
         canonical.addChild(literal("books").executes(context -> CoreMenuServer.open(context.getSource(), Page.BOOKS_LORE)).build());
         canonical.addChild(literal("locations").executes(context -> CoreMenuServer.open(context.getSource(), Page.LOCATIONS))

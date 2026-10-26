@@ -95,6 +95,11 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        try (var input=QuietBelow.class.getResourceAsStream("/data/quiet_below/chronicle/player-roles.yaml")) {
+            if(input==null)throw new IllegalStateException("Missing bundled player-role defaults");
+            ChronicleCore.playerRoles().registerYaml("quiet_below:player-roles",new String(input.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
+        } catch(java.io.IOException exception){throw new IllegalStateException("Cannot read bundled player-role defaults",exception);}
+
         ChronicleCore.managedBlocks().register(new ManagedBlockDefinition("quiet_below:ancient_altar", "quiet_below:ancient_altar",
                 "Ancient Altar", "A placed ritual station supplied by The Quiet Below.", 1, ManagedBlockDefinition.LimitMode.EDITABLE));
         ChronicleCore.managedBlocks().register(new ManagedBlockDefinition("quiet_below:ancient_forge", "quiet_below:ancient_forge",

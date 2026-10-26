@@ -4,6 +4,9 @@ base {
 
 dependencies {
     implementation project(path: ':core', configuration: 'namedElements')
+    // namedElements supplies Core's classes for Loom development runs, without
+    // its nested jars. Production receives this library inside Core's jar only.
+    runtimeOnly "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

@@ -104,16 +104,21 @@ public final class AutomaticPlayerSpawns {
         var binding = SpawnAuthoring.service(source.getServer()).state().bindings().get(purpose);
         if (binding == null) throw new IllegalArgumentException("Choose a saved spawn purpose.");
         SpawnAuthoring.service(source.getServer()).resolve(AuthoringRuntime.get(source.getServer()).service().state(), purpose);
-        write(source.getServer(), () -> service(source.getServer()).set(player, binding, arrival));
+        write(source.getServer(), () -> {service(source.getServer()).set(player, binding, arrival);if(PlayerRoles.ready(source.getServer()))PlayerRoles.setPolicyDisabled(source.getServer(),player,arrival,false);});
     }
     public static void disable(ServerCommandSource source, UUID player, boolean arrival) throws IOException {
-        requireAuthor(source); write(source.getServer(), () -> service(source.getServer()).disable(player, arrival));
+        requireAuthor(source); write(source.getServer(), () -> {if(PlayerRoles.ready(source.getServer()))PlayerRoles.setPolicyDisabled(source.getServer(),player,arrival,true);service(source.getServer()).disable(player, arrival);});
+    }
+    public static void useRoleDefault(ServerCommandSource source,UUID player,boolean arrival) throws IOException {
+        requireAuthor(source);
+        if(!PlayerRoles.ready(source.getServer())||PlayerRoles.roleFor(source.getServer(),player)==null)throw new IllegalStateException("Assign a role before choosing its destination policy.");
+        write(source.getServer(),()->{service(source.getServer()).disable(player,arrival);PlayerRoles.setPolicyDisabled(source.getServer(),player,arrival,false);});
     }
     public static void reset(ServerCommandSource source, UUID player) throws IOException {
         requireAuthor(source); write(source.getServer(), () -> service(source.getServer()).reset(player));
     }
     private static void requireAuthor(ServerCommandSource source) {
-        if (!source.hasPermissionLevel(2) || source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer()) || !AuthoringRuntime.editable(source.getServer()))
+        if (!source.hasPermissionLevel(2) || source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer()) || !AuthoringRuntime.editable(source.getServer()) || RuntimeHolds.reason(source.getServer())!=null)
             throw new IllegalStateException("Automatic policy edits require operator permission and non-active author mode.");
     }
     private static void write(MinecraftServer server, Write operation) throws IOException {
@@ -140,6 +145,7 @@ public final class AutomaticPlayerSpawns {
             if (runtime.failure != null) break;
             var player = server.getPlayerManager().getPlayer(id);
             if (player == null || !eligible(player)) continue;
+            if(RoleFirstEntry.managesStart(server,id))continue;
             var policy = runtime.service.state().policies().get(id);
             if (policy == null || policy.arrival() == null || runtime.service.state().arrivals().containsKey(id)) continue;
             try { arrival(player, policy.arrival()); }
@@ -167,11 +173,13 @@ public final class AutomaticPlayerSpawns {
         var state = available(server);
         if (state == null || !active(server) || !eligible(player)) return;
         var policy = state.policies().get(player.getUuid());
-        if (policy == null || policy.respawn() == null) return;
+        var role=PlayerRoles.roleFor(server,player.getUuid());
+        boolean manual=policy!=null&&policy.respawn()!=null;
+        if(!manual&&(role==null||role.respawn()==null||PlayerRoles.assignments(server).respawnDisabled().contains(player.getUuid())||PlayRuntime.available(server)==null||!PlayRuntime.available(server).participants().contains(player.getUuid())))return;
         try {
-            var destination = SpawnAuthoring.safePolicyDestination(server, policy.respawn());
+            var destination = manual?SpawnAuthoring.safePolicyDestination(server, policy.respawn()):SpawnAuthoring.safeRoleDestination(server,role.respawn());
             SpawnAuthoring.moveToPolicy(player, destination);
-            ChronicleCore.LOGGER.info("Automatic death respawn: player={} purpose={}", player.getUuid(), policy.respawn().purpose());
+            ChronicleCore.LOGGER.info("Automatic death respawn: player={} purpose={}", player.getUuid(), manual?policy.respawn().purpose():role.respawn().purpose());
         } catch (IllegalArgumentException | IllegalStateException exception) {
             player.sendMessage(Text.literal("Chronicle respawn skipped: " + detail(exception) + ". Vanilla respawn retained."), false);
             ChronicleCore.LOGGER.warn("Automatic death respawn skipped: player={} reason={}", player.getUuid(), detail(exception));

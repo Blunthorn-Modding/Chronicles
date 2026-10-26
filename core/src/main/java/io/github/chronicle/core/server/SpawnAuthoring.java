@@ -84,6 +84,16 @@ public final class SpawnAuthoring {
             throw new IllegalStateException("Minecraft rejected the automatic spawn move.");
     }
 
+    /** A role pins a Point directly; it is not a second globally named spawn-purpose binding. */
+    static AuthoringSite.Location safeRoleDestination(MinecraftServer server, io.github.chronicle.core.spawn.SpawnBinding pinned) {
+        var site = AuthoringRuntime.get(server).service().state().sites().get(pinned.locationId());
+        if (!(site instanceof AuthoringSite.Location location) || location.revision() != pinned.locationRevision())
+            throw new IllegalStateException("The role Point is missing or changed; choose it again.");
+        var verdict = SpawnDestinationValidator.validate(new MinecraftWorld(server), location);
+        if (!verdict.safe()) throw new IllegalStateException(verdict.reason());
+        return location;
+    }
+
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher) {
         var spawn = literal("spawn").requires(source -> source.hasPermissionLevel(2))
                 .executes(context -> AuthoringUi.open(context.getSource(), io.github.chronicle.core.authoring.ui.AuthoringUiModel.Tab.SPAWNS));

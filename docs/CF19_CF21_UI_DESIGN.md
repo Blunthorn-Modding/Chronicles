@@ -1,6 +1,6 @@
 # CF19-CF21: Player Roles, Departures and Area changes UI design
 
-**Status:** design-review artifact only. The paired [interactive mockup](design/roles-departures-transitions.html) does not change Minecraft runtime, configuration, worlds, or deployment.
+**Status:** approved for native implementation on 26 October. Final organizer refinement: Create new sits above each middle-pane record list, never in selected-item detail. The paired [interactive mockup](design/roles-departures-transitions.html) does not change Minecraft runtime, configuration, worlds, or deployment.
 
 ## Product structure
 

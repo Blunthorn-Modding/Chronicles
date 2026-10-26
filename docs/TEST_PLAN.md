@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 26 October: CF19 native implementation checkpoint
+
+[Player Roles](CF19_IMPLEMENTATION.md) is the first implemented part of the approved CF19–CF21 bundle. Latest disposable `python scripts/roles_smoke.py` run `../reports/player-roles-20261026T144844705465Z` passes nine initial/restart proof groups: actual editor create, reviewed assign/clear/delete, full-inventory and unresolved-prior-arrival deferral, real Point/once kit/book discovery, three deaths (role/manual/Off spawn) and real restart with no kit/book replay. Three desktop/480px captures were visually inspected after clearing fixture toasts. Independent source review is clear. Earlier 46-second integrated build and later focused compile/test/native rebuilds pass; final complete bundle build is still required. Entry suite is7 tests; CF21 pure14/authoringguard3 and managed batch checks remain separate scopes. No native kill/diskfault/max-account claim. Source/pack/version remain undelivered; accepted authenticated dev54 is untouched.
+
 ## 26 October: revised direct navigation and paired Area changes
 
 The organizer requests separate Advanced Player Roles, Departures and Area changes, plus Start/End-first private shovel/position selection, explicit save, repeated state capture and delete-with-state choice. The [contract](CF19_CF21_IMPLEMENTATION_PLAN.md), [UI design](CF19_CF21_UI_DESIGN.md) and [mockup](design/roles-departures-transitions.html) replace the previous template/transition workflow. Verification for this revision is recorded separately in `../reports/area-changes-design/`; the previous 56-check report below certifies the earlier prototype only.

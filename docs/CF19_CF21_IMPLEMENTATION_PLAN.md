@@ -2,6 +2,10 @@
 
 26 October 2026. New requested scope after accepted dev54. Branch `design/core-roles-departures-transitions`. This is an implementation contract and UI review package; Minecraft code, deployed worlds and the dev54 pack remain unchanged in this design pass. The organizer's standing UI workflow requires a dedicated design pass and lead review before implementation. The paired [UI design](CF19_CF21_UI_DESIGN.md) and [mockup](design/roles-departures-transitions.html) provide that review surface.
 
+## Implementation authorization — 26 October
+
+The organizer approves this revised design and explicitly authorizes implementation. The previous organizer workflow-review gate is satisfied. Final refinement: Create new actions belong above the existing middle-pane role/departure/area lists, not in the selected-item detail. Implement dependency-ordered slices on `feat/core-roles-areas-departures`, preserving the accepted runtime until combined validation/deployment.
+
 ## Confirmed requirements
 
 - **CF19, Player roles:** Core owns reusable definitions, selection/assignment, limits, starting and respawn locations, starting gear and private named-book entitlements. Roles support unique characters and shared backgrounds through a configurable limit. Quiet Below supplies its default definitions in YAML. Operators can create/edit definitions in the editor.

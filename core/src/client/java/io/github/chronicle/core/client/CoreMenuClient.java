@@ -17,8 +17,14 @@ public final class CoreMenuClient {
     static void receive(MinecraftClient client, CoreMenuPayloads.Response response) {
         io.github.chronicle.core.client.testing.CoreMenuSmoke.onView(response.view());
         io.github.chronicle.core.client.testing.BooksLoreSmoke.onView(response.view());
+        io.github.chronicle.core.client.testing.PlayerRolesSmoke.onView(response.view());
         if (client.currentScreen instanceof CoreMenuScreen screen) {
             screen.accept(response.view());
+        } else if (client.currentScreen instanceof PlayerRoleEditorScreen editor && editor.parentMenu() != null) {
+            editor.parentMenu().acceptWhileEditorOpen(response.view()); editor.serverUpdated(response.view());
+        } else if (client.currentScreen instanceof PlayerRoleChoiceScreen choice && choice.parentMenu() instanceof CoreMenuScreen parent) {
+            boolean same = parent.state().token() == response.view().token();
+            parent.acceptWhileEditorOpen(response.view()); choice.serverUpdated(same);
         } else if (client.currentScreen instanceof BookGiveScreen give && give.parentMenu() instanceof CoreMenuScreen parent) {
             // A background refresh must keep the menu current, while the popup becomes read-only if its frame changed.
             parent.acceptWhileEditorOpen(response.view());
