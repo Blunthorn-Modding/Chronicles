@@ -71,6 +71,11 @@ public final class EcologyJournal implements AutoCloseable {
             "schema", "sequence", "type", "payload", "previousHash", "hash");
 
     private final Path file;
+    private final long outputByteLimit;
+    private final int outputEntryLimit;
+    /** Expected early exit while building a discardable checkpoint candidate. */
+    static final class OutputBudgetExceeded extends IOException {OutputBudgetExceeded(String reason){super(reason);}}
+
     private final FileChannel channel;
     private final FileLock lock;
     private final ArrayList<Entry> entries;
@@ -85,10 +90,16 @@ public final class EcologyJournal implements AutoCloseable {
     private String lastHash;
     private boolean poisoned;
     private IOException poisonCause;
+    private boolean maintenance;
     private boolean closed;
 
     /** Opens and strictly replays an existing journal, or durably creates a new empty journal. */
-    public EcologyJournal(Path file) throws IOException {
+    public EcologyJournal(Path file) throws IOException {this(file,MAX_FILE_BYTES,MAX_ENTRIES);}
+
+    EcologyJournal(Path file,long outputByteLimit,int outputEntryLimit) throws IOException {
+        if(outputByteLimit<1||outputByteLimit>MAX_FILE_BYTES||outputEntryLimit<1||outputEntryLimit>MAX_ENTRIES)
+            throw new IllegalArgumentException("Invalid checkpoint output budget");
+        this.outputByteLimit=outputByteLimit;this.outputEntryLimit=outputEntryLimit;
         if (file == null || file.getFileName() == null) {
             throw new IllegalArgumentException("ecology journal file is required");
         }
@@ -182,9 +193,41 @@ public final class EcologyJournal implements AutoCloseable {
         return byteCount;
     }
 
+    /**
+     * Seals this open handle against appends while a caller-owned maintenance barrier is active.
+     * Read-only evidence operations remain available through the already locked channel.
+     */
+    synchronized void beginMaintenance() throws IOException {
+        ensureAppendable();
+        verifyUnchanged();
+        maintenance = true;
+    }
+
+    /** Releases a successful maintenance seal after proving the source was not changed. */
+    synchronized void endMaintenance() throws IOException {
+        ensureReadable();
+        if (!maintenance) {
+            throw new IOException("Ecology journal has no active maintenance lease: " + file);
+        }
+        verifyUnchanged();
+        maintenance = false;
+    }
+
+    synchronized boolean maintenanceActive() {
+        return maintenance && !closed;
+    }
+
+    synchronized boolean closed() {
+        return closed;
+    }
+
+    Path path() {
+        return file;
+    }
+
     /** Maintenance reads through the locked channel (Windows forbids a second file handle). */
     synchronized String fingerprint() throws IOException {
-        ensureAppendable();verifyUnchanged();MessageDigest digest;
+        ensureReadable();verifyUnchanged();MessageDigest digest;
         try { digest=MessageDigest.getInstance("SHA-256"); } catch(NoSuchAlgorithmException e){throw new IOException(e);}
         ByteBuffer buffer=ByteBuffer.allocate(64*1024);long position=0;
         while(position<byteCount){buffer.clear();buffer.limit((int)Math.min(buffer.capacity(),byteCount-position));
@@ -194,7 +237,7 @@ public final class EcologyJournal implements AutoCloseable {
         verifyUnchanged();return java.util.HexFormat.of().formatHex(digest.digest());
     }
     synchronized void archiveTo(Path target) throws IOException {
-        ensureAppendable();verifyUnchanged();
+        ensureReadable();verifyUnchanged();
         try(FileChannel output=FileChannel.open(target,StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE)){
             ByteBuffer buffer=ByteBuffer.allocate(64*1024);long position=0;
             while(position<byteCount){buffer.clear();buffer.limit((int)Math.min(buffer.capacity(),byteCount-position));
@@ -218,6 +261,8 @@ public final class EcologyJournal implements AutoCloseable {
             throw new IllegalArgumentException("ecology journal payload is required");
         }
         JsonObject canonicalPayload = object(canonicalize(payload, 1, new JsonBudget()), "payload");
+        if(entries.size()>=outputEntryLimit&&(outputByteLimit<MAX_FILE_BYTES||outputEntryLimit<MAX_ENTRIES))
+            throw new OutputBudgetExceeded("Checkpoint cannot fit its entry budget");
         if (entries.size() >= MAX_ENTRIES) {
             throw new IOException("Ecology journal entry capacity is exhausted; ecology must remain held: " + file);
         }
@@ -228,6 +273,8 @@ public final class EcologyJournal implements AutoCloseable {
         if (record.length > MAX_LINE_BYTES) {
             throw new IllegalArgumentException("ecology journal line exceeds 64 KiB");
         }
+        if(outputByteLimit<MAX_FILE_BYTES&&byteCount>outputByteLimit-record.length)
+            throw new OutputBudgetExceeded("Checkpoint cannot save the required bytes");
         if (byteCount > MAX_FILE_BYTES - record.length) {
             throw new IOException("Ecology journal byte capacity is exhausted; ecology must remain held: " + file);
         }
@@ -301,6 +348,13 @@ public final class EcologyJournal implements AutoCloseable {
     }
 
     private void ensureAppendable() throws IOException {
+        ensureReadable();
+        if (maintenance) {
+            throw new IOException("Ecology journal is sealed for maintenance: " + file);
+        }
+    }
+
+    private void ensureReadable() throws IOException {
         if (closed) {
             throw new IOException("Ecology journal is closed: " + file);
         }

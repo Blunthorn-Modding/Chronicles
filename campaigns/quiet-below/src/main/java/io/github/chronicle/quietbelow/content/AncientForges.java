@@ -31,6 +31,7 @@ public final class AncientForges {
         ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((block,world)->{if(block instanceof AncientForgeBlockEntity forge)admit(world.getServer(),forge);});
         ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.register((block,world)->{var loaded=LOADED.get(world.getServer());if(loaded!=null)loaded.remove(block);});
         ServerChunkEvents.CHUNK_LOAD.register((world,chunk)->{
+            if(QuietBelowEcology.maintaining(world.getServer()))return;
             // Saved readiness must be revalidated after chunk load, even beyond tracker capacity.
             // Use the callback's actual chunk; World.getChunk/markDirty may self-wait here.
             for(var block:chunk.getBlockEntities().values())if(block instanceof AncientForgeBlockEntity forge){
@@ -61,6 +62,7 @@ public final class AncientForges {
         return chunk.getBlockEntities().get(pos) instanceof AncientForgeBlockEntity forge?forge:null;
     }
     private static void update(ServerWorld world,AncientForgeBlockEntity forge){
+        if(QuietBelowEcology.maintaining(world.getServer()))return;
         int heat=QuietBelowEcology.forgeHeat(world,forge.getPos());
         var state=forge.getCachedState();
         if(state.isOf(QuietBelow.ANCIENT_FORGE_BLOCK)&&state.get(AncientForgeBlock.HEAT)!=heat)

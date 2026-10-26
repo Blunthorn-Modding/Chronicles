@@ -36,12 +36,15 @@ import net.minecraft.world.Difficulty;
 import net.minecraft.world.GameMode;
 import java.io.IOException;
 import java.util.*;
+import java.nio.file.Path;
+import java.util.concurrent.*;
 import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 
 /** Campaign lifecycle and the sole Minecraft adapter for ecology. */
 public final class QuietBelowEcology {
     private static final int MAX_WARDEN_SPAWN_CANDIDATES=128;
     public static final String TOOL="quiet_below:ecology";
+    private static final String MAINTENANCE_HOLD="quiet_below:journal_maintenance";
     private static final Map<MinecraftServer,Runtime> WORLDS=new IdentityHashMap<>();
     private static final Map<ServerWorld,Set<ChunkPos>> LOADED=new IdentityHashMap<>();
     private static final Set<ServerWorld> LOAD_OVERFLOW=Collections.newSetFromMap(new IdentityHashMap<>());
@@ -172,12 +175,21 @@ public final class QuietBelowEcology {
             Set<ChunkPos> loaded=LOADED.get(world);if(loaded!=null)loaded.remove(chunk.getPos());
             Runtime r=WORLDS.get(world.getServer());if(r!=null&&r.cleanup!=null&&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString()))r.cleanup.unload(chunk.getPos().x,chunk.getPos().z);
             if(r!=null&&r.engine.setup()!=null&&r.engine.setup().dimension().equals(world.getRegistryKey().getValue().toString()))
-                try{r.engine.chunkUnloaded(chunk.getPos().x,chunk.getPos().z);}catch(Exception e){hold(r,e);}
+                try{
+                    noticeChunkUnload(r,chunk.getPos());
+                }catch(Exception e){hold(r,e);}
         });
         ServerLifecycleEvents.SERVER_STARTED.register(QuietBelowEcology::start);
-        ServerTickEvents.START_SERVER_TICK.register(server->{Runtime r=WORLDS.get(server);if(r!=null){r.engine.beginTick();r.settlingWrites=0;}});
+        ServerTickEvents.START_SERVER_TICK.register(server->{Runtime r=WORLDS.get(server);if(r!=null&&!maintenanceBusy(r)){r.engine.beginTick();r.settlingWrites=0;}});
         ServerTickEvents.END_SERVER_TICK.register(QuietBelowEcology::tick);
-        ServerLifecycleEvents.SERVER_STOPPING.register(EcologyCostEffects::clear);
+        ServerLifecycleEvents.SERVER_STOPPING.register(server->{
+            EcologyCostEffects.clear(server);Runtime r=WORLDS.get(server);if(r==null)return;
+            if(r.maintenanceJob!=null){
+                QuietBelow.LOGGER.info("Waiting for ecology maintenance before releasing world ownership");
+                finishMaintenance(server,r,true);
+            }
+            r.maintenanceWorker.shutdown();
+        });
         io.github.chronicle.core.server.ServerDisconnects.register((handler,server)->{
             EcologyCostEffects.disconnect(handler.player);
             Runtime r=WORLDS.get(server);if(r!=null)r.costs.resetPlayer(handler.player.getUuid());
@@ -190,7 +202,7 @@ public final class QuietBelowEcology {
         ServerLifecycleEvents.SERVER_STOPPED.register(server->{
             EcologyCostEffects.forget(server);
             Runtime r=WORLDS.remove(server);if(r!=null){
-                try{r.engine.flushHeart();r.engine.flushVitality();}catch(Exception e){QuietBelow.LOGGER.error("Ecology vitality shutdown checkpoint failed",e);}
+                try{if(!r.maintenanceFailed){r.engine.flushHeart();r.engine.flushVitality();}}catch(Exception e){QuietBelow.LOGGER.error("Ecology vitality shutdown checkpoint failed",e);}
                 try{r.journal.close();}catch(IOException e){QuietBelow.LOGGER.error("Ecology journal close failed",e);}
             }
             LOADED.keySet().removeIf(world->world.getServer()==server);
@@ -198,6 +210,7 @@ public final class QuietBelowEcology {
         });
         EcologyHooks.register(new NativeHooks());
         EcologyNativeTrial.register();
+        EcologyAutoMaintenanceTrial.register();
     }
     private static void registerTool(GameSetupTools.Tool tool){
         GameSetupTools.register(new GameSetupTools.Tool(tool.id(),tool.label(),tool.description(),tool.verbs(),source->{
@@ -231,12 +244,22 @@ public final class QuietBelowEcology {
     }
     private static void tick(MinecraftServer server) {
         Runtime r=WORLDS.get(server);if(r==null){EcologyCostEffects.clear(server);return;}
+        r.maintenanceTicks++;
+        if(maintenanceBusy(r)){
+            long began=System.nanoTime();finishMaintenance(server,r,false);r.maintenanceTickNanos=System.nanoTime()-began;
+            EcologyCostEffects.clear(server);return;
+        }
         if(r.engine.failure()!=null){heartRestingAppearance(server,r);EcologyCostEffects.clear(server);return;}
         if(r.engine.setup()==null){EcologyCostEffects.clear(server);return;}
         long started=System.nanoTime();
         try {
             if(r.engine.ending()!=null){endingTick(server,r);EcologyCostEffects.clear(server);return;}
             attach(server,r);
+            if(r.engine.view().indexed()&&RuntimeHolds.reason(server)==null&&r.maintenancePolicy.due(
+                    ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE||server.getPlayerManager().getCurrentPlayerCount()==0,
+                    r.journal.bytes(),r.journal.revision(),r.maintenanceTicks,r.maintenanceAfterBytes,r.maintenanceAfterRecords,r.maintenanceLastTick)){
+                startMaintenance(server,r);EcologyCostEffects.clear(server);return;
+            }
             Adapter world=adapter(server,r.engine.setup().dimension());
             // Indexing is explicit preparation, never starts from simply registering a role.
             if(!r.engine.view().indexed()) {
@@ -295,6 +318,8 @@ public final class QuietBelowEcology {
         } catch(Exception e) { EcologyCostEffects.clear(server);hold(r,e); }
         finally {r.lastTickNanos=System.nanoTime()-started;}
     }
+    /** Preserve station models while an ecology checkpoint owns the write barrier. */
+    public static boolean maintaining(MinecraftServer server){Runtime r=WORLDS.get(server);return r!=null&&maintenanceBusy(r);}
     public static boolean playing(MinecraftServer server) {
         try {
             return ChronicleRuntime.service(server).state().phase()==SessionPhase.ACTIVE && RuntimeHolds.reason(server)==null
@@ -706,7 +731,7 @@ public final class QuietBelowEcology {
     }
     private static Runtime runtime(MinecraftServer server) {
         if(!server.isOnThread())throw new IllegalStateException("Ecology requires the server thread");
-        Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Ecology unavailable; inspect quiet-below/ecology.jsonl and server log.");return r;
+        Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Ecology unavailable; inspect quiet-below/ecology.jsonl and server log.");if(maintenanceBusy(r))throw new IllegalStateException("Ecology journal maintenance is holding writes; wait for completion or inspect the server log.");return r;
     }
     static EcologyEngine engineForTest(MinecraftServer server){return runtime(server).engine;}
     static EcologyEradication endingForTest(MinecraftServer server){return runtime(server).eradication;}
@@ -851,7 +876,7 @@ public final class QuietBelowEcology {
         return vulnerable?RelicHeartBlock.Lens.VULNERABLE:RelicHeartBlock.Lens.WEAKENING;
     }
     private static void destroyHeart(ServerPlayerEntity actor,ServerWorld world,BlockPos position){
-        Runtime r=WORLDS.get(world.getServer());if(r==null||r.engine.ending()!=null)return;
+        Runtime r=WORLDS.get(world.getServer());if(r==null||maintenanceBusy(r)||r.engine.ending()!=null)return;
         try{
             GameMode mode=actor.interactionManager.getGameMode();
             if(actor.getEntityWorld()!=world||!actor.isAlive()||actor.isSpectator()||(mode!=GameMode.SURVIVAL&&mode!=GameMode.ADVENTURE)
@@ -962,6 +987,72 @@ public final class QuietBelowEcology {
         ServerWorld w=server.getWorld(RegistryKey.of(RegistryKeys.WORLD,Identifier.of(dimension)));
         if(w==null)throw new IllegalStateException("Ecology dimension unavailable");return new Adapter(w);
     }
+    private static void noticeChunkUnload(Runtime r,ChunkPos chunk)throws IOException {
+        if(maintenanceBusy(r)){
+            if(r.maintenanceUnloads.size()>=EcologyCleanup.MAX_CHUNKS&&!r.maintenanceUnloads.contains(chunk))
+                throw new IllegalStateException("Maintenance unload tracking capacity reached");
+            r.maintenanceUnloads.add(chunk);
+        }else r.engine.chunkUnloaded(chunk.x,chunk.z);
+    }
+    /** Synthetic callback injection, distinct from natural chunk-unload evidence. */
+    static void queueUnloadForTest(MinecraftServer server,ChunkPos chunk)throws IOException {
+        EcologyAutoMaintenanceTrial.requireFixture(server);Runtime r=WORLDS.get(server);
+        if(r==null||!maintenanceBusy(r))throw new IllegalStateException("Unload injection requires a held maintenance fixture");
+        noticeChunkUnload(r,chunk);
+    }
+    private static boolean maintenanceBusy(Runtime r){return r.maintenanceStarting||r.maintenanceJob!=null||r.maintenanceFailed;}
+    private static void startMaintenance(MinecraftServer server,Runtime r){
+        r.maintenanceStarting=true;
+        RuntimeHolds.hold(server,MAINTENANCE_HOLD,"World maintenance in progress. Play will resume shortly.");
+        try {
+            r.engine.flushHeart();r.engine.flushVitality();
+            var source=r.journal;var setup=r.engine.setup();var area=r.engine.sourceArea();var heart=r.engine.rootPosition();
+            Path file=server.getSavePath(WorldSavePath.ROOT).resolve("quiet-below/ecology.jsonl").toAbsolutePath().normalize();
+            r.maintenanceBeforeBytes=source.bytes();r.maintenanceBeforeRecords=source.revision();r.maintenanceReason="Preparing verified checkpoint";
+            source.beginMaintenance();Runnable probe=r.maintenanceBeforeWork;
+            r.maintenanceJob=CompletableFuture.supplyAsync(()->{
+                probe.run();
+                try{return EcologyAutomaticCompaction.compact(source,file,setup,area,heart);}
+                catch(IOException e){throw new CompletionException(e);}
+            },r.maintenanceWorker);
+        } catch(Exception failure){maintenanceFailure(server,r,failure);}
+    }
+    private static void finishMaintenance(MinecraftServer server,Runtime r,boolean wait){
+        if(r.maintenanceJob==null||!wait&&!r.maintenanceJob.isDone())return;
+        try {
+            var result=r.maintenanceJob.join();var old=r.journal;
+            r.engine.replaceJournal(old,result.journal());r.journal=result.journal();
+            r.maintenanceAfterBytes=r.journal.bytes();r.maintenanceAfterRecords=r.journal.revision();r.maintenanceLastTick=r.maintenanceTicks;
+            r.maintenanceCompleted++;r.maintenanceReason=result.reason();r.maintenanceSourceHash=result.sourceHash();r.maintenanceArchive=result.archive()==null?"":result.archive().toString();
+            r.maintenanceJob=null;
+            if(r.engine.failure()!=null)throw new IllegalStateException(r.engine.failure());
+            for(ChunkPos chunk:r.maintenanceUnloads)r.engine.chunkUnloaded(chunk.x,chunk.z);
+            r.maintenanceUnloads.clear();
+            if(r.maintenanceChanged)r.engine.invalidateConnections();r.maintenanceChanged=false;
+            r.maintenanceStarting=false;
+            RuntimeHolds.release(server,MAINTENANCE_HOLD);
+            QuietBelow.LOGGER.info("Automatic ecology maintenance complete: {} -> {} bytes, {} -> {} records; applied={}; archive={}",
+                    r.maintenanceBeforeBytes,r.maintenanceAfterBytes,r.maintenanceBeforeRecords,r.maintenanceAfterRecords,result.applied(),r.maintenanceArchive);
+        } catch(Exception failure){r.maintenanceJob=null;maintenanceFailure(server,r,failure);}
+    }
+    private static void maintenanceFailure(MinecraftServer server,Runtime r,Exception error){
+        Throwable cause=error instanceof CompletionException&&error.getCause()!=null?error.getCause():error;
+        r.maintenanceFailed=true;r.maintenanceReason="World maintenance needs operator attention. Play remains held.";
+        RuntimeHolds.hold(server,MAINTENANCE_HOLD,r.maintenanceReason);
+        hold(r,cause instanceof Exception e?e:new IOException(cause));
+    }
+    record MaintenanceSnapshot(boolean busy,boolean failed,int completed,long beforeBytes,long afterBytes,long beforeRecords,long afterRecords,
+                               String sourceHash,String archive,String reason,int engineIdentity,long tickNanos) { }
+    static MaintenanceSnapshot maintenanceForTest(MinecraftServer server){
+        Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Ecology unavailable");
+        return new MaintenanceSnapshot(maintenanceBusy(r),r.maintenanceFailed,r.maintenanceCompleted,r.maintenanceBeforeBytes,r.maintenanceAfterBytes,
+                r.maintenanceBeforeRecords,r.maintenanceAfterRecords,r.maintenanceSourceHash,r.maintenanceArchive,r.maintenanceReason,System.identityHashCode(r.engine),r.maintenanceTickNanos);
+    }
+    static void maintenancePolicyForTest(MinecraftServer server,EcologyMaintenancePolicy policy,Runnable beforeWork){
+        EcologyAutoMaintenanceTrial.requireFixture(server);
+        Runtime r=WORLDS.get(server);if(r==null||maintenanceBusy(r))throw new IllegalStateException("Maintenance is already active or unavailable");
+        r.maintenancePolicy=Objects.requireNonNull(policy);r.maintenanceBeforeWork=Objects.requireNonNull(beforeWork);
+    }
     private static void hold(Runtime r,Exception e) {
         if(r.engine.failure()==null)r.engine.fail(e.getMessage()==null?e.getClass().getSimpleName():e.getMessage());
         if(!r.failureLogged){r.failureLogged=true;QuietBelow.LOGGER.error("Quiet Below ecology held; no automatic retry: "+r.engine.failure(),e);}
@@ -970,7 +1061,15 @@ public final class QuietBelowEcology {
     @FunctionalInterface interface DefianceEffect { boolean run(); }
     record DefianceEffectResult(DefiancePhase phase,boolean value,RuntimeException failure) { }
     private static final class Runtime {
-        final EcologyEngine engine;final EcologyJournal journal;final HeartDefianceStore defianceStore;int settlingWrites,endingWorkTick=Integer.MIN_VALUE,lastHeartElapsed;long menuRevision,lastTickNanos;boolean failureLogged,appearanceFailureLogged,defianceFailureLogged,defianceEffectFailureLogged;String rootProblem,claimProblem,defianceProblem;HeartDefianceStore.State defiance;DefiancePhase defiancePhase=DefiancePhase.UNDECIDED;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;EcologyEradication eradication;boolean sourceClosed,endingHeld;String endingProblem,lastEndingHold;
+        final EcologyEngine engine;EcologyJournal journal;final HeartDefianceStore defianceStore;int settlingWrites,endingWorkTick=Integer.MIN_VALUE,lastHeartElapsed;long menuRevision,lastTickNanos;boolean failureLogged,appearanceFailureLogged,defianceFailureLogged,defianceEffectFailureLogged;String rootProblem,claimProblem,defianceProblem;HeartDefianceStore.State defiance;DefiancePhase defiancePhase=DefiancePhase.UNDECIDED;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;EcologyEradication eradication;boolean sourceClosed,endingHeld;String endingProblem,lastEndingHold;
+        final ExecutorService maintenanceWorker=Executors.newSingleThreadExecutor(task->{Thread thread=new Thread(task,"Chronicle ecology journal maintenance");thread.setDaemon(true);return thread;});
+        CompletableFuture<EcologyAutomaticCompaction.Result> maintenanceJob;
+        EcologyMaintenancePolicy maintenancePolicy=EcologyMaintenancePolicy.DEFAULT;
+        Runnable maintenanceBeforeWork=()->{};
+        boolean maintenanceStarting,maintenanceFailed,maintenanceChanged;
+        final Set<ChunkPos> maintenanceUnloads=new LinkedHashSet<>();
+        long maintenanceTicks,maintenanceLastTick=-1,maintenanceBeforeBytes,maintenanceAfterBytes,maintenanceBeforeRecords,maintenanceAfterRecords,maintenanceTickNanos;
+        int maintenanceCompleted;String maintenanceReason="Not needed",maintenanceSourceHash="",maintenanceArchive="";
         final List<Integer> heartbeatTicks=new ArrayList<>();boolean wardenAttempted,wardenSpawned,heartAppearanceFailureLogged;EcologyEngine.HeartBurstOutcome loggedBurst;
         Runtime(EcologyEngine e,EcologyJournal j,HeartDefianceStore d){engine=e;journal=j;defianceStore=d;crops=new EcologyCrops(e.cropRules());recovery=new EcologyRecovery(e.recoveryRules());costs=new EcologyCosts(e.costRules());}
     }
@@ -988,7 +1087,7 @@ public final class QuietBelowEcology {
         @Override public boolean managesCatalyst(ServerWorld w,BlockPos p){return find(w)!=null;}
         @Override public boolean managesFeature(ServerWorld w,BlockPos p){return find(w)!=null;}
         @Override public void settleInactive(ServerWorld w,BlockPos p,BlockState state){
-            Runtime r=find(w);if(r==null||r.engine.failure()!=null||r.settlingWrites>=EcologyFeatureActivity.SETTLING_WRITES)return;
+            Runtime r=find(w);if(r==null||maintenanceBusy(r)||r.engine.failure()!=null||r.settlingWrites>=EcologyFeatureActivity.SETTLING_WRITES)return;
             var chunk=EcologyLoadedBlocks.chunk(w,p);if(chunk==null)return;
             BlockState actual=chunk.getBlockState(p);
             // Marking a native receiver dirty can update comparators. Preserve any resulting edit.
@@ -1002,11 +1101,12 @@ public final class QuietBelowEcology {
                 if(state.isOf(Blocks.SCULK_SENSOR)){w.updateNeighbors(p,state.getBlock());w.updateNeighbors(p.down(),state.getBlock());}
             }catch(Exception failure){hold(r,failure);}
         }
-        @Override public void unownedNetworkWrite(ServerWorld w,BlockPos p){Runtime r=find(w);if(r==null)return;r.engine.noticeContact(pos(p));if(cleanupWorld(w,r))try{r.cleanup.changed(pos(p));}catch(Exception e){hold(r,e);}}
+        @Override public void unownedNetworkWrite(ServerWorld w,BlockPos p){Runtime r=find(w);if(r==null)return;if(maintenanceBusy(r)){r.maintenanceChanged=true;return;}r.engine.noticeContact(pos(p));if(cleanupWorld(w,r))try{r.cleanup.changed(pos(p));}catch(Exception e){hold(r,e);}}
         @Override public boolean active(ServerWorld w,BlockPos p){Runtime r=find(w);return r!=null&&r.rootProblem==null&&r.engine.enabled()&&r.engine.living(pos(p))&&playing(w.getServer());}
         @Override public BlockState beforeWrite(ServerWorld w,BlockPos p,BlockState before,BlockState proposed,int flags) {
             if(protectsRoot(w,p)&&!before.equals(proposed))return null;
             Runtime r=find(w);if(r==null)return proposed;
+            if(maintenanceBusy(r))return r.engine.owns(pos(p))&&!before.equals(proposed)?null:proposed;
             if(r.engine.ending()!=null)return proposed;
             if(r.engine.owns(pos(p))&&before.getBlock()==proposed.getBlock()&&before.contains(SculkAppearance.VITALITY))
                 proposed=proposed.with(SculkAppearance.VITALITY,before.get(SculkAppearance.VITALITY));
@@ -1026,6 +1126,7 @@ public final class QuietBelowEcology {
         }
         @Override public void afterWrite(ServerWorld w,BlockPos p,BlockState before,BlockState proposed,boolean success) {
             Runtime r=find(w);if(r==null)return;
+            if(maintenanceBusy(r)){if(success)r.maintenanceChanged=true;return;}
             if(r.engine.ending()!=null){if(success&&r.eradication!=null)r.eradication.changed(w,p);return;}
             if(!r.engine.owns(pos(p)))return;
             try {

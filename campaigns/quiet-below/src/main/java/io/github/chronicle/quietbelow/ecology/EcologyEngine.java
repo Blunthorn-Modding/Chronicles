@@ -54,7 +54,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
                        int connected, int frontier, int completedChunks, int totalChunks, boolean unresolved,
                        String extent, long revision, long journalBytes) { }
 
-    private final EcologyJournal journal;
+    private EcologyJournal journal;
     private final LinkedHashMap<Pos,Cell> cells=new LinkedHashMap<>();
     private final EcologyPositions positions=new EcologyPositions(MAX_CELLS);
     private final Map<Long,Integer> ownedChunks=new HashMap<>();
@@ -162,6 +162,12 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         for(Pos p:cells.keySet())if(!vitality.checkpointCell(p).equals(other.vitality.checkpointCell(p)))return false;
         return true;
     }
+    /** Keep all live topology/Heart/budget state; only the verified durable writer changes. */
+    void replaceJournal(EcologyJournal expected,EcologyJournal replacement) {
+        if(journal!=expected||replacement==null)throw new IllegalStateException("Ecology maintenance writer ownership changed");
+        journal=replacement;
+    }
+    Area sourceArea(){return area;}
     public Setup setup() { return setup; }
     public List<Cell> cells() { return List.copyOf(cells.values()); }
     public boolean owns(Pos p) { return cells.containsKey(p); }
@@ -252,7 +258,7 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     static JsonObject heartRulesPayload(EcologyHeart.Rules r){JsonObject p=new JsonObject();p.addProperty("threshold",r.threshold());p.addProperty("seconds",r.seconds());return p;}
     private static EcologyHeart.Rules parseHeartRules(JsonObject p){keys(p,"threshold","seconds");return new EcologyHeart.Rules(integer(p,"threshold"),integer(p,"seconds"));}
     JsonObject heartCheckpoint(){
-        JsonObject p=new JsonObject();p.add("rules",heartRulesPayload(heartRules));p.addProperty("elapsed",ending==null?0:heartRules.requiredTicks());
+        JsonObject p=new JsonObject();p.add("rules",heartRulesPayload(heartRules));p.addProperty("elapsed",ending==null?heartElapsed:heartRules.requiredTicks());
         p.add("ending",ending==null?JsonNull.INSTANCE:endingPayload());return p;
     }
     private JsonObject endingPayload(){JsonObject p=new JsonObject();p.addProperty("job",ending.toString());p.add("root",pos(endingRoot));p.add("state",state(endingRootState));return p;}
