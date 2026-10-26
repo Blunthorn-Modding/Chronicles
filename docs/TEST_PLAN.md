@@ -1,6 +1,14 @@
 # Bootstrap validation
 
-## 26 October: CF19?CF21/QB14 design-only verification
+## 26 October: revised direct navigation and paired Area changes
+
+The organizer requests separate Advanced Player Roles, Departures and Area changes, plus Start/End-first private shovel/position selection, explicit save, repeated state capture and delete-with-state choice. The [contract](CF19_CF21_IMPLEMENTATION_PLAN.md), [UI design](CF19_CF21_UI_DESIGN.md) and [mockup](design/roles-departures-transitions.html) replace the previous template/transition workflow. Verification for this revision is recorded separately in `../reports/area-changes-design/`; the previous 56-check report below certifies the earlier prototype only.
+
+Final Edge CLI browser checks: **96 assertions, zero JavaScript errors** (49 preserved role/departure regressions +47 area-flow checks). Start-first/End-first, actual left/right clicks on the simulated grid, typed commands, incomplete/held/unloaded/save-failure retention, repeated recapture/application, all delete outcomes, linked-departure refusal and 480px overflow/modal layout pass. Six desktop/compact captures were visually inspected. Inline script syntax, local documentation links and diff whitespace pass. `../reports/area-changes-design/report.json` pins the exact HTML hash; the two browser scripts and outputs are alongside it.
+
+Independent plan review added bidirectional ordinary/area draft exclusion, reverse Region-reference guards, and reservation-before-container-closure ordering. Native implementation must test these along with durable apply/delete recovery; browser simulation cannot establish those runtime properties. No Java/Python runtime suites or client/server deployment is needed for this docs/HTML-only revision. Accepted dev54 remains unchanged.
+
+## 26 October: superseded template/transition prototype verification
 
 [Implementation contract](CF19_CF21_IMPLEMENTATION_PLAN.md) and [UI design](CF19_CF21_UI_DESIGN.md) cover new Core roles, captured-area changes and irreversible Spectator group departure. Dedicated UI design/repair and independent architecture review precede code. Root's final EdgeCLI prototype regression passes56 checks/zero JavaScript errors, including role drafts/capacities/private selection, creation, target preflight/ACTIVE apply, two-stage stale-roster handling, partial/full departure and480px layout. Four captures were visually inspected; popup overlay/focus/Tab/privacy defects were corrected. Evidence `../reports/roles-departures-design/report.json` pins the exact HTML; script/syntax/diff/local-link checks pass. No Java/Python suites repeated for this docs/HTML-only change; their last dev54 runtime evidence remains below.
 
