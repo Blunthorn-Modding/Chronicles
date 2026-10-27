@@ -172,7 +172,7 @@ public final class SessionPauseTrial {
             require(!SessionBuilding.enabled(server), "global Building Mode started before non-operator command");
             boolean rejected;
             try {
-                rejected = server.getCommandManager().getDispatcher().execute("chronicles session building on", player.getCommandSource()) == 0;
+                rejected = server.getCommandManager().getDispatcher().execute("chronicle session building on", player.getCommandSource()) == 0;
             } catch (CommandSyntaxException expected) {
                 rejected = true;
             }
@@ -186,7 +186,7 @@ public final class SessionPauseTrial {
     private static int buildingEnable(ServerCommandSource source, ServerPlayerEntity player) {
         try {
             var server = source.getServer();
-            server.getCommandManager().getDispatcher().execute("chronicles session building on", source.withSilent());
+            server.getCommandManager().getDispatcher().execute("chronicle session building on", source.withSilent());
             require(SessionBuilding.enabled(server), "operator command did not enable global Building Mode");
             require(!player.hasPermissionLevel(2), "native player is still an operator during global Building Mode proof");
             require(!AuthoringRuntime.isAuthor(player), "native player still has author flag during global Building Mode proof");
@@ -213,7 +213,7 @@ public final class SessionPauseTrial {
 
     private static int buildingDisable(ServerCommandSource source, ServerPlayerEntity player) {
         try {
-            source.getServer().getCommandManager().getDispatcher().execute("chronicles session building off", source.withSilent());
+            source.getServer().getCommandManager().getDispatcher().execute("chronicle session building off", source.withSilent());
             require(!SessionBuilding.enabled(source.getServer()), "operator command did not disable global Building Mode");
             require(!SessionGameplay.canBuild(player), "Building Mode off retained paused map-work permission");
             player.getEntityWorld().setBlockState(REVOKED_BASE.up(), Blocks.AIR.getDefaultState());
@@ -230,7 +230,7 @@ public final class SessionPauseTrial {
 
     private static int resume(ServerCommandSource source, ServerPlayerEntity player) {
         try {
-            source.getServer().getCommandManager().getDispatcher().execute("chronicles session building on", source.withSilent());
+            source.getServer().getCommandManager().getDispatcher().execute("chronicle session building on", source.withSilent());
             require(SessionBuilding.enabled(source.getServer()), "pre-resume global Building Mode did not enable");
             ChronicleRuntime.service(source.getServer()).resume(new Actor("native-pause", null));
             player.getEntityWorld().setBlockState(PLACE_BASE.up(), Blocks.AIR.getDefaultState());
@@ -257,8 +257,8 @@ public final class SessionPauseTrial {
                 case "prepare_food" -> {player.clearActiveItem();player.getHungerManager().setFoodLevel(5);player.getHungerManager().setSaturationLevel(0);player.getInventory().setStack(1,new ItemStack(Items.BREAD,3));SessionGameplay.correctInventory(player);}
                 case "pause_food" -> {require(player.isUsingItem(),"client never began active food use");service.pause(actor);SNAPSHOTS.put(player.getUuidAsString(),snapshot(player));}
                 case "check_food" -> {require(!player.isUsingItem(),"paused in-flight use was not cleared");require(count(player,Items.BREAD)==snapshotFor(player).bread(),"in-flight paused food was consumed");require(player.getHungerManager().getFoodLevel()==snapshotFor(player).food(),"in-flight paused hunger changed");}
-                case "hold" -> {require(service.state().phase().name().equals("PAUSED"),"hold trial must begin paused");server.getCommandManager().getDispatcher().execute("chronicles session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-hold global Building Mode did not enable");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"paused runtime hold did not suspend building");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(service.state().phase().name().equals("PAUSED")&&SessionGameplay.frozen(player)&&SessionGameplay.canBuild(player)&&SessionBuilding.enabled(server),"hold release did not restore the same-phase Building Mode choice");server.getCommandManager().getDispatcher().execute("chronicles session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-resume global Building Mode did not re-enable");service.resume(actor);require(!SessionBuilding.enabled(server),"resume transition did not clear global Building Mode");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression active hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"ACTIVE runtime hold did not freeze gameplay");require(!player.interactionManager.tryBreakBlock(BREAK_TARGET.down()),"held direct mining was permitted");require(!player.damage(player.getEntityWorld(),player.getDamageSources().generic(),2),"held damage permitted");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(!SessionGameplay.frozen(player),"release did not resume gameplay");}
-                case "end" -> {service.pause(actor);server.getCommandManager().getDispatcher().execute("chronicles session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-end global Building Mode did not enable");service.end(actor);require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"ENDED phase did not freeze or clear Building Mode");require(!player.interactionManager.tryBreakBlock(BREAK_TARGET.down()),"ended direct mining permitted");}
+                case "hold" -> {require(service.state().phase().name().equals("PAUSED"),"hold trial must begin paused");server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-hold global Building Mode did not enable");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"paused runtime hold did not suspend building");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(service.state().phase().name().equals("PAUSED")&&SessionGameplay.frozen(player)&&SessionGameplay.canBuild(player)&&SessionBuilding.enabled(server),"hold release did not restore the same-phase Building Mode choice");server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-resume global Building Mode did not re-enable");service.resume(actor);require(!SessionBuilding.enabled(server),"resume transition did not clear global Building Mode");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression active hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"ACTIVE runtime hold did not freeze gameplay");require(!player.interactionManager.tryBreakBlock(BREAK_TARGET.down()),"held direct mining was permitted");require(!player.damage(player.getEntityWorld(),player.getDamageSources().generic(),2),"held damage permitted");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(!SessionGameplay.frozen(player),"release did not resume gameplay");}
+                case "end" -> {service.pause(actor);server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-end global Building Mode did not enable");service.end(actor);require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"ENDED phase did not freeze or clear Building Mode");require(!player.interactionManager.tryBreakBlock(BREAK_TARGET.down()),"ended direct mining permitted");}
                 default -> throw new IllegalArgumentException("Unknown pause trial transition");
             }
             pass(source,action);return 1;

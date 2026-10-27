@@ -19,6 +19,7 @@ import java.util.*;
 /** Reusable handled workstation; durable trades and one-use current-state authority stay server-side. */
 public final class LastingBargains {
     private static final Map<String,List<Choice>> GROUPS=new TreeMap<>();
+    private static final Map<String,OfferingPayloads.Presentation> PRESENTATIONS=new TreeMap<>();
     private static final Map<MinecraftServer,Map<UUID,Offer>> OFFERS=new IdentityHashMap<>();
     private static final Map<MinecraftServer,Integer> CURSORS=new IdentityHashMap<>();
     private static final long MAX_AGE=60_000_000_000L;
@@ -43,11 +44,13 @@ public final class LastingBargains {
          * Implement gameplay aftermath before private flavor; a hard crash can omit this transient callback. */
         default void committed(ServerPlayerEntity player,OfferingDefinition definition,UUID transaction) { }
     }
-    public static void registerGroup(String id,List<Choice> choices) {
+    public static void registerGroup(String id,List<Choice> choices){registerGroup(id,choices,OfferingPayloads.Presentation.neutral());}
+    public static void registerGroup(String id,List<Choice> choices,OfferingPayloads.Presentation presentation) {
+        Objects.requireNonNull(presentation);
         OfferingDefinition.validId(id);
         if(frozen||GROUPS.size()>=32||GROUPS.containsKey(id)||choices==null||choices.isEmpty()||choices.size()>16)throw new IllegalStateException("Invalid or frozen bargain group");
         Set<String> ids=new HashSet<>();for(Choice choice:choices)if(!ids.add(choice.definition.id()))throw new IllegalArgumentException("Duplicate offering choice");
-        GROUPS.put(id,List.copyOf(choices));
+        GROUPS.put(id,List.copyOf(choices));PRESENTATIONS.put(id,presentation);
     }
     public static void register() {
         OfferingPayloads.register();OfferingScreenHandler.register();
@@ -62,7 +65,7 @@ public final class LastingBargains {
     }
     public static void open(ServerPlayerEntity player,String source,String group,String title,Gate gate) {
         MinecraftServer server=player.getEntityWorld().getServer();thread(server);OfferingDefinition.validId(source);
-        if(!ServerPlayNetworking.canSend(player,OfferingPayloads.View.ID)){player.sendMessage(Text.literal("Install the matching Chronicle client to use this Altar."),false);return;}
+        if(!ServerPlayNetworking.canSend(player,OfferingPayloads.View.ID)){player.sendMessage(Text.literal("Install the matching Chronicle client to use this workstation."),false);return;}
         if(title==null||title.isBlank()||title.length()>80||gate==null||!GROUPS.containsKey(group))throw new IllegalArgumentException("Invalid bargain station/group");
         var offers=OFFERS.computeIfAbsent(server,ignored->new HashMap<>());
         if(offers.size()>=256&&!offers.containsKey(player.getUuid())){player.sendMessage(Text.literal("Too many open bargains; try again later."),false);return;}
@@ -115,7 +118,7 @@ public final class LastingBargains {
                 views.stream().anyMatch(OfferingPayloads.Choice::available)?OfferingPayloads.State.READY:OfferingPayloads.State.UNAVAILABLE;
         if(answered)state=OfferingPayloads.State.ANSWERED;
         UUID token=UUID.randomUUID();
-        var view=new OfferingPayloads.View(syncId,token,parent,title,state,views,opening);
+        var view=new OfferingPayloads.View(syncId,token,parent,title,state,views,opening,PRESENTATIONS.get(group));
         return new Offer(token,System.nanoTime(),p.networkHandler,parent,source,group,title,gate,selected,
                 Collections.unmodifiableList(previews),handler,view,revision,observed,station);
     }
@@ -147,16 +150,16 @@ public final class LastingBargains {
         OfferingStats.PurchaseResult result;
         try{result=OfferingStats.purchase(player,offer.source,definition,offer.token,expected);}
         catch(Exception error){
-            ChronicleCore.LOGGER.warn("Prayer commit did not finish for {}: {}",player.getUuid(),error.toString());
+            ChronicleCore.LOGGER.warn("Offering commit did not finish for {}: {}",player.getUuid(),error.toString());
             terminal(player,offer);return;
         }
         if(result.newlyCommitted())try{offer.gate.committed(player,definition,result.transaction());}
-        catch(Exception error){ChronicleCore.LOGGER.error("Prayer is durably committed; transient aftermath did not finish and will not be retried",error);}
+        catch(Exception error){ChronicleCore.LOGGER.error("Offering is durably committed; transient aftermath did not finish and will not be retried",error);}
         replace(player,offer,selected,true);
     }
     private static void terminal(ServerPlayerEntity player,Offer offer) {
         var old=offer.view;
-        var view=new OfferingPayloads.View(old.syncId(),old.token(),old.parent(),old.title(),OfferingPayloads.State.EXPIRED,old.choices(),false);
+        var view=new OfferingPayloads.View(old.syncId(),old.token(),old.parent(),old.title(),OfferingPayloads.State.EXPIRED,old.choices(),false,old.presentation());
         Offer next=offer.withView(view);OFFERS.get(player.getEntityWorld().getServer()).put(player.getUuid(),next);
         next.handler.view(view);ServerPlayNetworking.send(player,view);
     }

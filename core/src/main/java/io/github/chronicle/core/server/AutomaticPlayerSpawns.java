@@ -54,20 +54,7 @@ public final class AutomaticPlayerSpawns {
         ServerTickEvents.END_SERVER_TICK.register(AutomaticPlayerSpawns::tick);
         ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, player, alive) -> { if (!alive) respawn(player); });
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
-            dispatcher.register(literal("chronicle").then(literal("leave").executes(context -> {
-                var source = context.getSource();
-                if (source.getPlayer() == null) { source.sendError(Text.literal("Leave requires your player account.")); return 0; }
-                try {
-                    // Remove the policy capable of moving a player first. A later membership
-                    // save failure must not leave a teleport policy waiting after restart.
-                    service(source.getServer()).leave(source.getPlayer().getUuid());
-                    PlayRuntime.setSelfParticipant(source.getPlayer(), false);
-                    source.sendFeedback(() -> Text.literal("You left participation and automatic arrival and respawn policies. History is retained; you were not moved."), false);
-                    return 1;
-                } catch (IOException | IllegalStateException exception) { disableAfterWriteFailure(source.getServer(), exception); source.sendError(Text.literal("Could not persist leaving. Automatic spawns are disabled; inspect the server log.")); return 0; }
-            })));
-            var automatic = literal("automatic").requires(source -> source.hasPermissionLevel(2))
-                    .executes(context -> AuthoringUi.open(context.getSource(), io.github.chronicle.core.authoring.ui.AuthoringUiModel.Tab.POLICIES));
+            var automatic = literal("player-spawns").requires(source -> source.hasPermissionLevel(2));
             for (boolean arrival : new boolean[]{true, false}) {
                 final boolean firstArrival = arrival;
                 automatic.then(literal(arrival ? "arrival" : "respawn").then(argument("player", EntityArgumentType.player())
@@ -86,8 +73,25 @@ public final class AutomaticPlayerSpawns {
                 reset(context.getSource(), EntityArgumentType.getPlayer(context, "player").getUuid());
                 return "Arrival claim reset. No player was moved; the next eligible join or ACTIVE transition may attempt arrival.";
             }))));
-            dispatcher.register(literal("chronicle").then(literal("spawn").then(automatic)));
+            dispatcher.register(literal("chronicle").then(literal("debug").then(automatic)));
         });
+    }
+
+    /** Leaves play and clears both automatic movement policies before changing membership. */
+    public static int leave(ServerCommandSource source) {
+        if (source.getPlayer() == null) { source.sendError(Text.literal("Leave requires your player account.")); return 0; }
+        try {
+            // Remove the policy capable of moving a player first. A later membership
+            // save failure must not leave a teleport policy waiting after restart.
+            service(source.getServer()).leave(source.getPlayer().getUuid());
+            PlayRuntime.setSelfParticipant(source.getPlayer(), false);
+            source.sendFeedback(() -> Text.literal("You left participation and automatic arrival and respawn policies. History is retained; you were not moved."), false);
+            return 1;
+        } catch (IOException | IllegalStateException exception) {
+            disableAfterWriteFailure(source.getServer(), exception);
+            source.sendError(Text.literal("Could not persist leaving. Automatic spawns are disabled; inspect the server log."));
+            return 0;
+        }
     }
 
     public static AutomaticSpawnService service(MinecraftServer server) {
@@ -119,7 +123,7 @@ public final class AutomaticPlayerSpawns {
     }
     private static void requireAuthor(ServerCommandSource source) {
         if (!source.hasPermissionLevel(2) || source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer()) || !AuthoringRuntime.editable(source.getServer()) || RuntimeHolds.reason(source.getServer())!=null)
-            throw new IllegalStateException("Automatic policy edits require operator permission and non-active author mode.");
+            throw new IllegalStateException("Automatic policy edits require operator permission and non-active Editing.");
     }
     private static void write(MinecraftServer server, Write operation) throws IOException {
         try { operation.run(); }

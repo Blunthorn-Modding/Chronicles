@@ -1,10 +1,9 @@
-"""Compatibility entrypoint for the consolidated Region/Location native fixture."""
-from __future__ import annotations
+"""Compatibility entry point for the superseding Region/Location subtype fixture.
 
-def run() -> None:
-    import subtypes_smoke
-    print("Catalog editor smoke moved to subtypes_smoke.py; running the consolidated Region/Location checks.", flush=True)
-    subtypes_smoke.run()
+The old separate Area changes/Departures screen probes were retired in dev58.
+This invokes the current native suite; it does not claim those former screens exist.
+"""
+from subtypes_smoke import run
 
 if __name__ == "__main__":
     run()

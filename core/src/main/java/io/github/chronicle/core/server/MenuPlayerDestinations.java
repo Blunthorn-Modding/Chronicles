@@ -111,7 +111,7 @@ public final class MenuPlayerDestinations {
 
     private static void requireAuthor(ServerCommandSource source) {
         if (!source.hasPermissionLevel(2) || source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer()) || !AuthoringRuntime.editable(source.getServer())) {
-            throw new IllegalStateException("Automatic policy edits require operator permission and non-active author mode.");
+            throw new IllegalStateException("Automatic policy edits require operator permission and non-active Editing.");
         }
     }
 

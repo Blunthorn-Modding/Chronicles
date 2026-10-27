@@ -25,40 +25,32 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 /**
- * Compact command fallback for the Core menu.  It adds no persistence or game behavior: every
- * mutation delegates to the same bounded CoreMenuServer action used by the native screen.
+ * Compact command fallback for the Core menu. It adds no persistence or game behavior:
+ * mutations delegate to shared Core services or bounded native-menu actions.
  */
 public final class CoreMenuCommands {
     private CoreMenuCommands() { }
 
-    /**
-     * Must run after the legacy {@code chronicle} registrations.  The plural root redirects to
-     * that mutable root so all legacy commands, including {@code author region}, remain aliases.
-     */
+    /** Registers the public menu entry points and the command facade below the sole owned root. */
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
         // Brigadier merges this literal into the existing mutable root and keeps all its children.
-        dispatcher.register(literal("chronicle").executes(context -> CoreMenuServer.open(context.getSource(), Page.SESSION)));
+        dispatcher.register(literal("chronicle").executes(context -> CoreMenuServer.open(context.getSource())));
         var canonical = dispatcher.getRoot().getChild("chronicle");
-        canonical.addChild(literal("menu").executes(context -> CoreMenuServer.open(context.getSource(), Page.SESSION)).build());
+        canonical.addChild(literal("debug").requires(CoreMenuCommands::isGm).build());
+        canonical.addChild(literal("game").requires(CoreMenuCommands::isGm).build());
         canonical.addChild(session().build());
         canonical.addChild(players().build());
         canonical.addChild(events().build());
-        canonical.addChild(literal("chests").executes(context -> CoreMenuServer.open(context.getSource(), Page.CHESTS))
-                .then(literal("bind").then(argument("table", StringArgumentType.string()).suggests((c, b) -> lootTables(c.getSource(), b))
-                        .executes(context -> execute(context.getSource(), Action.CHEST_BIND, Page.CHESTS, "", string(context, "table")))))
-                .then(literal("inspect").then(argument("chest", StringArgumentType.string()).suggests((c, b) -> chests(c.getSource(), b))
+        canonical.addChild(literal("chests").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.CHESTS))
+                .then(literal("inspect").requires(CoreMenuCommands::isGm).then(argument("chest", StringArgumentType.string()).suggests((c, b) -> chests(c.getSource(), b))
                         .executes(context -> execute(context.getSource(), Action.SHOW, Page.CHESTS, string(context, "chest"), ""))))
                 .build());
-        canonical.addChild(literal("roles").executes(context -> CoreMenuServer.open(context.getSource(),Page.PLAYER_ROLES)).then(literal("reload").requires(source->source.hasPermissionLevel(2)).executes(context->{try{PlayerRoles.reload(context.getSource());context.getSource().sendFeedback(()->Text.literal("Player roles reloaded."),false);return 1;}catch(Exception failure){context.getSource().sendError(Text.literal(failure.getMessage()));return 0;}})).build());
+        canonical.addChild(literal("roles").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(),Page.PLAYER_ROLES)).then(literal("reload").requires(source->source.hasPermissionLevel(2)).executes(context->{try{PlayerRoles.reload(context.getSource());context.getSource().sendFeedback(()->Text.literal("Player roles reloaded."),false);return 1;}catch(Exception failure){context.getSource().sendError(Text.literal(failure.getMessage()));return 0;}})).build());
         canonical.addChild(lootTables().build());
-        canonical.addChild(literal("books").executes(context -> CoreMenuServer.open(context.getSource(), Page.BOOKS_LORE)).build());
-        canonical.addChild(literal("locations").executes(context -> CoreMenuServer.open(context.getSource(), Page.LOCATIONS))
-                .then(literal("inspect").then(argument("site", StringArgumentType.string()).suggests((c, b) -> sites(c.getSource(), b))
-                        .executes(context -> execute(context.getSource(), Action.SHOW, Page.LOCATIONS, string(context, "site"), ""))))
-                .build());
+        canonical.addChild(literal("books").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.BOOKS_LORE)).build());
+        canonical.addChild(literal("regions").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.REGIONS)).build());
+        canonical.addChild(literal("locations").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.LOCATIONS)).build());
         canonical.addChild(setup().build());
-        // A redirect node cannot have its own children; canonical has the bare menu command.
-        dispatcher.register(literal("chronicles").executes(context -> CoreMenuServer.open(context.getSource(), Page.SESSION)).redirect(canonical));
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> session() {
@@ -68,19 +60,18 @@ public final class CoreMenuCommands {
     private static LiteralArgumentBuilder<ServerCommandSource> players() {
         return literal("players").executes(context -> CoreMenuServer.open(context.getSource(), Page.PLAYERS))
                 .then(literal("join").executes(context -> selfParticipation(context.getSource(), true)))
-                .then(literal("leave").executes(context -> selfParticipation(context.getSource(), false)))
-                .then(literal("add").then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), Action.PARTICIPANT_ADD, Page.PLAYERS, target(context).getUuidAsString(), ""))))
-                .then(literal("remove").then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), Action.PARTICIPANT_REMOVE, Page.PLAYERS, target(context).getUuidAsString(), ""))))
-                .then(literal("card").then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), Action.CARD_OPEN, Page.PLAYERS, target(context).getUuidAsString(), ""))))
+                .then(literal("leave").executes(context -> AutomaticPlayerSpawns.leave(context.getSource())))
+                .then(literal("add").requires(CoreMenuCommands::isGm).then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), Action.PARTICIPANT_ADD, Page.PLAYERS, target(context).getUuidAsString(), ""))))
+                .then(literal("remove").requires(CoreMenuCommands::isGm).then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), Action.PARTICIPANT_REMOVE, Page.PLAYERS, target(context).getUuidAsString(), ""))))
                 .then(destination("starting-position", Action.STARTING_SET, Action.STARTING_OFF, Action.STARTING_RESET))
                 .then(destination("respawn", Action.RESPAWN_SET, Action.RESPAWN_OFF, null))
-                .then(literal("move").then(literal("review").then(argument("player", EntityArgumentType.player()).then(argument("point", StringArgumentType.string()).suggests((c, b) -> points(c.getSource(), b))
+                .then(literal("move").requires(CoreMenuCommands::isGm).then(literal("review").then(argument("player", EntityArgumentType.player()).then(argument("point", StringArgumentType.string()).suggests((c, b) -> points(c.getSource(), b))
                         .executes(context -> execute(context.getSource(), Action.PLAYER_MOVE_REVIEW, Page.PLAYERS, target(context).getUuidAsString(), string(context, "point"))))))
                         .then(literal("confirm").then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), Action.PLAYER_MOVE, Page.PLAYERS, target(context).getUuidAsString(), "")))));
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> destination(String name, Action set, Action disable, Action reset) {
-        var node = literal(name)
+        var node = literal(name).requires(CoreMenuCommands::isGm)
                 .then(literal("set").then(argument("player", EntityArgumentType.player()).then(argument("point", StringArgumentType.string()).suggests((c, b) -> points(c.getSource(), b))
                         .executes(context -> execute(context.getSource(), set, Page.PLAYERS, target(context).getUuidAsString(), string(context, "point"))))))
                 .then(literal("disable").then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), disable, Page.PLAYERS, target(context).getUuidAsString(), ""))));
@@ -89,8 +80,7 @@ public final class CoreMenuCommands {
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> events() {
-        var node = literal("events").executes(context -> CoreMenuServer.open(context.getSource(), Page.EVENTS));
-        node.then(eventOperation("inspect", Action.EVENT_PREVIEW));
+        var node = literal("events").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.EVENTS));
         node.then(eventOperation("preview", Action.EVENT_PREVIEW));
         node.then(eventOperation("check", Action.EVENT_CHECK));
         node.then(literal("run").then(eventOperation("review", Action.EVENT_REVIEW)).then(eventOperation("confirm", Action.EVENT_RUN)));
@@ -99,7 +89,7 @@ public final class CoreMenuCommands {
 
     /** Event kind is explicit because cue and state-action registrations may share a raw ID. */
     private static LiteralArgumentBuilder<ServerCommandSource> eventOperation(String verb, Action action) {
-        return literal(verb)
+        return literal(verb).requires(CoreMenuCommands::isGm)
                 .then(literal("cue").then(argument("id", StringArgumentType.string()).suggests((c, b) -> cues(b))
                         .executes(context -> execute(context.getSource(), action, Page.EVENTS, "cue:" + string(context, "id"), ""))))
                 .then(literal("action").then(argument("id", StringArgumentType.string()).suggests((c, b) -> stateActions(b))
@@ -107,26 +97,21 @@ public final class CoreMenuCommands {
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> lootTables() {
-        return literal("loot-tables").executes(context -> CoreMenuServer.open(context.getSource(), Page.LOOT_TABLES))
-                .then(literal("reload").executes(context -> execute(context.getSource(), Action.LOOT_RELOAD, Page.LOOT_TABLES, "", "")))
-                .then(literal("inspect").then(argument("table", StringArgumentType.string()).suggests((c, b) -> lootTables(c.getSource(), b))
+        return literal("loot-tables").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.LOOT_TABLES))
+                .then(literal("list").executes(context->{try{var tables=TypedChestLoot.types(context.getSource().getServer());context.getSource().sendFeedback(()->Text.literal("Loot tables="+tables.size()+": "+String.join(", ",tables.keySet())),false);return 1;}catch(RuntimeException failure){context.getSource().sendError(Text.literal(failure.getMessage()));return 0;}}))
+                .then(literal("inspect").requires(CoreMenuCommands::isGm).then(argument("table", StringArgumentType.string()).suggests((c, b) -> lootTables(c.getSource(), b))
                         .executes(context -> inspectLoot(context.getSource(), string(context, "table")))));
     }
 
     private static LiteralArgumentBuilder<ServerCommandSource> setup() {
-        return literal("setup").executes(context -> CoreMenuServer.open(context.getSource(), Page.SETUP))
-                .then(literal("inspect").then(argument("requirement", StringArgumentType.string()).suggests((c, b) -> requirements(b))
-                        .executes(context -> execute(context.getSource(), Action.SHOW, Page.SETUP, string(context, "requirement"), ""))))
-                .then(literal("assign").then(argument("requirement", StringArgumentType.string()).suggests((c, b) -> requirements(b))
-                        .then(argument("site", StringArgumentType.string()).suggests((c, b) -> sites(c.getSource(), b))
-                                .executes(context -> execute(context.getSource(), Action.SETUP_ASSIGN, Page.SETUP, string(context, "requirement"), string(context, "site"))))))
-                .then(literal("clear").then(argument("requirement", StringArgumentType.string()).suggests((c, b) -> requirements(b))
-                        .executes(context -> execute(context.getSource(), Action.SETUP_CLEAR, Page.SETUP, string(context, "requirement"), ""))))
-                .then(literal("tool").then(argument("id", StringArgumentType.string()).suggests((c, b) -> gameTools(b))
+        return literal("setup").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.SETUP))
+                .then(literal("tool").requires(CoreMenuCommands::isGm).then(argument("id", StringArgumentType.string()).suggests((c, b) -> gameTools(b))
                         .then(argument("verb", StringArgumentType.string()).suggests((c, b) -> gameToolVerbs(string(c, "id"), b))
                                 .executes(context -> execute(context.getSource(), Action.TOOL_ACTION, Page.SETUP, "tool:" + string(context, "id"), string(context, "verb"))))))
-                .then(literal("check").executes(context -> checkSetup(context.getSource())));
+                .then(literal("check").requires(CoreMenuCommands::isGm).executes(context -> checkSetup(context.getSource())));
     }
+
+    private static boolean isGm(ServerCommandSource source) { return source.hasPermissionLevel(2); }
 
     private static int execute(ServerCommandSource source, Action action, Page page, String id, String argument) {
         return CoreMenuServer.executeCommand(source, action, page, id, argument);
@@ -135,7 +120,18 @@ public final class CoreMenuCommands {
     private static int selfParticipation(ServerCommandSource source, boolean join) {
         ServerPlayerEntity player = source.getPlayer();
         if (player == null) { source.sendError(Text.literal("This action requires a player.")); return 0; }
-        return execute(source, join ? Action.PARTICIPANT_ADD : Action.PARTICIPANT_REMOVE, Page.PLAYERS, player.getUuidAsString(), "");
+        try {
+            // Self opt-in is allowed during play, including for operators. GM assignment uses
+            // PARTICIPANT_ADD/REMOVE and deliberately retains its non-active Editing gate.
+            PlayRuntime.setSelfParticipant(player, join);
+            source.sendFeedback(() -> Text.literal(join
+                    ? "Participation enabled. Spectating and editing do not count as active play."
+                    : "Participation removed; character card and automatic destinations are unchanged."), false);
+            return 1;
+        } catch (java.io.IOException | IllegalArgumentException | IllegalStateException failure) {
+            source.sendError(Text.literal(PlayRuntime.message(failure)));
+            return 0;
+        }
     }
 
     private static int inspectLoot(ServerCommandSource source, String id) {

@@ -80,7 +80,7 @@ final class EcologySpreadSmoke {
         }
     }
     private void showSpreadFacts(MinecraftClient client){
-        step("open generic Chronicle menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open generic Chronicle menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
         step("open Game setup spread controls",()->require(((CoreMenuScreen)client.currentScreen).triggerForTest("Game setup"),"Game setup unavailable"),()->client.currentScreen instanceof CoreMenuScreen menu&&!menu.pending()&&menu.state().page()==Page.SETUP,10_000);
         step("select Spread mode and read diagnostics",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:spread"),()->{
             if(!(client.currentScreen instanceof CoreMenuScreen menu)||menu.pending()||menu.state().detail()==null)return false;

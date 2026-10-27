@@ -134,7 +134,7 @@ public final class AncientAltarSmoke {
         }, 30_000);
         command("verify death persistence", "chronicle_bargain_trial respawn_check", "respawn_check");
         requireFood(client, 20, "death persistence must keep normal20 food capacity");
-        command("kill with an unaccounted persistent sacrifice","chronicle_bargain_trial orphan_death","orphan_death");
+        command("verify paused damage refusal and administrative death-copy with an unknown price","chronicle_bargain_trial orphan_death","orphan_death");
         step("respawn without refunding unknown price",()->{},()->{
             if(client.currentScreen instanceof DeathScreen){client.player.requestRespawn();client.setScreen(null);return false;}
             return client.currentScreen==null&&client.player.isAlive();

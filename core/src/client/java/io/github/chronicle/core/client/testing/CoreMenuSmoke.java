@@ -152,14 +152,18 @@ public final class CoreMenuSmoke {
         }
     }
 
+    private boolean rememberedFilterStarted, rememberedFilterChecked, ordinaryReopened;
+
     private void driveOperator(MinecraftClient client) {
         if(step>=20000){driveBuildingMode(client);return;}
-        if(step>=210&&step<1000){driveRegionUses(client);return;}
+        // The former reverse "Use for" Region assignment workflow was removed.
+        // Region create/edit and all remaining block/setup permission oracles ran first.
+        if(step>=210&&step<1000){finish(client,true,"completed "+checks.size()+" native operator checks");return;}
         if(step>=110){driveBlockBindings(client);return;}
         switch (step) {
             case 0 -> { openMenu(client); advance("operator opened the native menu"); }
             case 1 -> awaitScreen(client, Page.SESSION, "Session");
-            case 2 -> { verifyCleanDebug(client);capture(client, "menu-operator-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); checks.add("captured native clean menu layout");step=20000; }
+            case 2 -> { if(client.getNetworkHandler().getPlayerList().size()<2||++stableTicks<20)return;stableTicks=0;verifyCleanDebug(client);capture(client, "menu-operator-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); checks.add("captured native clean menu layout");step=20000; }
             case 3 -> navigate(client, "Players", Page.PLAYERS);
             case 4 -> navigate(client, "Events", Page.EVENTS);
             case 5 -> navigate(client, "Chests", Page.CHESTS);
@@ -178,7 +182,11 @@ public final class CoreMenuSmoke {
                 waitingFor = viewCount; step++;
             }
             case 12 -> awaitView(() -> "BLOCK".equals(screen(client).state().filter()), "Locations exposes Block sites selector");
-            case 13 -> navigate(client, "Game setup", Page.SETUP);
+            case 13 -> {
+                if(!rememberedFilterStarted){screen(client).close();openMenu(client);rememberedFilterStarted=true;return;}
+                if(!rememberedFilterChecked){if(!(client.currentScreen instanceof CoreMenuScreen remembered)||remembered.pending())return;require(remembered.state().page()==Page.LOCATIONS&&remembered.state().filter().equals("BLOCK"),"generic reopen lost the Location subpage");rememberedFilterChecked=true;checks.add("generic reopen restored Locations and Block sites filter");}
+                navigate(client,"Game setup",Page.SETUP);
+            }
             case 14 -> {
                 if (client.getNetworkHandler().getPlayerList().size() < 2 || ++stableTicks < 10) return;
                 CoreMenuScreen screen = screen(client);
@@ -187,7 +195,7 @@ public final class CoreMenuSmoke {
             }
             case 15 -> awaitView(() -> screen(client).state().editing(), "server acknowledged editing mode");
             case 16 -> {
-                require(screen(client).triggerForTest("Regions"), "Regions navigation unavailable after editing acknowledgement");
+                require(press(screen(client), "Regions"), "Regions navigation unavailable after editing acknowledgement");
                 waitingFor = viewCount; step++;
             }
             case 17 -> awaitView(() -> screen(client).state().page() == Page.REGIONS, "opened Regions while editing");
@@ -195,37 +203,39 @@ public final class CoreMenuSmoke {
                 require(press(screen(client), "Create region…"), "Create region action unavailable"); step++;
             }
             case 19 -> {
-                screen(client).textForTest("menu_smoke_region");
-                require(screen(client).triggerForTest("Send"), "region ID prompt cannot submit"); waitingFor = viewCount; step++;
+                require(client.currentScreen!=null&&client.currentScreen.getClass().getSimpleName().equals("RegionCreateScreen"), "Region creation popup did not open");
+                var fields=client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).toList();
+                require(fields.size()==1,"Region creation popup name field missing"); fields.getFirst().setText("menu_smoke_region");
+                require(client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).anyMatch(button->button.getMessage().getString().equals("Begin selection")),"Region creation popup submit missing");
+                client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).filter(button->button.getMessage().getString().equals("Begin selection")).findFirst().orElseThrow().onPress(new net.minecraft.client.input.MouseInput(0,0)); waitingFor = viewCount; step++;
             }
-            case 20 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().detail().region() != null,
-                    "created named region draft");
-            case 21 -> { capture(client, "menu-region-draft-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); advance("captured native region draft"); }
+            case 20 -> {
+                if (client.currentScreen != null || !client.player.getMainHandStack().isOf(net.minecraft.item.Items.WOODEN_SHOVEL)) return;
+                if(chatMessages.stream().noneMatch(message -> message.startsWith("Use the Debug shovel:")))return;
+                advance("native Region creation returned to the world with its leased Debug shovel");
+            }
+            case 21 -> { client.player.networkHandler.sendChatCommand("chronicle regions pos1 1 64 1"); step++; }
             case 22 -> {
-                require(press(screen(client), "Continue in world"), "Continue in world action unavailable");
-                waitingFor = viewCount; step++;
+                if (chatMessages.stream().noneMatch(message -> message.contains("Set Region draft menu_smoke_region position 1 at 1 64 1"))) return;
+                client.player.networkHandler.sendChatCommand("chronicle regions pos2 4 67 4"); step++;
             }
             case 23 -> {
-                // Continue deliberately closes the presentation but leaves the
-                // server-owned draft/outline active.  The documented commands
-                // then establish both corners in that same draft.
-                require(!(client.currentScreen instanceof CoreMenuScreen), "Continue in world did not return to the world");
-                client.player.networkHandler.sendChatCommand("chronicles author region pos1 1 64 1");
-                client.player.networkHandler.sendChatCommand("chronicles author region pos2 4 67 4");
+                if (chatMessages.stream().noneMatch(message -> message.contains("Set Region draft menu_smoke_region position 2 at 4 67 4"))) return;
                 openMenu(client); step++;
             }
-            case 24 -> awaitScreen(client, Page.SESSION, "reopened menu after world corner selection");
+            case 24 -> awaitScreen(client, Page.REGIONS, "generic opener restored Regions after world corner selection");
             case 25 -> {
-                require(screen(client).triggerForTest("Regions"), "Regions navigation unavailable after world selection"); waitingFor = viewCount; step++;
+                var region = screen(client).state().detail() == null ? null : screen(client).state().detail().region();
+                require(region != null && region.id().equals("menu_smoke_region") && region.first().equals("1 64 1") && region.second().equals("4 67 4"), "world corner selection did not restore the exact Region draft");
+                client.player.networkHandler.sendChatCommand("chronicle regions save"); step++;
             }
-            case 26 -> awaitView(() -> screen(client).state().page() == Page.REGIONS && screen(client).state().detail() != null
-                    && screen(client).state().detail().region() != null, "draft positions returned to Regions");
-            case 27 -> {
-                require(press(screen(client), "Create selected region"), "region save action unavailable after two positions");
-                waitingFor = viewCount; step++;
+            case 26 -> {
+                if (chatMessages.stream().noneMatch(message -> message.contains("Saved Region 'menu_smoke_region'"))) return;
+                require(Files.isRegularFile(authoringFile) && fileContains(authoringFile, "menu_smoke_region"), "saved Region does not persist under its stable ID");
+                advance("native popup, world shovel selection and canonical save persisted the exact Region");
             }
-            case 28 -> awaitView(() -> Files.isRegularFile(authoringFile) && fileContains(authoringFile, "menu_smoke_region"),
-                    "saved region persists under its stable ID");
+            case 27 -> { require(Files.isRegularFile(authoringFile) && fileContains(authoringFile, "menu_smoke_region"), "persisted Region disappeared before follow-on editor checks"); step++; }
+            case 28 -> { checks.add("generic opener retained the active Region page after world selection"); step++; }
             case 29 -> {
                 // A preview must be definition-only: it cannot create the
                 // optional play-runtime file or alter it while paused.
@@ -254,14 +264,13 @@ public final class CoreMenuSmoke {
             case 39 -> { screen(client).selectForTest("test:timed"); waitingFor = viewCount; step++; }
             case 40 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().detail().loot() != null,
                     "selected disposable loot table");
-            case 41 -> { snapshot("loot before add", lootFile); require(press(screen(client), "Add item"), "Add item control unavailable"); waitingFor = viewCount; step++; }
-            case 42 -> awaitView(() -> screen(client).state().picker() != null && "ITEMS".equals(screen(client).state().picker().kind()), "opened registry item picker");
-            case 43 -> { capture(client, "menu-loot-picker-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); screen(client).searchForTest("gold_ingot"); require(press(screen(client), "Find"), "registry picker search unavailable"); waitingFor = viewCount; step++; }
-            case 44 -> awaitView(() -> screen(client).state().picker() != null && screen(client).state().picker().entries().stream().anyMatch(e -> e.id().equals("minecraft:gold_ingot")),
-                    "registry picker searched real item IDs");
-            case 45 -> { screen(client).selectForTest("minecraft:gold_ingot"); waitingFor = viewCount; step++; }
-            case 46 -> awaitView(() -> screen(client).state().picker() == null && screen(client).state().detail() != null && screen(client).state().detail().loot() != null,
-                    "added selected registry item to local table draft");
+            case 41 -> { snapshot("loot before add", lootFile); require(press(screen(client), "Add item"), "Add item control unavailable"); step++; }
+            case 42 -> { require(client.currentScreen!=null&&client.currentScreen.getClass().getSimpleName().equals("CatalogAddPopup"), "shared registry popup did not open"); client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).filter(b->b.getMessage().getString().equals("Cancel")).findFirst().orElseThrow().onPress(new net.minecraft.client.input.MouseInput(0,0)); step=-1; }
+            case -1 -> { require(sameSnapshot("loot before add", lootFile), "catalog cancellation changed the loot draft"); require(press(screen(client), "Add item"), "item catalog did not reopen after cancellation"); step=43; }
+            case 43 -> { if(client.currentScreen==null||!client.currentScreen.children().stream().anyMatch(child->child instanceof net.minecraft.client.gui.widget.ButtonWidget button&&button.getMessage().getString().equals("Find")&&button.active))return;capture(client, "menu-loot-picker-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); var field=client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).findFirst().orElseThrow();field.setText("  gold_ingot  ");client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).filter(button->button.getMessage().getString().equals("Find")).findFirst().orElseThrow().onPress(new net.minecraft.client.input.MouseInput(0,0)); step++; }
+            case 44 -> { if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("CatalogAddPopup"))return; if(lastView==null||lastView.picker()==null||!lastView.picker().query().equals("gold_ingot")||lastView.picker().entries().stream().noneMatch(entry->entry.id().equals("minecraft:gold_ingot")))return; advance("shared registry popup searched real item IDs"); }
+            case 45 -> { client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).filter(button->button.getMessage().getString().equals(lastView.picker().entries().stream().filter(entry->entry.id().equals("minecraft:gold_ingot")).findFirst().orElseThrow().label())).findFirst().orElseThrow().onPress(new net.minecraft.client.input.MouseInput(0,0)); step++; }
+            case 46 -> { if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("CatalogAddPopup"))return; client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).filter(button->button.getMessage().getString().equals("Add")).findFirst().orElseThrow().onPress(new net.minecraft.client.input.MouseInput(0,0)); step=47; }
             case 47 -> {
                 CoreMenuScreen menu = screen(client);
                 // ``test:timed`` starts with exactly one entry in this private
@@ -276,18 +285,14 @@ public final class CoreMenuSmoke {
             case 50 -> awaitView(() -> screen(client).state().page() == Page.REGIONS, "opened the sole region workflow");
             case 51 -> { screen(client).selectForTest("menu_smoke_region"); waitingFor = viewCount; step++; }
             case 52 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().selected().equals("menu_smoke_region"), "selected saved geometry for a typed use");
-            case 53 -> { require(press(screen(client), "Use for\u2026"), "region use picker unavailable"); waitingFor = viewCount; step++; }
-            case 54 -> awaitView(() -> screen(client).state().picker() != null && "REGION_PURPOSE".equals(screen(client).state().picker().kind()) && screen(client).state().picker().entries().stream().allMatch(e->e.kind().equals("PURPOSE")), "region only offers registered matching purposes");
-            case 55 -> { screen(client).selectForTest("quiet_below:source_city"); require(screen(client).triggerForTest("Confirm: Use for\u2026"), "region use review unavailable"); waitingFor = viewCount; step++; }
-            case 56 -> awaitView(() -> Files.isRegularFile(assignmentsFile) && fileContains(assignmentsFile, "menu_smoke_region"),
-                    "setup assigns an existing region without copying geometry");
+            case 53 -> { require(!screen(client).triggerForTest("Use for\u2026"), "removed reverse region-use action remained available"); checks.add("saved Regions remain independent geometry without obsolete reverse use assignment"); step=57; }
             case 57 -> {
                 CoreMenuScreen screen = screen(client);
                 require(screen.triggerForTest("Close"), "Close is unavailable");
                 advance("closed menu without changing server editing state");
             }
             case 58 -> { require(!(client.currentScreen instanceof CoreMenuScreen), "closed menu remained visible"); openMenu(client); advance("reopened menu after close"); }
-            case 59 -> awaitScreen(client, Page.SESSION, "menu reopened through normal command");
+            case 59 -> {if(!(client.currentScreen instanceof CoreMenuScreen remembered)||remembered.pending())return;require(remembered.state().page()==Page.REGIONS&&remembered.state().selected().equals("menu_smoke_region"),"reopen lost the selected Region");advance("generic opener restored the Region page and validated selected record");}
             case 60 -> { require(press(screen(client), "Locations"), "Locations unavailable"); waitingFor = viewCount; step++; }
             case 61 -> awaitView(() -> screen(client).state().page() == Page.LOCATIONS, "reopened Locations");
             case 62 -> { require(press(screen(client), "Points"), "Points unavailable"); waitingFor = viewCount; step++; }
@@ -362,12 +367,12 @@ public final class CoreMenuSmoke {
         switch(step){
             case 110 -> navigate(client,"Locations",Page.LOCATIONS);
             case 111 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
-            case 112 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&screen(client).state().entries().isEmpty(),"flat Block sites starts with actual instances only");
+            case 112 -> awaitView(()->screen(client).state().filter().equals("BLOCK")&&placedSites(screen(client)).isEmpty(),"Block sites starts without physical instances; pending departures stay distinct");
             case 113 -> {require(!screen(client).triggerForTest("Game bindings")&&!screen(client).triggerForTest("Saved sites"),"nested block selectors remain");require(press(screen(client),"Enable editing"),"editing unavailable");waitingFor=viewCount;step++;}
             case 114 -> awaitView(()->screen(client).state().editing(),"server acknowledges editing for manual references");
             case 115 -> {screen(client).close();client.player.networkHandler.sendChatCommand("setblock 0 99 0 minecraft:stone");client.player.networkHandler.sendChatCommand("setblock 0 101 3 minecraft:stone");client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 0 0");step++;}
             case 116 -> {if(Math.abs(client.player.getY()-100)>.05||!(client.crosshairTarget instanceof net.minecraft.util.hit.BlockHitResult hit)||!hit.getBlockPos().equals(new net.minecraft.util.math.BlockPos(0,101,3)))return;openMenu(client);advance("prepared an actual looked-at vanilla reference");}
-            case 117 -> awaitScreen(client,Page.SESSION,"reopened menu over vanilla block");
+            case 117 -> awaitScreen(client,Page.LOCATIONS,"remembered Locations reopened over vanilla block");
             case 118 -> navigate(client,"Locations",Page.LOCATIONS);
             case 119 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
             case 120 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"flat Block sites reopened");
@@ -387,7 +392,7 @@ public final class CoreMenuSmoke {
             case 1321 -> {if(viewCount<=waitingFor)return;require(!screen(client).state().success()&&screen(client).state().picker()==null&&sameSnapshot("old limit route",serverRoot.resolve("config/chronicle/managed-block-limits.json")),"old Locations policy selector still opened");checks.add("Locations has no policy editor and forged old policy routes are denied");navigate(client,"Game setup",Page.SETUP);step=133;}
             case 133 -> {if(viewCount<=waitingFor||screen(client).state().page()!=Page.SETUP)return;screen(client).selectForTest("limits");waitingFor=viewCount;step=1330;}
             case 1330 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limits"))return;require(press(screen(client),"Choose block type\u2026"),"Game setup block type selector unavailable");waitingFor=viewCount;step=1331;}
-            case 1331 -> {if(viewCount<=waitingFor||screen(client).state().picker()==null)return;var menu=screen(client);require(menu.state().picker().kind().equals("BLOCK_LIMIT_TYPE")&&menu.state().picker().entries().size()==3,"Game setup selector did not list registered types");verifyLimitBackdrop(menu);require(!menu.triggerForTest("Locations"),"modal allowed background navigation");capture(client,"menu-limit-chooser.png");advance("Game setup owns the sole managed block policy selector");step=134;}
+            case 1331 -> {if(viewCount<=waitingFor||screen(client).state().picker()==null)return;var menu=screen(client);require(menu.state().picker().kind().equals("BLOCK_LIMIT_TYPE")&&menu.state().picker().entries().size()==3,"Game setup selector did not list registered types");verifyLimitBackdrop(menu);require(!press(menu, "Locations"),"modal allowed background navigation");capture(client,"menu-limit-chooser.png");advance("Game setup owns the sole managed block policy selector");step=134;}
             case 134 -> {screen(client).selectForTest("quiet_below:relic_heart");waitingFor=viewCount;step++;}
             case 135 -> {if(viewCount<=waitingFor||!screen(client).state().selected().equals("limit:quiet_below:relic_heart"))return;var menu=screen(client);verifyLimitBackdrop(menu);require(!menu.limitFieldEnabledForTest()&&!menu.triggerForTest("Save"),"structural Heart limit is editable");capture(client,"menu-fixed-heart-limit.png");advance("Heart policy is fixed and read only");step=1350;}
             case 1350 -> {require(screen(client).triggerForTest("Close"),"fixed limit Close unavailable");waitingFor=viewCount;step=13501;}
@@ -403,12 +408,7 @@ public final class CoreMenuSmoke {
             case 140 -> awaitView(()->screen(client).state().detail().title().equals("Heart weakness"),"Heart weakness remains a global rule");
             case 141 -> {snapshot("forged old binding",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_CLEAR,Page.LOCATIONS,"binding:quiet_below:source_city","",screen(client).state().token(),0,"BINDINGS",""));step++;}
             case 142 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged old binding",assignmentsFile),"obsolete binding packet cannot clear a region use");
-            case 143 -> {client.player.networkHandler.sendChatCommand("chronicles setup assign \"quiet_below:relic_heart\" menu_smoke_block");waitingFor=viewCount;step++;}
-            case 144 -> awaitView(this::boundHeart,"explicit legacy block assignment remains compatible");
-            case 145 -> {snapshot("legacy inspect",assignmentsFile);client.player.networkHandler.sendChatCommand("chronicles setup inspect \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
-            case 146 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("legacy inspect",assignmentsFile),"explicit legacy inspection stays private and read only");
-            case 147 -> {client.player.networkHandler.sendChatCommand("chronicles setup clear \"quiet_below:relic_heart\"");waitingFor=viewCount;step++;}
-            case 148 -> awaitView(()->!boundHeart()&&fileContains(authoringFile,"menu_smoke_block"),"explicit legacy clear retains geometry");
+            case 143 -> {require(sameSnapshot("manual bindings",assignmentsFile)&&fileContains(authoringFile,"menu_smoke_block"),"manual reference unexpectedly wrote a game assignment");checks.add("manual references stay independent of retired reverse setup assignments");step=149;}
             case 149 -> navigate(client,"Locations",Page.LOCATIONS);
             case 150 -> {require(press(screen(client),"Block sites"),"Block sites unavailable");waitingFor=viewCount;step++;}
             case 151 -> awaitView(()->screen(client).state().filter().equals("BLOCK"),"reopened flat references after compatibility commands");
@@ -416,22 +416,22 @@ public final class CoreMenuSmoke {
             case 153 -> awaitView(()->screen(client).state().selected().equals("manual:menu_smoke_block"),"manual reference remains selectable");
             case 154 -> {require(press(screen(client),"Delete location"),"manual-only delete unavailable");waitingFor=viewCount;step++;}
             case 155 -> awaitView(()->!fileContains(authoringFile,"menu_smoke_block")&&fileContains(authoringFile,"menu_smoke_region"),"manual reference removal preserves unrelated geometry");
-            case 156 -> {client.player.networkHandler.sendChatCommand("chronicles author block bind alias_one target");client.player.networkHandler.sendChatCommand("chronicles author block bind alias_two target");waitingFor=viewCount;step++;}
+            case 156 -> {client.player.networkHandler.sendChatCommand("chronicle locations blocks bind alias_one target");client.player.networkHandler.sendChatCommand("chronicle locations blocks bind alias_two target");waitingFor=viewCount;step++;}
             case 157 -> awaitView(()->fileContains(authoringFile,"alias_one")&&fileContains(authoringFile,"alias_two"),"two legacy references share one physical position");
             case 158 -> {client.player.networkHandler.sendChatCommand("setblock 0 101 3 quiet_below:ancient_altar");waitingFor=viewCount;step++;}
-            case 159 -> awaitView(()->screen(client).state().entries().size()==1&&screen(client).state().entries().getFirst().kind().equals("MANAGED"),"discovery deduplicates both aliases into one physical row");
-            case 160 -> {screen(client).selectForTest(screen(client).state().entries().getFirst().id());waitingFor=viewCount;step++;}
+            case 159 -> awaitView(()->placedSites(screen(client)).size()==1&&placedSites(screen(client)).getFirst().kind().equals("MANAGED"),"discovery deduplicates both aliases into one physical row");
+            case 160 -> {screen(client).selectForTest(placedSites(screen(client)).getFirst().id());waitingFor=viewCount;step++;}
             case 161 -> awaitView(()->screen(client).state().selected().startsWith("managed:"),"selected managed position with multiple references");
             case 162 -> {require(press(screen(client),"Manual references\u2026"),"multiple-reference selector unavailable");waitingFor=viewCount;step++;}
             case 163 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("MANUAL_REFERENCE")&&screen(client).state().picker().entries().size()==2,"both legacy aliases remain discoverable");
             case 164 -> {screen(client).selectForTest("manual:alias_two");waitingFor=viewCount;step++;}
             case 165 -> awaitView(()->screen(client).state().selected().equals("manual:alias_two")&&screen(client).state().detail().title().equals("alias_two"),"alias picker opens the exact selected manual detail");
             case 166 -> {require(press(screen(client),"Delete location"),"selected alias deletion unavailable");waitingFor=viewCount;step++;}
-            case 167 -> awaitView(()->!fileContains(authoringFile,"alias_two")&&fileContains(authoringFile,"alias_one")&&screen(client).state().entries().size()==1&&screen(client).state().entries().getFirst().kind().equals("MANAGED"),"deleting one alias retains the other and its managed quota");
-            case 168 -> {screen(client).selectForTest(screen(client).state().entries().getFirst().id());waitingFor=viewCount;step++;}
+            case 167 -> awaitView(()->!fileContains(authoringFile,"alias_two")&&fileContains(authoringFile,"alias_one")&&placedSites(screen(client)).size()==1&&placedSites(screen(client)).getFirst().kind().equals("MANAGED"),"deleting one alias retains the other and its managed quota");
+            case 168 -> {screen(client).selectForTest(placedSites(screen(client)).getFirst().id());waitingFor=viewCount;step++;}
             case 169 -> awaitView(()->screen(client).state().detail().facts().stream().anyMatch(f->f.label().equals("Manual reference")&&f.value().equals("alias_one")),"remaining alias retains its scoped managed detail");
             case 170 -> {require(press(screen(client),"Delete manual reference"),"last manual reference deletion unavailable");waitingFor=viewCount;step++;}
-            case 171 -> awaitView(()->!fileContains(authoringFile,"alias_one")&&screen(client).state().entries().size()==1&&screen(client).state().entries().getFirst().kind().equals("MANAGED"),"deleting all manual references cannot free physical quota");
+            case 171 -> awaitView(()->!fileContains(authoringFile,"alias_one")&&placedSites(screen(client)).size()==1&&placedSites(screen(client)).getFirst().kind().equals("MANAGED"),"deleting all manual references cannot free physical quota");
             case 172 -> step=210;
             case 173 -> awaitView(()->!screen(client).hasTextPromptForTest()&&sameSnapshot("manual cancelled",authoringFile),"changed looked-at target closes the old naming prompt without a mutation");
             case 174 -> {client.player.networkHandler.sendChatCommand("tp @s 0.5 100 0.5 0 0");waitingFor=viewCount;step++;}
@@ -440,45 +440,7 @@ public final class CoreMenuSmoke {
             default -> throw new IllegalStateException("unexpected flat block test step "+step);
         }
     }
-    private void driveRegionUses(MinecraftClient client){
-        switch(step){
-            case 210 -> navigate(client,"Regions",Page.REGIONS);
-            case 211 -> {screen(client).selectForTest("menu_smoke_region");waitingFor=viewCount;step++;}
-            case 212 -> awaitView(()->screen(client).state().selected().equals("menu_smoke_region")&&fact(client,"Used by").contains("Current"),"region usage is contextual and current");
-            case 213 -> {snapshot("region clear cancelled",assignmentsFile);require(press(screen(client),"Clear use\u2026"),"clear region use unavailable");waitingFor=viewCount;step++;}
-            case 214 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().kind().equals("REGION_BOUND")&&screen(client).state().picker().entries().size()==1,"clear picker contains only the selected region's assigned purpose");
-            case 215 -> {require(press(screen(client),"Cancel selection"),"region picker cancel unavailable");waitingFor=viewCount;step++;}
-            case 216 -> awaitView(()->screen(client).state().picker()==null&&sameSnapshot("region clear cancelled",assignmentsFile),"cancelled region-use picker preserves assignment");
-            case 217 -> {require(press(screen(client),"Clear use\u2026"),"clear region use unavailable");waitingFor=viewCount;step++;}
-            case 218 -> awaitView(()->screen(client).state().picker()!=null,"reopened region clear picker");
-            case 219 -> {screen(client).selectForTest("quiet_below:source_city");require(screen(client).triggerForTest("Confirm: Clear use\u2026"),"clear region use review unavailable");waitingFor=viewCount;step++;}
-            case 220 -> awaitView(()->!fileContains(assignmentsFile,"quiet_below:source_city")&&fileContains(authoringFile,"menu_smoke_region"),"clearing a use retains the saved region");
-            case 221 -> {snapshot("forged region purpose",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.REGION_ASSIGN,Page.REGIONS,"menu_smoke_region","quiet_below:relic_heart",screen(client).state().token(),0,"",""));step++;}
-            case 222 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged region purpose",assignmentsFile),"forged block purpose rejected by live region kind validation");
-            case 223 -> {require(press(screen(client),"Use for\u2026"),"region use unavailable after denied packet");waitingFor=viewCount;step++;}
-            case 224 -> awaitView(()->screen(client).state().picker()!=null,"reopened purpose picker after denied packet");
-            case 225 -> {screen(client).selectForTest("quiet_below:source_city");require(screen(client).triggerForTest("Confirm: Use for\u2026"),"region reassignment review unavailable");waitingFor=viewCount;step++;}
-            case 226 -> awaitView(()->fact(client,"Used by").contains("Current"),"explicit region reassignment restores current pin");
-            case 227 -> {snapshot("region old pin",assignmentsFile);snapshot("region old bounds",authoringFile);require(press(screen(client),"Edit region"),"existing region edit unavailable");waitingFor=viewCount;step++;}
-            case 228 -> awaitView(()->screen(client).state().detail().region()!=null,"existing region opens its current draft");
-            case 229 -> {require(press(screen(client),"Set corner 1"),"single-corner editor unavailable");step++;}
-            case 230 -> {screen(client).textForTest("2 64 1");require(screen(client).triggerForTest("Send"),"single-corner position submit unavailable");waitingFor=viewCount;step++;}
-            case 231 -> awaitView(()->screen(client).state().detail().region()!=null&&screen(client).state().detail().region().first().equals("2 64 1"),"one corner changes without rebuilding the region");
-            case 232 -> {require(press(screen(client),"Save region changes"),"region update save unavailable");waitingFor=viewCount;step++;}
-            case 233 -> awaitView(()->!sameSnapshot("region old bounds",authoringFile)&&sameSnapshot("region old pin",assignmentsFile)&&fact(client,"Used by").contains("Stale"),"changed bounds leave the prior assignment explicitly stale");
-            case 234 -> {require(press(screen(client),"Use for\u2026"),"stale region update unavailable");waitingFor=viewCount;step++;}
-            case 235 -> awaitView(()->screen(client).state().picker()!=null&&screen(client).state().picker().entries().stream().anyMatch(e->e.id().equals("quiet_below:source_city")&&e.description().contains("Stale here")),"purpose picker identifies the selected region's stale pin");
-            case 236 -> {screen(client).selectForTest("quiet_below:source_city");require(screen(client).triggerForTest("Confirm: Use for\u2026"),"stale region update review unavailable");waitingFor=viewCount;step++;}
-            case 237 -> awaitView(()->!sameSnapshot("region old pin",assignmentsFile)&&fact(client,"Used by").contains("Current"),"explicit use updates only the selected purpose to the saved revision");
-            case 238 -> {capture(client,"menu-regions-usage.png");advance("captured the single-list Regions workflow");}
-            case 239 -> {snapshot("forged setup region clear",assignmentsFile);waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SETUP_CLEAR,Page.SETUP,"quiet_below:source_city","",screen(client).state().token(),0,"",""));step++;}
-            case 240 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("forged setup region clear",assignmentsFile),"raw Game setup packet cannot mutate a region use");
-            case 241 -> {client.player.networkHandler.sendChatCommand("chronicles setup inspect \"quiet_below:source_city\"");waitingFor=viewCount;step++;}
-            case 242 -> awaitView(()->screen(client).state().success()&&screen(client).state().message().contains("outline")&&sameSnapshot("forged setup region clear",assignmentsFile),"explicit legacy region inspect remains compatible and read only");
-            case 243 -> finish(client,true,"completed "+checks.size()+" native operator checks");
-            default -> throw new IllegalStateException("unexpected region menu step "+step);
-        }
-    }
+    private static List<io.github.chronicle.core.menu.CoreMenuModel.Entry> placedSites(CoreMenuScreen menu){return menu.state().entries().stream().filter(e->e.kind().equals("MANAGED")||e.kind().equals("MANUAL")).toList();}
     private String fact(MinecraftClient client,String name){return screen(client).state().detail().facts().stream().filter(f->f.label().equals(name)).map(f->f.value()).findFirst().orElse("");}
     private boolean boundHeart(){try{return java.util.stream.StreamSupport.stream(com.google.gson.JsonParser.parseString(Files.readString(assignmentsFile)).getAsJsonObject().getAsJsonArray("bindings").spliterator(),false).anyMatch(e->e.getAsJsonObject().get("requirementId").getAsString().equals("quiet_below:relic_heart"));}catch(IOException error){throw new IllegalStateException(error);}}
 
@@ -517,6 +479,9 @@ public final class CoreMenuSmoke {
             case 3 -> awaitView(() -> !screen(client).state().success() && !screen(client).state().operator()
                     && sameSnapshot("non-operator before forged mutation", authoringFile), "forged operator mutation denied without authoring change");
             case 4 -> {
+                if(!ordinaryReopened){screen(client).close();openMenu(client);ordinaryReopened=true;return;}
+                if(!(client.currentScreen instanceof CoreMenuScreen reopened)||reopened.pending())return;
+                require(!reopened.state().operator()&&reopened.state().page()==Page.PLAYERS,"ordinary player reopen lost permitted page or gained authority");
                 if (!Files.isRegularFile(output.resolve("preview-chat-checked"))) return;
                 if (++stableTicks < 20) return;
                 require(chatCount(CITY_MESSAGE) == 0 && chatCount(DISTANT_MESSAGE) == 0, "private preview leaked to another player");
@@ -568,13 +533,35 @@ public final class CoreMenuSmoke {
             case 21 -> {screen(client).selectForTest("quiet_below:relic_heart");waitingFor=viewCount;step++;}
             case 22 -> awaitView(()->screen(client).state().selected().equals("limit:quiet_below:relic_heart"),"layout fixed Heart limit detail rendered");
             case 23 -> {verifyLimitBackdrop(screen(client));capture(client,"menu-layout-fixed-limit.png");advance("captured generic limit detail at requested logical size");}
-            case 24 -> finish(client, true, "completed " + checks.size() + " native layout checks");
+            case 24 -> {
+                var parent=client.currentScreen;
+                var entries=net.minecraft.registry.Registries.ITEM.getIds().stream().sorted().limit(12).map(id->new io.github.chronicle.core.menu.CoreMenuModel.Entry(id.toString(),net.minecraft.registry.Registries.ITEM.get(id).getName().getString(),id.toString(),"ITEM","",0)).toList();
+                client.setScreen(new io.github.chronicle.core.client.CatalogAddPopup(parent,net.minecraft.text.Text.literal("Shared catalog layout"),true,new io.github.chronicle.core.client.CatalogAddPopup.Owner(){
+                    public void requestPage(io.github.chronicle.core.client.CatalogAddPopup popup,String query,int page){popup.replacePage(new io.github.chronicle.core.menu.CoreMenuModel.Picker("ITEMS",query,0,1,entries));}
+                    public String validate(io.github.chronicle.core.menu.CoreMenuModel.Entry entry,String quantity){return "";}
+                    public void add(io.github.chronicle.core.menu.CoreMenuModel.Entry entry,String quantity){throw new IllegalStateException("layout probe cannot add supplies");}
+                    public void cancel(){}
+                    public void drawIcon(net.minecraft.client.gui.DrawContext context,io.github.chronicle.core.menu.CoreMenuModel.Entry entry,int x,int y){context.drawItem(new net.minecraft.item.ItemStack(net.minecraft.registry.Registries.ITEM.get(net.minecraft.util.Identifier.of(entry.id()))),x,y);}
+                }));stableTicks=0;step++;
+            }
+            case 25 -> {
+                var widgets=client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ClickableWidget.class::isInstance).map(net.minecraft.client.gui.widget.ClickableWidget.class::cast).filter(w->w.visible).toList();
+                int width=client.getWindow().getScaledWidth(),height=client.getWindow().getScaledHeight();
+                for(var w:widgets)require(w.getX()>=0&&w.getY()>=0&&w.getX()+w.getWidth()<=width&&w.getY()+w.getHeight()<=height,"shared popup widget escapes viewport: "+w.getMessage().getString());
+                for(int i=0;i<widgets.size();i++)for(int j=i+1;j<widgets.size();j++){var x=widgets.get(i);var y=widgets.get(j);require(x.getX()+x.getWidth()<=y.getX()||y.getX()+y.getWidth()<=x.getX()||x.getY()+x.getHeight()<=y.getY()||y.getY()+y.getHeight()<=x.getY(),"shared popup widgets overlap");}
+                var down=widgets.stream().filter(w->w.getMessage().getString().equals(Character.toString(0x2193))).findFirst().orElseThrow();
+                require(down.getY()>widgets.stream().filter(w->w.getMessage().getString().equals("Find")).findFirst().orElseThrow().getY()+30,"row scroll control still covers item icons");
+                ((net.minecraft.client.gui.widget.ButtonWidget)down).onPress(new net.minecraft.client.input.MouseInput(0,0));
+                checks.add("shared Add popup fits the native viewport with separate rows, icons, paging and quantity controls");stableTicks=0;step++;
+            }
+            case 26 -> {if(++stableTicks<4)return;capture(client,"menu-layout-shared-catalog.png");step++;}
+            case 27 -> finish(client,true,"completed "+checks.size()+" native layout checks");
             default -> throw new IllegalStateException("unexpected layout menu step "+step);
         }
     }
 
     private void openMenu(MinecraftClient client) {
-        client.player.networkHandler.sendChatCommand("chronicles");
+        client.player.networkHandler.sendChatCommand("chronicle");
     }
 
     private void navigate(MinecraftClient client, String label, Page expected) {
@@ -606,6 +593,12 @@ public final class CoreMenuSmoke {
 
     /** Finds controls that are intentionally below the compact detail fold. */
     private static boolean press(CoreMenuScreen screen, String label) {
+        if(java.util.Set.of("Chests","Loot Tables","Books & Lore","Regions","Locations","Player Roles","Game setup").contains(label)) {
+            if(screen.triggerForTest(label))return true;
+            for(int i=0;i<12;i++){if(!screen.triggerForTest("^"))break;if(screen.triggerForTest(label))return true;}
+            for(int i=0;i<12;i++){if(!screen.triggerForTest("v"))break;if(screen.triggerForTest(label))return true;}
+            return false;
+        }
         for (int attempt = 0; attempt < 60; attempt++) screen.scrollDetailForTest(1);
         for (int attempt = 0; attempt < 30; attempt++) {
             if (screen.triggerForTest(label)) {

@@ -7,9 +7,11 @@ import net.minecraft.client.MinecraftClient;
 /** Transport for the server-authoritative Chronicle control menu.  The server decides when it opens. */
 public final class CoreMenuClient {
     private static long closedToken;
+    private static CoreMenuScreen.NavigationSnapshot navigation;
     private CoreMenuClient() { }
 
     public static void register() {
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler,client)->{closedToken=0;navigation=null;});
         ClientPlayNetworking.registerGlobalReceiver(CoreMenuPayloads.Response.ID,
                 (payload, context) -> context.client().execute(() -> receive(context.client(), payload)));
     }
@@ -20,6 +22,9 @@ public final class CoreMenuClient {
         io.github.chronicle.core.client.testing.PlayerRolesSmoke.onView(response.view());
         if (client.currentScreen instanceof CoreMenuScreen screen) {
             screen.accept(response.view());
+        } else if (client.currentScreen instanceof CatalogAddPopup popup) {
+            if(popup.parentScreen() instanceof PlayerRoleEditorScreen editor&&editor.parentMenu()!=null){editor.parentMenu().acceptWhileEditorOpen(response.view());editor.serverUpdated(response.view());}
+            popup.acceptServerView(response.view());
         } else if (client.currentScreen instanceof PlayerRoleEditorScreen editor && editor.parentMenu() != null) {
             editor.parentMenu().acceptWhileEditorOpen(response.view()); editor.serverUpdated(response.view());
         } else if (client.currentScreen instanceof PlayerRoleChoiceScreen choice && choice.parentMenu() instanceof CoreMenuScreen parent) {
@@ -36,6 +41,9 @@ public final class CoreMenuClient {
             client.setScreen(new CoreMenuScreen(response.view()));
         }
     }
+
+    static void remember(CoreMenuScreen screen){navigation=screen.navigationSnapshot();}
+    static void restore(CoreMenuScreen screen){if(navigation!=null)screen.restoreNavigation(navigation);}
 
     /** A late mutation response must not re-open an operator's deliberately closed menu. */
     static void closed(long token) {

@@ -1,5 +1,34 @@
 # Bootstrap validation
 
+## 27 October: editor, picker and command normalization (dev58)
+
+[Implementation and combined review](EDITOR_COMMAND_NORMALIZATION.md), [canonical command reference](COMMAND_REFERENCE.md). O or /chronicle restores server-validated navigation within the current connection, with fresh authority. One responsive native Add popup is reused by roles, loot-table items/books and direct-chest books; whole-table drafts, components, Cancel and chance dialogs are retained. Only /chronicle is registered; obsolete aliases, reverse setup CLI and the CF09 transport are retired. Core's offering presentation is neutral and Quiet Below supplies Altar flavor.
+
+`python scripts/workspace.py build`: PASS, 526 discovered Java tests: **524 passed, 2 intentional skips**, no failures/errors. `python -m unittest discover -s scripts -p 'test_*.py'`: PASS, 93 tests. Final build log and artifact hashes: `../reports/dev58-build.log`, `../reports/dev58-validation.json`.
+
+| Native suite | Invocation | Evidence |
+| --- | --- | --- |
+| menu | `python scripts/menu_smoke.py` | PASS `../reports/core-menu-smoke-20261027T144302488732Z` |
+| books | `python scripts/books_smoke.py` | PASS `../reports/books-lore-20261027T143627122741Z` |
+| roles | `python scripts/roles_smoke.py` | PASS `../reports/player-roles-20261027T143839411860Z` |
+| subtypes | `python scripts/subtypes_smoke.py` | PASS `../reports/subtypes-20261027T144044447362Z` |
+| areas | `python scripts/areas_smoke.py` | PASS `../reports/area-changes-20261027T132840964849Z` |
+| departures | `python scripts/departures_smoke.py` | PASS `../reports/departures-20261027T133055795085Z` |
+| pause | `python scripts/pause_smoke.py` | PASS `../reports/pause-gameplay-20261027T133546631992Z` |
+| bargains | `python scripts/bargain_smoke.py` | PASS `../reports/bargain-smoke-20261027T141042530859Z` |
+| wardens | `python scripts/warden_smoke.py` | PASS `../reports/warden-smoke-20261027T145701640391Z` |
+| stages | `python scripts/workspace.py stage-smoke` | PASS `../reports/stage-smoke-20261027T151201291673Z` |
+| coreRegression | `fabric_smoke.run(include_content=False) (scripts on Python path)` | PASS `../reports/fabric-smoke-20261027T153159096852Z` |
+
+The real merged dispatcher exports 142 executable paths and checks operator/nonoperator gates and removed roots at two viewports. Menu checks cover remembered record/filter navigation, manual Advanced scrolling, popup search/paging/Cancel/late replies, quantity and short-window widget bounds. Native desktop/square/short popup captures were visually inspected. Roles retain exact rich components and do not replay supplies after three real respawns/restart. Book keeping retains its distinct active-play review workflow. Region/state, departure, frozen gameplay and five-phase Altar regressions pass.
+
+Native command tests found and corrected operator self-join incorrectly using GM Editing, and identifier quoting in reviewed state actions/conditions. Administrative assignment retains Editing; self opt-in retains departure gates. The legacy stage codec now recognizes only its historical healthy sculk representation; nonhealthy variants remain conflicts. The native stage rehearsal proves reviewed action execution, pause/restart recovery, changed-block and changed-vitality undo refusal, then safe undo. The vanilla Warden fixture uses the ordinary 3600-second Heart delay to isolate vanilla warnings from the independently tested last-stand summon.
+
+Independent source review is clear. Documentation links, Python syntax and `git diff --check` pass. This does not certify disk faults, process kills, maximum native volumes or realistic map/group/voice soak. The earlier intermittent outline issue remains unreplicated; no new fix claim is made. Handcrafted-map integration and final narrative/content remain pending.
+
+Deployment PASS `../reports/combined-dev58-deployment.json`: saved-stop backup `server-20261027T153725896292Z.zip` verified by CRC and every protected file hash; 91 protected files exact at swap and 25 readable gameplay/config/access files unchanged after startup/save. Matching dev58 pack CRC, owned jars, license notices, GUI2/narrator/onboarding/multiplayer/FancyMenu defaults and live preset verified. Authenticated protocol773 server `127.0.0.1:25589`, voice24469, retains the organizer's ENDED session4 and OP4; no forced chunks or opt-in trial commands. Usable wrapper console 13259. No main merge; combined organizer review pending.
+
+
 ## 27 October: unified Region selection and subtype editor (dev57)
 
 [Implementation](EDITOR_SUBTYPES_IMPLEMENTATION.md) and [combined review](EDITOR_SUBTYPES_REVIEW.md) replace separate Area/Departure navigation while retaining stable geometry, snapshot IDs and operation histories. All Regions now use private shovel/pos1-pos2 selection and explicit save. Changed bounds with Saved states require a server-pinned warning/confirmation before publication; capture requires non-active Editing at the shared service boundary.

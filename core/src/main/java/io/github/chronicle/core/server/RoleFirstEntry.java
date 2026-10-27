@@ -53,7 +53,7 @@ public final class RoleFirstEntry {
         if (registered) return;
         registered = true;
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(literal("chronicle")
-                .then(literal("roles").then(literal("entry").then(literal("recover")
+                .then(literal("roles").then(literal("recovery").then(literal("entry")
                         .requires(source -> source.hasPermissionLevel(2))
                         .then(argument("player", EntityArgumentType.player()).executes(context -> recoverCommand(
                                 context.getSource(), EntityArgumentType.getPlayer(context, "player")))))))));

@@ -92,7 +92,7 @@ public final class BooksLoreSmoke {
             if(client.player.isDead())throw new IllegalStateException("Fixture player died at step "+step);
             if (client.getCurrentServerEntry() == null || !ADDRESS.equals(client.getCurrentServerEntry().address))
                 throw new IllegalStateException("refusing non-loopback Books smoke connection");
-            if (step == 0) { client.player.networkHandler.sendChatCommand("chronicles"); step++; return; }
+            if (step == 0) { client.player.networkHandler.sendChatCommand("chronicle"); step++; return; }
             CoreMenuScreen screen = client.currentScreen instanceof CoreMenuScreen value ? value : null;
             if ((step <= 1 || (!DELIVERY && (step == 2 || (RESTART && step == 3)))) && (screen == null || screen.pending())) return;
             if (step == 1) {
@@ -104,7 +104,7 @@ public final class BooksLoreSmoke {
                 step++;
                 return;
             }
-            if (DELIVERY && (step >= 2 && step <= 6 || step >= 200 && step <= 235)) { editor(client, screen); return; }
+            if (DELIVERY && (step >= 2 && step <= 6 || step >= 200 && step <= 260 || step >= 2191 && step <= 2195)) { editor(client, screen); return; }
             if (step == 2 && RESTART) { command(client, "restart"); step++; return; }
             if (step == 3 && RESTART) {
                 if (!passed()) return;
@@ -127,7 +127,13 @@ public final class BooksLoreSmoke {
             }
             if (!DELIVERY) return;
             if (step == 7) { command(client, "prepare"); step++; return; }
-            if (step == 8) { if (!passed()) return; command(client, "keep"); step++; return; }
+            if (step == 8) { if (!passed()) return; client.player.networkHandler.sendChatCommand("chronicle chests");step=300;return; }
+            if (step == 300) {if(screen==null||screen.pending()||screen.state().page()!=Page.CHESTS)return;screen.selectForTest(screen.state().entries().stream().filter(entry->entry.reference().equals("test:books")).findFirst().orElseThrow().id());step++;return;}
+            if (step == 301) {if(screen==null||screen.pending()||screen.state().detail()==null||screen.state().detail().lore()==null)return;require(!screen.state().editing()&&screen.state().phase().equals("ACTIVE"),"keep test must use active play without Editing");require(screen.triggerForTest("Keep book placed until found..."),"active chest keep action missing");step++;return;}
+            if (step == 302) {require(!(client.currentScreen instanceof io.github.chronicle.core.client.CatalogAddPopup),"non-add Keep operation was incorrectly routed to the Add popup");if(screen==null||screen.pending()||screen.state().picker()==null)return;require(screen.state().picker().kind().equals("BOOKS"),"Keep chooser missing named books");screen.selectForTest("test:kept");step++;return;}
+            if (step == 303) {if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("BookKeepScreen"))return;capture(client,"books-active-keep.png");press(client,"Cancel");step++;return;}
+            if (step == 304) {if(screen==null||screen.pending())return;checks.add("active chest Keep retained its distinct reviewed workflow without Editing; Cancel created no request");command(client,"keep");step=9;return;}
+
             if (step == 9) { if (!passed()) return; waitTicks++; if(waitTicks<150)return; command(client, "cycles"); step++; return; }
             if (step == 10) { if (!passed()) return; checks.add("shared ledger proves kept/once/table isolation after scheduled cycles"); client.setScreen(null); openChest(client); step++; return; }
             if (step == 11) {
@@ -213,12 +219,28 @@ public final class BooksLoreSmoke {
             case 216 -> {if(menu==null||menu.pending()||menu.state().editing())return;require(menu.triggerForTest("Loot Tables"),"loot navigation missing");step++;}
             case 217 -> {if(menu==null||menu.pending()||menu.state().page()!=Page.LOOT_TABLES)return;menu.selectForTest("test:books");step++;}
             case 218 -> {if(menu==null||menu.pending()||!menu.state().selected().equals("test:books")||menu.state().detail().loot()==null)return;var add=menu.probeButtonForTest("Add item");require(add!=null&&!add.active(),"ordinary item add enabled while editing off");checks.add("ordinary Items mutation disabled outside Editing");require(menu.triggerForTest("Enable editing"),"editing toggle unavailable");step++;}
-            case 219 -> {if(menu==null||menu.pending()||!menu.state().editing())return;require(menu.triggerForTest("Lore books"),"separate Lore books tab missing");require(menu.triggerForTest("Kept 0.0%"),"named book row missing");chanceField(client).setText("-1");require(menu.triggerForTest("Open book"),"read-only book handoff missing");step=230;}
+            case 219 -> {if(menu==null||menu.pending()||!menu.state().editing())return;require(menu.triggerForTest("Lore books"),"separate Lore books tab missing");require(menu.triggerForTest("Kept 0.0%"),"named book row missing");require(menu.triggerForTest("Add book\u2026"),"table lore catalog action missing");step=2191;}
+            case 2191 -> {if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("CatalogAddPopup"))return;press(client,"Cancel");step++;}
+            case 2192 -> {if(menu==null||menu.pending())return;require(menu.triggerForTest("Add book\u2026"),"table lore catalog did not return after cancellation");step++;}
+            case 2193 -> {if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("CatalogAddPopup")||!hasCatalogEntry(client))return;catalogEntry(client).onPress(new net.minecraft.client.input.MouseInput(0,0));step++;}
+            case 2194 -> {if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("CatalogAddPopup"))return;press(client,"Add");step++;}
+            case 2195 -> {if(menu==null||menu.pending())return;require(menu.triggerForTest("Kept 0.0%"),"original lore row missing after Add");chanceField(client).setText("-1");require(menu.triggerForTest("Open book"),"read-only book handoff missing after catalog add");checks.add("table lore catalog cancellation and explicit Add retained the selected chance draft");step=230;}
             case 230 -> {if(menu==null||menu.pending()||menu.state().page()!=Page.BOOKS_LORE||!menu.state().selected().equals("test:kept"))return;require(menu.triggerForTest("Open table: Books"),"table return link missing");step++;}
             case 231 -> {if(menu==null||menu.pending()||menu.state().page()!=Page.LOOT_TABLES)return;require(chanceField(client).getText().equals("-1"),"book handoff lost unsaved invalid chance");checks.add("read-only book handoff restored unsaved table draft");step=220;}
             case 220 -> {var chance=chanceField(client);chance.setText("-1");require(menu.triggerForTest("Save loot table"),"table save unavailable");require(chanceField(client).getText().equals("-1"),"invalid chance draft lost");capture(client,"books-table-invalid.png");checks.add("named Lore tab retained invalid chance without submitting");chanceField(client).setText("0");require(menu.triggerForTest("Save loot table"),"table save unavailable");step++;}
             case 221 -> {require(menu.triggerForTest("Confirm: Save loot table"),"whole-table save lacked confirmation");step++;}
-            case 222 -> {if(menu==null||menu.pending())return;require(menu.state().success()&&menu.state().detail().loot().entries().size()==2&&menu.state().detail().loot().books().size()==2&&menu.state().detail().loot().books().getFirst().chancePercent()==0,"named table save lost ordinary entries or changed chance");capture(client,"books-table.png");checks.add("named-table whole Save preserved ordinary entries and shared refill");require(menu.triggerForTest("Stop editing"),"editing toggle missing");step++;}
+            case 222 -> {if(menu==null||menu.pending())return;require(menu.state().success()&&menu.state().detail().loot().entries().size()==2&&menu.state().detail().loot().books().size()==3&&menu.state().detail().loot().books().stream().anyMatch(book->book.chancePercent()==0),"named table save lost ordinary entries, catalog addition, or changed chance");capture(client,"books-table.png");checks.add("named-table whole Save preserved ordinary entries, catalog addition and shared refill");command(client,"picker_prepare");step=240;}
+            case 240 -> {if(!passed()||menu==null||menu.pending())return;require(menu.triggerForTest("Chests"),"Chests navigation missing");step++;}
+            case 241 -> {if(menu==null||menu.pending()||menu.state().page()!=Page.CHESTS)return;try{menu.selectForTest(Files.readString(serverRoot.resolve(".books-picker-binding")));}catch(IOException e){throw new IllegalStateException(e);}step++;}
+            case 242 -> {if(menu==null||menu.pending()||menu.state().detail()==null||menu.state().detail().lore()==null)return;require(menu.triggerForTest("Specific lore book..."),"direct chest catalog missing");require(client.currentScreen instanceof io.github.chronicle.core.client.CatalogAddPopup,"direct chest did not use shared popup");press(client,"Cancel");step++;}
+            case 243 -> {if(menu==null||menu.pending()||menu.state().picker()!=null)return;command(client,"picker_empty");step++;}
+            case 244 -> {if(!passed()||menu==null||menu.pending())return;checks.add("direct chest catalog Cancel during pending OPTIONS ignored the late response and changed no binding");require(menu.triggerForTest("Specific lore book..."),"direct chest catalog reopen missing");step++;}
+            case 245 -> {if(!(client.currentScreen instanceof io.github.chronicle.core.client.CatalogAddPopup)||!button(client,"Find").active)return;client.currentScreen.children().stream().filter(TextFieldWidget.class::isInstance).map(TextFieldWidget.class::cast).findFirst().orElseThrow().setText("test:editing");press(client,"Find");step++;}
+            case 246 -> {if(!(client.currentScreen instanceof io.github.chronicle.core.client.CatalogAddPopup)||latestView==null||latestView.picker()==null||!latestView.picker().query().equals("test:editing")||!button(client,"Find").active||!hasCatalogEntry(client))return;catalogEntry(client).onPress(new net.minecraft.client.input.MouseInput(0,0));press(client,"Add");step++;}
+            case 247 -> {if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("BookChanceScreen"))return;capture(client,"books-direct-chance.png");client.currentScreen.children().stream().filter(TextFieldWidget.class::isInstance).map(TextFieldWidget.class::cast).findFirst().orElseThrow().setText("25");press(client,"Save chest setting");step++;}
+            case 248 -> {if(menu==null||menu.pending())return;command(client,"picker_verify");step++;}
+            case 249 -> {if(!passed()||menu==null||menu.pending())return;checks.add("direct chest explicit Add continued to chance popup and saved only on Save chest setting");require(menu.triggerForTest("Loot Tables"),"return from retired fixture chest missing");step=250;}
+            case 250 -> {if(menu==null||menu.pending()||menu.state().page()!=Page.LOOT_TABLES)return;require(menu.triggerForTest("Stop editing"),"editing toggle missing");step=223;}
             case 223 -> {if(menu==null||menu.pending()||menu.state().editing())return;step=7;}
 
         }
@@ -227,6 +249,8 @@ public final class BooksLoreSmoke {
     private static boolean editorScreen(MinecraftClient c){return c.currentScreen!=null&&c.currentScreen.getClass().getSimpleName().equals("BookEditorScreen");}
     private static net.minecraft.client.gui.widget.EditBoxWidget pageField(MinecraftClient c){return c.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.EditBoxWidget.class::isInstance).map(net.minecraft.client.gui.widget.EditBoxWidget.class::cast).findFirst().orElseThrow(()->new IllegalStateException("page field missing"));}
     private static boolean hasButton(MinecraftClient c,String label){return c.currentScreen.children().stream().anyMatch(n->n instanceof ButtonWidget b&&b.getMessage().getString().equals(label));}
+    private static ButtonWidget catalogEntry(MinecraftClient c){return c.currentScreen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).filter(b->{String label=b.getMessage().getString();return !java.util.Set.of("Find","Add","Cancel","Close","<",">").contains(label)&&!label.startsWith("â†")&&!label.startsWith("> ");}).findFirst().orElseThrow(()->new IllegalStateException("catalog has no selectable lore entry"));}
+    private static boolean hasCatalogEntry(MinecraftClient c){return c.currentScreen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).anyMatch(b->{String label=b.getMessage().getString();return !java.util.Set.of("Find","Add","Cancel","Close","<",">").contains(label)&&!label.startsWith("â†")&&!label.startsWith("> ");});}
     private static void pressSuffix(MinecraftClient c,String suffix){for(var child:c.currentScreen.children())if(child instanceof ButtonWidget b&&b.getMessage().getString().endsWith(suffix)){require(b.active,"disabled rule");b.onPress(new net.minecraft.client.input.MouseInput(0,0));return;}throw new IllegalStateException("missing rule "+suffix);}
     private static void require(boolean ok,String text){if(!ok)throw new IllegalStateException(text);}
     private void capture(MinecraftClient client,String name){ScreenshotRecorder.saveScreenshot(output.getParent().toFile(),name,client.getFramebuffer(),1,ignored->{});}

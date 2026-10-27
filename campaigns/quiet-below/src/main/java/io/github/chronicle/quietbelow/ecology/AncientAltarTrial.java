@@ -133,7 +133,12 @@ public final class AncientAltarTrial {
                 case "orphan_death" -> {
                     purchased(player);pause(player);
                     player.getAttributeInstance(EntityAttributes.MAX_HEALTH).addPersistentModifier(new EntityAttributeModifier(Identifier.of("chronicle_core","offerings/chronicle_test/orphan_death"),-2,EntityAttributeModifier.Operation.ADD_VALUE));
-                    player.kill(world);check(!player.isAlive(),"orphan-price native death failed");
+                    player.kill(world);check(player.isAlive(),"paused physiology allowed damage during unknown-price setup");
+                    // Frozen gameplay correctly prevents death. Exercise the vanilla death-copy
+                    // service administratively, without disabling that production protection.
+                    var replacement=server.getPlayerManager().respawnPlayer(player,false,net.minecraft.entity.Entity.RemovalReason.KILLED);
+                    replacement.networkHandler.player=replacement;replacement.networkHandler.syncWithPlayerPosition();
+                    check(replacement!=player&&replacement.getUuid().equals(player.getUuid()),"unknown-price death-copy did not replace player");
                 }
                 case "orphan_respawn_repair" -> {
                     var orphan=Identifier.of("chronicle_core","offerings/chronicle_test/orphan_death");
@@ -278,7 +283,10 @@ public final class AncientAltarTrial {
         LastingBargains.act(player,new OfferingPayloads.Action(distant,1,0));checkNoPurchase(player,"out-of-range consent accepted");safe(player);
         AncientAltars.open(player,ALTAR);UUID replaced=token(player);put(world,ALTAR,Blocks.AIR.getDefaultState());put(world,ALTAR,QuietBelow.ANCIENT_ALTAR_BLOCK.getDefaultState());
         LastingBargains.act(player,new OfferingPayloads.Action(replaced,1,0));checkNoPurchase(player,"replaced station accepted old consent");
-        AuthoringRuntime.get(server).enable(player.getUuid());attempt(player);checkNoPurchase(player,"editing author accepted bargain");AuthoringRuntime.get(server).disable(player.getUuid());
+        // Editing is only a valid state while play is non-active; forcing the raw
+        // author map during ACTIVE does not make isAuthor true.
+        pause(player);AuthoringRuntime.get(server).enable(player.getUuid());check(AuthoringRuntime.isAuthor(player),"Editing fixture was not established");
+        attempt(player);checkNoPurchase(player,"editing author accepted bargain");AuthoringRuntime.get(server).disable(player.getUuid());resume(player);
         PlayRuntime.setSelfParticipant(player,false);attempt(player);checkNoPurchase(player,"nonparticipant accepted bargain");PlayRuntime.setSelfParticipant(player,true);
         AncientAltars.open(player,ALTAR);UUID closed=token(player);LastingBargains.act(player,new OfferingPayloads.Action(closed,2,0));
         UUID successor=token(player);check(!successor.equals(closed),"refresh did not replace token");

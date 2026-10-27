@@ -81,7 +81,10 @@ def _start(w, root: Path, report_dir: Path):
     logfile = logfile_path.open("w", encoding="utf-8")
     server = None
     try:
-        server = subprocess.Popen(w.server_command(), cwd=root, env=w.env(), stdin=subprocess.PIPE,
+        server_env = w.env()
+        server_env["CHRONICLE_HEART_REPRO_SMOKE"] = "1"
+        server_env["CHRONICLE_HEART_REPRO_SERVER_DIR"] = str(root)
+        server = subprocess.Popen(w.server_command(), cwd=root, env=server_env, stdin=subprocess.PIPE,
                                   stdout=logfile, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
         _wait_ready(server, logfile_path)
         return server, logfile

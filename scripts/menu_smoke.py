@@ -108,7 +108,8 @@ def run() -> None:
                     'Game setup value edit restores the cap without changing placed blocks',
                     'Locations has no policy editor and forged old policy routes are denied',
                     'deleting all manual references cannot free physical quota',
-                    'explicit legacy region inspect remains compatible and read only'}
+                    'saved Regions remain independent geometry without obsolete reverse use assignment',
+                    'generic opener restored the Region page and validated selected record'}
         missing = required.difference(operator.get('checks', []))
         if missing:
             raise RuntimeError('Menu probe ended before required assertions: ' + repr(sorted(missing)))

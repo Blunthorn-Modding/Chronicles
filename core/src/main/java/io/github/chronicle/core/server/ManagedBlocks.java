@@ -79,7 +79,7 @@ public final class ManagedBlocks {
         if (!source.hasPermissionLevel(2)) throw new IllegalStateException("Managed block limits require operator permission level 2.");
         if (!AuthoringRuntime.editable(server)) throw new IllegalStateException("Managed block limits require a non-active Chronicle session.");
         ServerPlayerEntity player = source.getPlayer();
-        if (player == null || !AuthoringRuntime.isAuthor(player)) throw new IllegalStateException("Enable author mode before changing managed block limits.");
+        if (player == null || !AuthoringRuntime.isAuthor(player)) throw new IllegalStateException("Enable Editing before changing managed block limits.");
         Runtime runtime = required(server);
         try { runtime.service.setLimit(typeId, value, expectedPolicyRevision); }
         catch (IOException exception) { runtime.fail("Unable to save managed block limits; inspect managed-block-limits.json while stopped.", exception); throw new IllegalStateException(runtime.problem, exception); }

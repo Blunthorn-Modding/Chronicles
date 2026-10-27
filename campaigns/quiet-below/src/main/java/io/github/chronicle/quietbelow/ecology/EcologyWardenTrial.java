@@ -79,6 +79,7 @@ public final class EcologyWardenTrial {
     private static String fixture(ServerCommandSource source) {
         ServerWorld world = source.getWorld();
         EcologyEngine engine = engine(source);
+        require(engine.heartRules().seconds() == 3600, "vanilla-warning fixture must isolate the Heart last stand with its ordinary delay setting");
         require(world.getDifficulty() != Difficulty.PEACEFUL, "fixture difficulty must allow Warden warnings");
         require(!world.getGameRules().getBoolean(GameRules.DO_MOB_SPAWNING), "ambient mob spawning must be disabled");
         require(world.getGameRules().getBoolean(GameRules.DO_WARDEN_SPAWNING), "doWardenSpawning must be true");

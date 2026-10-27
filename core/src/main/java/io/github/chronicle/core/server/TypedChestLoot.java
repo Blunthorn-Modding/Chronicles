@@ -3,7 +3,6 @@ package io.github.chronicle.core.server;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.campaign.SessionPhase;
 import io.github.chronicle.core.content.ChestBinding;
@@ -22,10 +21,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.command.ServerCommandSource;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.HoverEvent;
 import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 
@@ -55,16 +51,12 @@ public final class TypedChestLoot {
 
     public static void register() {
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
-            var chest = literal("chest").executes(context -> AuthoringUi.open(context.getSource()))
-                    .then(literal("types").executes(context -> menu(context.getSource(), 1)))
-                    .then(literal("inspect").executes(context -> inspect(context.getSource())))
-                    .then(literal("unbind").executes(context -> unbind(context.getSource())))
-                    .then(literal("validate").executes(context -> validate(context.getSource())))
-                    .then(literal("reload").executes(context -> reload(context.getSource())));
-            chest.then(literal("menu").executes(context -> menu(context.getSource(), 1))
-                    .then(argument("page", IntegerArgumentType.integer(1)).executes(context -> menu(context.getSource(), IntegerArgumentType.getInteger(context, "page")))));
+            var chests = literal("chests");
+            chests.then(literal("inspect").requires(source -> source.hasPermissionLevel(2)).executes(context -> inspect(context.getSource())))
+                    .then(literal("unbind").requires(source -> source.hasPermissionLevel(2)).executes(context -> unbind(context.getSource())))
+                    .then(literal("validate").requires(source -> source.hasPermissionLevel(2)).executes(context -> validate(context.getSource())));
             for (boolean replace : new boolean[]{false, true}) {
-                chest.then(literal(replace ? "rebind" : "bind").then(argument("type", StringArgumentType.string())
+                chests.then(literal(replace ? "rebind" : "bind").requires(source -> source.hasPermissionLevel(2)).then(argument("type", StringArgumentType.string())
                         .suggests((context, builder) -> {
                             Runtime runtime = WORLDS.get(context.getSource().getServer());
                             if (runtime != null) for (String id : runtime.types.keySet()) {
@@ -74,12 +66,14 @@ public final class TypedChestLoot {
                             return builder.buildFuture();
                         }).executes(context -> bind(context.getSource(), StringArgumentType.getString(context, "type"), replace))));
             }
-            dispatcher.register(literal("chronicle").then(literal("author").requires(source -> source.hasPermissionLevel(2)).then(chest)));
+            dispatcher.register(literal("chronicle").then(chests)
+                    .then(literal("loot-tables").then(literal("reload").requires(source -> source.hasPermissionLevel(2))
+                            .executes(context -> reload(context.getSource())))));
         });
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try { load(server); }
             catch (IOException | IllegalArgumentException | IllegalStateException exception) {
-                RuntimeHolds.hold(server, HOLD, "Loot configuration is unavailable; inspect config/chronicle/chest-loot.json and reload in author mode.");
+                RuntimeHolds.hold(server, HOLD, "Loot configuration is unavailable; inspect config/chronicle/chest-loot.json and reload in Editing.");
                 ChronicleCore.LOGGER.error("Typed chest loot unavailable; configuration was not replaced", exception);
             }
         });
@@ -140,32 +134,8 @@ public final class TypedChestLoot {
 
     private static Runtime runtime(MinecraftServer server) {
         Runtime result = WORLDS.get(server);
-        if (result == null) throw new IllegalStateException("Loot types unavailable; correct config/chronicle/chest-loot.json and run /chronicle author chest reload.");
+        if (result == null) throw new IllegalStateException("Loot types unavailable; correct config/chronicle/chest-loot.json and run /chronicle loot-tables reload.");
         return result;
-    }
-
-    private static int menu(ServerCommandSource source, int page) {
-        return command(source, () -> {
-            var bindings = ChestAuthoring.service(source.getServer()).state().bindings().values();
-            source.sendFeedback(() -> Text.literal("Loot chests: look at a container and choose its type. Scheduled fills REPLACE ALL contents.").formatted(Formatting.GOLD), false);
-            var types = List.copyOf(runtime(source.getServer()).types.values());
-            int pages = Math.max(1, (types.size() + 11) / 12);
-            if (page > pages) throw new IllegalArgumentException("Loot menu has " + pages + " pages.");
-            for (LootType type : types.subList((page - 1) * 12, Math.min(page * 12, types.size()))) {
-                long bound = bindings.stream().filter(binding -> type.id().equals(binding.lootType())).count();
-                String id = StringArgumentType.escapeIfRequired(type.id());
-                source.sendFeedback(() -> Text.literal(type.label() + " (" + type.id() + ") | bound=" + bound + "; recommended=" + type.recommendedChests() + "; refill="
-                                + (type.refillMinutes() == 0 ? "session start only" : type.refillMinutes() + " active minutes") + " ")
-                        .append(choice("[Bind] ", "/chronicle author chest bind " + id, type.description()))
-                        .append(choice("[Retype]", "/chronicle author chest rebind " + id, "Change the type of the targeted bound chest without resetting its refill history.")), false);
-            }
-            source.sendFeedback(() -> choice("[Inspect target] ", "/chronicle author chest inspect", "Show the targeted chest's saved type.")
-                    .append(choice("[Unbind target] ", "/chronicle author chest unbind", "Stop managing this target without changing its contents."))
-                    .append(choice("[Validate counts]", "/chronicle author chest validate", "Compare bound counts with campaign recommendations.")), false);
-            if (page > 1) source.sendFeedback(() -> choice("[Previous types]", "/chronicle author chest menu " + (page - 1), "Previous loot types."), false);
-            if (page < pages) source.sendFeedback(() -> choice("[More types]", "/chronicle author chest menu " + (page + 1), "More loot types."), false);
-            return "Loot types=" + types.size() + "; page=" + page + "/" + pages + "; config=config/chronicle/chest-loot.json.";
-        });
     }
 
     private static int bind(ServerCommandSource source, String typeId, boolean replace) {
@@ -236,7 +206,7 @@ public final class TypedChestLoot {
     }
 
     private static void requireAuthor(ServerCommandSource source) {
-        if (source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer())) throw new IllegalStateException("Loot chest edits require non-active author mode.");
+        if (source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer())) throw new IllegalStateException("Loot chest edits require non-active Editing.");
         if (source.getWorld() != source.getPlayer().getEntityWorld()) throw new IllegalStateException("Use the player's actual dimension for chest authoring.");
     }
     private static int command(ServerCommandSource source, Operation operation) {
@@ -244,11 +214,6 @@ public final class TypedChestLoot {
         try { String result = operation.run(); source.sendFeedback(() -> Text.literal(result), false); return 1; }
         catch (IOException | IllegalArgumentException | IllegalStateException exception) { source.sendError(Text.literal(exception.getMessage())); return 0; }
     }
-    private static net.minecraft.text.MutableText choice(String label, String command, String description) {
-        return Text.literal(label).styled(style -> style.withColor(Formatting.AQUA).withClickEvent(new ClickEvent.SuggestCommand(command))
-                .withHoverEvent(new HoverEvent.ShowText(Text.literal(description))));
-    }
-
     private static void tick(MinecraftServer server) {
         Runtime runtime = WORLDS.get(server);
         if (runtime == null || RuntimeHolds.reason(server) != null) return;
@@ -307,7 +272,7 @@ public final class TypedChestLoot {
             ChronicleCore.LOGGER.info("Refilled {} typed loot chests for session {}", prepared.size(), next.sessionNumber());
         } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
             // Keep any durable pending evidence. Ordinary target validation failures were handled above.
-            RuntimeHolds.hold(server, HOLD, "Loot refill is held; inspect /chronicle chest status, recover pending fills, then reload loot configuration in author mode.");
+            RuntimeHolds.hold(server, HOLD, "Loot refill is held; inspect /chronicle chests status, recover pending fills, then reload loot configuration in Editing.");
             try { ChestAuthoring.refreshHold(server); } catch (IllegalStateException ignored) { }
             ChronicleCore.LOGGER.error("Typed chest scheduling stopped without discarding pending evidence", exception);
         }

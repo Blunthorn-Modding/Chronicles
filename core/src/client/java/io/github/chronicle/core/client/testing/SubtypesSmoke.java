@@ -38,7 +38,7 @@ public final class SubtypesSmoke {
     private void drive(MinecraftClient c){CoreMenuScreen m=c.currentScreen instanceof CoreMenuScreen value?value:null;
         switch(step){
             case 0 -> {command(c,"prepare");step++;}
-            case 1 -> {if(!passed("prepare"))return;c.player.networkHandler.sendChatCommand("chronicles");step++;}
+            case 1 -> {if(!passed("prepare"))return;c.player.networkHandler.sendChatCommand("chronicle");step++;}
             case 2 -> {if(m==null||m.pending())return;require(!m.triggerForTest("Departures")&&!m.triggerForTest("Area changes"),"legacy destinations still navigable");navigate(m,"Regions");step=100;}
             case 100 -> {if(m==null||m.pending()||m.state().page()!=Page.REGIONS)return;press(m,"Create region\u2026");step++;}
             case 101 -> {if(!simple(c,"RegionCreateScreen"))return;require(c.getWindow().getScaledWidth()==Integer.parseInt(System.getenv("CHRONICLE_MENU_WIDTH"))/2&&c.getWindow().getScaledHeight()==Integer.parseInt(System.getenv("CHRONICLE_MENU_HEIGHT"))/2,"unexpected logical viewport");require(button(c,"Saved states: off").active,"ordinary Region does not default to no states");require(noButton(c,"Start")&&noButton(c,"End"),"ordinary Region showed state selection");text(c,"Unified ordinary");if(!settled(c))return;capture(c,"region-create-ordinary");click(c,"Begin selection");step++;}
@@ -47,26 +47,26 @@ public final class SubtypesSmoke {
             case 104 -> {if(!passed("verify_tool"))return;int slot=36+c.player.getInventory().getSelectedSlot();c.interactionManager.clickSlot(c.player.currentScreenHandler.syncId,slot,0,net.minecraft.screen.slot.SlotActionType.QUICK_MOVE,c.player);command(c,"verify_tool");step++;}
             case 105 -> {if(!passed("verify_tool"))return;selectFirst(c);step++;}
             case 106 -> {if(!seenNew("Region position 1 set"))return;selectSecond(c);step++;}
-            case 107 -> {if(!seenNew("Region position 2 set"))return;c.player.networkHandler.sendChatCommand("chronicle region save");step++;}
+            case 107 -> {if(!seenNew("Region position 2 set"))return;c.player.networkHandler.sendChatCommand("chronicle regions save");step++;}
             case 108 -> {if(!seenNew("Saved Region 'unified_ordinary'"))return;command(c,"verify_ordinary");step++;}
-            case 109 -> {if(!passed("verify_ordinary"))return;checks.add("ordinary Region created by native popup and shovel; drop, offhand swap and quick-move packets left the leased tool in hand with no dropped tool");c.player.networkHandler.sendChatCommand("chronicles");step++;}
+            case 109 -> {if(!passed("verify_ordinary"))return;checks.add("ordinary Region created by native popup and shovel; drop, offhand swap and quick-move packets left the leased tool in hand with no dropped tool");c.player.networkHandler.sendChatCommand("chronicle");step++;}
             case 110 -> {if(m==null||m.pending())return;navigate(m,"Regions");step++;}
             case 111 -> {if(m==null||m.pending()||m.state().page()!=Page.REGIONS)return;press(m,"Create region\u2026");step=1100;}
             case 1100 -> {if(!simple(c,"RegionCreateScreen"))return;text(c,"Unified cancelled");click(c,"Begin selection");step++;}
-            case 1101 -> {if(c.currentScreen!=null||!c.player.getMainHandStack().isOf(net.minecraft.item.Items.WOODEN_SHOVEL))return;c.player.networkHandler.sendChatCommand("chronicle region cancel");step++;}
+            case 1101 -> {if(c.currentScreen!=null||!c.player.getMainHandStack().isOf(net.minecraft.item.Items.WOODEN_SHOVEL))return;c.player.networkHandler.sendChatCommand("chronicle regions cancel");step++;}
             case 1102 -> {if(!seenNew("Region selection cancelled"))return;command(c,"verify_cancel");step++;}
             case 1103 -> {if(!passed("verify_cancel"))return;checks.add("cancelled Region selection discarded the draft and returned the shovel");command(c,"cancel_capture");step=11030;}
             case 11030 -> {if(!passed("cancel_capture"))return;checks.add("unified Cancel released its own in-progress capture hold without publishing metadata");command(c,"respawn_tool");step++;}
-            case 11031 -> {if(!passed("respawn_tool"))return;checks.add("actual alive respawn retained the Region draft with exactly one current Debug shovel, then cancelled cleanly");c.player.networkHandler.sendChatCommand("chronicles");step=1104;}
+            case 11031 -> {if(!passed("respawn_tool"))return;checks.add("actual alive respawn retained the Region draft with exactly one current Debug shovel, then cancelled cleanly");c.player.networkHandler.sendChatCommand("chronicle");step=1104;}
             case 1104 -> {if(m==null||m.pending())return;navigate(m,"Regions");step++;}
             case 1105 -> {if(m==null||m.pending()||m.state().page()!=Page.REGIONS)return;press(m,"Create region\u2026");step=112;}
             case 112 -> {if(!simple(c,"RegionCreateScreen")||!settled(c))return;text(c,"Unified stateful");click(c,"Saved states: off");click(c,"End");wait=4;step=1121;}
             case 1121 -> {if(!simple(c,"RegionCreateScreen")||wait-->0)return;capture(c,"region-create-end");click(c,"Begin selection");step=113;}
             case 113 -> {if(c.currentScreen!=null||!c.player.getMainHandStack().isOf(net.minecraft.item.Items.WOODEN_SHOVEL))return;selectFirst(c);step++;}
             case 114 -> {if(!seenNew("Area change position 1 set"))return;selectSecond(c);step++;}
-            case 115 -> {if(!seenNew("Area change position 2 set"))return;c.player.networkHandler.sendChatCommand("chronicle region save");step++;}
+            case 115 -> {if(!seenNew("Area change position 2 set"))return;c.player.networkHandler.sendChatCommand("chronicle regions save");step++;}
             case 116 -> {if(!seenNew("Saved Area change 'Unified stateful' with its END state."))return;command(c,"verify_stateful");step++;}
-            case 117 -> {if(!passed("verify_stateful"))return;checks.add("same native Region popup and shovel saved an End-first Region with exact selected bounds");c.player.networkHandler.sendChatCommand("chronicles");step++;}
+            case 117 -> {if(!passed("verify_stateful"))return;checks.add("same native Region popup and shovel saved an End-first Region with exact selected bounds");c.player.networkHandler.sendChatCommand("chronicle");step++;}
             case 118 -> {if(m==null||m.pending())return;navigate(m,"Regions");step=3;}
             case 3 -> {if(m==null||m.pending()||m.state().page()!=Page.REGIONS)return;m.selectForTest("subtype_boarding");step++;}
             case 4 -> {if(m==null||m.pending()||m.state().detail()==null||!m.state().detail().id().equals("subtype_boarding"))return;
@@ -90,7 +90,7 @@ public final class SubtypesSmoke {
             case 16 -> {if(!seenNew("Area change saved:"))return;command(c,"verify_apply");step++;}
             case 17 -> {if(m==null||m.pending()||!passed("verify_apply"))return;checks.add("UI captured Start and End and applied Start with chest contents restored");command(c,"baseline");step=170;}
             case 170 -> {if(m==null||m.pending()||!passed("baseline"))return;press(m,"Edit region");step++;}
-            case 171 -> {if(m==null||m.pending())return;c.player.networkHandler.sendChatCommand("chronicle region save");step++;}
+            case 171 -> {if(m==null||m.pending())return;c.player.networkHandler.sendChatCommand("chronicle regions save");step++;}
             case 172 -> {if(!seenNew("Saved Region 'subtype_boarding'"))return;command(c,"verify_noop");step++;}
             case 173 -> {if(m==null||m.pending()||!passed("verify_noop"))return;checks.add("no-op Region edit and save preserved Region revision and both snapshots");navigate(m,"Locations");step=18;}
             case 18 -> {if(m==null||m.pending()||m.state().page()!=Page.LOCATIONS)return;require(m.triggerForTest("Block sites"),"Block sites filter missing");step++;}

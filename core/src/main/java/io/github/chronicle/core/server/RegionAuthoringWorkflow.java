@@ -28,9 +28,6 @@ public final class RegionAuthoringWorkflow {
     }
     private RegionAuthoringWorkflow(){}
     public static void register(){
-        CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("chronicle").then(literal("region")
-            .then(literal("save").requires(s->s.hasPermissionLevel(2)).executes(c->command(c.getSource(),false)).then(literal("confirm").executes(c->command(c.getSource(),false,true))))
-            .then(literal("cancel").requires(s->s.hasPermissionLevel(2)).executes(c->command(c.getSource(),true))))));
         AttackBlockCallback.EVENT.register((p,w,h,pos,d)->p instanceof ServerPlayerEntity player&&selectPacket(player,h,pos,1)?ActionResult.SUCCESS:ActionResult.PASS);
         UseBlockCallback.EVENT.register((p,w,h,hit)->p instanceof ServerPlayerEntity player&&selectPacket(player,h,hit.getBlockPos(),2)?ActionResult.SUCCESS:ActionResult.PASS);
         ServerTickEvents.END_SERVER_TICK.register(server->{var leases=WORLDS.get(server);if(leases!=null)for(UUID id:List.copyOf(leases.keySet())){var player=server.getPlayerManager().getPlayer(id);if(player!=null&&!AuthoringRuntime.isAuthor(player))cancelOrdinary(player,false);}});
@@ -38,8 +35,6 @@ public final class RegionAuthoringWorkflow {
         ServerLifecycleEvents.SERVER_STOPPING.register(server->{for(var p:server.getPlayerManager().getPlayerList())cancelOrdinary(p,false);});
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
     }
-    private static int command(ServerCommandSource source,boolean cancel){return command(source,cancel,false);}
-    private static int command(ServerCommandSource source,boolean cancel,boolean confirm){try{String result=cancel?cancel(source):save(source,confirm);source.sendFeedback(()->Text.literal(result),false);return 1;}catch(Exception failure){source.sendError(Text.literal(Objects.requireNonNullElse(failure.getMessage(),"Region action failed.")));return 0;}}
     public static String begin(ServerCommandSource source,String name,AreaState initial)throws Exception{
         var player=editor(source);if(name==null||name.isBlank()||name.length()>96)throw new IllegalArgumentException("Enter a Region name of at most 96 characters.");
         var runtime=AuthoringRuntime.get(source.getServer());if(runtime.regionDraft(player.getUuid()).isPresent()||AreaChanges.hasDraft(source.getServer(),player.getUuid()))throw new IllegalStateException("Save or cancel the open Region selection first.");
@@ -71,7 +66,7 @@ public final class RegionAuthoringWorkflow {
         Selection selection=selection(player);if(hand!=Hand.MAIN_HAND||selection==null||!selection.token.toString().equals(token))return true;
         try{editor(player.getCommandSource());var runtime=AuthoringRuntime.get(player.getEntityWorld().getServer());var draft=runtime.regionDraft(player.getUuid()).orElseThrow();if(!draft.id().equals(selection.id))throw new IllegalStateException("This selection tool is no longer current.");runtime.setRegionDraftCorner(player,corner,new BlockPosition(pos.getX(),pos.getY(),pos.getZ()));player.sendMessage(Text.literal("Region position "+corner+" set at "+pos.toShortString()+"."),false);}catch(Exception failure){player.sendMessage(Text.literal(Objects.requireNonNullElse(failure.getMessage(),"Region corner refused.")),false);}return true;
     }
-    public static void instructions(ServerPlayerEntity player){player.sendMessage(Text.literal("Use the Debug shovel: left-click position 1, right-click position 2. Or /chronicles author region pos1 and pos2. Save with /chronicle region save; cancel with /chronicle region cancel."),false);}
+    public static void instructions(ServerPlayerEntity player){player.sendMessage(Text.literal("Use the Debug shovel: left-click position 1, right-click position 2. Or /chronicle regions pos1 and pos2. Save with /chronicle regions save; cancel with /chronicle regions cancel."),false);}
     private static ServerPlayerEntity editor(ServerCommandSource source){return editor(source,true);}
     private static ServerPlayerEntity editor(ServerCommandSource source,boolean checkHold){var player=source.getPlayer();if(player==null||!source.hasPermissionLevel(2)||!AuthoringRuntime.isAuthor(player)||!AuthoringRuntime.editable(source.getServer()))throw new IllegalStateException("Region selection requires non-active operator Editing.");if(checkHold&&RuntimeHolds.reason(source.getServer())!=null)throw new IllegalStateException("Finish pending operations first.");return player;}
 }

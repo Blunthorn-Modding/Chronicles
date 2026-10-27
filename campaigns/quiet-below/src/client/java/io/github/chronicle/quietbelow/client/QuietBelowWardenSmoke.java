@@ -123,29 +123,37 @@ final class QuietBelowWardenSmoke {
         command(client, "place isolated sculk support", "setblock 18 50 18 sculk", ".*Changed.*");
         command(client, "place disconnected summoning shrieker",
                 "setblock 18 51 18 sculk_shrieker[can_summon=true,shrieking=false,waterlogged=false]", ".*Changed.*");
-        command(client, "enable author mode", "chronicle author mode on", "Author mode enabled.*");
-        command(client, "create source draft", "chronicle author region create warden_source", "Region draft warden_source opened.*");
-        command(client, "set source first corner", "chronicle author region pos1 0 50 -2", "Set region draft warden_source position 1.*");
-        command(client, "set source second corner", "chronicle author region pos2 0 51 7", "Set region draft warden_source position 2.*");
-        command(client, "save source region", "chronicle author region save", "Saved region warden_source.*");
+        command(client, "enable Editing", "chronicle editing on", "Editing enabled.*");
+        command(client, "create source draft", "chronicle regions create warden_source", "Region selection warden_source opened.*");
+        command(client, "set source first corner", "chronicle regions pos1 0 50 -2", "Set Region draft warden_source position 1.*");
+        command(client, "set source second corner", "chronicle regions pos2 0 51 7", "Set Region draft warden_source position 2.*");
+        command(client, "save source region", "chronicle regions save", "Saved Region 'warden_source'\\.");
         command(client, "look down at Heart", "tp @s 0.5 51 -1.5 0 90", ".*Teleported.*");
-        command(client, "bind Heart anchor", "chronicle author block bind warden_heart target", "Saved block warden_heart.*");
-        command(client, "assign source role", "chronicles setup assign \"quiet_below:source_city\" warden_source", "Requirement assigned.*");
-        command(client, "assign Heart role", "chronicles setup assign \"quiet_below:relic_heart\" warden_heart", "Requirement assigned.*");
-        command(client, "index source", "chronicles setup tool \"quiet_below:ecology\" index", "Source indexing started.*");
+        command(client, "bind Heart anchor", "chronicle locations blocks bind warden_heart target", "Saved Block site warden_heart.*");
+        command(client, "assign source role", "quiet_below_authoring_trial assign-source warden_source", "PASS canonical authoring assign-source:.*");
+        command(client, "assign Heart role", "quiet_below_authoring_trial assign-heart warden_heart", "PASS canonical authoring assign-heart:.*");
+        command(client, "index source", "chronicle setup tool \"quiet_below:ecology\" index", "Source indexing started.*");
         delay("finish source index", 1_000);
-        command(client, "enable ecology hooks", "chronicles setup tool \"quiet_below:ecology\" enable", "Growth enabled.*");
-        command(client, "create disconnected draft", "chronicle author region create warden_disconnected", "Region draft warden_disconnected opened.*");
-        command(client, "set disconnected first corner", "chronicle author region pos1 18 50 18", "Set region draft warden_disconnected position 1.*");
-        command(client, "set disconnected second corner", "chronicle author region pos2 18 51 18", "Set region draft warden_disconnected position 2.*");
-        command(client, "save disconnected region", "chronicle author region save", "Saved region warden_disconnected.*");
-        command(client, "assign takeover role", "chronicles setup assign \"quiet_below:sculk_takeover\" warden_disconnected", "Requirement assigned.*");
-        command(client, "claim disconnected shrieker", "chronicles setup tool \"quiet_below:ownership\" claim", "Region takeover started.*");
+        command(client, "enable ecology hooks", "chronicle setup tool \"quiet_below:ecology\" enable", "Growth enabled.*");
+        // This rehearsal tests vanilla shrieker warnings, separately from the Heart's direct
+        // last-stand summon. Use the ordinary editable delay rather than bypassing either path.
+        for (int tuning = 0; tuning < 6; tuning++) {
+            command(client, "isolate vanilla warnings from Heart last stand " + tuning,
+                    "chronicle setup tool \"quiet_below:heart\" delay_longer",
+                    "Heart weakness rules saved.*");
+        }
+        command(client, "protected Heart assignment cannot be cleared", "quiet_below_authoring_trial clear-heart", ".*bound or historical Relic Heart assignment cannot be changed.*");
+        command(client, "create disconnected draft", "chronicle regions create warden_disconnected", "Region selection warden_disconnected opened.*");
+        command(client, "set disconnected first corner", "chronicle regions pos1 18 50 18", "Set Region draft warden_disconnected position 1.*");
+        command(client, "set disconnected second corner", "chronicle regions pos2 18 51 18", "Set Region draft warden_disconnected position 2.*");
+        command(client, "save disconnected region", "chronicle regions save", "Saved Region 'warden_disconnected'\\.");
+        command(client, "assign takeover role", "quiet_below_authoring_trial assign-takeover warden_disconnected", "PASS canonical authoring assign-takeover:.*");
+        command(client, "claim disconnected shrieker", "chronicle setup tool \"quiet_below:ownership\" claim", "Region takeover started.*");
         delay("finish disconnected takeover", 1_000);
         command(client, "settle away from the source before active play", "tp @s 18.5 51 14.5 180 0", ".*Teleported.*");
         delay("finish inactive neutral-floor settlement", 500);
         command(client, "start session for pause gate", "chronicle session start", "Started Chronicle session.*");
-        command(client, "join active participation", "chronicles join", ".*(joined|already).*Chronicle participation.*");
+        command(client, "join active participation", "chronicle players join", ".*Participation enabled.*");
         delay("resolve active root topology and vitality", 3_000);
         command(client, "assert fresh viable fixture", "quiet_below_warden_trial fixture", "PASS vanilla Warden: fixture is hard.*");
         command(client, "pause occupied session", "chronicle session pause", "Paused Chronicle session.*");

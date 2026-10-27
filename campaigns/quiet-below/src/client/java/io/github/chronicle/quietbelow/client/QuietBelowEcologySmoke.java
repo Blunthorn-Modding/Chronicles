@@ -80,24 +80,24 @@ final class QuietBelowEcologySmoke {
         command(client,"isolate native crop bonus from ordinary random growth","gamerule randomTickSpeed 0",".*0.*");
         command(client,"daylight for crop comparison","time set noon",".*time.*");
         command(client,"prepare native crop field and ordinary controls","quiet_below_crop_trial prepare","PASS crop prepare:.*");
-        command(client,"enable crop authoring","chronicle author mode on","Author mode enabled.*");
-        command(client,"create crop source","chronicle author region create crops_source","Region draft crops_source opened.*");
-        command(client,"crop source first corner","chronicle author region pos1 -4 64 0","Set region draft crops_source position 1.*");
-        command(client,"crop source second corner","chronicle author region pos2 -1 64 0","Set region draft crops_source position 2.*");
-        command(client,"save crop source","chronicle author region save","Saved region crops_source.*");
+        command(client,"enable crop Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create crop source","chronicle regions create crops_source","Region selection crops_source opened.*");
+        command(client,"crop source first corner","chronicle regions pos1 -4 64 0","Set Region draft crops_source position 1.*");
+        command(client,"crop source second corner","chronicle regions pos2 -1 64 0","Set Region draft crops_source position 2.*");
+        command(client,"save crop source","chronicle regions save","Saved Region 'crops_source'\\.");
         command(client,"look at crop Heart","tp @s -3.5 65 0.5 0 90",".*Teleported.*");
-        command(client,"bind crop Heart","chronicle author block bind crops_heart target","Saved block crops_heart.*");
-        command(client,"assign crop source","chronicles setup assign \"quiet_below:source_city\" crops_source","Requirement assigned.*");
-        command(client,"assign crop Heart","chronicles setup assign \"quiet_below:relic_heart\" crops_heart","Requirement assigned.*");
-        command(client,"index crop source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        command(client,"bind crop Heart","chronicle locations blocks bind crops_heart target","Saved Block site crops_heart.*");
+        command(client,"assign crop source","quiet_below_authoring_trial assign-source crops_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign crop Heart","quiet_below_authoring_trial assign-heart crops_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index crop source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
         delay("finish crop source index",600);
-        command(client,"enable crop ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        command(client,"enable crop ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
         openCropMenu(client);cropButton(client,"Faster crop growth");cropButton(client,"Faster crop growth");
         check("native crop controls stop at minimum interval",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Faster crop growth")).noneMatch(c->c.enabled()),"crop interval underflow"));
         screenshot(client,"crop-growth-settings.png");check("close crop menu",()->client.currentScreen.close());
         command(client,"start crop play","chronicle session start","Started Chronicle session.*");
-        command(client,"join crop play","chronicles join",".*(joined|already).*Chronicle participation.*");
-        command(client,"crop tuning rejects active author edits","chronicles setup tool \"quiet_below:crops\" slower",".*requires operator editing mode.*");
+        command(client,"join crop play","chronicle players join",".*Participation enabled.*");
+        command(client,"crop tuning rejects active author edits","chronicle setup tool \"quiet_below:crops\" slower",".*requires operator editing mode.*");
         delay("real eligible crop growth",4_000);
         command(client,"four native crops benefit while controls do not","quiet_below_crop_trial grown","PASS crop grown:.*");
         command(client,"pause crop play","chronicle session pause","Paused Chronicle session.*");
@@ -113,26 +113,26 @@ final class QuietBelowEcologySmoke {
         command(client,"restore physical crop root contact","setblock -3 64 0 sculk",".*Changed.*");
         delay("reconnected field waits and resumes",4_000);
         command(client,"crop bonus follows physical reconnection","quiet_below_crop_trial recovered","PASS crop recovered:.*");
-        command(client,"disable crop boost during active play","chronicles setup tool \"quiet_below:crops\" disable","Crop boost disabled.*");
+        command(client,"disable crop boost during active play","chronicle setup tool \"quiet_below:crops\" disable","Crop boost disabled.*");
         command(client,"remember disabled crop ages","quiet_below_crop_trial remember","PASS crop remember:.*");
         delay("disabled crop bonus does not accrue",3_000);
         command(client,"disabled field receives no bonus","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
         command(client,"pause for restoring crop setting","chronicle session pause","Paused Chronicle session.*");
-        command(client,"enable editing for crop reset","chronicle author mode on","Author mode enabled.*");
-        command(client,"re-enable saved fast crop tuning","chronicles setup tool \"quiet_below:crops\" enable","Crop boost enabled.*");
+        command(client,"enable Editing for crop reset","chronicle editing on","Editing enabled.*");
+        command(client,"re-enable saved fast crop tuning","chronicle setup tool \"quiet_below:crops\" enable","Crop boost enabled.*");
         command(client,"save native crop ages for restart","quiet_below_crop_trial save","PASS crop save:.*");
     }
     private void cropsRestart(MinecraftClient client){
         command(client,"native crop ages and rules survive restart","quiet_below_crop_trial restart","PASS crop restart:.*");
         command(client,"resume restarted crop play","chronicle session resume","Resumed Chronicle session.*");
-        command(client,"join restarted crop play","chronicles join",".*(joined.*Chronicle participation|already a Chronicle participant).*");
+        command(client,"join restarted crop play","chronicle players join",".*Participation enabled.*");
         delay("restart does not give an instant crop bonus",800);
         command(client,"crop restart waits for a fresh interval","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
         delay("restart crop bonus resumes normally",3_500);
         command(client,"restart crop field grows","quiet_below_crop_trial recovered","PASS crop recovered:.*");
         command(client,"pause crop review snapshot","chronicle session pause","Paused Chronicle session.*");
-        command(client,"enable crop review authoring","chronicle author mode on","Author mode enabled.*");
-        command(client,"restore default crop interval for review","chronicles setup tool \"quiet_below:crops\" reset","Crop boost enabled.*");
+        command(client,"enable crop review Editing","chronicle editing on","Editing enabled.*");
+        command(client,"restore default crop interval for review","chronicle setup tool \"quiet_below:crops\" reset","Crop boost enabled.*");
         command(client,"reset comparison crops for review","quiet_below_crop_trial review","PASS crop review:.*");
         command(client,"restore ordinary random growth for review","gamerule randomTickSpeed 3",".*3.*");
         command(client,"set crop review starting point","setworldspawn 6 64 6 180 0",".*spawn.*");
@@ -141,7 +141,7 @@ final class QuietBelowEcologySmoke {
         screenshot(client,"crop-review-ready.png");
     }
     private void openCropMenu(MinecraftClient client){
-        step("open native crop menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open native crop menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
         step("open Game setup for crops",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
         step("select Crop growth",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:crops"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:crops"),10_000);
     }
@@ -152,18 +152,18 @@ final class QuietBelowEcologySmoke {
         command(client,"vanilla item placement outside campaign","quiet_below_item_trial vanilla","PASS sculk items vanilla:.*");
         command(client,"place item fixture Heart","setblock 0 64 0 reinforced_deepslate",".*Changed.*");
         command(client,"place item fixture source","fill 1 64 0 5 64 0 sculk",".*filled.*");
-        command(client,"enable item authoring","chronicle author mode on","Author mode enabled.*");
-        command(client,"create item source","chronicle author region create items_source","Region draft items_source opened.*");
-        command(client,"item source first corner","chronicle author region pos1 0 64 0","Set region draft items_source position 1.*");
-        command(client,"item source second corner","chronicle author region pos2 5 64 0","Set region draft items_source position 2.*");
-        command(client,"save item source","chronicle author region save","Saved region items_source.*");
+        command(client,"enable item Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create item source","chronicle regions create items_source","Region selection items_source opened.*");
+        command(client,"item source first corner","chronicle regions pos1 0 64 0","Set Region draft items_source position 1.*");
+        command(client,"item source second corner","chronicle regions pos2 5 64 0","Set Region draft items_source position 2.*");
+        command(client,"save item source","chronicle regions save","Saved Region 'items_source'\\.");
         command(client,"look at item Heart","tp @s 0.5 65 0.5 0 90",".*Teleported.*");
-        command(client,"bind item Heart","chronicle author block bind items_heart target","Saved block items_heart.*");
-        command(client,"assign item source","chronicles setup assign \"quiet_below:source_city\" items_source","Requirement assigned.*");
-        command(client,"assign item Heart","chronicles setup assign \"quiet_below:relic_heart\" items_heart","Requirement assigned.*");
-        command(client,"index item source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        command(client,"bind item Heart","chronicle locations blocks bind items_heart target","Saved Block site items_heart.*");
+        command(client,"assign item source","quiet_below_authoring_trial assign-source items_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign item Heart","quiet_below_authoring_trial assign-heart items_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index item source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
         delay("complete item source index",600);
-        command(client,"enable item ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        command(client,"enable item ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
         command(client,"survival Silk Touch harvest and dormant placement","quiet_below_item_trial prepare","PASS sculk items prepare:.*");
         delay("receive dormant placement states",500);
         check("all five dormant placements arrive at client",()->{
@@ -172,7 +172,7 @@ final class QuietBelowEcologySmoke {
         command(client,"view dormant item models","tp @s 3.5 67 3.5 0 25",".*Teleported.*");
         screenshot(client,"ecology-dormant-items.png");
         command(client,"start item play","chronicle session start","Started Chronicle session.*");
-        command(client,"join item play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        command(client,"join item play","chronicle players join",".*Participation enabled.*");
         delay("adopt connected placements and reconcile their colors",2_000);
         command(client,"connected color and native response; detached remain dormant","quiet_below_item_trial connected","PASS sculk items connected:.*");
         command(client,"leave item trial paused","chronicle session pause","Paused Chronicle session.*");
@@ -202,7 +202,7 @@ final class QuietBelowEcologySmoke {
     private void appearanceLegacy(MinecraftClient client){
         command(client,"verify old journal and world decode","quiet_below_appearance_trial legacy","PASS sculk appearance legacy:.*");
         command(client,"resume copied legacy vitality world","chronicle session resume","Resumed Chronicle session.*");
-        command(client,"join legacy vitality world","chronicles join",".*(joined.*Chronicle participation|already a Chronicle participant).*");
+        command(client,"join legacy vitality world","chronicle players join",".*Participation enabled.*");
         delay("reconcile legacy colors from saved vitality",3_000);
         command(client,"legacy colors preserve living ownership","quiet_below_appearance_trial legacy_live","PASS sculk appearance legacy live:.*");
         command(client,"leave copied legacy world paused","chronicle session pause","Paused Chronicle session.*");
@@ -213,19 +213,19 @@ final class QuietBelowEcologySmoke {
         command(client,"place vitality branch","fill 1 64 0 4 64 0 sculk",".*filled.*");
         command(client,"place vitality sensor","setblock 4 65 0 sculk_sensor",".*Changed.*");
         command(client,"place isolated viewing platform","fill 6 63 -1 8 63 1 glass",".*filled.*");
-        command(client,"enable vitality authoring","chronicle author mode on","Author mode enabled.*");
-        command(client,"create vitality source","chronicle author region create vitality_source","Region draft vitality_source opened.*");
-        command(client,"vitality first corner","chronicle author region pos1 0 64 0","Set region draft vitality_source position 1.*");
-        command(client,"vitality second corner","chronicle author region pos2 4 65 0","Set region draft vitality_source position 2.*");
-        command(client,"save vitality source","chronicle author region save","Saved region vitality_source.*");
+        command(client,"enable vitality Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create vitality source","chronicle regions create vitality_source","Region selection vitality_source opened.*");
+        command(client,"vitality first corner","chronicle regions pos1 0 64 0","Set Region draft vitality_source position 1.*");
+        command(client,"vitality second corner","chronicle regions pos2 4 65 0","Set Region draft vitality_source position 2.*");
+        command(client,"save vitality source","chronicle regions save","Saved Region 'vitality_source'\\.");
         command(client,"look at vitality Heart","tp @s 0.5 65 0.5 0 90",".*Teleported.*");
-        command(client,"bind vitality Heart","chronicle author block bind vitality_heart target","Saved block vitality_heart.*");
+        command(client,"bind vitality Heart","chronicle locations blocks bind vitality_heart target","Saved Block site vitality_heart.*");
         command(client,"stand on isolated platform","tp @s 7.5 64 0.5 90 0",".*Teleported.*");
-        command(client,"assign vitality source","chronicles setup assign \"quiet_below:source_city\" vitality_source","Requirement assigned.*");
-        command(client,"assign vitality Heart","chronicles setup assign \"quiet_below:relic_heart\" vitality_heart","Requirement assigned.*");
-        command(client,"index vitality source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        command(client,"assign vitality source","quiet_below_authoring_trial assign-source vitality_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign vitality Heart","quiet_below_authoring_trial assign-heart vitality_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index vitality source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
         delay("finish vitality index",600);
-        command(client,"enable vitality ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        command(client,"enable vitality ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
         openVitalityMenu(client);
         for(int i=0;i<3;i++)vitalityButton(client,"Faster vitality loss");
         for(int i=0;i<2;i++)vitalityButton(client,"Faster recovery");
@@ -238,9 +238,9 @@ final class QuietBelowEcologySmoke {
         check("minimum extent thresholds are disabled",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Lower extent thresholds")).noneMatch(c->c.enabled()),"extent underflow"));
         vitalityScreenshot(client,"ecology-vitality-settings.png");check("close vitality menu",()->client.currentScreen.close());
         command(client,"start vitality play","chronicle session start","Started Chronicle session.*");
-        command(client,"join vitality play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        command(client,"join vitality play","chronicle players join",".*Participation enabled.*");
         command(client,"cut vitality branch","setblock 1 64 0 air",".*Changed.*");
-        command(client,"active play rejects vitality edits","chronicles setup tool \"quiet_below:vitality\" loss_slower",".*requires operator editing mode.*");
+        command(client,"active play rejects vitality edits","chronicle setup tool \"quiet_below:vitality\" loss_slower",".*requires operator editing mode.*");
         delay("let detached vitality fall below readiness while remaining positive",53_000);
         command(client,"positive fading vitality selects its own model","quiet_below_native_trial vitality_fading","PASS vitality fading:.*");
         command(client,"aim at the fading branch end","tp @s 7.5 64 0.5 90 21",".*Teleported.*");
@@ -285,7 +285,7 @@ final class QuietBelowEcologySmoke {
     }
     private String vitalityFact(MinecraftClient client,String name){return ((CoreMenuScreen)client.currentScreen).state().detail().facts().stream().filter(f->f.label().equals(name)).findFirst().orElseThrow().value();}
     private void openVitalityMenu(MinecraftClient client){
-        step("open native vitality menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open native vitality menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
         step("open Game setup for vitality",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),
                 ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
         step("select Sculk vitality",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:vitality"),
@@ -305,33 +305,33 @@ final class QuietBelowEcologySmoke {
         command(client, "place native source catalyst", "setblock 2 65 1 sculk_catalyst", ".*Changed.*");
         command(client, "place native source sensor", "setblock 1 65 1 sculk_sensor", ".*Changed.*");
         command(client, "close barrier", "fill 8 65 1 8 66 1 stone", ".*filled.*");
-        command(client, "enable author mode", "chronicle author mode on", "Author mode enabled.*");
-        command(client, "create source region draft", "chronicle author region create \"quiet_below:source_city\"", "Region draft quiet_below:source_city opened.*");
-        command(client, "set source region first corner", "chronicle author region pos1 0 64 1", "Set region draft quiet_below:source_city position 1.*");
-        command(client, "set source region second corner", "chronicle author region pos2 2 66 1", "Set region draft quiet_below:source_city position 2.*");
-        command(client, "save source region", "chronicle author region save", "Saved region quiet_below:source_city.*");
+        command(client, "enable Editing", "chronicle editing on", "Editing enabled.*");
+        command(client, "create source region draft", "chronicle regions create \"quiet_below:source_city\"", "Region selection quiet_below_source_city opened.*");
+        command(client, "set source region first corner", "chronicle regions pos1 0 64 1", "Set Region draft quiet_below_source_city position 1.*");
+        command(client, "set source region second corner", "chronicle regions pos2 2 66 1", "Set Region draft quiet_below_source_city position 2.*");
+        command(client, "save source region", "chronicle regions save", "Saved Region 'quiet_below_source_city'\\.");
         command(client, "look down at Heart", "tp @s 0.5 65 1.5 0 90", ".*Teleported.*");
-        command(client, "bind Heart anchor", "chronicle author block bind \"quiet_below:relic_heart\" target", "Saved block quiet_below:relic_heart.*");
-        command(client, "assign source city", "chronicles setup assign \"quiet_below:source_city\" \"quiet_below:source_city\"", "Requirement assigned.*");
-        command(client, "assign Heart", "chronicles setup assign \"quiet_below:relic_heart\" \"quiet_below:relic_heart\"", "Requirement assigned.*");
-        command(client, "start explicit source indexing", "chronicles setup tool \"quiet_below:ecology\" index", "Source indexing started.*");
+        command(client, "bind Heart anchor", "chronicle locations blocks bind \"quiet_below:relic_heart\" target", "Saved Block site quiet_below:relic_heart.*");
+        command(client, "assign source city", "quiet_below_authoring_trial assign-source quiet_below_source_city", "PASS canonical authoring assign-source:.*");
+        command(client, "assign Heart", "quiet_below_authoring_trial assign-heart \"quiet_below:relic_heart\"", "PASS canonical authoring assign-heart:.*");
+        command(client, "start explicit source indexing", "chronicle setup tool \"quiet_below:ecology\" index", "Source indexing started.*");
         delay("allow small loaded source index", 1_000);
-        command(client, "enable indexed ecology", "chronicles setup tool \"quiet_below:ecology\" enable", "Growth enabled.*");
-        command(client,"save non-default speed before restart","chronicles setup tool \"quiet_below:ecology\" faster","Spread speed saved: 2.00x.*");
-        command(client, "clear previous region outline before root test", "chronicles setup tool \"quiet_below:ecology\" hide_root", "Root outline hidden.*");
+        command(client, "enable indexed ecology", "chronicle setup tool \"quiet_below:ecology\" enable", "Growth enabled.*");
+        command(client,"save non-default speed before restart","chronicle setup tool \"quiet_below:ecology\" faster","Spread speed saved: 2.00x.*");
+        command(client, "clear previous region outline before root test", "chronicle setup tool \"quiet_below:ecology\" hide_root", "Root outline hidden.*");
         delay("settle cleared outline",200);
         check("record private root renderer",()->rootFrames=AuthoringPreviewRenderer.renderedFrames());
-        command(client, "show source root without editing terrain", "chronicles setup tool \"quiet_below:ecology\" show_root", "Root outlined privately.*");
+        command(client, "show source root without editing terrain", "chronicle setup tool \"quiet_below:ecology\" show_root", "Root outlined privately.*");
         step("root outline renders in frozen world",()->{},()->AuthoringPreviewRenderer.renderedFrames()>rootFrames,10_000);
         check("root location delivered privately to operator",()->require(messages.stream().anyMatch(m->m.contains("Sculk root: 0, 64, 1 in minecraft:overworld")),"missing root coordinates"));
         screenshot(client,"ecology-root-paused.png");
-        command(client, "hide source root", "chronicles setup tool \"quiet_below:ecology\" hide_root", "Root outline hidden.*");
+        command(client, "hide source root", "chronicle setup tool \"quiet_below:ecology\" hide_root", "Root outline hidden.*");
         command(client, "start session", "chronicle session start", "Started Chronicle session.*");
         check("active session without participant has no growth", () -> sculkBefore = sculk(client));
         delay("wait without participation", 1_100);
         check("no participant remains inert", () -> require(sculk(client) == sculkBefore, "ecology grew without an eligible participant"));
         command(client, "owned native features reject inactive intake", "quiet_below_native_trial inactive", "PASS native inactive hooks:.*");
-        command(client, "join participation", "chronicles join", ".*(joined|already).*Chronicle participation.*");
+        command(client, "join participation", "chronicle players join", ".*Participation enabled.*");
         step("living source grows before closed barrier", () -> {}, () -> {
             int count = sculk(client); require(count <= 8, "closed corridor exceeded bounded initial growth before barrier: " + count); return count > sculkBefore;
         }, 30_000);
@@ -347,16 +347,16 @@ final class QuietBelowEcologySmoke {
         check("pause prevents further ecology writes", () -> require(sculk(client) == pausedSculk, "ecology changed terrain while paused"));
         command(client,"place disconnected takeover sculk","setblock 12 64 8 sculk",".*Changed.*");
         command(client,"place disconnected takeover catalyst","setblock 12 65 8 sculk_catalyst",".*Changed.*");
-        command(client,"reenter paused editing","chronicle author mode on","Author mode enabled.*");
-        command(client,"create takeover region","chronicle author region create extra_sculk","Region draft extra_sculk opened.*");
-        command(client,"takeover corner one","chronicle author region pos1 12 64 8","Set region draft extra_sculk position 1.*");
-        command(client,"takeover corner two","chronicle author region pos2 12 65 8","Set region draft extra_sculk position 2.*");
-        command(client,"save takeover geometry","chronicle author region save","Saved region extra_sculk.*");
-        command(client,"assign optional takeover region","chronicles setup assign \"quiet_below:sculk_takeover\" extra_sculk","Requirement assigned.*");
-        command(client,"start explicit region takeover","chronicles setup tool \"quiet_below:ownership\" claim","Region takeover started.*");
+        command(client,"reenter paused Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create takeover region","chronicle regions create extra_sculk","Region selection extra_sculk opened.*");
+        command(client,"takeover corner one","chronicle regions pos1 12 64 8","Set Region draft extra_sculk position 1.*");
+        command(client,"takeover corner two","chronicle regions pos2 12 65 8","Set Region draft extra_sculk position 2.*");
+        command(client,"save takeover geometry","chronicle regions save","Saved Region 'extra_sculk'\\.");
+        command(client,"assign optional takeover region","quiet_below_authoring_trial assign-takeover extra_sculk","PASS canonical authoring assign-takeover:.*");
+        command(client,"start explicit region takeover","chronicle setup tool \"quiet_below:ownership\" claim","Region takeover started.*");
         delay("finish small loaded region takeover",600);
         command(client,"place non-campaign sculk for cleanup","setblock 6 -64 6 sculk",".*Changed.*");
-        command(client,"enable persistent world cleanup","chronicles setup tool \"quiet_below:ownership\" cleanup_on","Non-campaign sculk cleanup enabled.*");
+        command(client,"enable persistent world cleanup","chronicle setup tool \"quiet_below:ownership\" cleanup_on","Non-campaign sculk cleanup enabled.*");
         delay("cleanup waits for occupied active play",600);
         check("paused cleanup preserves stray sculk",()->require(client.world.getBlockState(new BlockPos(6,-64,6)).isOf(Blocks.SCULK),"cleanup changed paused terrain"));
         command(client,"resume cleanup test","chronicle session resume","Resumed Chronicle session.*");
@@ -376,34 +376,34 @@ final class QuietBelowEcologySmoke {
         delay("wait paused after saving restart", 1_100);
         check("restart pause preserves terrain", () -> require(sculk(client) == sculkBefore, "ecology caught up while paused after restart"));
         command(client, "temporarily remove Heart anchor", "setblock 0 64 1 air", ".*Changed.*");
-        command(client, "missing Heart has explicit reversible status", "chronicles setup tool \"quiet_below:ecology\" refresh", ".*Heart block is missing.*");
+        command(client, "missing Heart has explicit reversible status", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Heart block is missing.*");
         command(client, "restore Heart anchor", "setblock 0 64 1 reinforced_deepslate", ".*Changed.*");
-        command(client, "restored Heart is not a permanent fault", "chronicles setup tool \"quiet_below:ecology\" refresh", ".*Paused; resume Chronicle play.*");
+        command(client, "restored Heart is not a permanent fault", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Paused; resume Chronicle play.*");
         command(client, "prune source while paused", "setblock 1 64 1 stone", ".*Changed.*");
         command(client, "prune and seal the Heart upper face", "setblock 0 65 1 stone", ".*Changed.*");
         command(client, "resume after source pruning", "chronicle session resume", "Resumed Chronicle session.*");
         check("capture pruned source terrain", () -> sculkBefore = sculk(client));
         delay("allow reconciliation after prune", 2_100);
         check("pruned source does not regrow ownership", () -> require(sculk(client) == sculkBefore, "ecology restored or grew from a removed source"));
-        command(client, "disconnected branch has clear dormant status", "chronicles setup tool \"quiet_below:ecology\" refresh", ".*Dormant: no living sculk connection to the Heart.*");
+        command(client, "disconnected branch has clear dormant status", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Dormant: no living sculk connection to the Heart.*");
         command(client, "replace physical source connection", "setblock 1 64 1 sculk", ".*Changed.*");
         check("capture manually restored connection",()->sculkBefore=sculk(client));
         step("restored sculk wakes branch and resumes growth",()->{},()->sculk(client)>sculkBefore,60_000);
-        command(client, "reconnected branch reports active growth", "chronicles setup tool \"quiet_below:ecology\" refresh", ".*Active; spreading along reachable exposed surfaces.*");
+        command(client, "reconnected branch reports active growth", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Active; spreading along reachable exposed surfaces.*");
         command(client,"persisted cleanup sees newly loaded/restarted world","setblock 7 -64 7 sculk",".*Changed.*");
         step("cleanup remains enabled after saving restart",()->{},()->client.world.getBlockState(new BlockPos(7,-64,7)).isAir(),10_000);
         check("takeover ownership survives restart",()->require(client.world.getBlockState(new BlockPos(12,64,8)).isOf(Blocks.SCULK),"restarted cleanup lost takeover ownership"));
-        command(client,"stop cleanup independently of growth","chronicles setup tool \"quiet_below:ownership\" cleanup_off","Non-campaign sculk cleanup stopped.*");
+        command(client,"stop cleanup independently of growth","chronicle setup tool \"quiet_below:ownership\" cleanup_off","Non-campaign sculk cleanup stopped.*");
         command(client,"place stray after cleanup disabled","setblock 7 -64 7 sculk",".*Changed.*");
         delay("disabled cleanup does not delete stray",600);
         check("cleanup off preserves non-campaign sculk",()->require(client.world.getBlockState(new BlockPos(7,-64,7)).isOf(Blocks.SCULK),"disabled cleanup deleted sculk"));
-        command(client, "disable ecology without terrain rollback", "chronicles setup tool \"quiet_below:ecology\" disable", "Growth disabled; owned terrain and history retained.*");
+        command(client, "disable ecology without terrain rollback", "chronicle setup tool \"quiet_below:ecology\" disable", "Growth disabled; owned terrain and history retained.*");
         check("capture disabled terrain", () -> sculkBefore = sculk(client));
         delay("disabled ecology remains inert", 1_100);
         check("disable preserves existing terrain", () -> require(sculk(client) == sculkBefore, "disable changed terrain"));
         command(client,"leave safe paused snapshot for human review","chronicle session pause","Paused Chronicle session.*");
-        command(client,"enable editing for review speed default","chronicle author mode on","Author mode enabled.*");
-        command(client,"reset review snapshot to default speed","chronicles setup tool \"quiet_below:ecology\" speed_reset","Spread speed saved: 1.00x.*");
+        command(client,"enable Editing for review speed default","chronicle editing on","Editing enabled.*");
+        command(client,"reset review snapshot to default speed","chronicle setup tool \"quiet_below:ecology\" speed_reset","Spread speed saved: 1.00x.*");
         screenshot(client, "ecology-disabled-after-prune.png");
     }
 
@@ -411,22 +411,22 @@ final class QuietBelowEcologySmoke {
         command(client,"build flat organic-growth surface","fill -12 60 -12 12 64 12 stone",".*filled.*");
         command(client,"place patch Heart","setblock 0 64 -1 reinforced_deepslate",".*Changed.*");
         command(client,"place patch source","setblock 0 64 0 sculk",".*Changed.*");
-        command(client,"enable patch editing","chronicle author mode on","Author mode enabled.*");
-        command(client,"create patch source region","chronicle author region create patch_source","Region draft patch_source opened.*");
-        command(client,"patch source first position","chronicle author region pos1 0 64 -1","Set region draft patch_source position 1.*");
-        command(client,"patch source second position","chronicle author region pos2 0 64 0","Set region draft patch_source position 2.*");
-        command(client,"save patch source","chronicle author region save","Saved region patch_source.*");
+        command(client,"enable patch Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create patch source region","chronicle regions create patch_source","Region selection patch_source opened.*");
+        command(client,"patch source first position","chronicle regions pos1 0 64 -1","Set Region draft patch_source position 1.*");
+        command(client,"patch source second position","chronicle regions pos2 0 64 0","Set Region draft patch_source position 2.*");
+        command(client,"save patch source","chronicle regions save","Saved Region 'patch_source'\\.");
         command(client,"look at patch Heart","tp @s 0.5 65 -0.5 0 90",".*Teleported.*");
-        command(client,"bind patch Heart","chronicle author block bind patch_heart target","Saved block patch_heart.*");
+        command(client,"bind patch Heart","chronicle locations blocks bind patch_heart target","Saved Block site patch_heart.*");
         command(client,"stand on the patch surface","tp @s 0.5 65 6.5 180 30",".*Teleported.*");
-        command(client,"assign patch source","chronicles setup assign \"quiet_below:source_city\" patch_source","Requirement assigned.*");
-        command(client,"assign patch Heart","chronicles setup assign \"quiet_below:relic_heart\" patch_heart","Requirement assigned.*");
-        command(client,"index patch source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        command(client,"assign patch source","quiet_below_authoring_trial assign-source patch_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign patch Heart","quiet_below_authoring_trial assign-heart patch_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index patch source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
         delay("finish patch source index",600);
-        command(client,"enable patch growth","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
-        for(int i=0;i<4;i++)command(client,"accelerate patch for visual check "+i,"chronicles setup tool \"quiet_below:ecology\" faster","Spread speed saved:.*");
+        command(client,"enable patch growth","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        for(int i=0;i<4;i++)command(client,"accelerate patch for visual check "+i,"chronicle setup tool \"quiet_below:ecology\" faster","Spread speed saved:.*");
         command(client,"start patch play","chronicle session start","Started Chronicle session.*");
-        command(client,"join patch play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        command(client,"join patch play","chronicle players join",".*Participation enabled.*");
         step("grow an early connected patch",()->{},()->patch(client).size()>=49,30_000);
         command(client,"pause partial patch","chronicle session pause","Paused Chronicle session.*");
         check("early patch branches across both axes",()->{
@@ -446,21 +446,21 @@ final class QuietBelowEcologySmoke {
         command(client,"build isolated stone cube","fill 0 64 0 4 68 4 stone",".*filled.*");
         command(client,"place cube Heart","setblock 0 65 2 reinforced_deepslate",".*Changed.*");
         command(client,"open temporary anchor sightline","fill 0 66 2 0 67 2 air",".*filled.*");
-        command(client,"author cube source","chronicle author mode on","Author mode enabled.*");
-        command(client,"create cube source region","chronicle author region create cube_source","Region draft cube_source opened.*");
-        command(client,"cube source first corner","chronicle author region pos1 0 65 2","Set region draft cube_source position 1.*");
-        command(client,"cube source second corner","chronicle author region pos2 0 66 2","Set region draft cube_source position 2.*");
-        command(client,"save cube source region","chronicle author region save","Saved region cube_source.*");
+        command(client,"author cube source","chronicle editing on","Editing enabled.*");
+        command(client,"create cube source region","chronicle regions create cube_source","Region selection cube_source opened.*");
+        command(client,"cube source first corner","chronicle regions pos1 0 65 2","Set Region draft cube_source position 1.*");
+        command(client,"cube source second corner","chronicle regions pos2 0 66 2","Set Region draft cube_source position 2.*");
+        command(client,"save cube source region","chronicle regions save","Saved Region 'cube_source'\\.");
         command(client,"look at cube Heart","tp @s 0.5 66 2.5 0 90",".*Teleported.*");
-        command(client,"bind cube Heart","chronicle author block bind cube_heart target","Saved block cube_heart.*");
+        command(client,"bind cube Heart","chronicle locations blocks bind cube_heart target","Saved Block site cube_heart.*");
         command(client,"restore cube sightline stone","setblock 0 67 2 stone",".*Changed.*");
         command(client,"place cube source sculk","setblock 0 66 2 sculk",".*Changed.*");
         command(client,"view cube from outside","tp @s -3 67 2.5 -90 20",".*Teleported.*");
-        command(client,"assign cube source","chronicles setup assign \"quiet_below:source_city\" cube_source","Requirement assigned.*");
-        command(client,"assign cube Heart","chronicles setup assign \"quiet_below:relic_heart\" cube_heart","Requirement assigned.*");
-        command(client,"index cube source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        command(client,"assign cube source","quiet_below_authoring_trial assign-source cube_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign cube Heart","quiet_below_authoring_trial assign-heart cube_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index cube source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
         delay("finish cube source index",600);
-        command(client,"enable cube ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        command(client,"enable cube ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
         openSpeedMenu(client);
         menuSpeedButton(client,"Slower","0.50x");
         menuSpeedButton(client,"Slower","0.25x");
@@ -471,8 +471,8 @@ final class QuietBelowEcologySmoke {
         screenshot(client,"ecology-speed-menu.png");
         check("close speed menu",()->client.currentScreen.close());
         command(client,"start cube play","chronicle session start","Started Chronicle session.*");
-        command(client,"join cube play","chronicles join",".*(joined|already).*Chronicle participation.*");
-        command(client,"active play rejects speed edits","chronicles setup tool \"quiet_below:ecology\" slower",".*requires operator editing mode.*");
+        command(client,"join cube play","chronicle players join",".*Participation enabled.*");
+        command(client,"active play rejects speed edits","chronicle setup tool \"quiet_below:ecology\" slower",".*requires operator editing mode.*");
         step("cube growth turns adjacent opposite top and bottom exposed faces",()->{},()->
                 client.world.getBlockState(new BlockPos(2,66,0)).isOf(Blocks.SCULK)
                 &&client.world.getBlockState(new BlockPos(4,66,2)).isOf(Blocks.SCULK)
@@ -485,7 +485,7 @@ final class QuietBelowEcologySmoke {
         screenshot(client,"ecology-wrapped-cube.png");
     }
     private void openSpeedMenu(MinecraftClient client) {
-        step("open native ecology speed menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open native ecology speed menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
         step("open Game setup for speed",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),
                 ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
         step("select Sculk ecology speed controls",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:ecology"),

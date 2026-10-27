@@ -67,13 +67,9 @@ public final class Profiles {
     }
 
     public static void registerCommands(CommandDispatcher<ServerCommandSource> dispatcher) {
-        var profile = literal("profile")
-                .then(literal("open").executes(context -> own(context.getSource(), true))
-                        .then(argument("player", EntityArgumentType.player()).executes(context ->
-                                show(context.getSource(), EntityArgumentType.getPlayer(context, "player"), true))))
-                .then(literal("show").executes(context -> own(context.getSource(), false))
-                        .then(argument("player", EntityArgumentType.player()).executes(context ->
-                                show(context.getSource(), EntityArgumentType.getPlayer(context, "player"), false))));
+        var card = literal("card").executes(context -> own(context.getSource(), true))
+                .then(argument("player", EntityArgumentType.player()).executes(context ->
+                        show(context.getSource(), EntityArgumentType.getPlayer(context, "player"), true)));
         var set = literal("set");
         for (String field : new String[]{"name", "pronouns", "description"}) {
             set.then(literal(field).then(argument("text", StringArgumentType.greedyString()).executes(context ->
@@ -83,8 +79,8 @@ public final class Profiles {
         for (String field : new String[]{"pronouns", "description"}) {
             clear.then(literal(field).executes(context -> edit(context.getSource(), field, "")));
         }
-        profile.then(set).then(clear);
-        dispatcher.register(literal("chronicle").then(profile));
+        card.then(set).then(clear);
+        dispatcher.register(literal("chronicle").then(literal("players").then(card)));
     }
 
     private static int own(ServerCommandSource source, boolean gui) {
@@ -113,7 +109,7 @@ public final class Profiles {
                     + card.name() + "; pronouns=" + card.pronouns() + "; description=" + card.description()
                     + "; revision=" + card.revision() + "."), false);
             if (gui) source.sendFeedback(() -> Text.translatableWithFallback("chronicle.profile.error.unsupported",
-                    "Install the matching Chronicle client to open the editor. Use /chronicle profile set for text editing."), false);
+                    "Install the matching Chronicle client to open the editor. Use /chronicle players card set for text editing."), false);
             return 1;
         } catch (IOException exception) {
             failed(viewer, exception);
@@ -211,7 +207,7 @@ public final class Profiles {
                 case "invalid" -> "Invalid character card. Use a name up to 48 characters, pronouns up to 32 and description up to 512, without formatting or control characters.";
                 case "throttled" -> "Please wait before requesting or saving another character card.";
                 case "offline" -> "That player is no longer online.";
-                case "unsupported" -> "Install the matching Chronicle client to open the editor. Use /chronicle profile show or set for text access.";
+                case "unsupported" -> "Install the matching Chronicle client to open the editor. Use /chronicle players card or card set for text access.";
                 default -> "Character card unavailable. Check the server log; no save was applied.";
             };
             player.sendMessage(Text.translatableWithFallback(key, fallback), false);

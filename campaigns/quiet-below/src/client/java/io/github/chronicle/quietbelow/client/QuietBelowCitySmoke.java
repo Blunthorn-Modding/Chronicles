@@ -56,14 +56,14 @@ final class QuietBelowCitySmoke {
     private void city(MinecraftClient client) {
         client.options.getViewDistance().setValue(12);client.options.sendClientSettings();
         command("prepare a generated ancient city with exact native bounds", "quiet_below_city_trial prepare", "PASS ancient city prepared:.*", 180_000);
-        command("start normal loaded-only ancient-city index", "chronicles setup tool \"quiet_below:ecology\" index", "Source indexing started.*", 20_000);
+        command("start normal loaded-only ancient-city index", "chronicle setup tool \"quiet_below:ecology\" index", "Source indexing started.*", 20_000);
         indexCity();
         command("record actual bounds chunks cells and completed index", "quiet_below_city_trial indexed", "PASS ancient city indexed:.*", 30_000);
         command("normally load the whole city at native 20 TPS", "quiet_below_city_trial converge", "CITY_CONVERGE.*", 30_000);
         delay("allow normal whole-city client loading",15_000);
-        command("enable indexed native-city ecology", "chronicles setup tool \"quiet_below:ecology\" enable", "Growth enabled.*", 20_000);
+        command("enable indexed native-city ecology", "chronicle setup tool \"quiet_below:ecology\" enable", "Growth enabled.*", 20_000);
         command("start native-city session", "chronicle session start", "Started Chronicle session.*", 20_000);
-        command("join native-city session", "chronicles join", ".*(joined|already).*Chronicle participation.*", 20_000);
+        command("join native-city session", "chronicle players join", ".*Participation enabled.*", 20_000);
         certifyCity();
         soakCity();
         command("move the actual client away for ordinary city chunk unload", "quiet_below_city_trial unload", "CITY_UNLOAD.*", 20_000);
@@ -80,7 +80,7 @@ final class QuietBelowCitySmoke {
         command("return native client to the whole city after restart", "quiet_below_city_trial converge", "CITY_CONVERGE.*", 20_000);
         delay("allow ordinary client chunk reload after restart", 5_000);
         command("resume restarted native-city play", "chronicle session resume", "Resumed Chronicle session.*", 20_000);
-        command("join restarted native-city play", "chronicles join", ".*(joined.*Chronicle participation|already a Chronicle participant).*", 20_000);
+        command("join restarted native-city play", "chronicle players join", ".*Participation enabled.*", 20_000);
         certifyCity();
         soakCity();
         command("leave restarted ancient city paused", "chronicle session pause", "Paused Chronicle session.*", 20_000);

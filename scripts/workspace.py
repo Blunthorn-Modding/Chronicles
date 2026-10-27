@@ -479,7 +479,7 @@ def legacy_smoke():
                     if expected not in log:
                         raise RuntimeError(f'Missing mod initialization: {expected}')
                 print(f'Server ready (pass {iteration + 1}); both mods initialized.', flush=True)
-                process.stdin.write('chronicle status\n')
+                process.stdin.write('chronicle session status\n')
                 process.stdin.flush()
                 if iteration == 0:
                     bot_env = env()

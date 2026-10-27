@@ -82,8 +82,8 @@ final class ManagedBlocksSmoke {
         }catch(Throwable error){finish(client,false,error.getClass().getSimpleName()+": "+error.getMessage());}
     }
     private void build(MinecraftClient client){
-        command(client,"enable explicit paused map editing","chronicles author mode on","Author mode enabled");
-        command(client,"enable global paused map work","chronicles session building on","Building Mode enabled for everyone");
+        command(client,"enable explicit paused map editing","chronicle editing on","Editing enabled");
+        command(client,"enable global paused map work","chronicle session building on","Building Mode enabled for everyone");
         if(phase.equals("initial")){
             step("fresh fixture player is in Creative",()->{},()->client.player.isCreative(),15_000);
             teleport(client,128.5,66,134.5);
@@ -154,7 +154,7 @@ final class ManagedBlocksSmoke {
         step("close intrinsic station",()->client.currentScreen.close(),()->client.currentScreen==null,10_000);
     }
     private void limit(MinecraftClient client,int value){
-        step("open management for limit "+value,()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,15_000);
+        step("open management for limit "+value,()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,15_000);
         step("enable server-authorized policy editing",()->{if(!menu(client).state().editing())press(menu(client),"Enable editing");},()->menu(client).state().editing(),15_000);
         step("open Game setup for placement policy",()->press(menu(client),"Game setup"),()->menu(client).state().page()==Page.SETUP,15_000);
         step("select the sole Block limits entry",()->menu(client).selectForTest("limits"),()->menu(client).state().selected().equals("limits"),15_000);
@@ -165,7 +165,7 @@ final class ManagedBlocksSmoke {
         closeLimitManagement(client,"cap change "+value);
     }
     private void rejectLimitBelowPlaced(MinecraftClient client,int value,int placed){
-        step("open management for rejected limit "+value,()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,15_000);
+        step("open management for rejected limit "+value,()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,15_000);
         step("enable server-authorized policy editing for rejected limit",()->{if(!menu(client).state().editing())press(menu(client),"Enable editing");},()->menu(client).state().editing(),15_000);
         step("open Game setup for rejected limit",()->press(menu(client),"Game setup"),()->menu(client).state().page()==Page.SETUP,15_000);
         step("select Block limits for rejected limit",()->menu(client).selectForTest("limits"),()->menu(client).state().selected().equals("limits"),15_000);

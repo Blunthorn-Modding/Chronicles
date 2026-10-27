@@ -110,6 +110,7 @@ public final class QuietBelow implements ModInitializer {
         io.github.chronicle.quietbelow.ecology.EcologyHeartDefianceTrial.register();
         io.github.chronicle.quietbelow.ecology.EcologyHeartAirCutTrial.register();
         io.github.chronicle.quietbelow.ecology.EradicationRecoveryTrial.register();
+        io.github.chronicle.quietbelow.ecology.testing.CanonicalAuthoringTrial.register();
         io.github.chronicle.quietbelow.content.ForgeNotesTrial.register();
         io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
                 new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));

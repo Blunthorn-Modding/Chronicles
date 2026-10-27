@@ -53,8 +53,6 @@ public final class PlayRuntime {
         ServerTickEvents.END_SERVER_TICK.register(PlayRuntime::tick);
         ServerLifecycleEvents.SERVER_STOPPING.register(PlayRuntime::stopping);
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
-        CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) ->
-                dispatcher.register(literal("chronicle").then(literal("join").executes(context -> join(context.getSource())))));
     }
 
     private static void start(MinecraftServer server) {
@@ -171,7 +169,7 @@ public final class PlayRuntime {
         ObservationCatalog.Definition definition = definition(id);
         AuthoringRegistry authoring = authoring(server);
         PlayState.Binding binding = runtime.service.validate(definition, authoring, id);
-        if (runtime.service.state().deliveries().containsKey(id)) throw new IllegalStateException("Observation has already been claimed; reset it in non-active author mode to use it again.");
+        if (runtime.service.state().deliveries().containsKey(id)) throw new IllegalStateException("Observation has already been claimed; reset it in non-active Editing to use it again.");
         requireFlag(binding, campaign.flags());
         List<ServerPlayerEntity> recipients = audience(server, runtime.service.state(), definition, binding, authoring);
         if (recipients.isEmpty()) throw new IllegalStateException("Observation has no eligible recipients.");
@@ -229,25 +227,6 @@ public final class PlayRuntime {
         } catch (IOException | RuntimeException exception) {
             disable(server, exception, "manual observation delivery remained uncertain after its durable claim");
             throw exception;
-        }
-    }
-
-    private static int join(ServerCommandSource source) {
-        ServerPlayerEntity player = source.getPlayer();
-        if (player == null) {
-            source.sendError(Text.literal("Joining Chronicle participation requires your player account."));
-            return 0;
-        }
-        try {
-            boolean already = service(source.getServer()).state().participants().contains(player.getUuid());
-            setSelfParticipant(player, true);
-            source.sendFeedback(() -> Text.literal(already
-                    ? "You are already a Chronicle participant."
-                    : "You joined Chronicle participation. Active occupied play now includes you; no observation history was replayed."), false);
-            return 1;
-        } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
-            source.sendError(Text.literal(message(exception)));
-            return 0;
         }
     }
 
@@ -446,7 +425,7 @@ public final class PlayRuntime {
     private static void requireAuthor(ServerCommandSource source) {
         if (!source.hasPermissionLevel(2) || source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer())
                 || !AuthoringRuntime.editable(source.getServer())) {
-            throw new IllegalStateException("Participation and observation edits require operator permission and non-active author mode.");
+            throw new IllegalStateException("Participation and observation edits require operator permission and non-active Editing.");
         }
     }
 
@@ -478,7 +457,7 @@ public final class PlayRuntime {
         if (!server.isOnThread()) throw new IllegalStateException("Participation and observations require the server thread.");
     }
 
-    private static String message(Exception exception) {
+    static String message(Exception exception) {
         String value = exception.getMessage();
         if (value == null || value.isBlank()) return "Participation update failed; inspect the server log.";
         value = value.replaceAll("[\\p{Cntrl}]", " ");

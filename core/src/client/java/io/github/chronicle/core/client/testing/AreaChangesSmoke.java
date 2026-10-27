@@ -44,18 +44,18 @@ public final class AreaChangesSmoke {
 
     private void initial(MinecraftClient client){
         if(step==0){command(client,"chronicle_areas_trial prepare");step++;return;}
-        if(step==1){if(!passed("prepare"))return;command(client,"chronicles area change begin start Smoke");step++;return;}
-        if(step==2){if(!seen("Area change 'Smoke' started"))return;command(client,"chronicle_areas_trial remember_tool");step++;return;}
+        if(step==1){if(!passed("prepare"))return;command(client,"chronicle regions create Smoke states start");step++;return;}
+        if(step==2){if(!seen("Saved-state Region 'Smoke' started"))return;command(client,"chronicle_areas_trial remember_tool");step++;return;}
         if(step==3){if(!passed("remember_tool"))return;require(client.interactionManager.attackBlock(FIRST,Direction.UP),"left-click selection packet was refused client-side");wait=4;step++;return;}
         if(step==4){if(wait-->0)return;var hit=new BlockHitResult(Vec3d.ofCenter(SECOND),Direction.UP,SECOND,false);client.interactionManager.interactBlock(client.player,Hand.MAIN_HAND,hit);wait=4;step++;return;}
         if(step==5){if(wait-->0)return;requirePreview(4,6);client.player.setPitch(40);capture(client,"selection-initial");var third=new BlockPos(7,64,4);client.interactionManager.interactBlock(client.player,Hand.MAIN_HAND,new BlockHitResult(Vec3d.ofCenter(third),Direction.UP,third,false));wait=8;step=501;return;}
         if(step==501){if(wait-->0)return;requirePreview(4,8);capture(client,"selection-extended");require(client.interactionManager.attackBlock(SECOND,Direction.UP),"changed left selection refused");wait=8;step=502;return;}
         if(step==502){if(wait-->0)return;requirePreview(5,8);capture(client,"selection-first-moved");require(client.interactionManager.attackBlock(FIRST,Direction.UP),"restored left selection refused");wait=8;step=503;return;}
         if(step==503){if(wait-->0)return;requirePreview(4,8);checks.add("client preview payload and continuing render frames followed repeated right and left Debug shovel changes before saving");command(client,"chronicle_areas_trial invalid_corner");step=504;return;}
-        if(step==504){if(!passed("invalid_corner"))return;requirePreview(4,8);checks.add("oversized corner refusal retained the prior valid draft and private selection/outline");command(client,"chronicles author region pos2");wait=4;step=6;return;}
-        if(step==6){if(wait-->0)return;command(client,"chronicles area change save");step++;return;}
+        if(step==504){if(!passed("invalid_corner"))return;requirePreview(4,8);checks.add("oversized corner refusal retained the prior valid draft and private selection/outline");command(client,"chronicle regions pos2");wait=4;step=6;return;}
+        if(step==6){if(wait-->0)return;command(client,"chronicle regions save");step++;return;}
         if(step==7){if(count("Saved Area change 'Smoke' with its START state.")<1)return;checks.add("debug shovel left/right packets and the compatible pos2 command created Start");command(client,"chronicle_areas_trial make_end");step++;return;}
-        if(step==8){if(!passed("make_end"))return;command(client,"chronicles area change capture area_smoke end 1");step++;return;}
+        if(step==8){if(!passed("make_end"))return;command(client,"chronicle regions states capture review area_smoke end");command(client,"chronicle regions states capture confirm area_smoke end");step++;return;}
         if(step==9){if(count("Saved current area as END for 'Smoke'.")<1)return;command(client,"chronicle_areas_trial target_start");step++;return;}
         if(step==10){if(!passed("target_start"))return;wait=35;step++;return;}
         if(step==11){if(wait-->0)return;command(client,"chronicle_areas_trial verify_start");step++;return;}
@@ -63,7 +63,7 @@ public final class AreaChangesSmoke {
         if(step==13){if(!passed("target_end"))return;wait=35;step++;return;}
         if(step==14){if(wait-->0)return;command(client,"chronicle_areas_trial verify_end");step++;return;}
         if(step==15){if(!passed("verify_end"))return;checks.add("End apply discarded replaced chest contents without drops and retired only its binding");command(client,"chronicle_areas_trial make_start2");step++;return;}
-        if(step==16){if(!passed("make_start2"))return;command(client,"chronicles area change capture area_smoke start 2");step++;return;}
+        if(step==16){if(!passed("make_start2"))return;command(client,"chronicle regions states capture review area_smoke start");command(client,"chronicle regions states capture confirm area_smoke start");step++;return;}
         if(step==17){if(count("Saved current area as START for 'Smoke'.")<1)return;command(client,"chronicle_areas_trial target_start2");step++;return;}
         if(step==18){if(!passed("target_start2"))return;wait=35;step++;return;}
         if(step==19){if(wait-->0)return;command(client,"chronicle_areas_trial verify_start2");step++;return;}
@@ -73,10 +73,10 @@ public final class AreaChangesSmoke {
         if(step==23){if(!passed("lore_begin"))return;wait=20;step++;return;}
         if(step==24){if(wait-->0)return;require(seen("Managed Chronicle lore provenance"),"managed lore capture did not report refusal");command(client,"chronicle_areas_trial lore_verify");step++;return;}
         if(step==25){if(!passed("lore_verify"))return;checks.add("ordinary book prose was captured while authentic managed lore was rejected unchanged");command(client,"chronicle_areas_trial seed_cancel");step++;return;}
-        if(step==26){if(!passed("seed_cancel"))return;command(client,"chronicles area change begin start Cancelled");step++;return;}
-        if(step==27){if(!seen("Area change 'Cancelled' started"))return;command(client,"chronicle_areas_trial remember_tool");step++;return;}
+        if(step==26){if(!passed("seed_cancel"))return;command(client,"chronicle regions create Cancelled states start");step++;return;}
+        if(step==27){if(!seen("Saved-state Region 'Cancelled' started"))return;command(client,"chronicle_areas_trial remember_tool");step++;return;}
         if(step==28){if(!passed("remember_tool"))return;client.interactionManager.attackBlock(FIRST,Direction.UP);wait=4;step++;return;}
-        if(step==29){if(wait-->0)return;command(client,"chronicles area change cancel");wait=4;step++;return;}
+        if(step==29){if(wait-->0)return;command(client,"chronicle regions cancel");wait=4;step++;return;}
         if(step==30){if(wait-->0)return;command(client,"chronicle_areas_trial restore_stale");step++;return;}
         if(step==31){if(!passed("restore_stale"))return;client.interactionManager.attackBlock(SECOND,Direction.UP);wait=4;step++;return;}
         if(step==32){if(wait-->0)return;command(client,"chronicle_areas_trial verify_cancel");step++;return;}
@@ -85,7 +85,7 @@ public final class AreaChangesSmoke {
         if(step==35){if(!passed("quota_end")||count("Saved current area as END for 'Managed quota'.")<1)return;command(client,"chronicle_areas_trial quota_refuse");step++;return;}
         if(step==36){if(!passed("quota_refuse"))return;wait=35;step++;return;}
         if(step==37){if(wait-->0)return;require(seen("replacement exceeds its limit"),"quota refusal was not privately explained");command(client,"chronicle_areas_trial quota_verify");step++;return;}
-        if(step==38){if(!passed("quota_verify"))return;checks.add("managed-block quota refusal left terrain, ledger and operation journal unchanged");command(client,"chronicles");step++;return;}
+        if(step==38){if(!passed("quota_verify"))return;checks.add("managed-block quota refusal left terrain, ledger and operation journal unchanged");command(client,"chronicle");step++;return;}
         CoreMenuScreen menu=client.currentScreen instanceof CoreMenuScreen value?value:null;
         if(step==39){if(menu==null||menu.pending())return;require(menu.triggerForTest("Regions"),"Regions navigation missing");step++;return;}
         if(step==40){if(menu==null||menu.pending()||menu.state().page()!=Page.REGIONS)return;wait=4;step++;return;}
@@ -94,7 +94,7 @@ public final class AreaChangesSmoke {
 
     private void restart(MinecraftClient client){
         if(step==0){command(client,"chronicle_areas_trial restart");step=100;return;}
-        if(step==100){if(!passed("restart"))return;checks.add("clean restart retained paired snapshots and quota-refused terrain without unresolved operations");command(client,"chronicles");step++;return;}
+        if(step==100){if(!passed("restart"))return;checks.add("clean restart retained paired snapshots and quota-refused terrain without unresolved operations");command(client,"chronicle");step++;return;}
         CoreMenuScreen menu=client.currentScreen instanceof CoreMenuScreen value?value:null;
         if(step==101){if(menu==null||menu.pending())return;require(menu.triggerForTest("Regions"),"restart Regions navigation missing");step++;return;}
         if(step==102){if(menu==null||menu.pending()||menu.state().page()!=Page.REGIONS)return;wait=4;step++;return;}

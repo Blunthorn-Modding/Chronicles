@@ -101,7 +101,7 @@ public final class EnchantmentCapsSmoke {
             case 1 -> { sendCreativeSword(client); advance("sent Sharpness V creative packet and predicted local level 5"); }
             case 2 -> await(() -> level(client.player.getInventory().getStack(0), client) == 1, "authoritative creative slot lowered to Sharpness I");
             case 3 -> command(client, "chronicle_enchantment_trial check_creative", "check_creative");
-            case 4 -> command(client, "chronicle author mode on", null);
+            case 4 -> command(client, "chronicle editing on", null);
             case 5 -> command(client, "chronicle_enchantment_trial basic", "basic");
             case 6 -> command(client, "chronicle_enchantment_trial vanilla", "vanilla");
             case 7 -> command(client, "chronicle_enchantment_trial save", "save");
@@ -126,7 +126,7 @@ public final class EnchantmentCapsSmoke {
     }
 
     private void openMenu(MinecraftClient client) {
-        client.player.networkHandler.sendChatCommand("chronicles setup");
+        client.player.networkHandler.sendChatCommand("chronicle setup");
         advance("opened Core Game setup menu");
     }
 
@@ -223,7 +223,7 @@ public final class EnchantmentCapsSmoke {
         }
         require(System.nanoTime() < stepDeadline, "timed out waiting for Enchantment trial PASS " + expectedVerb);
         if (expectedVerb==null) {
-            if(messages.stream().anyMatch(m->m.startsWith("Author mode enabled."))) advance("author mode acknowledged by server");
+            if(messages.stream().anyMatch(m->m.startsWith("Editing enabled."))) advance("Editing acknowledged by server");
         } else if (received(expectedVerb)) advance("received Enchantment trial PASS " + expectedVerb);
     }
 

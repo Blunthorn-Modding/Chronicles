@@ -46,10 +46,8 @@ final class PlayerRoleEditorScreen extends Screen {
     private SpawnBinding starting, respawn;
     private final List<String> items = new ArrayList<>();
     private final List<String> selectedBooks = new ArrayList<>();
-    private TextFieldWidget name, description, capacity, itemSearch, itemCount;
-    private String itemQuery = "", selectedItemId = "", itemCountDraft = "1";
-    private int itemOffset, catalogOffset, pointOffset, bookOffset;
-    private boolean addingItem;
+    private TextFieldWidget name, description, capacity;
+    private int itemOffset, pointOffset, bookOffset;
     private final Map<Integer, String> quantityDrafts = new HashMap<>();
     private String problem = "";
     private boolean stale;
@@ -75,7 +73,7 @@ final class PlayerRoleEditorScreen extends Screen {
 
     @Override protected void init() {
         retainInputs(); clearChildren(); drawProblem = "";
-        name = description = capacity = itemSearch = itemCount = null;
+        name = description = capacity = null;
         int w = Math.min(440, Math.max(240, width - 24)); int x = (width - w) / 2; int y = Math.max(18, (height - 226) / 2);
         switch (mode) {
             case DETAILS -> details(x, y, w);
@@ -101,7 +99,6 @@ final class PlayerRoleEditorScreen extends Screen {
     }
 
     private void items(int x, int y, int w) {
-        if (addingItem) { itemCatalog(x, y, w); return; }
         int shown = Math.min(5, items.size());
         itemOffset = Math.clamp(itemOffset, 0, Math.max(0, items.size() - shown));
         for (int index = 0; index < shown; index++) {
@@ -123,34 +120,8 @@ final class PlayerRoleEditorScreen extends Screen {
             button("<", x, y + 154, 45, () -> { itemOffset = Math.max(0, itemOffset - 5); clearAndInit(); }, "Earlier supplies", itemOffset > 0);
             button(">", x + 49, y + 154, 45, () -> { itemOffset = Math.min(items.size() - shown, itemOffset + 5); clearAndInit(); }, "Later supplies", itemOffset + shown < items.size());
         }
-        button("Add item...", x + w - 120, y + 154, 120, () -> {
-            addingItem = true; selectedItemId = ""; itemCountDraft = "1"; itemQuery = ""; itemSearch = itemCount = null; catalogOffset = 0; problem = ""; clearAndInit();
-        }, "Browse available items");
+        button("Add item...", x + w - 120, y + 154, 120, this::openItemPicker, "Browse available items");
         button("Back", x, y + 181, w, () -> { mode = Mode.DETAILS; problem = ""; clearAndInit(); }, "Keep this local supplies draft and return to role details");
-    }
-
-    private void itemCatalog(int x, int y, int w) {
-        itemSearch = input(x, y + 27, w - 58, "Find item", itemQuery, value -> itemQuery = value);
-        button("Find", x + w - 54, y + 27, 54, () -> { catalogOffset = 0; problem = ""; clearAndInit(); }, "Filter available items");
-        List<Identifier> matches = matchingItems();
-        int shown = Math.min(4, matches.size());
-        catalogOffset = Math.clamp(catalogOffset, 0, Math.max(0, matches.size() - shown));
-        for (int index = 0; index < shown; index++) {
-            Identifier candidate = matches.get(catalogOffset + index); String id = candidate.toString();
-            boolean assigned = plainItemAssigned(id);
-            button((id.equals(selectedItemId) ? "> " : "") + itemLabel(candidate) + (assigned ? " (assigned)" : ""),
-                    x + 20, y + 50 + index * 20, w - 20,
-                    () -> { selectedItemId = id; problem = ""; clearAndInit(); },
-                    assigned ? "Already assigned; edit its quantity in the supplies list" : id, !assigned);
-        }
-        if (matches.isEmpty()) drawProblem = "No matching registered item.";
-        if (matches.size() > shown) {
-            button("<", x, y + 132, 45, () -> { catalogOffset = Math.max(0, catalogOffset - 4); clearAndInit(); }, "Earlier available items", catalogOffset > 0);
-            button(">", x + 49, y + 132, 45, () -> { catalogOffset = Math.min(matches.size() - shown, catalogOffset + 4); clearAndInit(); }, "Later available items", catalogOffset + shown < matches.size());
-        }
-        itemCount = input(x + 100, y + 132, 44, "Quantity", itemCountDraft, value -> itemCountDraft = value);
-        button("Add item", x + 148, y + 132, w - 148, this::addItem, "Add the selected item and quantity");
-        button("Cancel", x, y + 181, w, () -> { addingItem = false; problem = ""; clearAndInit(); }, "Return without adding an item; keep the role draft");
     }
 
     private JsonObject stackObject(String stack) { return JsonParser.parseString(stack).getAsJsonObject(); }
@@ -223,17 +194,23 @@ final class PlayerRoleEditorScreen extends Screen {
         button("Back", x, y + 181, w, () -> { mode = Mode.DETAILS; clearAndInit(); }, "Keep the current point selection and return to role details");
     }
     private void lore(int x, int y, int w) {
-        int shown = Math.min(6, books.size());
-        bookOffset = Math.clamp(bookOffset, 0, Math.max(0, books.size() - shown));
+        int shown = Math.min(6, selectedBooks.size());
+        bookOffset = Math.clamp(bookOffset, 0, Math.max(0, selectedBooks.size() - shown));
         for (int index = 0; index < shown; index++) {
-            Entry entry = books.get(bookOffset + index); boolean selected = selectedBooks.contains(entry.id());
-            button((selected ? "● " : "○ ") + entry.label(), x, y + 30 + index * 20, w, () -> toggleBook(entry.id()), entry.description());
+            int row = bookOffset + index;
+            String id = selectedBooks.get(row);
+            Entry entry = books.stream().filter(book -> book.id().equals(id)).findFirst().orElse(null);
+            button(entry == null ? "Unavailable: " + id : entry.label(), x, y + 30 + index * 20, w - 62, () -> { },
+                    entry == null ? "This pinned book is retained until removed." : entry.description(), false);
+            button("Remove", x + w - 58, y + 30 + index * 20, 58, () -> { selectedBooks.remove(row); problem = ""; clearAndInit(); }, "Remove this book from the role draft");
         }
-        if (books.isEmpty()) drawProblem = "No named Books & Lore records are available.";
-        if (books.size() > shown) {
-            button("< books", x, y + 151, w / 2 - 2, () -> { bookOffset = Math.max(0, bookOffset - shown); clearAndInit(); }, "Earlier named books", bookOffset > 0);
-            button("> books", x + w / 2 + 2, y + 151, w / 2 - 2, () -> { bookOffset = Math.min(books.size() - shown, bookOffset + shown); clearAndInit(); }, "Later named books", bookOffset + shown < books.size());
+        if (selectedBooks.isEmpty()) drawProblem = "No private lore books assigned.";
+        boolean paged = selectedBooks.size() > shown;
+        if (paged) {
+            button("<", x, y + 154, 36, () -> { bookOffset = Math.max(0, bookOffset - shown); clearAndInit(); }, "Earlier assigned books", bookOffset > 0);
+            button(">", x + w - 36, y + 154, 36, () -> { bookOffset = Math.min(selectedBooks.size() - shown, bookOffset + shown); clearAndInit(); }, "Later assigned books", bookOffset + shown < selectedBooks.size());
         }
+        button("Add lore book...", x + (paged ? 40 : 0), y + 154, w - (paged ? 80 : 0), this::openBookPicker, "Browse named Books & Lore records", selectedBooks.size() < PlayerRole.MAX_BOOKS && !stale);
         button("Back", x, y + 181, w, () -> { mode = Mode.DETAILS; clearAndInit(); }, "Keep this local book selection and return to role details");
     }
 
@@ -245,20 +222,47 @@ final class PlayerRoleEditorScreen extends Screen {
     private boolean matches(Entry point, SpawnBinding binding) { return binding != null && point.id().equals(binding.locationId()) && point.revision() == binding.locationRevision(); }
     private SpawnBinding pin(Entry point, String purpose) { return new SpawnBinding(purpose, point.id(), point.revision()); }
     private String pointLabel(SpawnBinding binding) { return binding == null ? "Vanilla default" : java.util.Optional.ofNullable(availablePoint(binding)).map(Entry::label).orElse("Unavailable: " + binding.locationId()); }
-    private void addItem() {
-        if (selectedItemId.isBlank()) { problem = "Choose an item from the registry first."; return; }
-        if (plainItemAssigned(selectedItemId)) { problem = "Already assigned; edit its quantity in the supplies list."; return; }
-        if (items.size() >= PlayerRole.MAX_ITEMS) { problem = "A role may contain at most " + PlayerRole.MAX_ITEMS + " item stacks."; return; }
-        try {
-            Identifier id = Identifier.of(selectedItemId); Item selected = Registries.ITEM.get(id);
-            int count = Integer.parseInt(itemCountDraft);
-            if (count < 1 || count > selected.getMaxCount()) throw new IllegalArgumentException("Count must be between 1 and " + selected.getMaxCount() + " for this item.");
-            // This compact stack form is decoded and registry-checked again by the server.
-            items.add("{\"id\":\"" + id + "\",\"count\":" + count + "}");
-            problem = ""; addingItem = false; selectedItemId = ""; itemCountDraft = "1"; itemCount = null; clearAndInit();
-        } catch (IllegalArgumentException exception) { problem = exception.getMessage(); }
+    private void openItemPicker() { client.setScreen(new CatalogAddPopup(this, Text.literal("Add starting item"), true, new CatalogAddPopup.Owner() {
+        @Override public void requestPage(CatalogAddPopup popup, String query, int page) { popup.replacePage(itemPicker(query, page)); }
+        @Override public String validate(Entry entry, String quantity) {
+            if (plainItemAssigned(entry.id())) return "Already assigned; edit its quantity in the supplies list.";
+            if (items.size() >= PlayerRole.MAX_ITEMS) return "A role may contain at most " + PlayerRole.MAX_ITEMS + " item stacks.";
+            try {
+                Identifier id = Identifier.of(entry.id()); Item item = Registries.ITEM.get(id); int count = Integer.parseInt(quantity);
+                if (!Registries.ITEM.containsId(id) || count < 1 || count > item.getMaxCount()) return "Count must be between 1 and " + item.getMaxCount() + " for this item.";
+            } catch (RuntimeException exception) { return "Enter a whole number for the quantity."; }
+            return "";
+        }
+        @Override public void add(Entry entry, String quantity) { items.add("{\"id\":\"" + entry.id() + "\",\"count\":" + Integer.parseInt(quantity) + "}"); problem = ""; clearAndInit(); }
+        @Override public void cancel() { }
+        @Override public void serverUpdated(CatalogAddPopup popup, io.github.chronicle.core.menu.CoreMenuModel.View updated) { if (updated.token() != openingToken) popup.markStale(); }
+        @Override public void drawIcon(net.minecraft.client.gui.DrawContext context, Entry entry, int x, int y) {
+            Identifier id = Identifier.of(entry.id()); if (Registries.ITEM.containsId(id)) context.drawItem(new ItemStack(Registries.ITEM.get(id)), x, y);
+        }
+    })); }
+    private void openBookPicker() { client.setScreen(new CatalogAddPopup(this, Text.literal("Add lore book"), false, new CatalogAddPopup.Owner() {
+        @Override public void requestPage(CatalogAddPopup popup, String query, int page) { popup.replacePage(bookPicker(query, page)); }
+        @Override public String validate(Entry entry, String quantity) {
+            if (selectedBooks.contains(entry.id())) return "This book is already assigned to the role.";
+            return selectedBooks.size() >= PlayerRole.MAX_BOOKS ? "A role may reference at most " + PlayerRole.MAX_BOOKS + " books." : "";
+        }
+        @Override public void add(Entry entry, String quantity) { selectedBooks.add(entry.id()); problem = ""; clearAndInit(); }
+        @Override public void cancel() { }
+        @Override public void serverUpdated(CatalogAddPopup popup, io.github.chronicle.core.menu.CoreMenuModel.View updated) { if (updated.token() != openingToken) popup.markStale(); }
+    })); }
+    private io.github.chronicle.core.menu.CoreMenuModel.Picker itemPicker(String query, int page) {
+        List<Entry> entries = matchingItems(query).stream().map(id -> new Entry(id.toString(), itemLabel(id), id.toString(), "ITEM", "", 0)).toList();
+        return picker("items", query, page, entries);
     }
-    private void toggleBook(String id) { if (selectedBooks.contains(id)) selectedBooks.remove(id); else if (selectedBooks.size() < PlayerRole.MAX_BOOKS) selectedBooks.add(id); else { problem = "A role may reference at most " + PlayerRole.MAX_BOOKS + " books."; return; } clearAndInit(); }
+    private io.github.chronicle.core.menu.CoreMenuModel.Picker bookPicker(String query, int page) {
+        String needle = query.trim().toLowerCase(java.util.Locale.ROOT);
+        List<Entry> entries = books.stream().filter(entry -> needle.isBlank() || entry.id().toLowerCase(java.util.Locale.ROOT).contains(needle) || entry.label().toLowerCase(java.util.Locale.ROOT).contains(needle)).toList();
+        return picker("books", query, page, entries);
+    }
+    private io.github.chronicle.core.menu.CoreMenuModel.Picker picker(String kind, String query, int page, List<Entry> entries) {
+        int pages = Math.max(1, (entries.size() + 11) / 12); int selectedPage = Math.clamp(page, 0, pages - 1); int from = selectedPage * 12;
+        return new io.github.chronicle.core.menu.CoreMenuModel.Picker(kind, query, selectedPage, pages, entries.subList(from, Math.min(entries.size(), from + 12)));
+    }
     private void save() {
         retainInputs();
         try {
@@ -269,8 +273,8 @@ final class PlayerRoleEditorScreen extends Screen {
             saved.accept(value);
         } catch (IllegalArgumentException exception) { problem = exception.getMessage(); clearAndInit(); }
     }
-    private List<Identifier> matchingItems() {
-        String needle = itemQuery.trim().toLowerCase(java.util.Locale.ROOT);
+    private List<Identifier> matchingItems(String query) {
+        String needle = query.trim().toLowerCase(java.util.Locale.ROOT);
         return Registries.ITEM.getIds().stream().filter(id -> needle.isBlank() || id.toString().contains(needle)
                         || Registries.ITEM.get(id).getName().getString().toLowerCase(java.util.Locale.ROOT).contains(needle))
                 .sorted(Comparator.comparing(Identifier::toString)).toList();
@@ -281,10 +285,9 @@ final class PlayerRoleEditorScreen extends Screen {
     }
     private void retainInputs() {
         if (name != null) nameDraft = name.getText(); if (description != null) descriptionDraft = description.getText(); if (capacity != null) capacityDraft = capacity.getText();
-        if (itemSearch != null) itemQuery = itemSearch.getText(); if (itemCount != null) itemCountDraft = itemCount.getText();
     }
     private void returnToMenu() { client.setScreen(returnScreen); }
-    void serverRejected(String value) { problem = value; clearAndInit(); }
+    void serverRejected(String value, boolean changed) { problem = value; stale |= changed; clearAndInit(); }
     void serverUpdated(io.github.chronicle.core.menu.CoreMenuModel.View updated) { if (updated.token() != openingToken) { stale = true; clearAndInit(); } }
     CoreMenuScreen parentMenu() { return returnScreen instanceof CoreMenuScreen menu ? menu : null; }
     private void button(String label, int x, int y, int w, Runnable action, String hint) { button(label, x, y, w, action, hint, true); }
@@ -293,20 +296,14 @@ final class PlayerRoleEditorScreen extends Screen {
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         int w = Math.min(440, Math.max(240, width - 24)); int x = (width - w) / 2; int y = Math.max(18, (height - 226) / 2);
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, x - 6, y - 6, w + 12, 226);
-        String title = switch (mode) { case DETAILS -> creating ? "New player role" : "Edit player role"; case STARTING_ITEMS -> addingItem ? "Available items" : "Assigned starting supplies"; case LORE -> "Private lore books"; case STARTING_POINT -> "Starting position"; case RESPAWN_POINT -> "Respawn position"; };
+        String title = switch (mode) { case DETAILS -> creating ? "New player role" : "Edit player role"; case STARTING_ITEMS -> "Assigned starting supplies"; case LORE -> "Private lore books"; case STARTING_POINT -> "Starting position"; case RESPAWN_POINT -> "Respawn position"; };
         context.drawTextWithShadow(textRenderer, Text.literal(title), x, y, 0xFFFFFFFF);
         if (mode == Mode.DETAILS) { context.drawTextWithShadow(textRenderer, Text.literal("Role name"), x, y + 14, 0xFFCCCCCC); context.drawTextWithShadow(textRenderer, Text.literal("Public description"), x, y + 48, 0xFFCCCCCC); context.drawTextWithShadow(textRenderer, Text.literal("Player limit"), x, y + 82, 0xFFCCCCCC); }
         if (mode == Mode.STARTING_ITEMS) {
-            context.drawTextWithShadow(textRenderer, Text.literal(addingItem ? "Search, select an item, and enter a quantity." : "Edit quantities or remove supplies from this role."), x, y + 14, 0xFFA0A0A0);
-            if (addingItem) {
-                List<Identifier> matches = matchingItems();
-                for (int i = 0; i < Math.min(4, matches.size() - catalogOffset); i++)
-                    context.drawItem(new ItemStack(Registries.ITEM.get(matches.get(catalogOffset + i))), x, y + 51 + i * 20);
-            } else {
-                for (int i = 0; i < Math.min(5, items.size() - itemOffset); i++) {
-                    Identifier id = stackId(items.get(itemOffset + i));
-                    if (id != null && Registries.ITEM.containsId(id)) context.drawItem(new ItemStack(Registries.ITEM.get(id)), x, y + 31 + i * 24);
-                }
+            context.drawTextWithShadow(textRenderer, Text.literal("Edit quantities or remove supplies from this role."), x, y + 14, 0xFFA0A0A0);
+            for (int i = 0; i < Math.min(5, items.size() - itemOffset); i++) {
+                Identifier id = stackId(items.get(itemOffset + i));
+                if (id != null && Registries.ITEM.containsId(id)) context.drawItem(new ItemStack(Registries.ITEM.get(id)), x, y + 31 + i * 24);
             }
         }
         if (mode == Mode.LORE) context.drawTextWithShadow(textRenderer, Text.literal("These named books are personal first-entry entitlements."), x, y + 14, 0xFFA0A0A0);

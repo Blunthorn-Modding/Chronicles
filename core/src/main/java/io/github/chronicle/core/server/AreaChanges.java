@@ -104,7 +104,6 @@ public final class AreaChanges {
     private AreaChanges(){}
 
     public static void register(){
-        CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->commands(dispatcher));
         ServerLifecycleEvents.SERVER_STARTING.register(server->adaptersFrozen=true);
         ServerLifecycleEvents.SERVER_STARTED.register(AreaChanges::start);
         ServerLifecycleEvents.SERVER_STOPPED.register(server->WORLDS.remove(server));
@@ -179,7 +178,7 @@ public final class AreaChanges {
         if(state==null)throw new IllegalArgumentException("Initial Area state is required.");
         if(!AuthoringRuntime.editable(server))throw new IllegalStateException("Creating an Area change requires non-active Editing.");
         AuthoringRuntime authoring=AuthoringRuntime.get(server);authoring.selection(player.getUuid());
-        if(authoring.regionDraft(player.getUuid()).isPresent())throw new IllegalStateException("An ordinary Region draft is active. Save it, or disable and re-enable author mode before creating an Area change.");
+        if(authoring.regionDraft(player.getUuid()).isPresent())throw new IllegalStateException("An ordinary Region draft is active. Save it, or disable and re-enable Editing before creating an Area change.");
         if(runtime.drafts.containsKey(player.getUuid()))throw new IllegalStateException("An Area change draft is already active.");
         creationCapacity(runtime,authoring);
         String id=requestedId==null?nextId(runtime,authoring,name):requestedId;
@@ -189,7 +188,7 @@ public final class AreaChanges {
         runtime.drafts.put(player.getUuid(),draft);
         authoring.selection(player.getUuid(),new AuthoringRuntime.Selection(draft.dimension,null,null));AuthoringRuntime.clearPreview(player);draft.presentationEpoch=authoring.presentationEpoch(player.getUuid());
         draft.tool=issueTool(player,draft.token);
-        player.sendMessage(Text.literal("Area change '"+draft.name+"' started with "+state+". Left-click with the Debug shovel for position 1 and right-click for position 2, or use /chronicles author region pos1 and pos2. Then use /chronicle region save."),false);
+        player.sendMessage(Text.literal("Saved-state Region '"+draft.name+"' started with "+state+". Left-click with the Debug shovel for position 1 and right-click for position 2, or use /chronicle regions pos1 and pos2. Then use /chronicle regions save."),false);
         if(draft.tool==null)player.sendMessage(Text.literal("No safe inventory slot was available for the Debug shovel. Position commands still work; free a slot and restart the draft if you want the tool."),false);
         return draft.view(false);
     }
@@ -355,27 +354,9 @@ public final class AreaChanges {
     private static void creationCapacity(Runtime r,AuthoringRuntime authoring){if(r.catalog.state().areas().size()>=AreaCatalog.MAX_AREAS)throw new IllegalStateException("The Area definition limit is reached.");if(authoring.service().state().sites().size()>=io.github.chronicle.core.authoring.AuthoringRegistry.MAX_SITES)throw new IllegalStateException("The Core Region/location registry is full.");}
     private static void validateNewId(Runtime r,AuthoringRuntime a,String id){if(id==null||!AuthoringSite.ID.matcher(id).matches())throw new IllegalArgumentException("Area ID must match "+AuthoringSite.ID.pattern());if(r.catalog.state().areas().containsKey(id)||r.catalog.state().tombstones().contains(id)||a.service().state().sites().containsKey(id)||draftIdUsed(r,id))throw new IllegalStateException("Area/Region ID is already used or retired: "+id);}
 
-    private static void commands(CommandDispatcher<ServerCommandSource> dispatcher){
-        for(String root:List.of("chronicle","chronicles")){
-            var beginNode=literal("begin")
-                    .then(literal("start").then(argument("name",StringArgumentType.greedyString()).executes(c->command(c.getSource(),()->"Area draft "+begin(c.getSource(),StringArgumentType.getString(c,"name"),AreaState.START).id()+" started."))))
-                    .then(literal("end").then(argument("name",StringArgumentType.greedyString()).executes(c->command(c.getSource(),()->"Area draft "+begin(c.getSource(),StringArgumentType.getString(c,"name"),AreaState.END).id()+" started."))));
-            var captureNode=literal("capture").then(argument("id",StringArgumentType.string())
-                    .then(literal("start").then(argument("revision",LongArgumentType.longArg(1)).executes(c->command(c.getSource(),()->"Area recapture "+captureCurrent(c.getSource(),StringArgumentType.getString(c,"id"),AreaState.START,LongArgumentType.getLong(c,"revision"))+" started."))))
-                    .then(literal("end").then(argument("revision",LongArgumentType.longArg(1)).executes(c->command(c.getSource(),()->"Area recapture "+captureCurrent(c.getSource(),StringArgumentType.getString(c,"id"),AreaState.END,LongArgumentType.getLong(c,"revision"))+" started.")))));
-            var change=literal("change").then(beginNode)
-                    .then(literal("save").executes(c->command(c.getSource(),()->"Area capture "+saveDraft(c.getSource())+" started.")))
-                    .then(literal("cancel").executes(c->command(c.getSource(),()->{cancel(c.getSource());return"Area draft cancelled.";})))
-                    .then(captureNode);
-            dispatcher.register(literal(root).then(literal("area").then(change)));
-        }
-    }
-    private static int command(ServerCommandSource source,Command action){try{String result=action.run();source.sendFeedback(()->Text.literal(result),false);return 1;}catch(IOException exception){ChronicleCore.LOGGER.error("Area change command persistence failed",exception);source.sendError(Text.literal("Area change could not be saved; previous definitions remain authoritative. Check the server log."));}catch(RuntimeException exception){source.sendError(Text.literal(safe(exception.getMessage())));}return 0;}
-
     public record DraftView(UUID token,String id,String name,AreaState firstState,String dimension,BlockPosition first,BlockPosition second,boolean toolIssued,boolean capturing){}
     public record CaptureData(String blockEntityNbt){}
     @FunctionalInterface public interface CaptureAdapter{CaptureData capture(MinecraftServer server,ServerWorld world,BlockPos pos,BlockState state,BlockEntity blockEntity);}
-    @FunctionalInterface private interface Command{String run()throws IOException;}
     private enum JobStage{CAPTURE,VERIFY}private enum IntentStage{PREPARED,REGION_SAVED}
 
     private static final class Runtime{final AreaCatalogService catalog;final AreaSnapshotStore snapshots;final AreaOperationService operations;final IntentStore intentStore;final Map<UUID,Draft>drafts=new HashMap<>();final Map<UUID,CaptureIntent>intents=new LinkedHashMap<>();CaptureJob job;String publishingRegion;Runtime(AreaCatalogService c,AreaSnapshotStore s,AreaOperationService o,IntentStore i){catalog=c;snapshots=s;operations=o;intentStore=i;}}

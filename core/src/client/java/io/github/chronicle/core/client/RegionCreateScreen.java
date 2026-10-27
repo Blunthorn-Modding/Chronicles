@@ -60,7 +60,7 @@ final class RegionCreateScreen extends Screen {
         int w = Math.min(380, width - 24), x = (width - w) / 2, y = Math.max(12, (height - 186) / 2);
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("popup/background"), x - 8, y - 8, w + 16, 186);
         context.drawTextWithShadow(textRenderer, title, x, y, 0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth("Choose two corners, then /chronicle region save.", w)), x, y + 15, 0xFFA0A0A0);
+        context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth("Choose two corners, then /chronicle regions save.", w)), x, y + 15, 0xFFA0A0A0);
         context.drawTextWithShadow(textRenderer, Text.literal("Region name"), x, y + 27, 0xFFCCCCCC);
         if (savedStates) context.drawTextWithShadow(textRenderer, Text.literal("Capture this state when saving:"), x, y + 92, 0xFFCCCCCC);
         if (!error.isBlank()) context.drawTextWithShadow(textRenderer, Text.literal(error), x, y + 128, 0xFFFF9966);

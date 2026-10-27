@@ -2,13 +2,16 @@ package io.github.chronicle.core.server;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
-import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.ChronicleCore;
+import io.github.chronicle.core.areas.AreaState;
+import io.github.chronicle.core.authoring.AuthoringCatalog;
 import io.github.chronicle.core.authoring.AuthoringSite;
 import io.github.chronicle.core.authoring.BlockPosition;
+import io.github.chronicle.core.menu.CoreMenuModel.Action;
+import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import net.minecraft.command.CommandSource;
 import net.minecraft.command.argument.BlockPosArgumentType;
 import net.minecraft.registry.Registries;
@@ -18,9 +21,6 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.HoverEvent;
-import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
@@ -34,66 +34,54 @@ import java.util.concurrent.CompletableFuture;
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
-/** Shared metadata authoring; no terrain, inventories, gameplay flags or spawns are mutated. */
+/** Canonical Region, Location and Editing commands backed by the shared authoring services. */
 public final class AuthoringCommands {
     private AuthoringCommands() { }
 
     public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
-        var author = literal("author").requires(source -> source.hasPermissionLevel(2))
-                .executes(context -> AuthoringUi.open(context.getSource()))
-                .then(literal("menu").executes(context -> menu(context.getSource(), 1))
-                        .then(argument("page", IntegerArgumentType.integer(1)).executes(context -> menu(context.getSource(), IntegerArgumentType.getInteger(context, "page")))))
-                .then(literal("preview").then(literal("hide").executes(context -> run(context.getSource(), runtime -> {
-                    AuthoringRuntime.clearPreview(player(context.getSource()));
-                    return "Authoring preview hidden.";
-                }))))
-                .then(literal("mode")
-                        .then(literal("on").executes(context -> run(context.getSource(), runtime -> {
-                            requireEditable(context.getSource());
-                            runtime.enable(player(context.getSource()).getUuid());
-                            return "Author mode enabled. Select two corners or save a location/block anchor.";
-                        })))
-                        .then(literal("off").executes(context -> run(context.getSource(), runtime -> {
-                            AreaChanges.cancelIfPresent(context.getSource());
-                            runtime.disable(player(context.getSource()).getUuid());
-                            AuthoringRuntime.clearPreview(player(context.getSource()));
-                            return "Author mode disabled; selection cleared.";
-                        }))));
-        var select = literal("select")
-                .then(literal("clear").executes(context -> edit(context.getSource(), runtime -> {
-                    requireNoAreaDraft(context.getSource());
-                    runtime.selection(player(context.getSource()).getUuid(), new AuthoringRuntime.Selection(null, null, null));
-                    AuthoringRuntime.clearPreview(player(context.getSource()));
-                    return "Author selection cleared.";
-                })));
-        for (int corner = 1; corner <= 2; corner++) {
-            final int which = corner;
-            select.then(literal("pos" + corner)
-                    .executes(context -> corner(context.getSource(), which, player(context.getSource()).getBlockPos()))
-                    .then(argument("position", BlockPosArgumentType.blockPos())
-                            .executes(context -> corner(context.getSource(), which, BlockPosArgumentType.getBlockPos(context, "position")))))
-                    .then(literal("target" + corner).executes(context -> run(context.getSource(), runtime -> {
-                        var source = context.getSource();
-                        requireEditor(source, runtime);
-                        return setCorner(source, runtime, which, target(source));
-                    })));
-        }
-        author.then(select);
+        var regions = literal("regions").requires(AuthoringCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.REGIONS));
+        regions.then(literal("create").requires(AuthoringCommands::isGm)
+                        .then(argument("name", StringArgumentType.string())
+                                .executes(context -> regionBegin(context.getSource(), StringArgumentType.getString(context, "name"), null))
+                                .then(literal("states")
+                                        .then(literal("start").executes(context -> regionBegin(context.getSource(), StringArgumentType.getString(context, "name"), AreaState.START)))
+                                        .then(literal("end").executes(context -> regionBegin(context.getSource(), StringArgumentType.getString(context, "name"), AreaState.END))))))
+                .then(literal("edit").requires(AuthoringCommands::isGm)
+                        .executes(context -> edit(context.getSource(), runtime -> {
+                            var draft = runtime.resumeRegionDraft(player(context.getSource()));
+                            return "Resumed Region draft " + draft.id() + "; its outline is visible.";
+                        })).then(argument("id", StringArgumentType.string())
+                                .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, true, builder))
+                                .executes(context -> edit(context.getSource(), runtime -> {
+                                    var draft = runtime.resumeRegionDraft(player(context.getSource()), id(context));
+                                    return "Editing Region " + draft.id() + "; both saved corners are loaded and its outline is visible.";
+                                }))))
+                .then(regionPosition("pos1", 1))
+                .then(regionPosition("pos2", 2))
+                .then(literal("save").requires(AuthoringCommands::isGm)
+                        .executes(context -> regionSave(context.getSource(), false))
+                        .then(literal("confirm").executes(context -> regionSave(context.getSource(), true))))
+                .then(literal("cancel").requires(AuthoringCommands::isGm)
+                        .executes(context -> regionCancel(context.getSource())))
+                .then(literal("preview").requires(AuthoringCommands::isGm)
+                        .then(argument("id", StringArgumentType.string())
+                                .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, true, builder))
+                                .executes(context -> preview(context.getSource(), id(context), AuthoringCatalog.Kind.REGION))))
+                .then(literal("list").requires(AuthoringCommands::isGm)
+                        .executes(context -> list(context.getSource(), AuthoringCatalog.Kind.REGION)))
+                .then(literal("remove").requires(AuthoringCommands::isGm)
+                        .then(argument("id", StringArgumentType.string())
+                                .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, true, builder))
+                                .executes(context -> remove(context.getSource(), id(context), AuthoringCatalog.Kind.REGION))))
+                .then(literal("validate").requires(AuthoringCommands::isGm).executes(context -> validateSites(context.getSource(),AuthoringCatalog.Kind.REGION)))
+                .then(regionStates());
+
+        var locations = literal("locations").requires(AuthoringCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.LOCATIONS));
+        var points = literal("points").requires(AuthoringCommands::isGm);
+        var blocks = literal("blocks").requires(AuthoringCommands::isGm);
         for (boolean replace : new boolean[]{false, true}) {
-            String verb = replace ? "replace" : "save";
-            // Merges into the same region/location/block nodes through Brigadier.
-            author.then(literal("region").then(literal(verb).then(argument("id", StringArgumentType.string())
-                    .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, replace, builder))
-                    .executes(context -> edit(context.getSource(), runtime -> {
-                        var source = context.getSource();
-                        requireNoAreaDraft(source);
-                        var selected = runtime.selection(player(source).getUuid());
-                        if (selected.first() == null || selected.second() == null) throw new IllegalStateException("Select both corners first.");
-                        var site = new AuthoringSite.Region(id(context), selected.dimension(), 1, selected.first(), selected.second());
-                        validateWritable(source, site);
-                        return persist(source, runtime, site, replace);
-                    })))));
-            author.then(literal("location").then(literal(verb).then(argument("id", StringArgumentType.string())
+            String pointVerb = replace ? "replace" : "save";
+            points.then(literal(pointVerb).then(argument("id", StringArgumentType.string())
                     .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.LOCATION, replace, builder))
                     .then(literal("here").executes(context -> edit(context.getSource(), runtime -> {
                         var source = context.getSource();
@@ -102,8 +90,8 @@ public final class AuthoringCommands {
                                 player.getX(), player.getY(), player.getZ(), player.getYaw(), player.getPitch());
                         validateWritable(source, site);
                         return persist(source, runtime, site, replace);
-                    }))))));
-            author.then(literal("block").then(literal(replace ? "replace" : "bind").then(argument("id", StringArgumentType.string())
+                    })))));
+            blocks.then(literal(replace ? "replace" : "bind").then(argument("id", StringArgumentType.string())
                     .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.BLOCK, replace, builder))
                     .then(literal("target").executes(context -> edit(context.getSource(), runtime -> {
                         var source = context.getSource();
@@ -112,102 +100,100 @@ public final class AuthoringCommands {
                         var site = new AuthoringSite.Anchor(id(context), dimension(source), 1, position(target), expected);
                         validateWritable(source, site);
                         return persist(source, runtime, site, replace);
-                    }))))));
+                    })))));
         }
-        // CF-10 region draft grammar.  The legacy save/replace <id> commands above remain
-        // available; these commands make a named draft explicit so the menu can resume it.
-        var regions = literal("region")
-                .executes(context -> run(context.getSource(), runtime -> {
-                    var sites = runtime.service().state().sites().values().stream()
-                            .filter(site -> site instanceof AuthoringSite.Region).map(AuthoringSite::id).toList();
-                    return "Regions=" + sites.size() + (sites.isEmpty() ? ". Select pos1 and pos2, then use region create <id>."
-                            : ": " + String.join(", ", sites));
-                }))
-                .then(literal("list").executes(context -> run(context.getSource(), runtime -> {
-                    var sites = runtime.service().state().sites().values().stream()
-                            .filter(site -> site instanceof AuthoringSite.Region).map(AuthoringSite::id).toList();
-                    return "Regions=" + sites.size() + (sites.isEmpty() ? "." : ": " + String.join(", ", sites));
+        locations.then(points).then(blocks)
+                .then(literal("preview").requires(AuthoringCommands::isGm)
+                        .then(argument("id", StringArgumentType.string()).suggests(AuthoringCommands::suggestLocations)
+                                .executes(context -> preview(context.getSource(), id(context), null))))
+                .then(literal("remove").requires(AuthoringCommands::isGm)
+                        .then(argument("id", StringArgumentType.string()).suggests(AuthoringCommands::suggestLocations)
+                                .executes(context -> remove(context.getSource(), id(context), null))))
+                .then(literal("list").requires(AuthoringCommands::isGm)
+                        .executes(context -> list(context.getSource(), null))
+                        .then(literal("points").executes(context -> list(context.getSource(), AuthoringCatalog.Kind.LOCATION)))
+                        .then(literal("blocks").executes(context -> list(context.getSource(), AuthoringCatalog.Kind.BLOCK))))
+                .then(literal("validate").requires(AuthoringCommands::isGm)
+                        .executes(context -> validateSites(context.getSource(), null))
+                        .then(literal("points").executes(context -> validateSites(context.getSource(), AuthoringCatalog.Kind.LOCATION)))
+                        .then(literal("blocks").executes(context -> validateSites(context.getSource(), AuthoringCatalog.Kind.BLOCK))));
+
+        var editing = literal("editing").requires(AuthoringCommands::isGm)
+                .then(literal("on").requires(AuthoringCommands::isGm).executes(context -> run(context.getSource(), runtime -> {
+                    requireEditable(context.getSource());
+                    runtime.enable(player(context.getSource()).getUuid());
+                    return "Editing enabled. Select a Region, Point or Block site from its canonical family.";
                 })))
-                .then(literal("pos1").executes(context -> regionCorner(context.getSource(), 1, player(context.getSource()).getBlockPos()))
-                        .then(argument("position", BlockPosArgumentType.blockPos()).executes(context -> regionCorner(context.getSource(), 1,
-                                BlockPosArgumentType.getBlockPos(context, "position")))))
-                .then(literal("pos2").executes(context -> regionCorner(context.getSource(), 2, player(context.getSource()).getBlockPos()))
-                        .then(argument("position", BlockPosArgumentType.blockPos()).executes(context -> regionCorner(context.getSource(), 2,
-                                BlockPosArgumentType.getBlockPos(context, "position")))))
-                .then(literal("create").then(argument("id", StringArgumentType.string())
-                        .executes(context -> edit(context.getSource(), runtime -> {
-                            var draft = runtime.beginRegionDraft(player(context.getSource()), id(context));
-                            return "Region draft " + draft.id() + " opened. Set pos1 and pos2, then use region save.";
-                        }))))
-                .then(literal("edit").executes(context -> edit(context.getSource(), runtime -> {
-                    var draft = runtime.resumeRegionDraft(player(context.getSource()));
-                    return "Resumed region draft " + draft.id() + "; its outline is visible.";
-                })).then(argument("id", StringArgumentType.string())
-                        .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, true, builder))
-                        .executes(context -> edit(context.getSource(), runtime -> {
-                            var draft = runtime.resumeRegionDraft(player(context.getSource()), id(context));
-                            return "Editing region " + draft.id() + "; both saved corners are loaded and its outline is visible.";
-                        }))))
-                .then(literal("save").executes(context -> edit(context.getSource(), runtime -> {
-                    var saved = runtime.saveRegionDraft(player(context.getSource()));
-                    log(context.getSource(), "save-region-draft", saved.id(), saved.revision());
-                    return "Saved " + describe(saved) + ".";
-                })))
-                .then(literal("selection").then(literal("show").executes(context -> run(context.getSource(), runtime -> {
-                    var selected = runtime.selection(player(context.getSource()).getUuid());
-                    return selected.dimension() == null ? "No region positions selected." : "Selected positions in " + selected.dimension()
-                            + ": pos1=" + selected.first() + "; pos2=" + selected.second() + ".";
-                }))).then(literal("clear").executes(context -> edit(context.getSource(), runtime -> {
-                    requireNoAreaDraft(context.getSource());
-                    runtime.selection(player(context.getSource()).getUuid(), new AuthoringRuntime.Selection(null, null, null));
+                .then(literal("off").requires(AuthoringCommands::isGm).executes(context -> run(context.getSource(), runtime -> {
+                    AreaChanges.cancelIfPresent(context.getSource());
+                    runtime.disable(player(context.getSource()).getUuid());
                     AuthoringRuntime.clearPreview(player(context.getSource()));
-                    return "Region positions cleared.";
-                }))));
-        author.then(regions);
-        author.then(literal("list").executes(context -> run(context.getSource(), runtime -> {
-            var state = runtime.service().state();
-            return "Authoring revision=" + state.revision() + "; sites=" + state.sites().size() + ": "
-                    + String.join(", ", state.sites().keySet());
-        })));
-        author.then(literal("show").then(argument("id", StringArgumentType.string())
-                .suggests((context, builder) -> {
-                    try { return suggestValues(AuthoringRuntime.get(context.getSource().getServer()).service().state().sites().keySet(), builder); }
-                    catch (IllegalStateException exception) { return builder.buildFuture(); }
-                })
-                .executes(context -> run(context.getSource(), runtime -> {
-                    var site = site(runtime, id(context));
-                    var player = context.getSource().getPlayer();
-                    if (player != null) runtime.preview(player, site);
-                    return describe(site) + "; validation=" + validate(context.getSource(), site) + ".";
-                }))));
-        author.then(literal("remove").then(argument("id", StringArgumentType.string())
-                .suggests((context, builder) -> suggest(context.getSource(), null, true, builder))
-                .executes(context -> edit(context.getSource(), runtime -> {
-                    requireNoAreaDraft(context.getSource());
-                    runtime.service().remove(id(context));
-                    AuthoringRuntime.clearPreview(player(context.getSource()));
-                    log(context.getSource(), "remove", id(context), runtime.service().state().revision());
-                    return "Removed authoring site " + id(context) + "; revision=" + runtime.service().state().revision() + ".";
-                }))));
-        author.then(literal("validate").executes(context -> run(context.getSource(), runtime -> {
-            int valid = 0, invalid = 0, unresolved = 0;
-            for (var site : runtime.service().state().sites().values()) {
-                String result = validate(context.getSource(), site);
-                if (result.equals("valid")) valid++;
-                else if (result.startsWith("unresolved")) unresolved++;
-                else invalid++;
-                if (!result.equals("valid") && invalid + unresolved <= 20) {
-                    String line = site.id() + ": " + result;
-                    context.getSource().sendFeedback(() -> Text.literal(line), false);
-                }
-            }
-            return "Authoring validation: valid=" + valid + "; invalid=" + invalid + "; unresolved=" + unresolved + ".";
-        })));
-        dispatcher.register(literal("chronicle").then(author));
+                    return "Editing disabled; selection cleared.";
+                })));
+
+        editing.then(literal("preview").then(literal("hide").executes(context->run(context.getSource(),runtime->{AuthoringRuntime.clearPreview(player(context.getSource()));return "Authoring preview hidden.";}))));
+        dispatcher.register(literal("chronicle").then(regions).then(locations).then(editing));
     }
 
-    private static int corner(ServerCommandSource source, int which, BlockPos position) {
-        return edit(source, runtime -> { requireNoAreaDraft(source); return setCorner(source, runtime, which, position); });
+    private static LiteralArgumentBuilder<ServerCommandSource> regionPosition(String name, int corner) {
+        return literal(name).requires(AuthoringCommands::isGm)
+                .executes(context -> regionCorner(context.getSource(), corner, player(context.getSource()).getBlockPos()))
+                .then(argument("position", BlockPosArgumentType.blockPos()).executes(context ->
+                        regionCorner(context.getSource(), corner, BlockPosArgumentType.getBlockPos(context, "position"))));
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> regionStates() {
+        return literal("states").requires(AuthoringCommands::isGm)
+                .then(literal("recover").then(argument("region",StringArgumentType.string()).suggests((c,b)->suggest(c.getSource(),AuthoringCatalog.Kind.REGION,true,b)).executes(c->CoreMenuServer.executeCommand(c.getSource(),Action.AREA_RECOVER,Page.REGIONS,StringArgumentType.getString(c,"region"),""))))
+                .then(stateAction("capture", Action.AREA_CAPTURE_REVIEW, Action.AREA_CAPTURE, false))
+                .then(stateAction("apply", Action.AREA_APPLY_REVIEW, Action.AREA_APPLY, false))
+                .then(stateAction("remove", Action.AREA_DELETE_REVIEW, Action.AREA_DELETE, true));
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> stateAction(String name, Action review, Action confirm, boolean unchanged) {
+        return literal(name)
+                .then(stateDecision("review", review, unchanged))
+                .then(stateDecision("confirm", confirm, unchanged));
+    }
+
+    private static LiteralArgumentBuilder<ServerCommandSource> stateDecision(String name, Action action, boolean unchanged) {
+        var region = argument("region", StringArgumentType.string())
+                .suggests((context, builder) -> suggest(context.getSource(), AuthoringCatalog.Kind.REGION, true, builder));
+        region.then(literal("start").executes(context -> state(context.getSource(), action, context, "start")))
+                .then(literal("end").executes(context -> state(context.getSource(), action, context, "end")));
+        if (unchanged) region.then(literal("unchanged").executes(context -> state(context.getSource(), action, context, "unchanged")));
+        return literal(name).then(region);
+    }
+
+    private static int state(ServerCommandSource source, Action action,
+                             com.mojang.brigadier.context.CommandContext<ServerCommandSource> context, String state) {
+        return CoreMenuServer.executeCommand(source, action, Page.REGIONS, StringArgumentType.getString(context, "region"), state);
+    }
+
+    private static int regionBegin(ServerCommandSource source, String name, AreaState initial) {
+        return run(source, runtime -> checkedBegin(source, name, initial));
+    }
+
+    private static String checkedBegin(ServerCommandSource source, String name, AreaState initial) throws IOException {
+        try { return "Region selection " + RegionAuthoringWorkflow.begin(source, name, initial) + " opened. Set pos1 and pos2, then save."; }
+        catch (IOException exception) { throw exception; }
+        catch (RuntimeException exception) { throw exception; }
+        catch (Exception exception) { throw new IllegalStateException("Region selection could not start.", exception); }
+    }
+
+    private static int regionSave(ServerCommandSource source, boolean confirm) {
+        return run(source, runtime -> checkedSave(source, confirm));
+    }
+
+    private static String checkedSave(ServerCommandSource source, boolean confirm) throws IOException {
+        try { return RegionAuthoringWorkflow.save(source, confirm); }
+        catch (IOException exception) { throw exception; }
+        catch (RuntimeException exception) { throw exception; }
+        catch (Exception exception) { throw new IllegalStateException("Region save failed.", exception); }
+    }
+
+    private static int regionCancel(ServerCommandSource source) {
+        return run(source, runtime -> RegionAuthoringWorkflow.cancel(source));
     }
 
     private static int regionCorner(ServerCommandSource source, int which, BlockPos position) {
@@ -215,38 +201,79 @@ public final class AuthoringCommands {
             var player = player(source);
             if (AreaChanges.hasDraft(source.getServer(), player.getUuid())) {
                 var draft = AreaChanges.setDraftCorner(player, which, position(position));
-                return "Set Area change " + draft.name() + " position " + which + " at " + coordinates(position(position)) + ".";
+                return "Set saved-state Region " + draft.name() + " position " + which + " at " + coordinates(position(position)) + ".";
             }
-            if (runtime.regionDraft(player.getUuid()).isPresent()) {
-                var draft = runtime.setRegionDraftCorner(player, which, position(position));
-                return "Set region draft " + draft.id() + " position " + which + " at " + coordinates(position(position)) + ".";
-            }
-            return setCorner(source, runtime, which, position);
+            if (runtime.regionDraft(player.getUuid()).isEmpty()) throw new IllegalStateException("No Region selection is open; use regions create or edit first.");
+            var draft = runtime.setRegionDraftCorner(player, which, position(position));
+            return "Set Region draft " + draft.id() + " position " + which + " at " + coordinates(position(position)) + ".";
         });
     }
 
-    private static String setCorner(ServerCommandSource source, AuthoringRuntime runtime, int which, BlockPos block) {
-        var player = player(source);
-        var old = runtime.selection(player.getUuid());
-        String dimension = dimension(source);
-        if (old.dimension() != null && !old.dimension().equals(dimension)) {
-            throw new IllegalStateException("Selection is in another dimension; clear it first.");
+    private static int preview(ServerCommandSource source, String id, AuthoringCatalog.Kind kind) {
+        return run(source, runtime -> {
+            var site = typedSite(runtime, id, kind);
+            runtime.preview(player(source), site);
+            return describe(site) + "; validation=" + validate(source, site) + ".";
+        });
+    }
+
+    private static int remove(ServerCommandSource source, String id, AuthoringCatalog.Kind kind) {
+        return edit(source, runtime -> {
+            requireNoAreaDraft(source);
+            var site = typedSite(runtime, id, kind);
+            if (site instanceof AuthoringSite.Region && AreaChanges.forRegion(source.getServer(), id).isPresent()) {
+                throw new IllegalStateException("Remove Saved states before deleting this Region.");
+            }
+            runtime.service().remove(id);
+            AuthoringRuntime.clearPreview(player(source));
+            log(source, "remove", id, runtime.service().state().revision());
+            return "Removed " + describe(site) + "; authoring revision=" + runtime.service().state().revision() + ".";
+        });
+    }
+
+    private static int list(ServerCommandSource source, AuthoringCatalog.Kind kind) {
+        return run(source, runtime -> {
+            var sites = runtime.service().state().sites().values().stream().filter(site -> matches(site, kind)).map(AuthoringSite::id).toList();
+            String label = kind == AuthoringCatalog.Kind.REGION ? "Regions" : kind == AuthoringCatalog.Kind.LOCATION ? "Points" : kind == AuthoringCatalog.Kind.BLOCK ? "Block sites" : "Locations";
+            return label + "=" + sites.size() + (sites.isEmpty() ? "." : ": " + String.join(", ", sites));
+        });
+    }
+
+    private static int validateSites(ServerCommandSource source, AuthoringCatalog.Kind kind) {
+        return run(source, runtime -> {
+            int valid = 0, invalid = 0, unresolved = 0;
+            for (var site : runtime.service().state().sites().values()) {
+                if (!matches(site, kind)) continue;
+                String result = validate(source, site);
+                if (result.equals("valid")) valid++;
+                else if (result.startsWith("unresolved")) unresolved++;
+                else invalid++;
+                if (!result.equals("valid") && invalid + unresolved <= 20) {
+                    String line = site.id() + ": " + result;
+                    source.sendFeedback(() -> Text.literal(line), false);
+                }
+            }
+            return "Location validation: valid=" + valid + "; invalid=" + invalid + "; unresolved=" + unresolved + ".";
+        });
+    }
+
+    private static boolean matches(AuthoringSite site, AuthoringCatalog.Kind kind) {
+        if (kind != null) return kind.accepts(site);
+        return site instanceof AuthoringSite.Location || site instanceof AuthoringSite.Anchor;
+    }
+
+    private static AuthoringSite typedSite(AuthoringRuntime runtime, String id, AuthoringCatalog.Kind kind) {
+        var site = runtime.service().state().sites().get(id);
+        if (site == null || !matches(site, kind)) {
+            String label = kind == AuthoringCatalog.Kind.REGION ? "Region" : kind == AuthoringCatalog.Kind.LOCATION ? "Point" : kind == AuthoringCatalog.Kind.BLOCK ? "Block site" : "Location";
+            throw new IllegalArgumentException("Unknown " + label + ": " + id);
         }
-        checkBounds(source.getWorld(), block);
-        var selected = new AuthoringRuntime.Selection(dimension, which == 1 ? position(block) : old.first(), which == 2 ? position(block) : old.second());
-        runtime.selection(player.getUuid(), selected);
-        if (selected.first() != null && selected.second() != null) {
-            runtime.preview(player, new AuthoringSite.Region("selection", dimension, 1, selected.first(), selected.second()));
-        }
-        return "Selected corner " + which + " at " + block.getX() + " " + block.getY() + " " + block.getZ() + " in " + dimension + ".";
+        return site;
     }
 
     private static String persist(ServerCommandSource source, AuthoringRuntime runtime, AuthoringSite site, boolean replace) throws IOException {
         ChronicleCore.authoring().validate(site);
-        if(site instanceof AuthoringSite.Region proposed&&runtime.service().state().sites().get(site.id()) instanceof AuthoringSite.Region existing
-                &&!AuthoringRuntime.sameGeometry(existing,proposed)&&AreaChanges.forRegion(source.getServer(),site.id()).isPresent())
-            throw new IllegalStateException("Saved states require a bounds review. Use /chronicle author region edit "+site.id()+", change the corners, then /chronicle region save and /chronicle region save confirm.");
-        var saved = replace&&site instanceof AuthoringSite.Region proposed&&runtime.service().state().sites().get(site.id()) instanceof AuthoringSite.Region existing&&AuthoringRuntime.sameGeometry(existing,proposed)?existing:runtime.service().put(site, replace);
+        var saved = runtime.service().put(site, replace);
         log(source, replace ? "replace" : "save", saved.id(), saved.revision());
         runtime.preview(player(source), saved);
         return "Saved " + describe(saved) + ".";
@@ -258,7 +285,7 @@ public final class AuthoringCommands {
     }
 
     private static String describe(AuthoringSite site) {
-        String type = site instanceof AuthoringSite.Region ? "region" : site instanceof AuthoringSite.Location ? "location" : "block";
+        String type = site instanceof AuthoringSite.Region ? "Region" : site instanceof AuthoringSite.Location ? "Point" : "Block site";
         String details;
         if (site instanceof AuthoringSite.Region region) {
             details = "from=" + coordinates(region.min()) + "; to=" + coordinates(region.max()) + "; volume=" + region.volume();
@@ -271,17 +298,11 @@ public final class AuthoringCommands {
         return type + " " + site.id() + "; revision=" + site.revision() + "; dimension=" + site.dimension() + "; " + details;
     }
 
-    private static String coordinates(BlockPosition p) { return p.x() + " " + p.y() + " " + p.z(); }
-    private static BlockPosition position(BlockPos p) { return new BlockPosition(p.getX(), p.getY(), p.getZ()); }
-    private static BlockPos block(BlockPosition p) { return new BlockPos(p.x(), p.y(), p.z()); }
+    private static String coordinates(BlockPosition position) { return position.x() + " " + position.y() + " " + position.z(); }
+    private static BlockPosition position(BlockPos position) { return new BlockPosition(position.getX(), position.getY(), position.getZ()); }
+    private static BlockPos block(BlockPosition position) { return new BlockPos(position.x(), position.y(), position.z()); }
     private static String dimension(ServerCommandSource source) { return source.getWorld().getRegistryKey().getValue().toString(); }
     private static String id(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context) { return StringArgumentType.getString(context, "id"); }
-
-    private static AuthoringSite site(AuthoringRuntime runtime, String id) {
-        var site = runtime.service().state().sites().get(id);
-        if (site == null) throw new IllegalArgumentException("Unknown authoring site: " + id);
-        return site;
-    }
 
     private static void validateWritable(ServerCommandSource source, AuthoringSite site) {
         String result = validate(source, site);
@@ -318,7 +339,6 @@ public final class AuthoringCommands {
         var player = player(source);
         var start = player.getEyePos();
         var end = start.add(player.getRotationVec(1).multiply(6));
-        // Do not raycast through a chunk that is not already available.
         for (int sample = 0; sample <= 24; sample++) {
             var pos = BlockPos.ofFloored(start.lerp(end, sample / 24.0));
             if (!source.getWorld().getChunkManager().isChunkLoaded(pos.getX() >> 4, pos.getZ() >> 4)) {
@@ -334,11 +354,15 @@ public final class AuthoringCommands {
         if (source.getPlayer() == null) throw new IllegalStateException("This authoring command requires a player.");
         return source.getPlayer();
     }
+
+    private static boolean isGm(ServerCommandSource source) { return source.hasPermissionLevel(2); }
+
     private static void requireEditable(ServerCommandSource source) {
-        if (!AuthoringRuntime.editable(source.getServer())) throw new IllegalStateException("Authoring edits require a non-active, available Chronicle session.");
+        if (!AuthoringRuntime.editable(source.getServer())) throw new IllegalStateException("Editing requires a non-active, available Chronicle session.");
     }
+
     private static void requireNoAreaDraft(ServerCommandSource source) {
-        if (AreaChanges.hasDraft(source.getServer(), player(source).getUuid())) throw new IllegalStateException("An Area change draft is active. Use /chronicle area change save or cancel it first.");
+        if (AreaChanges.hasDraft(source.getServer(), player(source).getUuid())) throw new IllegalStateException("A saved-state Region draft is active. Use /chronicle regions save or cancel it first.");
     }
 
     private static CompletableFuture<Suggestions> suggest(ServerCommandSource source, AuthoringCatalog.Kind kind, boolean existing, SuggestionsBuilder builder) {
@@ -346,61 +370,33 @@ public final class AuthoringCommands {
             var sites = AuthoringRuntime.get(source.getServer()).service().state().sites();
             var choices = existing ? sites.values().stream().filter(site -> kind == null || kind.accepts(site)).map(AuthoringSite::id).toList()
                     : ChronicleCore.authoring().roles().stream().filter(role -> role.kind() == kind && !sites.containsKey(role.id())).map(AuthoringCatalog.Role::id).toList();
-            return suggestValues(choices, builder);
+            return CommandSource.suggestMatching(choices, builder);
         } catch (IllegalStateException exception) { return builder.buildFuture(); }
     }
 
-    private static int menu(ServerCommandSource source, int page) {
-        return run(source, runtime -> {
-            source.sendFeedback(() -> Text.literal("Authoring: select corners, then choose a registered place. Click an action and press Enter.").formatted(Formatting.GOLD), false);
-            source.sendFeedback(() -> Text.empty().append(choice("[Author mode] ", "/chronicle author mode on", "Enter author mode while the session is not active."))
-                    .append(choice("[Corner 1] ", "/chronicle author select target1", "Look at the first corner block within six blocks."))
-                    .append(choice("[Corner 2] ", "/chronicle author select target2", "Look at the second corner block within six blocks."))
-                    .append(choice("[Loot chests] ", "/chronicle author chest", "Look at a container, then choose its loot type."))
-                    .append(choice("[Clear]", "/chronicle author select clear", "Clear the selection and its preview.")), false);
-            var roles = ChronicleCore.authoring().roles();
-            int pages = Math.max(1, (roles.size() + 15) / 16);
-            if (page > pages) throw new IllegalArgumentException("Authoring menu has " + pages + " pages.");
-            for (var role : roles.subList((page - 1) * 16, Math.min(page * 16, roles.size()))) {
-                boolean bound = runtime.service().state().sites().containsKey(role.id());
-                String roleArgument = StringArgumentType.escapeIfRequired(role.id());
-                String command = switch (role.kind()) {
-                    case REGION -> "/chronicle author region " + (bound ? "replace " : "save ") + roleArgument;
-                    case LOCATION -> "/chronicle author location " + (bound ? "replace " : "save ") + roleArgument + " here";
-                    case BLOCK -> "/chronicle author block " + (bound ? "replace " : "bind ") + roleArgument + " target";
-                };
-                source.sendFeedback(() -> Text.literal(role.label() + " (" + role.id() + ") ")
-                        .append(choice(bound ? "[Replace] " : "[Set] ", command, role.description()))
-                        .append(bound ? choice("[Show]", "/chronicle author show " + roleArgument, "Inspect the saved site.") : Text.literal("unbound").formatted(Formatting.GRAY)), false);
-            }
-            if (page < pages) source.sendFeedback(() -> choice("[Next page]", "/chronicle author menu " + (page + 1), "More registered places."), false);
-            return "Authoring menu page " + page + "/" + pages + "; registered roles=" + roles.size() + ".";
-        });
+    private static CompletableFuture<Suggestions> suggestLocations(com.mojang.brigadier.context.CommandContext<ServerCommandSource> context,
+                                                                    SuggestionsBuilder builder) {
+        try {
+            var choices = AuthoringRuntime.get(context.getSource().getServer()).service().state().sites().values().stream()
+                    .filter(site -> site instanceof AuthoringSite.Location || site instanceof AuthoringSite.Anchor).map(AuthoringSite::id).toList();
+            return CommandSource.suggestMatching(choices, builder);
+        } catch (IllegalStateException exception) { return builder.buildFuture(); }
     }
-    private static CompletableFuture<Suggestions> suggestValues(Iterable<String> values, SuggestionsBuilder builder) {
-        String prefix = builder.getRemainingLowerCase();
-        for (String value : values) {
-            String escaped = StringArgumentType.escapeIfRequired(value);
-            if (value.startsWith(prefix) || escaped.startsWith(prefix)) builder.suggest(escaped);
-        }
-        return builder.buildFuture();
-    }
-    private static Text choice(String label, String command, String help) {
-        return Text.literal(label).styled(style -> style.withColor(Formatting.AQUA)
-                .withClickEvent(new ClickEvent.SuggestCommand(command)).withHoverEvent(new HoverEvent.ShowText(Text.literal(help))));
-    }
+
     private static void requireEditor(ServerCommandSource source, AuthoringRuntime runtime) {
-        if(RuntimeHolds.reason(source.getServer())!=null)throw new IllegalStateException("Finish pending Chronicle operations before authoring changes.");
+        if (RuntimeHolds.reason(source.getServer()) != null) throw new IllegalStateException("Finish pending Chronicle operations before authoring changes.");
         requireEditable(source);
         var player = player(source);
         runtime.selection(player.getUuid());
         if (source.getWorld() != player.getEntityWorld()) throw new IllegalStateException("Authoring edits must use the player's actual dimension.");
     }
+
     private static int edit(ServerCommandSource source, Operation operation) {
         return run(source, runtime -> { requireEditor(source, runtime); return operation.run(runtime); });
     }
+
     private static int run(ServerCommandSource source, Operation operation) {
-        if (!source.hasPermissionLevel(2)) { source.sendError(Text.literal("Authoring requires operator permission level 2.")); return 0; }
+        if (!isGm(source)) { source.sendError(Text.literal("Authoring requires operator permission level 2.")); return 0; }
         try {
             String message = operation.run(AuthoringRuntime.get(source.getServer()));
             source.sendFeedback(() -> Text.literal(message), false);
@@ -413,5 +409,6 @@ public final class AuthoringCommands {
         }
         return 0;
     }
+
     @FunctionalInterface private interface Operation { String run(AuthoringRuntime runtime) throws IOException; }
 }

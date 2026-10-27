@@ -92,7 +92,7 @@ public final class AuthoringRuntime {
     }
     public Selection selection(UUID player) {
         var selection = authors.get(player);
-        if (selection == null) throw new IllegalStateException("Enable author mode first: /chronicle author mode on");
+        if (selection == null) throw new IllegalStateException("Enable Editing first: /chronicle editing on");
         return selection;
     }
     public void selection(UUID player, Selection selection) { selection(player); authors.put(player, selection); bump(player); }
@@ -117,7 +117,7 @@ public final class AuthoringRuntime {
         requireEditableAuthor(player);
         requireNoAreaDraft(player);
         if (service.state().sites().containsKey(id)) {
-            throw new IllegalStateException("Region already exists: " + id + "; use region edit " + id + ".");
+            throw new IllegalStateException("Region already exists: " + id + "; use /chronicle regions edit " + id + ".");
         }
         Presentation previous=presentation(player.getUuid());
         Selection selected = selection(player.getUuid());
@@ -169,7 +169,7 @@ public final class AuthoringRuntime {
         requireEditableAuthor(player);
         requireNoAreaDraft(player);
         RegionDraft draft = regionDrafts.get(player.getUuid());
-        if (draft == null) throw new IllegalStateException("No region draft is open; use region edit <id> or region create <id>.");
+        if (draft == null) throw new IllegalStateException("No region draft is open; use /chronicle regions edit <id> or /chronicle regions create <id>.");
         var previous=presentation(player.getUuid());previewRegionDraft(player);RegionAuthoringWorkflow.loan(player,previous);
         return draft;
     }
@@ -195,7 +195,7 @@ public final class AuthoringRuntime {
         var consumers=CoreAreaMenu.consumers(server,states.id());
         boundsReviews.put(player.getUuid(),new BoundsReview(draft,original,states,consumers,service.state().revision(),System.nanoTime()));
         return "Changing this Region's bounds makes both saved states stale. Recapture them before applying or using them. Affected uses: "
-                +String.join(", ",consumers)+". No bounds changed yet. Confirm within 30 seconds with /chronicle region save confirm.";
+                +String.join(", ",consumers)+". No bounds changed yet. Confirm within 30 seconds with /chronicle regions save confirm.";
     }
 
     private void requireBoundsReview(ServerPlayerEntity player,RegionDraft draft,AuthoringSite.Region original) {
@@ -205,7 +205,7 @@ public final class AuthoringRuntime {
         if(review==null||System.nanoTime()-review.createdAt()>30_000_000_000L||!review.draft().equals(draft)
                 ||!review.original().equals(original)||!review.states().equals(states)
                 ||!review.consumers().equals(CoreAreaMenu.consumers(server,states.id()))||review.catalogRevision()!=service.state().revision())
-            throw new IllegalStateException("Review these exact changed bounds first with /chronicle region save, then /chronicle region save confirm.");
+            throw new IllegalStateException("Review these exact changed bounds first with /chronicle regions save, then /chronicle regions save confirm.");
     }
 
     /** Replaces one selected corner only and refreshes the private draft outline. */
@@ -340,13 +340,13 @@ public final class AuthoringRuntime {
     private void requireEditableAuthor(ServerPlayerEntity player) {
         if(RuntimeHolds.reason(player.getEntityWorld().getServer())!=null)throw new IllegalStateException("Finish pending Chronicle operations before editing Region geometry.");
         if (!editable(player.getEntityWorld().getServer())) {
-            throw new IllegalStateException("Authoring edits require a non-active, available Chronicle session.");
+            throw new IllegalStateException("Editing requires a non-active, available Chronicle session.");
         }
         selection(player.getUuid());
     }
 
     private void requireNoAreaDraft(ServerPlayerEntity player){
-        if(AreaChanges.hasDraft(player.getEntityWorld().getServer(),player.getUuid()))throw new IllegalStateException("An Area change draft is active. Save it with /chronicle region save or cancel it with /chronicle region cancel first.");
+        if(AreaChanges.hasDraft(player.getEntityWorld().getServer(),player.getUuid()))throw new IllegalStateException("An Area change draft is active. Save it with /chronicle regions save or cancel it with /chronicle regions cancel first.");
     }
 
     private void bump(UUID player){presentationEpochs.put(player,presentationEpochs.getOrDefault(player,0L)+1);}

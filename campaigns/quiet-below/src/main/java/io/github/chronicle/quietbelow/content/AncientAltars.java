@@ -22,7 +22,8 @@ public final class AncientAltars {
     public static void register() {
         LastingBargains.registerGroup(GROUP,List.of(
                 new LastingBargains.Choice(EXTRA_HEART,"Pray for more life","The altar listens."),
-                new LastingBargains.Choice(MOVEMENT,"Pray for quicker feet","The altar listens.")));
+                new LastingBargains.Choice(MOVEMENT,"Pray for quicker feet","The altar listens.")),
+                new io.github.chronicle.core.network.OfferingPayloads.Presentation("The altar listens...","The altar is quiet.","The altar listens.","One answer has faded.","No answer comes.","The altar falls silent.","The altar remembers."));
     }
     private static AncientAltarBlockEntity physical(ServerWorld world, BlockPos pos) {
         if (!world.isInBuildLimit(pos) || !world.getWorldBorder().contains(pos)) return null;

@@ -1,4 +1,17 @@
-# In-world authoring with Chronicle Core
+# Map authoring
+
+For the current editor, use the [command reference](COMMAND_REFERENCE.md) and [normalization contract](EDITOR_COMMAND_NORMALIZATION.md). Press **O** or `/chronicle` to return to your last page in this connection. Use the direct family command, such as `/chronicle regions`, to open a particular page.
+
+Enable Editing while play is paused or stopped. Use explicit global Building Mode when terrain construction is needed. All Regions use the same Create/edit workflow: temporary Debug shovel, two corner clicks (or `/chronicle regions pos1` and `pos2`), visible bounding box, then `/chronicle regions save` or `cancel`. Saved states is an optional Region subtype. Departure settings remain one popup under a Block site's Location subtypes. These reusable tools belong to Core.
+
+Player Roles, Loot Tables and Chests share one searchable Add item/Add lore book popup. Assigned entries remain on their owning page. Selection alone adds nothing: confirm Add or return with Cancel. Role items support quantities; direct-chest books continue to their chance form. Table edits still require Save, preserving existing components and distributions.
+
+No handcrafted map integration is required for these tools. The scenario supplies named requirements, defaults and special blocks; the organizer chooses actual key locations. Existing saved data and history remain readable.
+
+## Historical implementation notes
+
+The material below records M6?CF10 behavior and retired commands. It is **not the current command guide**; aliases described below are no longer registered. Refer to the current reference above when authoring.
+
 
 **Current dev57 workflow:** press **O** or `/chronicles`, pause play and enable operator **Editing**. All Regions use **Create region** above the list, a private Debug shovel (left-click corner 1/right-click corner 2, or the existing pos1/pos2 commands), then `/chronicle region save`. `/chronicle region cancel` discards the draft. **Edit region** loads the saved bounds and lends the same shovel; either corner can change independently. Movement keeps the private outline visible.
 
@@ -7,7 +20,7 @@ A Region can have independent optional subtypes. **Saved states** adds Start/End
 Supplied blocks register when placed; configure their maximum under **Game setup > Block limits**. **Session > Play controls > Building Mode** explicitly lets everyone build during paused/stopped play while health and hunger remain frozen. Metadata Editing grants no building bypass. Transient operation holds suspend Building Mode and restore it only if the phase did not change; resume, phase changes and restart clear it. Chests/Loot Tables and Books & Lore retain their existing controls. The older sections below describe compatibility commands and historical screens.
 
 
-> Historical CF-10 workflow, superseded by the current workflow above. Press **O** or `/chronicles` for the Core menu. Enable editing while play is non-active. Regions: Create region, enter an ID, Continue in world, use `/chronicles author region pos1` and `pos2` at your feet (or add X Y Z), reopen Regions and save. Edit region loads both saved bounds; either position can be changed independently. Chests binds physical containers; Loot Tables edits distributions with Add item, independent percentage/counts and whole-table save. Locations separates Points and Block sites. Game setup assigns existing geometry to typed game requirements. Players owns participation, starting position and after-death destinations. Actual mod stations and their optional placement registration belong to the later station milestone. See [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md) and [TEST_PLAN](TEST_PLAN.md). The CF-09 section below is historical compatibility documentation; its old commands remain available.
+> Historical CF-10 workflow, superseded by the current workflow above. Press **O** or `/chronicles` for the Core menu. Enable editing while play is non-active. Regions: Create region, enter an ID, Continue in world, use `/chronicles author region pos1` and `pos2` at your feet (or add X Y Z), reopen Regions and save. Edit region loads both saved bounds; either position can be changed independently. Chests binds physical containers; Loot Tables edits distributions with Add item, independent percentage/counts and whole-table save. Locations separates Points and Block sites. Game setup assigns existing geometry to typed game requirements. Players owns participation, starting position and after-death destinations. Actual mod stations and their optional placement registration belong to the later station milestone. See [CF10_IMPLEMENTATION](CF10_IMPLEMENTATION.md) and [TEST_PLAN](TEST_PLAN.md). The CF-09 section below is historical compatibility documentation; its old commands are historical.
 
 Updated 19 October 2026. The operator builds the map and defines its important places **inside that world**. The main workflow is select, name and bind; a world-copy/import pipeline is not a prerequisite. M6 implements geometry/selection, M7 adds typed loot and manual player moves, and CF-09 adds their shared screen. Trigger bindings remain later work. See [M6's exact commands and review checklist](M6_IMPLEMENTATION.md).
 
@@ -21,7 +34,7 @@ For chests, look at a single chest/barrel/shulker, choose a registered loot type
 
 For map sites, choose a registered **Role** and use **Corner 1/2** at your feet or **Target 1/2** for looked-at blocks. Close the screen to walk between corners; reopen to finish the selection and save. Location roles save your current position/facing, block roles bind the looked-at block. **Places** lists saved sites for show/replace/remove. **Spawns** chooses a purpose, saved location and online player, with explicit preview/confirm for an ACTIVE manual move. The **Policies** tab independently enables opt-in first arrival/death respawn per player; see [the policy guide](M7_AUTOMATIC_SPAWNS.md). No entity-group editor is included.
 
-Commands below remain the advanced fallback, including custom IDs and `/chronicle author menu` / `/chronicle author chest types` for the old chat pickers. [CF09_AUTHORING_UI](CF09_AUTHORING_UI.md) describes the implementation and review gate. The operator accepted the screen; review now covers the new M7 policy flow together with the refresh fix.
+The commands below record the former advanced fallback, including custom IDs and `/chronicle author menu` / `/chronicle author chest types` for the old chat pickers. [CF09_AUTHORING_UI](CF09_AUTHORING_UI.md) describes the implementation and review gate. The operator accepted the screen; review now covers the new M7 policy flow together with the refresh fix.
 
 ## Available today
 

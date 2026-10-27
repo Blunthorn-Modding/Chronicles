@@ -33,6 +33,10 @@ public final class ChronicleCommands {
                         .then(literal("on").executes(context -> building(context.getSource(), true)))
                         .then(literal("off").executes(context -> building(context.getSource(), false))))
                 .then(literal("status").executes(context -> status(context.getSource())))
+                .then(literal("history").requires(ChronicleCommands::isGm)
+                        .executes(context -> history(context.getSource(), 20, false))
+                        .then(argument("limit", IntegerArgumentType.integer(1, 50))
+                                .executes(context -> history(context.getSource(), IntegerArgumentType.getInteger(context, "limit"), false))))
                 .then(literal("start").requires(ChronicleCommands::isGm)
                         .executes(context -> start(context.getSource(), null))
                         .then(argument("number", IntegerArgumentType.integer(0, 1_000_000))
@@ -53,7 +57,7 @@ public final class ChronicleCommands {
                     return "Ended Chronicle session " + service.state().sessionNumber() + ".";
                 })));
 
-        var flag = literal("flag").requires(ChronicleCommands::isGm)
+        var flag = literal("flags").requires(ChronicleCommands::isGm)
                 .then(literal("list").executes(context -> query(context.getSource(), service ->
                         "Chronicle flags (" + service.state().flags().size() + "): " + new TreeMap<>(service.state().flags()))))
                 .then(literal("get").then(argument("id", IdentifierArgumentType.identifier())
@@ -71,7 +75,7 @@ public final class ChronicleCommands {
                             });
                         }))));
 
-        var event = literal("event").requires(ChronicleCommands::isGm)
+        var event = literal("events").requires(ChronicleCommands::isGm)
                 .then(literal("list").executes(context -> query(context.getSource(), service ->
                         "Chronicle events (" + ChronicleCore.events().events().size() + "): "
                                 + String.join(", ", ChronicleCore.events().events().stream().map(CampaignEvent::id).toList()))))
@@ -95,13 +99,9 @@ public final class ChronicleCommands {
                         .then(argument("limit", IntegerArgumentType.integer(1, 50))
                                 .executes(context -> history(context.getSource(), IntegerArgumentType.getInteger(context, "limit"), true))));
 
-        dispatcher.register(literal("chronicle")
-                .then(literal("status").executes(context -> status(context.getSource())))
-                .then(session).then(flag).then(event)
-                .then(literal("history").requires(ChronicleCommands::isGm)
-                        .executes(context -> history(context.getSource(), 20, false))
-                        .then(argument("limit", IntegerArgumentType.integer(1, 50))
-                                .executes(context -> history(context.getSource(), IntegerArgumentType.getInteger(context, "limit"), false)))));
+        dispatcher.register(literal("chronicle").then(session)
+                .then(literal("events").requires(ChronicleCommands::isGm).then(flag))
+                .then(literal("debug").requires(ChronicleCommands::isGm).then(event)));
     }
 
     private static boolean isGm(ServerCommandSource source) {

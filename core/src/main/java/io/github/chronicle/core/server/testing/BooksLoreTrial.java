@@ -40,7 +40,7 @@ public final class BooksLoreTrial {
         if (!"true".equals(System.getenv("CHRONICLE_BOOKS_TRIAL"))) return;
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("chronicle_books_trial").requires(s -> s.hasPermissionLevel(2));
-            for (String verb : List.of("prepare", "keep", "cycles", "cursor", "full", "failed", "found", "uncertain", "occupied", "occupied_check", "gift_prepare", "gift_checks", "gift_empty", "gift_first", "gift_repeat", "restart"))
+            for (String verb : List.of("picker_prepare", "picker_empty", "picker_verify", "prepare", "keep", "cycles", "cursor", "full", "failed", "found", "uncertain", "occupied", "occupied_check", "gift_prepare", "gift_checks", "gift_empty", "gift_first", "gift_repeat", "restart"))
                 root.then(literal(verb).executes(c -> run(c.getSource(), verb)));
             dispatcher.register(root);
         });
@@ -69,6 +69,17 @@ public final class BooksLoreTrial {
         try {
             fixture(source); ServerPlayerEntity player = source.getPlayerOrThrow();
             switch (verb) {
+                case "picker_prepare" -> {
+                    var pos=new BlockPos(12,64,4);source.getWorld().setBlockState(pos,Blocks.CHEST.getDefaultState(),3);
+                    var binding=ChestAuthoring.service(source.getServer()).putTypedBinding(TABLE,target(pos),false);
+                    Files.writeString(source.getServer().getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize().getParent().resolve(".books-picker-binding"),binding.id());
+                }
+                case "picker_empty", "picker_verify" -> {
+                    var service=ChestAuthoring.service(source.getServer());String id=Files.readString(source.getServer().getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize().getParent().resolve(".books-picker-binding"));
+                    var book=service.state().bindings().get(id).directBook();
+                    if(verb.equals("picker_empty"))require(book==null,"cancel changed direct chest lore");
+                    else {require(book!=null&&book.bookId().equals("test:editing")&&book.chancePercent()==25,"direct chest Save lost catalog choice or chance");service.removeTypedBinding(id);}
+                }
                 case "prepare" -> prepare(source, player);
                 case "keep" -> keep(source);
                 case "cycles" -> cycles(source);
@@ -103,6 +114,7 @@ public final class BooksLoreTrial {
         require(!ChestAuthoring.service(source.getServer()).state().bookDelivery().deliveries().containsKey(KEPT), "0% unkept book was issued before the keep request");
     }
     private static void keep(ServerCommandSource source) throws Exception {
+        require(!ChestAuthoring.service(source.getServer()).state().bookDelivery().keepRequests().containsKey(KEPT),"cancelled Keep review created a request");
         require(managed(source,FIRST,ONCE)+managed(source,SECOND,ONCE)==1,"Spawn once batch did not issue exactly one managed copy");
         var chest=inventory(source,FIRST);int first=-1,second=-1;for(int i=0;i<chest.size();i++)if(chest.getStack(i).isEmpty()){if(first<0)first=i;else{second=i;break;}}
         require(second>=0,"fixture chest has no space for ordinary preservation proof");

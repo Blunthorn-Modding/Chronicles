@@ -72,10 +72,10 @@ final class EcologyHeartReproSmoke {
         waitFor("saved Heart and stations migrate into physical accounting",()->managedCount("quiet_below:relic_heart")==1&&managedCount("quiet_below:ancient_altar")==1&&managedCount("quiet_below:ancient_forge")==1,20_000);
         step("hold a real iron pickaxe",()->send(client,"give @s minecraft:iron_pickaxe 1"),()->java.util.stream.IntStream.range(0,9).anyMatch(slot->client.player.getInventory().getStack(slot).isIn(net.minecraft.registry.tag.ItemTags.PICKAXES)),20_000);
         if(!"true".equals(RESUME))command(client,"pause copied session for historical-pin checks","chronicle session pause","paused");
-        command(client,"enable actual author permissions for guard checks","chronicles author mode on","enabled");
-        command(client,"bound Heart anchor refuses a privileged legacy deletion","chronicles author remove spread_heart","bound or historical Relic Heart anchor cannot be changed");
-        command(client,"bound Heart assignment refuses a privileged legacy clear","chronicles setup clear \"quiet_below:relic_heart\"","bound or historical Relic Heart assignment cannot be changed");
-        command(client,"leave author mode before physical vulnerability test","chronicles author mode off","disabled");
+        command(client,"enable actual Editing permissions for guard checks","chronicle editing on","Editing enabled");
+        command(client,"bound Heart anchor refuses a privileged legacy deletion","chronicle locations remove spread_heart","bound or historical Relic Heart anchor cannot be changed");
+        command(client,"bound Heart assignment refuses a privileged legacy clear","quiet_below_authoring_trial clear-heart","bound or historical Relic Heart assignment cannot be changed");
+        command(client,"leave Editing before physical vulnerability test","chronicle editing off","Editing disabled; selection cleared");
         command(client,"resume copied session after guard checks","chronicle session resume", "resumed");
         refresh(client,"read initial Heart status");
         waitFor("observe the actual 60-second weakness clock",()->observeClock(client),90_000);
@@ -105,10 +105,10 @@ final class EcologyHeartReproSmoke {
             require(initialElapsed>=0&&maxElapsed>initialElapsed,"Heart clock never advanced before vulnerability");
             return true;
         }
-        if(System.nanoTime()>=nextRefresh){send(client,"chronicles setup tool \"quiet_below:heart\" refresh");nextRefresh=System.nanoTime()+10_000_000_000L;}
+        if(System.nanoTime()>=nextRefresh){send(client,"chronicle setup tool \"quiet_below:heart\" refresh");nextRefresh=System.nanoTime()+10_000_000_000L;}
         return false;
     }
-    private void refresh(MinecraftClient client,String name){step(name,()->{if(observationStarted==0)observationStarted=System.nanoTime();send(client,"chronicles setup tool \"quiet_below:heart\" refresh");nextRefresh=System.nanoTime()+10_000_000_000L;},()->{inspectStatuses();return latestStatus()!=null;},15_000);}
+    private void refresh(MinecraftClient client,String name){step(name,()->{if(observationStarted==0)observationStarted=System.nanoTime();send(client,"chronicle setup tool \"quiet_below:heart\" refresh");nextRefresh=System.nanoTime()+10_000_000_000L;},()->{inspectStatuses();return latestStatus()!=null;},15_000);}
     private void inspectStatuses(){
         for(String message:messages){Matcher match=ELAPSED.matcher(message);if(match.matches()){
             int elapsed=Integer.parseInt(match.group(1));if(samples.stream().noneMatch(s->s.equals(message))){samples.add(message);if(initialElapsed<0)initialElapsed=elapsed;maxElapsed=Math.max(maxElapsed,elapsed);refreshes++;}

@@ -90,8 +90,8 @@ final class QuietBelowStageSmoke {
         } else if (PHASE.equals("initial")) {
             command(client, "prepare exact natural template", "fill 0 -60 8 7 -59 11 stone", ".*filled.*");
             command(client, "move to template", "tp @s 4 -60 17 180 10", ".*Teleported.*");
-            command(client, "define 64-position zone", "quiet_below zone define rehearsal 0 -60 8 7 -59 11", "Defined stage zone rehearsal.*64 positions.*");
-            step("preview exact zone and token", () -> send(client, "quiet_below stage preview rehearsal"), () -> {
+            command(client, "define 64-position zone", "chronicle game quiet-below zone define rehearsal 0 -60 8 7 -59 11", "Defined stage zone rehearsal.*64 positions.*");
+            step("preview exact zone and token", () -> send(client, "chronicle game quiet-below stage preview rehearsal"), () -> {
                 var pattern = Pattern.compile("Stage preview rehearsal: positions=64; token=([a-f0-9]{12})\\.");
                 for (String message : messages.subList(baseline, messages.size())) {
                     var match = pattern.matcher(message);
@@ -99,16 +99,16 @@ final class QuietBelowStageSmoke {
                 }
                 return false;
             });
-            step("inactive apply denied", () -> send(client, "quiet_below stage apply rehearsal " + token), () -> received(".*active.*"));
+            step("inactive apply denied", () -> send(client, "chronicle game quiet-below stage apply rehearsal " + token), () -> received(".*active.*"));
             check("inactive apply changed no blocks", () -> require(count(client, Blocks.STONE) == 64, "inactive apply wrote blocks"));
             command(client, "activate rehearsal", "chronicle session start", "Started Chronicle session.*");
-            command(client, "reject wrong token", "quiet_below stage apply rehearsal 000000000000", ".*(token|preview).*" );
+            command(client, "reject wrong token", "chronicle game quiet-below stage apply rehearsal 000000000000", ".*(token|preview).*" );
             command(client, "make player edit before apply", "setblock 0 -60 8 gold_block", "Changed the block.*");
-            step("changed template denied", () -> send(client, "quiet_below stage apply rehearsal " + token), () -> received(".*(changed|match|conflict).*"));
+            step("changed template denied", () -> send(client, "chronicle game quiet-below stage apply rehearsal " + token), () -> received(".*(changed|match|conflict).*"));
             check("player edit preserved", () -> require(client.world.getBlockState(new BlockPos(0, -60, 8)).isOf(Blocks.GOLD_BLOCK), "apply overwrote player edit"));
             command(client, "restore approved natural block", "setblock 0 -60 8 stone", "Changed the block.*");
             step("queue and pause bounded stage", () -> {
-                send(client, "quiet_below stage apply rehearsal " + token);
+                send(client, "chronicle game quiet-below stage apply rehearsal " + token);
                 send(client, "chronicle session pause");
             }, () -> received("Stage apply queued:.*") && received("Paused Chronicle session.*"));
             delay("settle pause", 400);
@@ -118,15 +118,16 @@ final class QuietBelowStageSmoke {
                 require(frozenCount < 64, "stage finished before pause; suspension untested");
                 require(count(client, Blocks.SCULK) == frozenCount && count(client, Blocks.STONE) + frozenCount == 64, "paused stage advanced or escaped its template");
             });
-            command(client, "persist paused stage status", "quiet_below stage status", ".*status=APPLYING.*");
+            command(client, "persist paused stage status", "chronicle game quiet-below stage status", ".*status=APPLYING.*");
         } else {
-            command(client, "restart requires explicit recovery", "quiet_below stage status", ".*status=INTERRUPTED.*");
-            command(client, "inactive resume denied", "quiet_below stage resume", ".*active.*");
+            command(client, "restart requires explicit recovery", "chronicle game quiet-below stage status", ".*status=INTERRUPTED.*");
+            command(client, "inactive resume denied", "chronicle game quiet-below stage resume", ".*active.*");
             command(client, "resume campaign", "chronicle session resume", "Resumed Chronicle session.*");
-            command(client, "explicitly resume stage", "quiet_below stage resume", "Stage resumed:.*");
+            command(client, "explicitly resume stage", "chronicle game quiet-below stage resume", "Stage resumed:.*");
             step("complete exactly 64 sculk placements", () -> {}, () -> count(client, Blocks.SCULK) == 64);
-            command(client, "completed stage status", "quiet_below stage status", ".*status=APPLIED.*");
-            command(client, "reveal clue event", "chronicle event trigger quiet_below:mine_whisper", "Chronicle event quiet_below:mine_whisper completed.*");
+            command(client, "completed stage status", "chronicle game quiet-below stage status", ".*status=APPLIED.*");
+            command(client, "review clue event", "chronicle events run review action \"quiet_below:mine_whisper\"", ".*Ready.*");
+            command(client, "reveal clue event", "chronicle events run confirm action \"quiet_below:mine_whisper\"", "Chronicle event quiet_below:mine_whisper completed.*");
             command(client, "place clue marker outside stage", "setblock 4 -60 13 quiet_below:resonance_marker[facing=south]", "Changed the block.*");
             command(client, "empty hand for public clue", "clear @s", ".*(Removed|No items).*" );
             step("new clue is accessible without lens", () -> {
@@ -143,12 +144,18 @@ final class QuietBelowStageSmoke {
                     client.getFramebuffer(), 1, ignored -> {}),
                     () -> Files.isRegularFile(Path.of(OUTPUT, "screenshots", "stage-applied.png")));
             command(client, "edit one completed position", "setblock 0 -60 8 gold_block", "Changed the block.*");
-            command(client, "undo refuses player edit", "quiet_below stage undo", ".*(changed|match|conflict).*" );
+            command(client, "undo refuses player edit", "chronicle game quiet-below stage undo", ".*(changed|match|conflict).*" );
             check("undo conflict preserves all positions", () -> require(count(client, Blocks.GOLD_BLOCK) == 1 && count(client, Blocks.SCULK) == 63, "undo overwrote conflict or partially undid stage"));
             command(client, "restore expected sculk", "setblock 0 -60 8 sculk", "Changed the block.*");
-            command(client, "queue safe latest undo", "quiet_below stage undo", "Stage undo queued:.*");
+            command(client, "change one cosmetic sculk band", "setblock 0 -60 8 sculk[quiet_below_vitality=3]", "Changed the block.*");
+            command(client, "undo refuses changed cosmetic band", "chronicle game quiet-below stage undo", ".*(changed|match|conflict).*" );
+            check("cosmetic conflict preserves all blocks", () -> require(count(client, Blocks.SCULK) == 64
+                    && client.world.getBlockState(new BlockPos(0, -60, 8)).get(io.github.chronicle.quietbelow.content.SculkAppearance.VITALITY) == 3,
+                    "undo normalized away a changed cosmetic state"));
+            command(client, "restore healthy canonical sculk", "setblock 0 -60 8 sculk", "Changed the block.*");
+            command(client, "queue safe latest undo", "chronicle game quiet-below stage undo", "Stage undo queued:.*");
             step("undo restores all original states", () -> {}, () -> count(client, Blocks.STONE) == 64);
-            command(client, "undo persisted", "quiet_below stage status", ".*status=UNDONE.*");
+            command(client, "undo persisted", "chronicle game quiet-below stage status", ".*status=UNDONE.*");
             command(client, "end rehearsal", "chronicle session end", "Ended Chronicle session.*");
         }
     }

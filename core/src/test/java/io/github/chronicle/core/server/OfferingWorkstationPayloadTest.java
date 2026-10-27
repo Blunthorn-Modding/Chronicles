@@ -22,7 +22,14 @@ class OfferingWorkstationPayloadTest {
         assertEquals(Set.of("label","available","complete"),fields(OfferingPayloads.Choice.class));
     }
     @Test void playerViewWireShapeHasNoStatsTermsOrRawGateDiagnostics(){
-        assertEquals(Set.of("syncId","token","parent","title","state","choices","opening"),fields(OfferingPayloads.View.class));
+        assertEquals(Set.of("syncId","token","parent","title","state","choices","opening","presentation"),fields(OfferingPayloads.View.class));
+    }
+    @Test void campaignPresentationContainsOnlyBoundedDisplayStrings(){
+        assertEquals(Set.of("pending","unavailable","ready","partial","exhausted","expired","answered"),fields(OfferingPayloads.Presentation.class));
+        assertDoesNotThrow(OfferingPayloads.Presentation::neutral);
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Presentation("x".repeat(81),"a","b","c","d","e","f"));
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Presentation(null,"a","b","c","d","e","f"));
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.Presentation(" ","a","b","c","d","e","f"));
     }
     @Test void actionRejectsInvalidActionsAndIndices(){
         var token=UUID.randomUUID();

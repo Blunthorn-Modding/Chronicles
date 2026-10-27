@@ -180,8 +180,8 @@ public final class DeparturesTrial {
         require(!AuthoringRuntime.get(server).service().state().sites().containsKey(ANCHOR), "used exact helm anchor was not retired");
 
         expectRefusal(() -> PlayRuntime.setSelfParticipant(onlineA, true), "depart");
-        require(server.getCommandManager().getDispatcher().execute("chronicle join", onlineA.getCommandSource()) == 0,
-                "departed player bypassed participation through /chronicle join");
+        require(server.getCommandManager().getDispatcher().execute("chronicle players join", onlineA.getCommandSource()) == 0,
+                "departed player bypassed participation through /chronicle players join");
         if (!PlayerRoles.definitions(server).isEmpty()) {
             String role = PlayerRoles.definitions(server).keySet().iterator().next();
             expectRefusal(() -> PlayerRoles.assign(source, a, role), "depart");
@@ -274,8 +274,8 @@ public final class DeparturesTrial {
         require(!Departures.departed(server, c) && ChronicleRuntime.service(server).state().phase() == SessionPhase.ACTIVE
                 && !Departures.concluded(server), "offline C/open campaign changed during recovery");
         expectRefusal(() -> PlayRuntime.setSelfParticipant(passenger, true), "depart");
-        require(server.getCommandManager().getDispatcher().execute("chronicle join", passenger.getCommandSource()) == 0,
-                "recovered passenger bypassed departure through /chronicle join");
+        require(server.getCommandManager().getDispatcher().execute("chronicle players join", passenger.getCommandSource()) == 0,
+                "recovered passenger bypassed departure through /chronicle players join");
     }
 
     private static void prepareConclusion(ServerCommandSource source) throws Exception {
@@ -329,7 +329,7 @@ public final class DeparturesTrial {
                 "concluded campaign accepted CLI session start");
         require(server.getCommandManager().getDispatcher().execute("chronicle session resume", actor.getCommandSource()) == 0,
                 "concluded campaign accepted CLI session resume");
-        require(server.getCommandManager().getDispatcher().execute("chronicle join", actor.getCommandSource()) == 0,
+        require(server.getCommandManager().getDispatcher().execute("chronicle players join", actor.getCommandSource()) == 0,
                 "concluded campaign accepted participant join");
         if (!PlayerRoles.definitions(server).isEmpty()) {
             String role = PlayerRoles.definitions(server).keySet().iterator().next();

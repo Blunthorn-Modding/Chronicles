@@ -52,19 +52,19 @@ final class QuietBelowRecoverySmoke {
     private void build(MinecraftClient client){if("recovery".equals(PHASE))recovery(client);else restart(client);}
     private void recovery(MinecraftClient client){
         command(client,"prepare isolated natural-healing fixture","quiet_below_recovery_trial prepare","PASS recovery prepare:.*");
-        command(client,"enable recovery authoring","chronicle author mode on","Author mode enabled.*");
-        command(client,"create recovery source","chronicle author region create recovery_source","Region draft recovery_source opened.*");
-        command(client,"recovery source first corner","chronicle author region pos1 -4 64 0","Set region draft recovery_source position 1.*");
-        command(client,"recovery source second corner","chronicle author region pos2 7 64 7","Set region draft recovery_source position 2.*");
-        command(client,"save recovery source","chronicle author region save","Saved region recovery_source.*");
+        command(client,"enable recovery Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create recovery source","chronicle regions create recovery_source","Region selection recovery_source opened.*");
+        command(client,"recovery source first corner","chronicle regions pos1 -4 64 0","Set Region draft recovery_source position 1.*");
+        command(client,"recovery source second corner","chronicle regions pos2 7 64 7","Set Region draft recovery_source position 2.*");
+        command(client,"save recovery source","chronicle regions save","Saved Region 'recovery_source'\\.");
         command(client,"look at recovery Heart","tp @s -3.5 65 0.5 0 90",".*Teleported.*");
-        command(client,"bind recovery Heart","chronicle author block bind recovery_heart target","Saved block recovery_heart.*");
-        command(client,"assign recovery source","chronicles setup assign \"quiet_below:source_city\" recovery_source","Requirement assigned.*");
-        command(client,"assign recovery Heart","chronicles setup assign \"quiet_below:relic_heart\" recovery_heart","Requirement assigned.*");
+        command(client,"bind recovery Heart","chronicle locations blocks bind recovery_heart target","Saved Block site recovery_heart.*");
+        command(client,"assign recovery source","quiet_below_authoring_trial assign-source recovery_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign recovery Heart","quiet_below_authoring_trial assign-heart recovery_heart","PASS canonical authoring assign-heart:.*");
         command(client,"seal alternate Heart contacts for cut test","quiet_below_recovery_trial seal","PASS recovery seal:.*");
-        command(client,"index recovery source","chronicles setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        command(client,"index recovery source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
         delay("finish recovery source index",1_200);
-        command(client,"enable recovery ecology","chronicles setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        command(client,"enable recovery ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
         openVitality(client);vitality(client,"Lower extent thresholds");vitality(client,"Lower extent thresholds");check("close vitality controls",()->client.currentScreen.close());
         openRecovery(client);healing(client,"Faster healing");healing(client,"Faster healing");
         check("minimum healing interval is disabled",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Faster healing")).noneMatch(c->c.enabled()),"healing interval underflow"));
@@ -72,7 +72,7 @@ final class QuietBelowRecoverySmoke {
         check("show local-healing summary",()->{for(int n=0;n<100;n++)((CoreMenuScreen)client.currentScreen).scrollDetailForTest(1);});
         screenshot(client,"local-healing-settings.png");check("close local-healing controls",()->client.currentScreen.close());
         command(client,"start recovery play and clear author mode","chronicle session start","Started Chronicle session.*");
-        command(client,"join recovery play","chronicles join",".*(joined|already).*Chronicle participation.*");
+        command(client,"join recovery play","chronicle players join",".*Participation enabled.*");
         command(client,"remember injured nearby participant","quiet_below_recovery_trial remember","PASS recovery remember:.*");
         delay("one full two-second healing interval",2_500);command(client,"near living sculk heals one half-heart","quiet_below_recovery_trial healed","PASS recovery healed:.*");
         command(client,"move to distant control","tp @s 14.5 64 2.5 0 0",".*Teleported.*");command(client,"remember distant health","quiet_below_recovery_trial far","PASS recovery far:.*");
@@ -88,27 +88,27 @@ final class QuietBelowRecoverySmoke {
         command(client,"make participant creative","quiet_below_recovery_trial creative","PASS recovery creative:.*");delay("creative health remains unchanged",2_500);command(client,"creative participants receive no healing","quiet_below_recovery_trial unchanged","PASS recovery unchanged:.*");
         command(client,"make participant adventure","gamemode adventure @s",".*[Aa]dventure.*");command(client,"restore nearby location","tp @s 2.5 65 2.5 0 0",".*Teleported.*");command(client,"remember adventure health","quiet_below_recovery_trial remember","PASS recovery remember:.*");delay("adventure full interval",2_500);command(client,"adventure participant heals","quiet_below_recovery_trial healed","PASS recovery healed:.*");
         command(client,"restore survival participant","gamemode survival @s",".*[Ss]urvival.*");
-        command(client,"leave Chronicle participation","chronicles leave","You left participation.*");command(client,"remember nonparticipant health","quiet_below_recovery_trial remember","PASS recovery remember:.*");delay("nonparticipant remains unhealed",2_500);command(client,"nonparticipant receives no healing","quiet_below_recovery_trial unchanged","PASS recovery unchanged:.*");
-        command(client,"rejoin Chronicle participation","chronicles join",".*(joined|already).*Chronicle participation.*");command(client,"remember rejoined health","quiet_below_recovery_trial remember","PASS recovery remember:.*");delay("rejoined player gets fresh interval",800);command(client,"rejoined player has no offline credit","quiet_below_recovery_trial unchanged","PASS recovery unchanged:.*");delay("rejoined full interval",2_000);command(client,"rejoined player heals","quiet_below_recovery_trial healed","PASS recovery healed:.*");
-        command(client,"pause before recovery restart","chronicle session pause","Paused Chronicle session.*");command(client,"enable authoring for persisted healing","chronicle author mode on","Author mode enabled.*");command(client,"save fast healing state","quiet_below_recovery_trial save","PASS recovery save:.*");
+        command(client,"leave Chronicle participation","chronicle players leave","You left participation.*");command(client,"remember nonparticipant health","quiet_below_recovery_trial remember","PASS recovery remember:.*");delay("nonparticipant remains unhealed",2_500);command(client,"nonparticipant receives no healing","quiet_below_recovery_trial unchanged","PASS recovery unchanged:.*");
+        command(client,"rejoin Chronicle participation","chronicle players join",".*Participation enabled.*");command(client,"remember rejoined health","quiet_below_recovery_trial remember","PASS recovery remember:.*");delay("rejoined player gets fresh interval",800);command(client,"rejoined player has no offline credit","quiet_below_recovery_trial unchanged","PASS recovery unchanged:.*");delay("rejoined full interval",2_000);command(client,"rejoined player heals","quiet_below_recovery_trial healed","PASS recovery healed:.*");
+        command(client,"pause before recovery restart","chronicle session pause","Paused Chronicle session.*");command(client,"enable Editing for persisted healing","chronicle editing on","Editing enabled.*");command(client,"save fast healing state","quiet_below_recovery_trial save","PASS recovery save:.*");
     }
     private void restart(MinecraftClient client){
         command(client,"verify saved recovery health and tuning","quiet_below_recovery_trial restart","PASS recovery restart:.*");
-        command(client,"resume recovery after restart","chronicle session resume","Resumed Chronicle session.*");command(client,"join restarted recovery play","chronicles join",".*(joined.*Chronicle participation|already a Chronicle participant).*");
+        command(client,"resume recovery after restart","chronicle session resume","Resumed Chronicle session.*");command(client,"join restarted recovery play","chronicle players join",".*Participation enabled.*");
         delay("restart has no offline healing credit",800);command(client,"restart waits a fresh interval","quiet_below_recovery_trial unchanged","PASS recovery unchanged:.*");delay("restart full interval",2_000);command(client,"reconnected participant heals after restart","quiet_below_recovery_trial healed","PASS recovery healed:.*");
-        command(client,"pause review fixture","chronicle session pause","Paused Chronicle session.*");command(client,"enable review authoring","chronicle author mode on","Author mode enabled.*");
-        command(client,"reset local healing for review","chronicles setup tool \"quiet_below:recovery\" reset","Local healing enabled; interval 10 eligible seconds.*");
+        command(client,"pause review fixture","chronicle session pause","Paused Chronicle session.*");command(client,"enable review Editing","chronicle editing on","Editing enabled.*");
+        command(client,"reset local healing for review","chronicle setup tool \"quiet_below:recovery\" reset","Local healing enabled; interval 10 eligible seconds.*");
         command(client,"prepare authentic recovery review","quiet_below_recovery_trial review","PASS recovery review:.*");command(client,"set recovery review spawn","setworldspawn 8 64 8 180 0",".*spawn.*");
         command(client,"keep review spawn on the signed bench","gamerule spawnRadius 0",".*spawnRadius.*");
         command(client,"take a safe overview camera","gamemode creative @s",".*[Cc]reative.*");command(client,"show prepared healing bench","tp @s 8.5 72 13.5 180 28",".*Teleported.*");screenshot(client,"local-healing-review-ready.png");
     }
     private void openVitality(MinecraftClient client){
-        step("open vitality menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open vitality menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
         step("open Game setup for vitality",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
         step("select Sculk vitality",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:vitality"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:vitality"),10_000);
     }
     private void openRecovery(MinecraftClient client){
-        step("open local-healing menu",()->send(client,"chronicles"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open local-healing menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
         step("open Game setup for local healing",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
         step("reach Local healing through visible compact-list controls",()->{
             var menu=(CoreMenuScreen)client.currentScreen;boolean selected=false;

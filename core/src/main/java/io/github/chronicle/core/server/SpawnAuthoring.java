@@ -95,8 +95,7 @@ public final class SpawnAuthoring {
     }
 
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher) {
-        var spawn = literal("spawn").requires(source -> source.hasPermissionLevel(2))
-                .executes(context -> AuthoringUi.open(context.getSource(), io.github.chronicle.core.authoring.ui.AuthoringUiModel.Tab.SPAWNS));
+        var spawn = literal("spawn-bindings").requires(source -> source.hasPermissionLevel(2));
         for (boolean replace : new boolean[]{false, true}) {
             String verb = replace ? "rebind" : "bind";
             final boolean replacement = replace;
@@ -124,7 +123,7 @@ public final class SpawnAuthoring {
         var previewPurpose = argument("purpose", StringArgumentType.string()).suggests((c, b) -> purposes(c.getSource(), b)).then(target);
         spawn.then(literal("preview").then(previewPurpose));
         spawn.then(literal("confirm").then(argument("player", EntityArgumentType.player()).executes(context -> execute(context.getSource(), EntityArgumentType.getPlayer(context, "player")))));
-        dispatcher.register(literal("chronicle").then(spawn));
+        dispatcher.register(literal("chronicle").then(literal("debug").then(spawn)));
     }
     private static CompletableFuture<Suggestions> locations(ServerCommandSource source, SuggestionsBuilder builder) {
         try { return suggestValues(AuthoringRuntime.get(source.getServer()).service().state().sites().values().stream().filter(AuthoringSite.Location.class::isInstance).map(AuthoringSite::id).toList(), builder); }
@@ -155,7 +154,7 @@ public final class SpawnAuthoring {
         var verdict = SpawnDestinationValidator.validate(new MinecraftWorld(source.getServer()), location);
         if (!verdict.safe()) throw new IllegalStateException("Cannot preview " + purpose + ": " + verdict.reason() + ".");
         runtime(source.getServer()).previews.put(new PreviewKey(actor.getUuid(), player.getUuid()), new Preview(purpose, location, service(source.getServer()).state().bindings().get(purpose), ChronicleRuntime.service(source.getServer()).state().sessionNumber(), System.nanoTime()));
-        return "Previewed " + purpose + " for " + player.getName().getString() + ": " + location.dimension() + " " + location.x() + " " + location.y() + " " + location.z() + " yaw=" + location.yaw() + " pitch=" + location.pitch() + ". Run /chronicle spawn confirm " + player.getName().getString() + " to move that exact online player.";
+        return "Previewed " + purpose + " for " + player.getName().getString() + ": " + location.dimension() + " " + location.x() + " " + location.y() + " " + location.z() + " yaw=" + location.yaw() + " pitch=" + location.pitch() + ". Run /chronicle debug spawn-bindings confirm " + player.getName().getString() + " to move that exact online player.";
     }
     private static int execute(ServerCommandSource source, ServerPlayerEntity player) {
         if (!source.hasPermissionLevel(2)) { source.sendError(Text.literal("Spawn authoring requires operator permission level 2.")); return 0; }
@@ -185,7 +184,7 @@ public final class SpawnAuthoring {
     }
     private static void requireEditor(ServerCommandSource source) {
         if (!source.hasPermissionLevel(2)) throw new IllegalStateException("Spawn authoring requires operator permission level 2.");
-        if (source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer())) throw new IllegalStateException("Enable Core author mode before editing spawn bindings.");
+        if (source.getPlayer() == null || !AuthoringRuntime.isAuthor(source.getPlayer())) throw new IllegalStateException("Enable Core Editing before editing spawn bindings.");
     }
     private static ServerPlayerEntity previewActor(ServerCommandSource source) {
         if (source.getPlayer() == null) throw new IllegalStateException("Spawn preview/confirm requires the operator player who will confirm it.");

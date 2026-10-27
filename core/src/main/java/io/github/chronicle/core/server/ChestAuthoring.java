@@ -116,7 +116,7 @@ public final class ChestAuthoring {
     static void refreshHold(MinecraftServer server) { synchronizeHold(server, runtime(server)); }
 
     private static void commands(CommandDispatcher<ServerCommandSource> dispatcher) {
-        var legacy = literal("legacy")
+        var legacy = literal("legacy-chests").requires(source -> source.hasPermissionLevel(2))
                 .then(literal("capture").then(argument("template", StringArgumentType.string())
                         .executes(context -> capture(context.getSource(), text(context, "template"), false))))
                 .then(literal("replace").then(argument("template", StringArgumentType.string())
@@ -127,18 +127,18 @@ public final class ChestAuthoring {
                         .suggests((context, builder) -> suggestions(runtime(context.getSource().getServer()).service.state().templates().keySet().stream(), builder))
                         .executes(context -> showTemplate(context.getSource(), text(context, "template")))))
                 .then(literal("bind").then(bindingArguments(false)))
-                .then(literal("rebind").then(bindingArguments(true)));
-        dispatcher.register(literal("chronicle").then(literal("author").requires(source -> source.hasPermissionLevel(2)).then(literal("chest").then(legacy))));
-
-        var chest = literal("chest").requires(source -> source.hasPermissionLevel(2))
-                .then(literal("status").executes(context -> status(context.getSource())))
-                .then(literal("preview").then(argument("binding", StringArgumentType.string())
+                .then(literal("rebind").then(bindingArguments(true)))
+                .then(literal("preview").requires(source -> source.hasPermissionLevel(2)).then(argument("binding", StringArgumentType.string())
                         .suggests((context, builder) -> suggestions(runtime(context.getSource().getServer()).service.state().bindings().keySet().stream(), builder))
                         .executes(context -> preview(context.getSource(), text(context, "binding")))))
-                .then(literal("apply").then(argument("binding", StringArgumentType.string())
+                .then(literal("apply").requires(source -> source.hasPermissionLevel(2)).then(argument("binding", StringArgumentType.string())
                         .suggests((context, builder) -> suggestions(runtime(context.getSource().getServer()).service.state().bindings().keySet().stream(), builder))
-                        .executes(context -> apply(context.getSource(), text(context, "binding")))))
-                .then(literal("recover").then(argument("operation", StringArgumentType.string())
+                        .executes(context -> apply(context.getSource(), text(context, "binding")))));
+        dispatcher.register(literal("chronicle").then(literal("debug").then(legacy)));
+
+        var chest = literal("chests")
+                .then(literal("status").requires(source -> source.hasPermissionLevel(2)).executes(context -> status(context.getSource())))
+                .then(literal("recover").requires(source -> source.hasPermissionLevel(2)).then(argument("operation", StringArgumentType.string())
                         .suggests((context, builder) -> suggestions(runtime(context.getSource().getServer()).service.state().pending().keySet().stream(), builder))
                         .executes(context -> recover(context.getSource(), text(context, "operation")))));
         dispatcher.register(literal("chronicle").then(chest));
@@ -221,7 +221,7 @@ public final class ChestAuthoring {
                     before, source.getServer().getTicks() + PREVIEW_TICKS));
             long occupied = decoded.stream().filter(stack -> !stack.isEmpty()).count();
             return "Previewed chest " + id + " at " + anchor.id() + ": slots=" + decoded.size() + "; occupied=" + occupied
-                    + "; policy=" + binding.policy().name().toLowerCase(Locale.ROOT) + ". Apply within 60 seconds with /chronicle chest apply " + StringArgumentType.escapeIfRequired(id) + ".";
+                    + "; policy=" + binding.policy().name().toLowerCase(Locale.ROOT) + ". Apply within 60 seconds with /chronicle debug legacy-chests apply " + StringArgumentType.escapeIfRequired(id) + ".";
         });
     }
 
@@ -262,7 +262,7 @@ public final class ChestAuthoring {
                 return "Filled chest " + id + "; operation=" + operation.operationId() + "; receipt saved.";
             } catch (IOException | RuntimeException exception) {
                 if (began) {
-                    RuntimeHolds.hold(source.getServer(), HOLD_OWNER, "Chest fill " + operation.operationId() + " is unresolved; use /chronicle chest recover " + operation.operationId() + ".");
+                    RuntimeHolds.hold(source.getServer(), HOLD_OWNER, "Chest fill " + operation.operationId() + " is unresolved; use /chronicle chests recover " + operation.operationId() + ".");
                     ChronicleCore.LOGGER.error("Chest fill {} is uncertain and remains journaled", operation.operationId(), exception);
                     throw new IllegalStateException("Chest fill is uncertain. World simulation is held; inspect status and recover operation " + operation.operationId() + ".", exception);
                 }
@@ -415,7 +415,7 @@ public final class ChestAuthoring {
 
     private static void synchronizeHold(MinecraftServer server, Runtime runtime) {
         if (runtime.service.state().pending().isEmpty()) RuntimeHolds.release(server, HOLD_OWNER);
-        else RuntimeHolds.hold(server, HOLD_OWNER, "A Chronicle chest fill is unresolved; use /chronicle chest status and recover it before play continues.");
+        else RuntimeHolds.hold(server, HOLD_OWNER, "A Chronicle chest fill is unresolved; use /chronicle chests status and recover it before play continues.");
     }
 
     static BlockPos target(ServerCommandSource source) {
@@ -452,7 +452,7 @@ public final class ChestAuthoring {
     private static int authorRead(ServerCommandSource source, Operation operation) {
         if (!source.hasPermissionLevel(2)) { source.sendError(Text.literal("Chest authoring requires operator permission level 2.")); return 0; }
         try {
-            if (!AuthoringRuntime.editable(source.getServer()) || !AuthoringRuntime.isAuthor(player(source))) throw new IllegalStateException("Chest authoring requires non-active author mode.");
+            if (!AuthoringRuntime.editable(source.getServer()) || !AuthoringRuntime.isAuthor(player(source))) throw new IllegalStateException("Chest authoring requires non-active Editing.");
             String message = operation.run(runtime(source.getServer())); source.sendFeedback(() -> Text.literal(message), false); return 1;
         } catch (IOException exception) { ChronicleCore.LOGGER.error("Chest authoring save failed", exception); source.sendError(Text.literal("Chest content could not be saved; no definition was changed.")); }
         catch (IllegalArgumentException | IllegalStateException exception) { source.sendError(Text.literal(exception.getMessage())); }

@@ -79,7 +79,7 @@ public final class MapSiteAssignments {
         if (!source.hasPermissionLevel(2)) throw new IllegalStateException("Map assignment requires operator permission level 2.");
         if (!AuthoringRuntime.editable(source.getServer())) throw new IllegalStateException("Map assignments require a non-active Chronicle session.");
         ServerPlayerEntity player = source.getPlayer();
-        if (player == null || !AuthoringRuntime.isAuthor(player)) throw new IllegalStateException("Enable author mode before changing map assignments.");
+        if (player == null || !AuthoringRuntime.isAuthor(player)) throw new IllegalStateException("Enable Editing before changing map assignments.");
         return player;
     }
 

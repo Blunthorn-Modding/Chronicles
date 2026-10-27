@@ -62,7 +62,12 @@ public final class PlayerRolesTrial {
                 case "verify" -> verify(source, player);
                 case "repeat" -> repeat(source, player);
                 case "clear" -> { PlayerRoles.assign(source, player.getUuid(), ""); require(!PlayerRoles.assignments(source.getServer()).assigned().containsKey(player.getUuid()), "assignment did not clear"); }
-                case "death" -> source.getServer().getCommandManager().getDispatcher().execute("kill @s",source);
+                case "death" -> {
+                    // Start the no-regrant probe empty: original death drops can scatter into
+                    // a later vanilla respawn and be picked up, which is legitimate recovery.
+                    clear(player);
+                    source.getServer().getCommandManager().getDispatcher().execute("kill @s",source);
+                }
                 case "verify_death" -> {emptyAfterDeath(source,player);require(Math.abs(player.getX()-9.5)<0.1,"role respawn Point was not applied");}
                 case "manual_respawn" -> {editRespawn(source,player,false);source.getServer().getCommandManager().getDispatcher().execute("kill @s",source);}
                 case "verify_manual" -> {emptyAfterDeath(source,player);require(Math.abs(player.getX()-2.5)<0.1,"manual respawn override did not take priority over role Point");}

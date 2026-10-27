@@ -20,7 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** The deliberately cryptic, slot-free player face of the authoritative Altar prayer. */
+/** Reusable slot-free offering UI; the campaign supplies its wording. */
 public final class OfferingScreen extends Screen implements ScreenHandlerProvider<OfferingScreenHandler> {
     private static final Identifier POPUP = Identifier.ofVanilla("popup/background");
     private static final int TIMEOUT_TICKS = 200;
@@ -180,14 +180,12 @@ public final class OfferingScreen extends Screen implements ScreenHandlerProvide
     }
 
     private String stateLine() {
-        if (pending()) return "The altar listens...";
-        if (timedOut) return "The altar is quiet.";
-        return switch (state.state()) {
-            case READY -> state.choices().stream().anyMatch(OfferingPayloads.Choice::complete) ? "One answer has faded." : "The altar listens.";
-            case UNAVAILABLE -> "The altar is quiet.";
-            case EXHAUSTED -> allComplete() ? "No answer comes." : "One answer has faded.";
-            case EXPIRED -> "The altar falls silent.";
-            case ANSWERED -> "The altar remembers.";
+        var copy=state.presentation();
+        if(pending())return copy.pending();if(timedOut)return copy.unavailable();
+        return switch(state.state()){
+            case READY -> state.choices().stream().anyMatch(OfferingPayloads.Choice::complete)?copy.partial():copy.ready();
+            case UNAVAILABLE -> copy.unavailable();case EXHAUSTED -> allComplete()?copy.exhausted():copy.partial();
+            case EXPIRED -> copy.expired();case ANSWERED -> copy.answered();
         };
     }
 

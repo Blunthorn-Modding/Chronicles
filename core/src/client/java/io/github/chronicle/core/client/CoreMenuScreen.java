@@ -65,6 +65,7 @@ public final class CoreMenuScreen extends Screen {
     private int listOffset;
     /** Scrolls only the Advanced tab group so Session/Players/Events never disappear. */
     private int advancedNavOffset;
+    private Page advancedNavPage;
     private int actionOffset;
     private int factOffset;
     private boolean detailOnCompact;
@@ -77,6 +78,7 @@ public final class CoreMenuScreen extends Screen {
     private String eventPreview = "";
     private Confirmation confirmation;
     private PendingPicker pickerAction;
+    private CatalogSession catalogSession;
     private String pickerSearch = "";
     private String promptDraft = "";
     private TextFieldWidget textInput;
@@ -130,6 +132,17 @@ public final class CoreMenuScreen extends Screen {
         notice = initial.message();
         debug = EditorMenuPreferences.debug();
         loadForms(initial.detail());
+        CoreMenuClient.restore(this);
+    }
+
+    record NavigationSnapshot(Page page,String selected,String filter,int index,int listOffset,int detailScroll,
+                              int advancedOffset,boolean detailPane) { }
+    NavigationSnapshot navigationSnapshot(){return new NavigationSnapshot(state.page(),state.selected(),state.filter(),state.index(),listOffset,detailScroll,advancedNavOffset,detailOnCompact);}
+    void restoreNavigation(NavigationSnapshot saved){
+        pageSelections.put(state.page(),state.selected());if(state.page()==Page.LOCATIONS){locationFilter=state.filter();locationSelections.put(state.filter(),state.selected());}
+        if(state.page()==saved.page()&&state.selected().equals(saved.selected())&&state.filter().equals(saved.filter())&&state.index()==saved.index()){
+            listOffset=saved.listOffset();detailScroll=saved.detailScroll();advancedNavOffset=saved.advancedOffset();advancedNavPage=state.page();detailOnCompact=saved.detailPane();
+        }
     }
 
     public View state() { return state; }
@@ -202,6 +215,7 @@ public final class CoreMenuScreen extends Screen {
     }
 
     void accept(View updated) {
+        if(acceptDismissedCatalog(updated))return;
         String priorDetail = detailId();
         long priorToken = state.token();
         Action receivedFor = requestedAction;
@@ -301,7 +315,7 @@ public final class CoreMenuScreen extends Screen {
         if ((receivedFor == Action.ROLE_CREATE || receivedFor == Action.ROLE_SAVE) && !updated.success() && failedRoleEditor != null) {
             PlayerRoleEditorScreen retry = failedRoleEditor;
             failedRoleEditor = null;
-            retry.serverRejected(blank(updated.message(), "The server rejected this player role. Correct it and save again."));
+            retry.serverRejected(blank(updated.message(), "The server rejected this player role. Correct it and save again."), failedRoleToken != updated.token());
             client.setScreen(retry);
             return;
         }
@@ -389,9 +403,12 @@ public final class CoreMenuScreen extends Screen {
             int advancedTotal = NAVIGATION.length - 3;
             int advancedRows = Math.max(1, Math.min(advancedTotal, (layout.bodyBottom() - advancedY - 20) / 19));
             advancedNavOffset = Math.clamp(advancedNavOffset, 0, Math.max(0, advancedTotal - advancedRows));
-            for (int index = 0; index < advancedTotal; index++) if (NAVIGATION[index + 3] == state.page()
-                    && (index < advancedNavOffset || index >= advancedNavOffset + advancedRows)) {
-                advancedNavOffset = Math.clamp(index, 0, Math.max(0, advancedTotal - advancedRows));
+            if (advancedNavPage != state.page()) {
+                for (int index = 0; index < advancedTotal; index++) if (NAVIGATION[index + 3] == state.page()
+                        && (index < advancedNavOffset || index >= advancedNavOffset + advancedRows)) {
+                    advancedNavOffset = Math.clamp(index, 0, Math.max(0, advancedTotal - advancedRows));
+                }
+                advancedNavPage = state.page();
             }
             for (int row = 0; row < advancedRows; row++) {
                 Page page = NAVIGATION[3 + advancedNavOffset + row];
@@ -908,8 +925,72 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void beginPicker(PendingPicker action) {
+        boolean addItem=action.action()==Action.LOOT_SAVE&&action.kind().equals("ITEMS");
+        boolean addBook=action.kind().equals("BOOKS")&&(action.action()==Action.BOOK_REF_ADD||action.action()==Action.CHEST_BOOK_SET);
+        if(addItem||addBook){openCatalog(action);return;}
         pickerAction = action; pickerSearch = "";
         request(Action.OPTIONS, state.page(), detailId(), action.kind(), 0, state.filter(), "", false);
+    }
+
+    /** Reuses the same Add popup as role supplies; the owner retains its own draft/save boundary. */
+    private void openCatalog(PendingPicker action){
+        if(pending)return;
+        CatalogSession session=new CatalogSession(action);catalogSession=session;
+        client.setScreen(new CatalogAddPopup(this,Text.literal(action.kind().equals("ITEMS")?"Available items":"Available lore books"),false,session));
+    }
+    private final class CatalogSession implements CatalogAddPopup.Owner {
+        final PendingPicker action;final Page page;final String id,filter;final int listPage;final long openingToken;
+        String query="";boolean ended;int waitingTicks;
+        CatalogSession(PendingPicker action){this.action=action;page=state.page();id=detailId();filter=state.filter();listPage=state.index();openingToken=state.token();}
+        public void requestPage(CatalogAddPopup popup,String query,int page){
+            if(ended)return;if(!ClientPlayNetworking.canSend(CoreMenuPayloads.Request.ID)){popup.markStale();return;}this.query=query;waitingTicks=0;
+            request(Action.OPTIONS,this.page,id,action.kind(),page,filter,query,false);
+        }
+        public String validate(Entry entry,String quantity){
+            if(ended||state.token()!=openingToken)return "Chronicle changed. Close and reopen this picker.";
+            if(!state.editing()||!state.editable()||!state.hold().isBlank())return "Enable Editing and finish pending operations first.";
+            if(page==Page.LOOT_TABLES){
+                if(lootDraftStale)return "This table changed. Reopen its current definition.";
+                if(lootDraft==null||lootDraft.entries().size()+lootDraft.books().size()>=LootType.MAX_ENTRIES)return "This table has reached its entry limit.";
+                if(action.kind().equals("BOOKS")&&lootDraft.books().stream().anyMatch(book->book.bookId().equals(entry.id())))return "This lore book is already assigned.";
+            }
+            return "";
+        }
+        public void add(Entry entry,String quantity){
+            if(!validate(entry,quantity).isBlank())return;
+            ended=true;catalogSession=null;
+            if(action.kind().equals("ITEMS")){addLoot(entry.id());refreshCatalogOwner(this);}
+            else if(action.action()==Action.BOOK_REF_ADD){addBookRef(entry.id(),entry.label(),entry.description());refreshCatalogOwner(this);}
+            else if(action.action()==Action.CHEST_BOOK_SET){
+                state=withoutPicker(state,listPage);
+                String name=entry.label()+(entry.description().isBlank()?"":" - "+entry.description());
+                client.setScreen(new BookChanceScreen(CoreMenuScreen.this,new BookChance(entry.id(),4),name,debug,CoreMenuScreen.this::saveDirectBook,CoreMenuScreen.this::clearDirectBook,CoreMenuScreen.this::cancelDirectBookPicker));
+            }
+        }
+        public void cancel(){ended=true;if(!pending){catalogSession=null;refreshCatalogOwner(this);}}
+        public void serverUpdated(CatalogAddPopup popup,View updated){
+            boolean same=updated.token()==openingToken&&updated.page()==page&&updated.selected().equals(id)&&updated.filter().equals(filter);
+            acceptWhileEditorOpen(updated);
+            if(lootBase!=null&&updated.detail()!=null&&updated.detail().loot()!=null&&!lootBase.equals(updated.detail().loot()))lootDraftStale=true;
+            if(ended){catalogSession=null;refreshCatalogOwner(this);return;}
+            if(!same||!updated.success()){popup.markStale();return;}
+            if(updated.picker()!=null&&updated.picker().kind().equals(action.kind())&&updated.picker().query().equals(query))popup.replacePage(updated.picker());
+        }
+        public void tick(CatalogAddPopup popup){if(pending&&++waitingTicks>=RESPONSE_TIMEOUT){pending=false;requestedAction=null;notice="The server did not respond. Close and reopen this picker.";popup.markStale();}}
+        public void drawIcon(DrawContext context,Entry entry,int x,int y){
+            if(action.kind().equals("ITEMS")){var item=net.minecraft.registry.Registries.ITEM.getOptionalValue(Identifier.of(entry.id()));item.ifPresent(value->context.drawItem(new net.minecraft.item.ItemStack(value),x,y));}
+            else context.drawItem(new net.minecraft.item.ItemStack(net.minecraft.item.Items.WRITTEN_BOOK),x,y);
+        }
+    }
+    private static View withoutPicker(View value,int page){return new View(value.token(),value.page(),Math.min(page,value.pages()-1),value.pages(),value.filter(),value.selected(),value.phase(),value.session(),value.editing(),value.editable(),value.operator(),value.hold(),value.clock(),value.message(),value.success(),value.entries(),value.detail(),null,value.close(),value.blockLimits());}
+    private void refreshCatalogOwner(CatalogSession session){
+        state=withoutPicker(state,session.listPage);pickerAction=null;
+        request(Action.REFRESH,session.page,session.id,"",session.listPage,session.filter,"",false);
+    }
+    /** Handles a cancelled in-flight OPTIONS response without showing the old inline catalog. */
+    private boolean acceptDismissedCatalog(View updated){
+        if(catalogSession==null||!catalogSession.ended)return false;
+        CatalogSession old=catalogSession;catalogSession=null;acceptWhileEditorOpen(updated);refreshCatalogOwner(old);return true;
     }
 
     private void openLimitChooser() {
@@ -1395,7 +1476,7 @@ public final class CoreMenuScreen extends Screen {
         super.render(context, mouseX, mouseY, deltaTicks);
     }
     @Override public boolean shouldPause() { return false; }
-    @Override public void close() { CoreMenuClient.closed(state.token()); super.close(); }
+    @Override public void close() { CoreMenuClient.remember(this); CoreMenuClient.closed(state.token()); super.close(); }
 
     private void setDebug(boolean value) {
         if (debug == value) return;
@@ -1427,7 +1508,7 @@ public final class CoreMenuScreen extends Screen {
         return button == null ? null : new BoundsProbe(button.getX(), button.getY(), button.getWidth(), button.getHeight());
     }
     private String detailId() { return state.detail() == null ? selected : state.detail().id(); }
-    private boolean canEditLoot() { return state.editing() && state.editable(); }
+    private boolean canEditLoot() { return state.editing() && state.editable() && state.hold().isBlank() && !lootDraftStale; }
     private void button(String label, int x, int y, int w, int h, Runnable action, String hint, boolean enabled) {
         ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(label, Math.max(1, w - 8))), ignored -> action.run()).dimensions(x, y, Math.max(1, w), h).build());
         button.active = enabled && !pending; button.setTooltip(Tooltip.of(Text.literal(hint == null ? "" : hint))); buttons.put(label, button);

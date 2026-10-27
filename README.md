@@ -1,6 +1,14 @@
 # Chronicle
 
-**27 October dev57 editor:** [Region and Location subtypes](docs/EDITOR_SUBTYPES_IMPLEMENTATION.md) consolidate saved states under Regions and departures under Locations while preserving one Departure setup popup. Every Region uses the Debug shovel/two corners and `/chronicle region save`; Saved states is optional. Player Roles separates assigned supplies from Add item. Read the [combined review checklist](docs/EDITOR_SUBTYPES_REVIEW.md). Earlier dated checkpoints below are historical.
+**Current dev58 workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
+
+The matching [dev58 review pack](../client/Chronicle-M9-1.21.10.mrpack) is ready at **127.0.0.1:25589**. Existing world/configuration and your ended session4 are retained. See [verification and limits](docs/TEST_PLAN.md).
+
+## Historical development checkpoints
+
+The following checkpoints describe earlier builds. Use the dev58 workflow and command reference above for current behavior; retired commands in these notes are historical.
+
+**27 October dev57 editor:** [Region and Location subtypes](docs/EDITOR_SUBTYPES_IMPLEMENTATION.md) consolidate saved states under Regions and departures under Locations while preserving one Departure setup popup. Every Region uses the Debug shovel/two corners and `/chronicle regions save`; Saved states is optional. Player Roles separates assigned supplies from Add item. Read the [combined review checklist](docs/EDITOR_SUBTYPES_REVIEW.md). Earlier dated checkpoints below are historical.
 
 **26 October revised design:** the [Core roles, departures and area-change plan](docs/CF19_CF21_IMPLEMENTATION_PLAN.md) gives **Player Roles**, **Departures** and **Area changes** their own Advanced navigation entries. Area changes captures Start/End states of the same bounds through a private in-world shovel/position-command workflow, supports later recapture and deletion with a state choice. Review the [updated UI mockup](docs/design/roles-departures-transitions.html) before implementation. These features are not installed yet: accepted dev54 remains at **127.0.0.1:25589**, with its world and matching pack preserved. Earlier checkpoints below are historical.
 
@@ -38,11 +46,11 @@ The latest [Quiet Below revision](docs/THE_QUIET_BELOW.md) removes authored grow
 
 **M7 chest revision:** the operator accepted persistent outlines and the registered chat menu, and requested typed randomized loot instead of capture-first authoring. Look at a container, run `/chronicle author chest` and choose its type in one step. Campaigns register default loot distributions and recommended chest counts; edit `config/chronicle/chest-loot.json` to override them. Entries roll independently by percentage. Managed loot chests replace all contents at each new session and optionally every configured active interval; pause/resume/restart preserve the clock and cycle history. See [the current builder workflow](docs/MAP_AUTHORING.md) and [the revised contract](docs/M7_LOOT_TYPES.md). Captured profiles remain a legacy compatibility path. Entity encounter groups remain pending; Quiet Below ecology remains dormant.
 
-**Core menu (CF-10):** press **O** (rebindable), or run `/chronicles`. Use Session, Players and Events during play; advanced Chests, Loot Tables, Regions, Locations and Game setup are separate. Enable editing while play is non-active; status comes from the server and clears on reconnect/ACTIVE. Chests binds the container you look at to a table; Loot Tables adds registry items and edits independent chances/counts before a whole-table save. Existing commands remain compatible. See [the builder guide](docs/MAP_AUTHORING.md).
+**Core menu (CF-10):** press **O** (rebindable), or run `/chronicle`. Use Session, Players and Events during play; advanced Chests, Loot Tables, Regions, Locations and Game setup are separate. Enable editing while play is non-active; status comes from the server and clears on reconnect/ACTIVE. Chests binds the container you look at to a table; Loot Tables adds registry items and edits independent chances/counts before a whole-table save. Use the [current command reference](docs/COMMAND_REFERENCE.md); older command aliases are retired. See [the builder guide](docs/MAP_AUTHORING.md).
 
-Automatic player destinations live under **Players**, on the selected account. Starting position and after-death destination are independent opt-ins over saved point locations; defaults remain off. Starting-position claims persist across reconnects and meetings until explicitly reset. Assigning a destination moves nobody immediately, and each player's settings use private bindings. Unsafe/stale destinations retain the player/vanilla respawn result; beds and anchors remain intact. `/chronicle leave` removes the caller's participation and automatic destinations. See [the policy guide](docs/M7_AUTOMATIC_SPAWNS.md). Entity encounter groups remain separate work.
+Automatic player destinations live under **Players**, on the selected account. Starting position and after-death destination are independent opt-ins over saved point locations; defaults remain off. Starting-position claims persist across reconnects and meetings until explicitly reset. Assigning a destination moves nobody immediately, and each player's settings use private bindings. Unsafe/stale destinations retain the player/vanilla respawn result; beds and anchors remain intact. `/chronicle players leave` removes the caller's participation and automatic destinations. See [the policy guide](docs/M7_AUTOMATIC_SPAWNS.md). Entity encounter groups remain separate work.
 
-**Participation and optional events:** use **Players** to enroll accounts, or opt in yourself with `/chronicle join`. Shared active time pauses with the session, empty play, spectators, author walks and operation holds. **Events** presents message/sound cues separately from game-state actions and conditions. Content and private audio previews work before region setup, even while inactive; live audience checks/runs remain separate and use durable once-only delivery. No cues or timetable are enabled by default. See [the runtime contract](docs/M8_IMPLEMENTATION.md). Quiet Below supplies two optional cue examples; ecology remains M9 work.
+**Participation and optional events:** use **Players** to enroll accounts, or opt in yourself with `/chronicle players join`. Shared active time pauses with the session, empty play, spectators, author walks and operation holds. **Events** presents message/sound cues separately from game-state actions and conditions. Content and private audio previews work before region setup, even while inactive; live audience checks/runs remain separate and use durable once-only delivery. No cues or timetable are enabled by default. See [the runtime contract](docs/M8_IMPLEMENTATION.md). Quiet Below supplies two optional cue examples; ecology remains M9 work.
 
 ## Workspace and setup
 
@@ -88,7 +96,7 @@ python scripts/workspace.py setup --accept-eula
 python scripts/workspace.py start
 ```
 
-Use `stop` in the server console for a clean shutdown. The play server initially listens on **127.0.0.1:25565**, uses online account authentication, and requires a whitelist. In its console run `whitelist add YourMinecraftName`; optionally `op YourMinecraftName` for GM access. The server must be able to resolve that account through Mojang. `/chronicle status` itself needs no operator privilege.
+Use `stop` in the server console for a clean shutdown. The play server initially listens on **127.0.0.1:25565**, uses online account authentication, and requires a whitelist. In its console run `whitelist add YourMinecraftName`; optionally `op YourMinecraftName` for GM access. The server must be able to resolve that account through Mojang. `/chronicle session status` itself needs no operator privilege.
 
 Import `../client/Chronicle-M9-1.21.10.mrpack` into Modrinth App or another `.mrpack` launcher. Authenticate your own licensed Minecraft account there; scripts never access tokens. The pack pins Minecraft/Fabric, Fabric API and voice chat, and includes both locally built Chronicle jars. In Minecraft Java, choose **Multiplayer → Direct Connection** and enter **`127.0.0.1:25565`**, or use **Add Server** to save that address. The dedicated server does not automatically appear in the server list. Use the explicit IPv4 address to match its loopback bind. Keep the server process running and whitelist your account before joining. No global launcher install or automatic account login is performed.
 
@@ -115,30 +123,30 @@ Smoke needs prior EULA acceptance and a desktop/OpenGL context. It overlays buil
 
 `ecology-smoke` covers source growth, restart, containment, organic patches and a real-time dormant/reconnected vitality trial. `warden-smoke` uses a separate hard-difficulty fixture for actual vanilla warnings 1-4, emergence, quiet digging and natural despawn; it does not inject warning levels or shorten cooldowns. Both rebuild the remapped server artifacts before staging, retain evidence under `../reports`, and share the test ports above.
 
-The tests need no AI credentials or launcher tokens. Custom M3 registries require matching Fabric clients; historical `legacy-smoke` Mineflayer clients cannot join this build and fail explicitly. The Node parser tests remain useful historical checks. Use the [manual checklist](docs/TEST_PLAN.md) for licensed-launcher import, group play and microphone/audio. Jars are `core/build/libs/chronicle_core-0.1.0-dev.18.jar` and `campaigns/quiet-below/build/libs/quiet_below-0.1.0-dev.18.jar`. Players install both mods plus the pinned Fabric API and voice chat jars.
+The tests need no AI credentials or launcher tokens. Custom M3 registries require matching Fabric clients; historical `legacy-smoke` Mineflayer clients cannot join this build and fail explicitly. The Node parser tests remain useful historical checks. Use the [manual checklist](docs/TEST_PLAN.md) for licensed-launcher import, group play and microphone/audio. Jars are `core/build/libs/chronicle_core-0.1.0-dev.58.jar` and `campaigns/quiet-below/build/libs/quiet_below-0.1.0-dev.58.jar`. Players install both mods plus the pinned Fabric API and voice chat jars.
 
 New client imports also receive GUI scale 2, narrator off, accessibility onboarding skipped and the multiplayer warning acknowledged. These initial preferences come from `config/client/options.txt`, packaged in `client-overrides/options.txt` using the [Modrinth pack format](https://support.modrinth.com/en/articles/8802351-modrinth-modpack-format-mrpack). They are editable in Minecraft; no mod forces them each launch. Existing profiles can retain their own options when replacing the jars.
 
 ## Campaign controls (M1)
 
-`/chronicle status` and `/chronicle session status` are public. Administration requires operator level 2; the server console can use the same commands without the leading slash. Grant GM access deliberately using `op <username>` in the console. Deployment does not grant players operator permissions.
+`/chronicle session status` is public. Administration requires operator level 2; the server console can use the same commands without the leading slash. Grant GM access deliberately using `op <username>` in the console. Deployment does not grant players operator permissions.
 
 ```text
 /chronicle session start [number]
 /chronicle session pause
 /chronicle session resume
 /chronicle session end
-/chronicle flag list
-/chronicle flag get quiet_below:example
-/chronicle flag set quiet_below:example true
-/chronicle event list
-/chronicle event preview quiet_below:readiness_check
-/chronicle event trigger quiet_below:readiness_check
-/chronicle event history [limit]
-/chronicle history [limit]
+/chronicle events flags list
+/chronicle events flags get quiet_below:example
+/chronicle events flags set quiet_below:example true
+/chronicle debug events list
+/chronicle debug events preview quiet_below:readiness_check
+/chronicle debug events trigger quiet_below:readiness_check
+/chronicle debug events history [limit]
+/chronicle session history [limit]
 ```
 
-Start defaults to session 1. Explicit session 0 is supported for preparation. After ending, the next number must increase. Flags and events can change only during an active session. **World simulation freezes whenever a session is inactive, paused, ended or unavailable.** Players remain mobile and can chat, use commands, interact and edit cards. This uses vanilla tick-freeze semantics rather than build protection. Starting/resuming unfreezes simulation; session state owns the tick-freeze setting and leaves tick rate unchanged. Every player sees the current number/phase above the hotbar, refreshed every second and on changes/join; other actionbar messages may briefly share that space. The readiness event sets a saved flag without modifying blocks.
+Start defaults to session 1. Explicit session 0 is supported for preparation. After ending, the next number must increase. Flags and events can change only during an active session. **World simulation and survival interactions freeze whenever play is inactive, paused, ended or unavailable.** Players remain mobile and may chat and edit character cards. Explicit global Building Mode allows everyone to build during non-active play. Starting/resuming restores play; the active status appears briefly, while paused status remains visible. The readiness event sets a saved flag without modifying blocks.
 
 State lives in `<world>/chronicle/campaign-state.json`. Each successful change saves before becoming visible and records the actor, UTC time and sequence. The previous valid file is retained as `.bak`; history retains 1,000 entries. Corrupt, unsupported or oversized data disables campaign commands rather than resetting the campaign. Stop the server, preserve the damaged file, inspect the `.bak` or a complete server backup, and restore a verified matching snapshot before restarting. Session state restores as saved, including active or paused.
 
@@ -146,17 +154,17 @@ See [M1 architecture and acceptance criteria](docs/M1_IMPLEMENTATION.md).
 
 ## Character dossiers (M2)
 
-Press **K** (rebindable in Controls) or use `/chronicle profile open` to edit your public card. `/chronicle profile open <online-player>` opens another player's read-only card. Fields are public name (48 characters), optional pronouns (32) and optional description (512), counted as Unicode codepoints. Text is plain, with surrounding whitespace removed. No secret fields are sent. Cards can be edited while simulation is frozen.
+Press **K** (rebindable in Controls) or use `/chronicle players card` to edit your public card. `/chronicle players card <online-player>` opens another player's read-only card. Fields are public name (48 characters), optional pronouns (32) and optional description (512), counted as Unicode codepoints. Text is plain, with surrounding whitespace removed. No secret fields are sent. Cards can be edited while simulation is frozen.
 
 The screen saves only after server acknowledgement; errors preserve your text. If another edit changed the card, reopen it to refresh the revision before retrying. Long public cards can be scrolled with the mouse or keyboard. Text commands provide a fallback:
 
 ```text
-/chronicle profile show [online-player]
-/chronicle profile set name Rowan Vale
-/chronicle profile set pronouns they/them
-/chronicle profile set description A patient mason who knows the old roads.
-/chronicle profile clear pronouns
-/chronicle profile clear description
+/chronicle players card [online-player]
+/chronicle players card set name Rowan Vale
+/chronicle players card set pronouns they/them
+/chronicle players card set description A patient mason who knows the old roads.
+/chronicle players card clear pronouns
+/chronicle players card clear description
 ```
 
 Only your own card can be edited, including through packets; operator privileges do not add another-player edit command. Saves are limited to once per second and view requests to five per second. Card files are `<world>/chronicle/profiles/<uuid>.json`, with schema/revision/owner checks and previous-file `.bak` recovery. A missing card displays the account name without creating data. Invalid files remain untouched; stop the server and restore that owner's verified file before retrying. Backups include these files. See [M2 specification and checks](docs/M2_IMPLEMENTATION.md).
@@ -167,17 +175,17 @@ An opt-in development-client visual test uses `CHRONICLE_UI_SMOKE=<output-direct
 
 `quiet_below:resonance_marker` reuses the operator's ancient-symbol Blockbench relief. Place it on a floor or against a wall; mine it with a pickaxe to recover it. During an active session, right-click empty-handed for an observation or use `quiet_below:echo_lens` for more detail. The lens is not consumed. Both have survival recipes and creative entries; see [assets and recipes](docs/M3_IMPLEMENTATION.md).
 
-The once-only `/chronicle event trigger quiet_below:mine_whisper` reveals a new observation at every marker, accessible without a lens. It records a flag and audit entry without changing blocks. It leaves the meaning and response to the players.
+The once-only `/chronicle debug events trigger quiet_below:mine_whisper` reveals a new observation at every marker, accessible without a lens. It records a flag and audit entry without changing blocks. It leaves the meaning and response to the players.
 
 Environmental stages default to **no configured zones**. A level-2 GM explicitly approves exact natural-block coordinates, at most 64 loaded positions per zone. Back up first. For a selected small area:
 
 ```text
-/quiet_below zone define <id> <from-x> <from-y> <from-z> <to-x> <to-y> <to-z>
-/quiet_below stage preview <id>
-/quiet_below stage apply <id> <token-from-preview>
-/quiet_below stage status
-/quiet_below stage undo
-/quiet_below stage resume
+/chronicle game quiet-below zone define <id> <from-x> <from-y> <from-z> <to-x> <to-y> <to-z>
+/chronicle game quiet-below stage preview <id>
+/chronicle game quiet-below stage apply <id> <token-from-preview>
+/chronicle game quiet-below stage status
+/chronicle game quiet-below stage undo
+/chronicle game quiet-below stage resume
 ```
 
 Only stone, deepslate, cobblestone, cobbled deepslate, tuff and calcite can be captured. Defining a zone is approval of those coordinates; the mod cannot infer who built a stone wall. Preview lists every original state and target. Apply requires ACTIVE and unchanged captured blocks, replacing at most eight positions per tick with passive sculk. Containers/block entities, unloaded chunks, height/border violations and changed states are rejected. No catalyst, sensor, shrieker, automatic spread or forced loading is added. Pause/end suspends work immediately.

@@ -200,7 +200,10 @@ def run(include_content=True, regression=True):
                 probe.bind(('127.0.0.1', 24455))
             log_path = reports / ('server-' + phase + '.log')
             server_log = log_path.open('w', encoding='utf-8')
-            server = subprocess.Popen(w.server_command(), cwd=root, env=w.env(), stdin=subprocess.PIPE,
+            server_env = w.env()
+            if regression:
+                server_env.update(CHRONICLE_FABRIC_SMOKE=str(reports), CHRONICLE_FABRIC_SERVER_DIR=str(root))
+            server = subprocess.Popen(w.server_command(), cwd=root, env=server_env, stdin=subprocess.PIPE,
                                       stdout=server_log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             deadline = time.monotonic() + 240
             while True:
@@ -218,9 +221,19 @@ def run(include_content=True, regression=True):
                 _await_clients(clients, [reports / f'role-{role}-{phase}.json' for role in ('A', 'B')])
                 report['checks'].append(phase + ': GM/non-op matching Fabric clients passed M1/M2 checks')
                 authoring = json.loads((root / 'world/chronicle/authoring.json').read_text(encoding='utf-8'))
-                if authoring['revision'] != 10 or {site['type'] for site in authoring['sites']} != {'region', 'location', 'anchor'}:
-                    raise RuntimeError('M6 authoring registry revision/type persistence mismatch')
-                report['checks'].append(phase + ': M6 metadata commands, permissions and durable region/location/anchor checks passed')
+                sites = {site['id']: site for site in authoring['sites']}
+                if set(sites) != {'smoke_city', 'smoke_arrival', 'smoke_chest'}:
+                    raise RuntimeError('M6 authoring registry IDs changed or were not durably retained')
+                if (sites['smoke_city'].get('type') != 'region' or sites['smoke_arrival'].get('type') != 'location'
+                        or sites['smoke_chest'].get('type') != 'anchor'):
+                    raise RuntimeError('M6 authoring registry geometry types were not durably retained')
+                if sites['smoke_city']['min']['x'] != 16 or sites['smoke_city']['max']['x'] != 19:
+                    raise RuntimeError('M6 Region edit geometry was not durably retained')
+                if sites['smoke_arrival']['x'] != 16.5 or sites['smoke_arrival']['yaw'] != 90:
+                    raise RuntimeError('M6 Point position/facing was not durably retained')
+                if sites['smoke_chest'].get('expectedBlock') != 'minecraft:chest':
+                    raise RuntimeError('M6 block-site expectation was not durably retained')
+                report['checks'].append(phase + ': canonical M6 region/location commands, permissions and durable geometry checks passed')
                 chest = json.loads((root / 'world/chronicle/chest-content.json').read_text(encoding='utf-8'))
                 if len(chest['templates']) != 1 or len(chest['bindings']) != 4 or len(chest['receipts']) != 4 or chest['pending']:
                     raise RuntimeError('M7 chest templates/receipts/pending persistence mismatch')

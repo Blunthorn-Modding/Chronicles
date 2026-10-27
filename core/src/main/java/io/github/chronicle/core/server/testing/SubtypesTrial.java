@@ -56,7 +56,7 @@ public final class SubtypesTrial {
         case "verify_both" -> {var area=AreaChanges.forRegion(source.getServer(),REGION).orElseThrow();require(area.id().equals(baseline.id())&&area.start().isPresent()&&area.end().isPresent(),"End recapture missing or identity changed");}
         default -> throw new IllegalArgumentException(action);
     }source.sendFeedback(()->Text.literal("Subtypes trial PASS "+action),false);return 1;}catch(Exception e){source.sendError(Text.literal("Subtypes trial FAIL "+action+": "+e.getMessage()));return 0;}}
-    private static void prepare(ServerCommandSource source)throws Exception{var server=source.getServer();var p=source.getPlayerOrThrow();var world=source.getWorld();require(AreaChanges.ready(server)&&Departures.ready(server),"services unavailable");
+    private static void prepare(ServerCommandSource source)throws Exception{verifyCommandTree(source);var server=source.getServer();var p=source.getPlayerOrThrow();var world=source.getWorld();require(AreaChanges.ready(server)&&Departures.ready(server),"services unavailable");
         for(int x=0;x<=12;x++)for(int z=0;z<=12;z++)world.setBlockState(new BlockPos(x,63,z),Blocks.STONE.getDefaultState(),3);
         world.setBlockState(CHEST,Blocks.CHEST.getDefaultState(),3);setChest(world,Items.DIAMOND,2);world.setBlockState(CONTROL,Blocks.BARREL.getDefaultState(),3);
         var authoring=AuthoringRuntime.get(server);authoring.enable(p.getUuid());authoring.service().put(new AuthoringSite.Region(REGION,"minecraft:overworld",1,new BlockPosition(3,64,3),new BlockPosition(5,65,5)),false);
@@ -64,6 +64,42 @@ public final class SubtypesTrial {
         authoring.service().put(new AuthoringSite.Anchor(HELM,"minecraft:overworld",1,new BlockPosition(8,64,8),"minecraft:barrel"),false);
         for(int i=0;i<16;i++)authoring.service().put(new AuthoringSite.Region(String.format(java.util.Locale.ROOT,"zzpage_%02d",i),"minecraft:overworld",1,new BlockPosition(10,64,10),new BlockPosition(11,65,11)),false);
         p.changeGameMode(GameMode.CREATIVE);p.teleport(world,1.5,64,1.5,Set.of(),0,0,false);p.setVelocity(0,0,0);p.onLanding();io.github.chronicle.core.server.SessionBuilding.set(source,true);
+    }
+    private static void verifyCommandTree(ServerCommandSource source) throws java.io.IOException {
+        var dispatcher=source.getServer().getCommandManager().getDispatcher();
+        var root=dispatcher.getRoot(); var canonical=root.getChild("chronicle");
+        require(canonical!=null&&canonical.getCommand()!=null,"canonical remembered opener missing");
+        for(String old:new String[]{"chronicles","quiet_below"}) require(root.getChild(old)==null,"obsolete root still registered: "+old);
+        var expected=Set.of("session","players","events","chests","loot-tables","books","regions","locations","roles","setup","editing","debug","game");
+        require(canonical.getChildren().stream().map(n->n.getName()).collect(java.util.stream.Collectors.toSet()).equals(expected),"canonical family tree differs: "+canonical.getChildren());
+        var ordinary=source.withLevel(0);
+        for(String family:expected) {
+            var node=canonical.getChild(family);
+            boolean publicFamily=Set.of("session","players").contains(family);
+            require(node.canUse(source),"GM cannot access family: "+family);
+            require(node.canUse(ordinary)==publicFamily,"incorrect nonoperator family gate: "+family);
+        }
+        require(canonical.canUse(ordinary),"ordinary players cannot reopen their permitted menu");
+        require(canonical.getChild("game").getChild("quiet-below")!=null,"scenario operations missing under game");
+        for(String old:new String[]{"assign","clear","inspect"})require(canonical.getChild("setup").getChild(old)==null,"retired reverse setup command registered: "+old);
+        for(String command:new String[]{"chronicle regions pos1 1 2 3","chronicle regions create Sample states end","chronicle regions states capture review subtype_boarding start","chronicle locations list blocks","chronicle players card","chronicle game quiet-below stage status"}) {
+            var parsed=dispatcher.parse(command,source);
+            require(!parsed.getReader().canRead()&&parsed.getContext().getCommand()!=null,"canonical command failed to parse: "+command);
+        }
+        for(String command:new String[]{"chronicles","chronicle area","chronicle author","chronicle region","chronicle event","chronicle menu","quiet_below stage status"}) {
+            var parsed=dispatcher.parse(command,source);
+            require(parsed.getReader().canRead(),"obsolete command still parses: "+command);
+        }
+        var inventory=new java.util.ArrayList<java.util.Map<String,Object>>();
+        inventoryCommand(canonical,"",source,ordinary,true,true,inventory);
+        Files.writeString(source.getServer().getSavePath(net.minecraft.util.WorldSavePath.ROOT).toAbsolutePath().normalize().getParent().resolve("canonical-command-tree.json"),new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(inventory));
+        source.sendFeedback(()->Text.literal("Subtypes command tree PASS canonical roots, removed aliases, scenario namespace and GM/nonoperator gates"),false);
+    }
+    private static void inventoryCommand(com.mojang.brigadier.tree.CommandNode<ServerCommandSource> node,String prefix,ServerCommandSource gm,ServerCommandSource participant,boolean gmParent,boolean playerParent,java.util.List<java.util.Map<String,Object>> result) {
+        String name=node instanceof com.mojang.brigadier.tree.ArgumentCommandNode<?,?>?"<"+node.getName()+">":node.getName();
+        String path=prefix+" "+name; boolean gmAllowed=gmParent&&node.canUse(gm),playerAllowed=playerParent&&node.canUse(participant);
+        if(node.getCommand()!=null)result.add(java.util.Map.of("command",path.trim(),"operator",gmAllowed,"participant",playerAllowed));
+        node.getChildren().stream().sorted(java.util.Comparator.comparing(n->n.getName())).forEach(child->inventoryCommand(child,path,gm,participant,gmAllowed,playerAllowed,result));
     }
     private static void verify(ServerCommandSource source,boolean edit){require(io.github.chronicle.core.server.SessionBuilding.enabled(source.getServer()),"departure Save/edit lost Building Mode");var area=AreaChanges.forRegion(source.getServer(),REGION).orElseThrow();require(area.start().isPresent()&&area.end().isPresent(),"Start/End were not captured");
         var departure=Departures.state(source.getServer()).definitions().values().stream().filter(d->d.name().equals(edit?"Edited subtype departure":"Subtype departure")).findFirst().orElseThrow();

@@ -99,7 +99,8 @@ public final class QuietBelowStages {
                 .then(literal("resume").executes(context -> resume(context.getSource())))
                 .then(literal("undo").executes(context -> undo(context.getSource())));
 
-        dispatcher.register(literal("quiet_below").requires(source -> source.hasPermissionLevel(2)).then(zone).then(stage));
+        dispatcher.register(literal("chronicle").then(literal("game").then(literal("quiet-below")
+                .requires(source -> source.hasPermissionLevel(2)).then(zone).then(stage))));
     }
 
     private static int define(ServerCommandSource source, String id, BlockPos first, BlockPos second) {
@@ -243,6 +244,13 @@ public final class QuietBelowStages {
         private static StageBlockState encode(BlockState state) {
             Map<String, String> properties = new TreeMap<>();
             state.getEntries().forEach((property, value) -> properties.put(property.getName(), propertyName(property, value)));
+            // Historical stage journals predate the cosmetic vitality property. Only healthy
+            // sculk is equivalent to that canonical state; changed bands must still conflict.
+            if (state.isOf(net.minecraft.block.Blocks.SCULK)
+                    && state.get(io.github.chronicle.quietbelow.content.SculkAppearance.VITALITY)
+                    == io.github.chronicle.quietbelow.ecology.EcologyAppearance.HEALTHY) {
+                properties.remove(io.github.chronicle.quietbelow.ecology.EcologyAppearance.PROPERTY);
+            }
             return new StageBlockState(Registries.BLOCK.getId(state.getBlock()).toString(), properties);
         }
 
@@ -255,6 +263,12 @@ public final class QuietBelowStages {
                 Property<?> property = state.getProperties().stream().filter(value -> value.getName().equals(entry.getKey()))
                         .findFirst().orElseThrow(() -> new IllegalStateException("recorded property is unavailable: " + entry.getKey()));
                 state = withParsed(state, property, entry.getValue());
+            }
+            if (encoded.equals(StageValidation.SCULK)
+                    && state.getProperties().size() == 1
+                    && state.contains(io.github.chronicle.quietbelow.content.SculkAppearance.VITALITY)) {
+                return state.with(io.github.chronicle.quietbelow.content.SculkAppearance.VITALITY,
+                        io.github.chronicle.quietbelow.ecology.EcologyAppearance.HEALTHY);
             }
             if (state.getProperties().size() != encoded.properties().size()) {
                 throw new IllegalStateException("recorded state omits properties for " + encoded.id());
