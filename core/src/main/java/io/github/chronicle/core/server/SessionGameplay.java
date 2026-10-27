@@ -13,6 +13,7 @@ import net.minecraft.block.CandleCakeBlock;
 
 /** Shared server-authoritative gameplay boundary; no gamemode or operator bypass for survival. */
 public final class SessionGameplay {
+    private static Boolean clientSurvivalFrozen;
     private SessionGameplay() { }
     public static boolean frozen(MinecraftServer server) {
         if (!server.isOnThread()) throw new IllegalStateException("Session gameplay requires the server thread.");
@@ -27,9 +28,18 @@ public final class SessionGameplay {
         return SessionGameplayPolicy.canBuild(service == null ? null : service.state().phase(),
                 RuntimeHolds.reason(server) != null, SessionBuilding.enabled(server));
     }
+    public static boolean simulationFrozen(MinecraftServer server) {
+        if (!server.isOnThread()) throw new IllegalStateException("Session gameplay requires the server thread.");
+        var service = ChronicleRuntime.available(server);
+        return SessionGameplayPolicy.simulationFrozen(service == null ? null : service.state().phase(),
+                RuntimeHolds.reason(server) != null, SessionBuilding.enabled(server));
+    }
+    /** Client-thread presentation snapshot; server players always use authoritative campaign state. */
+    public static void clientSurvivalState(Boolean frozen) { clientSurvivalFrozen = frozen; }
     public static boolean frozen(PlayerEntity player) {
         if (player instanceof ServerPlayerEntity actor) return frozen(actor.getEntityWorld().getServer());
-        return player.getEntityWorld().isClient() && player.getEntityWorld().getTickManager().isFrozen();
+        return player.getEntityWorld().isClient() && (clientSurvivalFrozen != null
+                ? clientSurvivalFrozen : player.getEntityWorld().getTickManager().isFrozen());
     }
     public static boolean canUseItem(ServerPlayerEntity player, ItemStack stack) {
         return canBuild(player) && (!frozen(player) || !stack.contains(DataComponentTypes.CONSUMABLE));

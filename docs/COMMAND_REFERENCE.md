@@ -1,4 +1,4 @@
-# Chronicle commands (dev59)
+# Chronicle commands (dev60)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored.
 
@@ -33,6 +33,8 @@ The UI owns forms, item components, book pages, departure warnings and multi-ste
 /chronicle session pause
 /chronicle session resume
 /chronicle session end
+/chronicle session building on
+/chronicle session building off
 /chronicle players join
 /chronicle players leave
 /chronicle players card
@@ -45,6 +47,8 @@ The UI owns forms, item components, book pages, departure warnings and multi-ste
 /chronicle players add PlayerName
 /chronicle players remove PlayerName
 ```
+
+Building Mode is a global operator-controlled option while play is paused or stopped. It runs vanilla world simulation and permits building and chest use for everyone while player health, hunger and survival effects stay held. Chronicle play clocks and scenario progression stay paused. Turning it off freezes the world and closes open containers. Runtime holds suspend it; releasing a hold restores the choice in the same play window. A phase change or server restart clears it. Per-player Editing controls map metadata and grants no separate building bypass.
 
 Player destination policies use `players starting-position set|disable|reset`, `players respawn set|disable`, and `players move review|confirm`. Use tab completion for each command's arguments. Assignment and first-entry recovery remain explicit; `/chronicle roles recovery entry PlayerName` compares evidence and never blindly repeats a kit.
 

@@ -31,5 +31,5 @@
   "attribute.chronicle_core.exhaustion_multiplier": "Food exhaustion multiplier",
   "screen.chronicle.item_workshop.offer": "Offer",
   "chronicle.session.play_active": "Chronicle | Play is active",
-  "chronicle.session.building": "%s | Building Mode on"
+  "chronicle.session.building": "Chronicle | Building Mode | World running"
 }

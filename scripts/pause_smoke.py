@@ -123,6 +123,16 @@ def run() -> None:
             report["checks"].append("paused survival movement remained possible while normal placement, mining and food-use packets left world/inventory unchanged")
             report["checks"].append("paused health, hunger, exhaustion and status duration were preserved through direct server seams")
 
+            _command(server, log, "chronicle_pause_trial transition PauseTrial chest_active", "Pause trial PASS chest_active")
+            for stage in ("chest_open_active", "chest_pause_closed", "chest_paused_open"):
+                if stage == "chest_pause_closed":
+                    _command(server, log, "chronicle_pause_trial transition PauseTrial chest_pause", "Pause trial PASS chest_pause")
+                control.write_text(json.dumps({"stage": stage}), encoding="utf-8")
+                _wait_path(result, lambda value: value.get("result") == "READY" and value.get("stage") == stage, stage)
+            _command(server, log, "chronicle_pause_trial transition PauseTrial chest_check", "Pause trial PASS chest_check")
+            _command(server, log, "chronicle_pause_trial snapshot PauseTrial", "Pause trial PASS snapshot")
+            report["checks"].append("a real ACTIVE-opened chest closes on pause; new paused right-clicks cannot open it or change its inventory")
+
             _command(server, log, "chronicle_pause_trial author_only PauseTrial", "Pause trial PASS author_only")
             control.write_text(json.dumps({"stage": "author_only"}), encoding="utf-8")
             _wait_path(result, lambda value: value.get("result") == "READY" and value.get("stage") == "author_only", "author-only paused placement denial")
@@ -132,11 +142,18 @@ def run() -> None:
             control.write_text(json.dumps({"stage": "building"}), encoding="utf-8")
             _wait_path(result, lambda value: value.get("result") == "READY" and value.get("stage") == "building", "global Building Mode real-player actions")
             _command(server, log, "chronicle_pause_trial building_check PauseTrial", "Pause trial PASS building_check")
+            control.write_text(json.dumps({"stage": "chest_building"}), encoding="utf-8")
+            _wait_path(result, lambda value: value.get("result") == "READY" and value.get("stage") == "chest_building", "Building Mode chest transfer")
+            _command(server, log, "chronicle_pause_trial transition PauseTrial chest_build_check", "Pause trial PASS chest_build_check")
             _command(server, log, "chronicle_pause_trial building_disable PauseTrial", "Pause trial PASS building_disable")
+            control.write_text(json.dumps({"stage": "chest_disabled_closed"}), encoding="utf-8")
+            _wait_path(result, lambda value: value.get("result") == "READY" and value.get("stage") == "chest_disabled_closed", "Building Mode chest closure")
+            _command(server, log, "chronicle_pause_trial transition PauseTrial chest_disabled_check", "Pause trial PASS chest_disabled_check")
             control.write_text(json.dumps({"stage": "building_off"}), encoding="utf-8")
             _wait_path(result, lambda value: value.get("result") == "READY" and value.get("stage") == "building_off", "global Building Mode revocation")
             _command(server, log, "chronicle_pause_trial building_disabled_check PauseTrial", "Pause trial PASS building_disabled_check")
             report["checks"].append("author mode alone and a non-operator command could not enable paused building; the real global Building Mode command let a de-opped non-author survival player place and mine, then mode-off revoked it")
+            report["checks"].append("Building Mode advances the vanilla world clock and entity gravity, holds server/client survival and Chronicle clocks, permits real chest transfers, and closes the chest when disabled")
 
             _command(server, log, "chronicle_pause_trial resume PauseTrial", "Pause trial PASS resume")
             control.write_text(json.dumps({"stage": "active"}), encoding="utf-8")

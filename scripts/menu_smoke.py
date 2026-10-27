@@ -110,6 +110,8 @@ def run() -> None:
                     'deleting all manual references cannot free physical quota',
                     'saved Regions remain independent geometry without obsolete reverse use assignment',
                     'generic opener restored the Region page and validated selected record',
+                    'server requests preserve enabled button identity and ignore duplicate navigation',
+                    'closing during pending navigation stays closed after the actual response',
                     'native Create saves and selects an empty custom table without filling chests',
                     'new custom table saves item probabilities and lore through the shared pickers',
                     'duplicate loot table creation preserves the table and popup fields',

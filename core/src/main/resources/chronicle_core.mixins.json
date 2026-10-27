@@ -19,6 +19,7 @@
     "PausedItemUseMixin",
     "PausedInteractionsMixin",
     "PausedBlockInteractionMixin",
+    "PausedContainerMixin",
     "PausedPickupMixin",
     "PausedPlayerAttackMixin",
     "PausedHazardsMixin",

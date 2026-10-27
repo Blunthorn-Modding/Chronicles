@@ -1,5 +1,7 @@
 # Chronicle work tracking
 
+**27 October dev60:** [editor feedback and session modes](SESSION_MODE_POLISH.md) removes click-time global button flicker, closes paused containers and runs vanilla simulation during explicit global Building Mode while holding player health/hunger. Dedicated UI copy review and independent implementation review are clear; final native/deployment evidence belongs in the newest [TEST_PLAN](TEST_PLAN.md). This is a Core correction; handcrafted-map integration, final prose/cast and realistic multiplayer/voice soak remain pending.
+
 **27 October follow-up:** dev56 corrects departure editing and temporary-hold Building Mode retention; original stuck pre-save outline is still open despite passing ordinary/HUD native repetitions. [Region/Location subtype and clearer gear design](EDITOR_SUBTYPES_UI_DESIGN.md) awaits layout review, including the organizer's retained Departure setup popup. [Evidence](AUTHORING_REVIEW_FOLLOWUP.md).
 
 **26 October implementation:** [CF19?CF21/QB14](CF19_CF21_IMPLEMENTATION_PLAN.md) is implemented for one combined dev55 review. Separate Advanced catalogs, Create above each list, YAML roles, paired Area states and linked irreversible group departures are covered by the native fixtures in [TEST_PLAN](TEST_PLAN.md). Handcrafted-map integration, final cast/prose, maximum-volume area certification and realistic group soak remain pending.

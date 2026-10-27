@@ -30,6 +30,7 @@ public final class PauseGameplaySmoke {
     private static PauseGameplaySmoke instance;
     private final Path output,control; private String stage="",running=""; private long started; private Vec3d movementStart; private boolean connected;
     private int activeBannerCount,stableActiveBannerCount=-1,activeBannerBaseline;
+    private int buildingEffectDuration;
     private PauseGameplaySmoke(Path output,Path control) throws IOException { this.output=output.toAbsolutePath().normalize();this.control=control.toAbsolutePath().normalize();Files.createDirectories(this.output.getParent()); }
     public static void register() { if(OUTPUT_ENV==null)return;try{instance=new PauseGameplaySmoke(Path.of(OUTPUT_ENV),Path.of(CONTROL_ENV));ClientReceiveMessageEvents.GAME.register((message,overlay)->{if(overlay&&message.getString().equals("Chronicle | Play is active"))instance.activeBannerCount++;});ClientTickEvents.END_CLIENT_TICK.register(instance::tick);}catch(Exception e){ChronicleCore.LOGGER.error("Pause gameplay smoke setup failed",e);}}
     private void tick(MinecraftClient client) {
@@ -43,14 +44,28 @@ public final class PauseGameplaySmoke {
         }catch(Throwable error){write("FAIL",stage,error.getClass().getSimpleName()+": "+error.getMessage());client.scheduleStop();}
     }
     private void start(MinecraftClient c){
+        if(stage.equals("chest_open_active")||stage.equals("chest_paused_open")||stage.equals("chest_building")){c.player.getInventory().setSelectedSlot(2);place(c,new BlockPos(0,65,2));running="chest";}
         if(stage.equals("paused")){movementStart=position(c);c.options.forwardKey.setPressed(true);running="move";}
         else if(stage.equals("author_only")||stage.equals("building_off")){if(stage.equals("building_off"))activeBannerBaseline=activeBannerCount;c.player.getInventory().setSelectedSlot(0);place(c,stage.equals("author_only")?new BlockPos(4,64,0):new BlockPos(-2,64,0));running="wait";}
-        else if(stage.equals("building")){c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(4,64,0));running="place";}
+        else if(stage.equals("building")){buildingEffectDuration=c.player.getStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS).getDuration();c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(4,64,0));running="place";}
         else if(stage.equals("active")){stableActiveBannerCount=-1;c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(1,64,0));running="place";}
         else if(stage.equals("inflight")){eat(c);running="begin";}
     }
     private void advance(MinecraftClient c){
         long elapsed=(System.nanoTime()-started)/1_000_000L;
+        if(stage.equals("chest_open_active")&&running.equals("chest")&&elapsed>750){
+            if(!(c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.HandledScreen<?>))throw new IllegalStateException("ACTIVE chest did not open");
+            ready(c,"real ACTIVE chest opened");
+        }
+        if(stage.equals("chest_building")&&running.equals("chest")&&elapsed>750){
+            if(!(c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.HandledScreen<?>))throw new IllegalStateException("Building Mode chest did not open");
+            c.interactionManager.clickSlot(c.player.currentScreenHandler.syncId,0,0,net.minecraft.screen.slot.SlotActionType.QUICK_MOVE,c.player);
+            running="transferred";
+        } else if(stage.equals("chest_building")&&running.equals("transferred")&&elapsed>1200)ready(c,"Building Mode chest transfer through normal slot packet");
+        if((stage.equals("chest_pause_closed")||stage.equals("chest_paused_open")||stage.equals("chest_disabled_closed"))&&!running.equals("done")&&elapsed>750){
+            if(c.currentScreen instanceof net.minecraft.client.gui.screen.ingame.HandledScreen<?>)throw new IllegalStateException("paused chest remains visible: "+stage);
+            ready(c,"paused chest closed/rejected");
+        }
         if(stage.equals("inflight")&&running.equals("begin")&&c.player.isUsingItem()) {running="using";write("USING",stage,"active food use began");}
         if(stage.equals("paused")){
             if(running.equals("move")&&elapsed>900){c.options.forwardKey.setPressed(false);if(Math.hypot(c.player.getX()-movementStart.x,c.player.getZ()-movementStart.z)<.08)throw new IllegalStateException("paused player did not move horizontally");c.player.getInventory().setSelectedSlot(0);place(c,new BlockPos(1,64,0));attack(c,new BlockPos(2,65,0));eat(c);running="food";}
@@ -77,6 +92,11 @@ public final class PauseGameplaySmoke {
         }
         if(stage.equals("active")&&(activeBannerCount-activeBannerBaseline!=1||activeBannerCount!=stableActiveBannerCount))
             throw new IllegalStateException("ACTIVE actionbar missing or periodically repeated");
+        if(stage.equals("building")){
+            if(client.world.getTickManager().isFrozen())throw new IllegalStateException("client world still frozen in Building Mode");
+            if(!io.github.chronicle.core.server.SessionGameplay.frozen(client.player)||client.player.getStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS).getDuration()!=buildingEffectDuration)
+                throw new IllegalStateException("client survival snapshot did not hold effect timers during live Building Mode");
+        }
         running="done";write("READY",stage,detail);
     }
     private static void eat(MinecraftClient c){c.player.getInventory().setSelectedSlot(1);c.player.setPitch(-65);c.options.useKey.setPressed(true);c.interactionManager.interactItem(c.player,Hand.MAIN_HAND);}

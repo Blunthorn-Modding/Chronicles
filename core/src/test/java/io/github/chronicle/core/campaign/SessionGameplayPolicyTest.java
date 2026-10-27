@@ -23,4 +23,15 @@ class SessionGameplayPolicyTest {
         }
         assertFalse(SessionGameplayPolicy.canBuild(null, false, true));
     }
+    @Test void buildingRunsTheWorldWithoutReleasingSurvivalAndHoldsTakePriority() {
+        for (SessionPhase phase : SessionPhase.values()) {
+            assertEquals(phase != SessionPhase.ACTIVE, SessionGameplayPolicy.simulationFrozen(phase, false, false));
+            assertFalse(SessionGameplayPolicy.simulationFrozen(phase, false, true));
+            for (boolean building : new boolean[]{false, true})
+                assertTrue(SessionGameplayPolicy.simulationFrozen(phase, true, building));
+            assertEquals(phase != SessionPhase.ACTIVE, SessionGameplayPolicy.frozen(phase, false));
+        }
+        assertTrue(SessionGameplayPolicy.simulationFrozen(null, false, true));
+        assertTrue(SessionGameplayPolicy.simulationFrozen(null, true, true));
+    }
 }

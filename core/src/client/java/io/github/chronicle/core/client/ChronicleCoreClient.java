@@ -23,6 +23,11 @@ public final class ChronicleCoreClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        ClientPlayNetworking.registerGlobalReceiver(io.github.chronicle.core.network.SessionStatePayload.ID,
+                (payload, context) -> context.client().execute(() ->
+                        io.github.chronicle.core.server.SessionGameplay.clientSurvivalState(payload.survivalFrozen())));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+                io.github.chronicle.core.server.SessionGameplay.clientSurvivalState(null));
         ClientServerPresets.register();
         AuthoringPreviewRenderer.register();
         AuthoringUiClient.register();

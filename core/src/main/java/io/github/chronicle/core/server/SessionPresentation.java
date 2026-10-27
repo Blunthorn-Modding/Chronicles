@@ -30,7 +30,7 @@ public final class SessionPresentation {
     private static void apply(MinecraftServer server, boolean refresh) {
         CampaignService service = ChronicleRuntime.available(server);
         CampaignState state = service == null ? null : service.state();
-        boolean frozen = SessionGameplay.frozen(server);
+        boolean frozen = SessionGameplay.simulationFrozen(server);
         ServerTickManager ticks = server.getTickManager();
         if (frozen) {
             ticks.stopSprinting();
@@ -42,6 +42,12 @@ public final class SessionPresentation {
         // The tick manager may already have calculated this tick before Fabric's callback.
         if (frozen && ticks.shouldTick()) {
             ticks.step();
+        }
+        // Rejecting slot packets alone leaves a misleading, usable-looking container on screen.
+        // Vanilla close handles cursor/escrow conservation; pure menu/card screens are unaffected.
+        for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+            if (!SessionGameplay.canBuild(player) && player.currentScreenHandler != player.playerScreenHandler)
+                player.closeHandledScreen();
         }
         var current=new SessionNoticePolicy.State(state==null?null:state.phase(),state==null?0:state.sessionNumber(),
                 java.util.Objects.requireNonNullElse(RuntimeHolds.reason(server),""), SessionBuilding.enabled(server));
@@ -61,6 +67,10 @@ public final class SessionPresentation {
     }
 
     private static void show(ServerPlayerEntity player, CampaignState state) {
+        if (net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(player,
+                io.github.chronicle.core.network.SessionStatePayload.ID))
+            net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player,
+                    new io.github.chronicle.core.network.SessionStatePayload(SessionGameplay.frozen(player)));
         Text message;
         String hold = RuntimeHolds.reason(player.getEntityWorld().getServer());
         if (state == null) {
@@ -79,7 +89,7 @@ public final class SessionPresentation {
                             state.sessionNumber(), phaseText).formatted(Formatting.GOLD);
         }
         if (SessionBuilding.enabled(player.getEntityWorld().getServer()))
-            message = Text.translatableWithFallback("chronicle.session.building", "%s | Building Mode on", message).formatted(Formatting.GOLD);
+            message = Text.translatableWithFallback("chronicle.session.building", "Chronicle | Building Mode | World running").formatted(Formatting.GOLD);
         player.sendMessage(message, true);
     }
 }

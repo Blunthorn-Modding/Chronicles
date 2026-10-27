@@ -29,4 +29,14 @@ class CoreMenuPresentationTest {
         assertTrue(CoreMenuPresentation.showFooterMessage("Waiting for server...", true, false));
         assertTrue(CoreMenuPresentation.showFooterMessage("", false, true));
     }
+    @Test
+    void ordinaryRoundTripsDoNotFlashWaitingFeedbackButSlowRequestsAndDebugDo() {
+        assertFalse(CoreMenuPresentation.showPendingWait(true, 0, false));
+        assertFalse(CoreMenuPresentation.showPendingWait(true, 3, false));
+        assertTrue(CoreMenuPresentation.showPendingWait(true, 4, false));
+        assertTrue(CoreMenuPresentation.showPendingWait(true, 200, false));
+        assertTrue(CoreMenuPresentation.showPendingWait(true, 0, true));
+        assertFalse(CoreMenuPresentation.showPendingWait(false, 200, true));
+    }
+
 }

@@ -66,6 +66,7 @@ public final class ChronicleCore implements ModInitializer {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> Profiles.registerCommands(dispatcher));
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> AuthoringCommands.register(dispatcher));
         ProfilePayloads.register();
+        io.github.chronicle.core.network.SessionStatePayload.register();
         CoreMenuPayloads.register();
         CoreMenuServer.register();
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> CoreMenuCommands.register(dispatcher));

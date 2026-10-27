@@ -397,7 +397,7 @@ public final class CoreMenuScreen extends Screen {
                 if (staged.token() != state.token()) { notice = "The server state changed. Review the action again."; clearAndInit(); return; }
                 staged.execute().run();
             }, "Apply the reviewed action", true);
-            button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true);
+            button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true, true);
             return;
         }
         if (!state.operator()) {
@@ -452,7 +452,7 @@ public final class CoreMenuScreen extends Screen {
             if (!compact) detail(mainLeft + listWidth + 5, top, mainWidth - listWidth - 5, layout.bodyBottom() - top);
         }
         if (!showLimitBackdrop && pickerAction != null && state.picker() == null) promptWidgets(mainLeft, Math.max(top, layout.bodyBottom() - 18), mainWidth);
-        button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true);
+        button("Close", layout.content().right() - 54, layout.footerY(), 54, 18, this::close, "Close this menu", true, true);
         if (showLimitBackdrop) state = liveState;
         if (limitDialogStage != LimitDialogStage.NONE) {
             disableUnderlyingWidgets();
@@ -1142,14 +1142,14 @@ public final class CoreMenuScreen extends Screen {
         if (limitDialogStage == LimitDialogStage.LOADING) {
             limitDialogPanel("Block limits", 224, 96);
             modalText("Loading block types...", limitDialogBounds.x() + 8, limitDialogBounds.y() + 26, limitDialogBounds.width() - 16, 0xFFFFFFFF);
-            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup without changing limits", true);
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup without changing limits", true, true);
             return;
         }
         if (limitDialogStage == LimitDialogStage.ERROR || state.blockLimits() == null) {
             limitDialogPanel("Block limits", 224, 96);
             modalWrappedText(blank(limitServerProblem, "Block-limit data is unavailable."), limitDialogBounds.x() + 8,
                     limitDialogBounds.y() + 26, limitDialogBounds.width() - 16, 0xFFFFCC66, 3);
-            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup", true);
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup", true, true);
             return;
         }
         BlockLimitsForm form = limitForm();
@@ -1170,14 +1170,14 @@ public final class CoreMenuScreen extends Screen {
                 button(">", limitDialogBounds.x() + 30, pageY, 18, 16, () -> limitPickerPage(1), "Next block-type page", state.picker().page() + 1 < state.picker().pages());
                 modalText("Page " + (state.picker().page() + 1) + " / " + state.picker().pages(), limitDialogBounds.x() + 52, pageY + 4, 82, 0xFFA0A0A0);
             }
-            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup without changing limits", true);
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup without changing limits", true, true);
             return;
         }
         BlockLimitType type = form.selected();
         if (type == null) {
             limitDialogPanel("Block limits", 224, 96);
             modalText(blank(form.problem(), "The selected block type is unavailable."), limitDialogBounds.x() + 8, limitDialogBounds.y() + 26, limitDialogBounds.width() - 16, 0xFFFFCC66);
-            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup", true);
+            button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18, this::closeLimitDialog, "Return to Game setup", true, true);
             return;
         }
         limitDialogPanel(type.label(), 224, 158);
@@ -1204,7 +1204,7 @@ public final class CoreMenuScreen extends Screen {
             limitSaveButton = buttons.get("Save");
         }
         button("Close", limitDialogBounds.x() + limitDialogBounds.width() - 62, limitDialogBounds.y() + limitDialogBounds.height() - 26, 54, 18,
-                this::closeLimitDialog, "Return to Game setup without changing limits", true);
+                this::closeLimitDialog, "Return to Game setup without changing limits", true, true);
     }
 
     private void limitDialogPanel(String title, int requestedWidth, int requestedHeight) {
@@ -1344,10 +1344,12 @@ public final class CoreMenuScreen extends Screen {
         request(action, page, id, argument, state.token(), index, filter, query, background);
     }
     private void request(Action action, Page page, String id, String argument, long token, int index, String filter, String query, boolean background) {
-        if (pending || !ClientPlayNetworking.canSend(CoreMenuPayloads.Request.ID)) { notice = "Chronicle menu is unavailable; wait for the server response."; return; }
+        if (pending) return;
+        if (!ClientPlayNetworking.canSend(CoreMenuPayloads.Request.ID)) { notice = "Chronicle menu is unavailable; reopen it with the matching client pack."; return; }
         ClientPlayNetworking.send(new CoreMenuPayloads.Request(action, page, id, argument, token, index, filter, query));
         pending = true; refreshPending = background; requestedAction = action; pendingTicks = idleTicks = 0;
-        if (!background) clearAndInit();
+        // Keep the current widgets, focus and hover state until authoritative data arrives.
+        // Button callbacks reject duplicates; pending transport is not a disabled visual state.
     }
 
     /** Opens a local book form; only its explicit save callback crosses the menu protocol. */
@@ -1486,8 +1488,9 @@ public final class CoreMenuScreen extends Screen {
         CoreMenuLayout.Layout current = activeLayout();
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, current.frame().x(), current.frame().y(), current.frame().width(), current.frame().height());
         context.drawTextWithShadow(textRenderer, Text.literal("Chronicle"), current.content().x(), current.headerY() + 5, 0xFFFFFFFF);
-        String message = notice.isBlank() ? (pending ? "Waiting for server..." : "Choose an item, then use the actions on the right.") : notice;
-        if (CoreMenuPresentation.showFooterMessage(notice, pending, debug))
+        boolean showWait = CoreMenuPresentation.showPendingWait(pending, pendingTicks, debug);
+        String message = notice.isBlank() ? (showWait ? "Waiting for server..." : "Choose an item, then use the actions on the right.") : notice;
+        if (CoreMenuPresentation.showFooterMessage(notice, showWait, debug))
             draw(context, message, current.mainLeft(), current.feedbackY(), Math.max(1, current.content().right() - 60 - current.mainLeft()), state.success() ? 0xFF77FF77 : 0xFFFFCC66);
         if (debug && !state.clock().isBlank())
             draw(context, state.clock(), current.mainLeft(), current.footerY() + 5,
@@ -1531,8 +1534,14 @@ public final class CoreMenuScreen extends Screen {
     private String detailId() { return state.detail() == null ? selected : state.detail().id(); }
     private boolean canEditLoot() { return state.editing() && state.editable() && state.hold().isBlank() && !lootDraftStale; }
     private void button(String label, int x, int y, int w, int h, Runnable action, String hint, boolean enabled) {
-        ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(label, Math.max(1, w - 8))), ignored -> action.run()).dimensions(x, y, Math.max(1, w), h).build());
-        button.active = enabled && !pending; button.setTooltip(Tooltip.of(Text.literal(hint == null ? "" : hint))); buttons.put(label, button);
+        button(label, x, y, w, h, action, hint, enabled, false);
+    }
+    private void button(String label, int x, int y, int w, int h, Runnable action, String hint, boolean enabled, boolean allowWhilePending) {
+        ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(label, Math.max(1, w - 8))), ignored -> {
+            // Preserve normal rendering during transport without allowing another action to race it.
+            if (!pending || allowWhilePending) action.run();
+        }).dimensions(x, y, Math.max(1, w), h).build());
+        button.active = enabled; button.setTooltip(Tooltip.of(Text.literal(hint == null ? "" : hint))); buttons.put(label, button);
     }
     private void button(String label, int x, int y, int w, Runnable action, String hint, boolean enabled) { button(label, x, y, w, 18, action, hint, enabled); }
     private void drawListHeader(String value, int x, int y, int width) { drawLine(value, x, y + 4, width, 0xFFFFFFFF); }

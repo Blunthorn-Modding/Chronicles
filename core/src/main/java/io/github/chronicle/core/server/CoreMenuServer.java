@@ -139,7 +139,9 @@ public final class CoreMenuServer {
                 if(close)context.visible=false;
                 if(!read)context.token=0;
             }
-            send(player,context,message,true,request.action()==Action.OPEN,close);
+            // Only a fresh root invocation may instantiate a screen. A late in-menu navigation
+            // response must not reopen a menu closed while that navigation was pending.
+            send(player,context,message,true,request.action()==Action.OPEN&&request.token()==0,close);
         } catch(Exception exception) {
             if(exception instanceof IOException)ChronicleCore.LOGGER.error("Menu save failed; do not retry uncertain operations blindly",exception);
             send(player,context,shortText(exception.getMessage()==null?"Action failed; inspect the server log.":exception.getMessage(),2048),false,false,false);
@@ -552,7 +554,13 @@ public final class CoreMenuServer {
                     var autos=AutomaticPlayerSpawns.available(server);if(autos!=null)autos.arrivals().entrySet().stream().limit(8).forEach(a->facts.add(new Fact("Starting-position history",a.getKey()+" - "+a.getValue().status()+" - "+a.getValue().detail())));
                     facts.add(new Fact("Loot","Scheduled fills and interrupted-operation evidence remain in the chest journal. Inspection never refills a chest."));
                 } else {
-                    facts.add(new Fact("World",active&&RuntimeHolds.reason(server)==null?"Simulation running":"Frozen; players stay mobile and may edit their cards"));
+                    boolean building=SessionBuilding.enabled(server);
+                    description=RuntimeHolds.reason(server)!=null
+                            ?"Play is held for a Chronicle operation. World and map interactions are frozen; players stay mobile."
+                            :building?"The world runs for map work. Health, hunger, and Chronicle progression stay paused."
+                            :active?"Play is active. Pause or finish for now without resetting the world or story."
+                            :"Play is paused. The world, chests and map interactions are frozen; players remain mobile and may edit their cards.";
+                    facts.add(new Fact("World",SessionGameplay.simulationFrozen(server)?"Frozen; players stay mobile and may edit their cards":"Simulation running"));
                     facts.add(new Fact("Active play","Debug view shows the play clock. Paused, empty and held time does not count."));
                     facts.add(new Fact("Session boundaries","Discoveries and game progress are kept. Configured session-start loot refills run when a new play window starts."));
                     switch(campaign.phase()) {
@@ -561,8 +569,7 @@ public final class CoreMenuServer {
                         case ACTIVE -> controls.add(control(Action.SESSION_PAUSE,"Pause play",true,"",false,""));
                     }
                     if(active||campaign.phase().name().equals("PAUSED"))controls.add(control(Action.SESSION_END,"Finish for now",true,"",true,""));
-                    boolean building=SessionBuilding.enabled(server);
-                    facts.add(new Fact("Building Mode",building?"On - anyone may change the map; survival remains frozen.":"Off - map interactions are frozen while play is paused or stopped."));
+                    facts.add(new Fact("Building Mode",building?"On - everyone may build; world running, player health/hunger held.":"Off - map interactions are frozen while play is paused or stopped."));
                     String buildReason=RuntimeHolds.reason(server)!=null?"Resolve the active Chronicle operation hold first.":active?"Building Mode requires a non-active Chronicle play state.":"";
                     controls.add(control(building?Action.SESSION_BUILD_OFF:Action.SESSION_BUILD_ON,
                             building?"Disable Building Mode":"Enable Building Mode",buildReason.isBlank(),buildReason,!building,""));
@@ -740,7 +747,7 @@ public final class CoreMenuServer {
             }
         }
         if(SessionBuilding.enabled(server)&&facts.stream().noneMatch(f->f.label().equals("Building Mode")))
-            facts.add(new Fact("Building Mode","On - anyone may change the map; survival remains frozen."));
+            facts.add(new Fact("Building Mode","On - everyone may build; world running, player health/hunger held."));
         if(gm&&(c.page==Page.BOOKS_LORE||c.page==Page.LOOT_TABLES||c.page==Page.CHESTS)){
             var refs=new ArrayList<BookSummary>();var tableUses=new ArrayList<Entry>();var chestUses=new ArrayList<Entry>();BookChance direct=null;
             if(c.page==Page.LOOT_TABLES&&loot!=null)for(var ref:loot.books()){var b=BookRuntime.books(server).get(ref.bookId());if(b!=null)refs.add(BookDeliveryRuntime.summary(server,b));}

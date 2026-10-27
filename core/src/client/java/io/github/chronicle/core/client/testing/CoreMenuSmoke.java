@@ -152,7 +152,7 @@ public final class CoreMenuSmoke {
         }
     }
 
-    private boolean rememberedFilterStarted, rememberedFilterChecked, ordinaryReopened;
+    private boolean rememberedFilterStarted, rememberedFilterChecked, ordinaryReopened, pendingVisualChecked;
 
     private void driveOperator(MinecraftClient client) {
         if(step>=20000){driveBuildingMode(client);return;}
@@ -164,7 +164,21 @@ public final class CoreMenuSmoke {
             case 0 -> { openMenu(client); advance("operator opened the native menu"); }
             case 1 -> awaitScreen(client, Page.SESSION, "Session");
             case 2 -> { if(client.getNetworkHandler().getPlayerList().size()<2||++stableTicks<20)return;stableTicks=0;verifyCleanDebug(client);capture(client, "menu-operator-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); checks.add("captured native clean menu layout");step=20000; }
-            case 3 -> navigate(client, "Players", Page.PLAYERS);
+            case 3 -> {
+                if(!pendingVisualChecked) {
+                    var menu=screen(client);var before=menu.probeButtonForTest("Session");var closeBefore=menu.probeButtonForTest("Close");
+                    require(menu.triggerForTest("Players"),"Players navigation unavailable");
+                    require(menu.pending(),"navigation did not start a real server request");
+                    require(before.equals(menu.probeButtonForTest("Session"))&&before.active(),"request rebuilt or greyed unrelated navigation");
+                    require(closeBefore.equals(menu.probeButtonForTest("Close"))&&closeBefore.active(),"request disabled Close");
+                    require(menu.triggerForTest("Events"),"pending controls lost their visual enabled state");
+                    require(before.equals(menu.probeButtonForTest("Session")),"duplicate click rebuilt current controls");
+                    waitingFor=viewCount;pendingVisualChecked=true;return;
+                }
+                if(viewCount<=waitingFor)return;
+                require(screen(client).state().page()==Page.PLAYERS,"pending duplicate navigation replaced the original request");
+                advance("server requests preserve enabled button identity and ignore duplicate navigation");
+            }
             case 4 -> navigate(client, "Events", Page.EVENTS);
             case 5 -> navigate(client, "Chests", Page.CHESTS);
             case 6 -> navigate(client, "Loot Tables", Page.LOOT_TABLES);
@@ -288,10 +302,18 @@ public final class CoreMenuSmoke {
             case 53 -> { require(!screen(client).triggerForTest("Use for\u2026"), "removed reverse region-use action remained available"); checks.add("saved Regions remain independent geometry without obsolete reverse use assignment"); step=57; }
             case 57 -> {
                 CoreMenuScreen screen = screen(client);
-                require(screen.triggerForTest("Close"), "Close is unavailable");
+                screen.selectForTest("menu_smoke_region");
+                require(screen.pending(),"selected Region did not start real navigation");
+                waitingFor=viewCount;stableTicks=0;
+                require(screen.triggerForTest("Close"), "Close is unavailable while navigation is pending");
                 advance("closed menu without changing server editing state");
             }
-            case 58 -> { require(!(client.currentScreen instanceof CoreMenuScreen), "closed menu remained visible"); openMenu(client); advance("reopened menu after close"); }
+            case 58 -> {
+                if(viewCount<=waitingFor||++stableTicks<10)return;
+                require(!(client.currentScreen instanceof CoreMenuScreen),"late navigation response reopened the closed menu");
+                checks.add("closing during pending navigation stays closed after the actual response");
+                stableTicks=0;openMenu(client);advance("reopened menu after close");
+            }
             case 59 -> {if(!(client.currentScreen instanceof CoreMenuScreen remembered)||remembered.pending())return;require(remembered.state().page()==Page.REGIONS&&remembered.state().selected().equals("menu_smoke_region"),"reopen lost the selected Region");advance("generic opener restored the Region page and validated selected record");}
             case 60 -> { require(press(screen(client), "Locations"), "Locations unavailable"); waitingFor = viewCount; step++; }
             case 61 -> awaitView(() -> screen(client).state().page() == Page.LOCATIONS, "reopened Locations");

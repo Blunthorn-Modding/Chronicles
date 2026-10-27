@@ -39,7 +39,9 @@ public final class SessionPauseTrial {
     private static final BlockPos BUILD_BASE = new BlockPos(4, 64, 0);
     private static final BlockPos BUILD_BREAK_TARGET = new BlockPos(5, 65, 0);
     private static final BlockPos REVOKED_BASE = new BlockPos(-2, 64, 0);
+    private static final BlockPos CHEST_POS = new BlockPos(0, 65, 2);
     private static final Map<String, Snapshot> SNAPSHOTS = new HashMap<>();
+    private static net.minecraft.entity.ItemEntity buildingProbe;
 
     private SessionPauseTrial() { }
 
@@ -122,6 +124,7 @@ public final class SessionPauseTrial {
             require(player.getHungerManager().getSaturationLevel() == before.saturation(), "paused saturation changed");
             require(exhaustion(player) == before.exhaustion(), "paused exhaustion changed");
             require(effectDuration(player) == before.effectDuration(), "paused status duration ticked");
+            require(player.getEntityWorld().getTime() == before.worldTime(), "paused vanilla world clock ticked");
             pass(source, "paused_check"); return 1;
         } catch (Exception error) { return fail(source, "paused_check", error); }
     }
@@ -193,6 +196,10 @@ public final class SessionPauseTrial {
             require(SessionGameplay.canBuild(player), "ordinary survival player could not build during global Building Mode");
             player.getEntityWorld().setBlockState(BUILD_BASE.up(), Blocks.AIR.getDefaultState());
             player.getEntityWorld().setBlockState(BUILD_BREAK_TARGET, Blocks.STONE.getDefaultState());
+            buildingProbe = new net.minecraft.entity.ItemEntity(player.getEntityWorld(),6.5,69,4.5,new ItemStack(Items.COBBLESTONE));
+            buildingProbe.setPickupDelay(32767);
+            require(player.getEntityWorld().spawnEntity(buildingProbe),"world-ticking probe did not spawn");
+            SNAPSHOTS.put(player.getUuidAsString(),snapshot(player));
             pass(source, "building_enable"); return 1;
         } catch (Exception error) { return fail(source, "building_enable", error); }
     }
@@ -207,6 +214,13 @@ public final class SessionPauseTrial {
             require(player.getHungerManager().getSaturationLevel()==snapshotFor(player).saturation(), "global Building Mode changed frozen saturation");
             require(exhaustion(player)==snapshotFor(player).exhaustion(), "global Building Mode changed frozen exhaustion");
             require(effectDuration(player)==snapshotFor(player).effectDuration(), "global Building Mode ticked frozen status duration");
+            require(!source.getServer().getTickManager().isFrozen(),"Building Mode still freezes vanilla simulation");
+            require(player.getEntityWorld().getTime()>snapshotFor(player).worldTime()+20,"Building Mode vanilla world clock did not advance");
+            require(buildingProbe!=null&&buildingProbe.getY()<66,"Building Mode entity gravity did not tick");
+            require(io.github.chronicle.core.server.PlayRuntime.elapsedTicks(source.getServer())==snapshotFor(player).playTicks(),"Building Mode advanced the Chronicle play clock");
+            require(!player.damage(player.getEntityWorld(),player.getDamageSources().generic(),2),"Building Mode accepted player damage");
+            player.addExhaustion(4);player.getHungerManager().addExhaustion(4);
+            require(exhaustion(player)==snapshotFor(player).exhaustion(),"Building Mode direct exhaustion accumulated");
             pass(source,"building_check");return 1;
         } catch(Exception error){return fail(source,"building_check",error);}
     }
@@ -254,10 +268,32 @@ public final class SessionPauseTrial {
         try {
             var server=source.getServer();var service=ChronicleRuntime.service(server);var actor=new Actor("native-pause",null);
             switch(action){
+                case "chest_active" -> {
+                    service.resume(actor);
+                    player.getEntityWorld().setBlockState(CHEST_POS, Blocks.CHEST.getDefaultState());
+                    chest(player).setStack(0, new ItemStack(Items.EMERALD));
+                }
+                case "chest_pause" -> {
+                    require(player.currentScreenHandler != player.playerScreenHandler,"real ACTIVE chest never opened");
+                    service.pause(actor);
+                }
+                case "chest_check" -> {
+                    require(player.currentScreenHandler == player.playerScreenHandler,"paused chest handler remained open");
+                    require(chest(player).getStack(0).isOf(Items.EMERALD) && chest(player).getStack(0).getCount()==1,"paused chest contents changed");
+                    require(count(player,Items.EMERALD)==0,"paused chest item reached player inventory");
+                    require(player.openHandledScreen(chest(player)).isEmpty(),"direct paused container opening bypassed the gate");
+                }
+                case "chest_build_check" -> {
+                    require(player.currentScreenHandler!=player.playerScreenHandler,"Building Mode chest did not open");
+                    require(chest(player).getStack(0).isEmpty()&&count(player,Items.EMERALD)==1,"Building Mode chest transfer failed");
+                }
+                case "chest_disabled_check" -> {
+                    require(player.currentScreenHandler==player.playerScreenHandler,"disabling Building Mode left a chest open");
+                }
                 case "prepare_food" -> {player.clearActiveItem();player.getHungerManager().setFoodLevel(5);player.getHungerManager().setSaturationLevel(0);player.getInventory().setStack(1,new ItemStack(Items.BREAD,3));SessionGameplay.correctInventory(player);}
                 case "pause_food" -> {require(player.isUsingItem(),"client never began active food use");service.pause(actor);SNAPSHOTS.put(player.getUuidAsString(),snapshot(player));}
                 case "check_food" -> {require(!player.isUsingItem(),"paused in-flight use was not cleared");require(count(player,Items.BREAD)==snapshotFor(player).bread(),"in-flight paused food was consumed");require(player.getHungerManager().getFoodLevel()==snapshotFor(player).food(),"in-flight paused hunger changed");}
-                case "hold" -> {require(service.state().phase().name().equals("PAUSED"),"hold trial must begin paused");server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-hold global Building Mode did not enable");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"paused runtime hold did not suspend building");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(service.state().phase().name().equals("PAUSED")&&SessionGameplay.frozen(player)&&SessionGameplay.canBuild(player)&&SessionBuilding.enabled(server),"hold release did not restore the same-phase Building Mode choice");server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-resume global Building Mode did not re-enable");service.resume(actor);require(!SessionBuilding.enabled(server),"resume transition did not clear global Building Mode");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression active hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"ACTIVE runtime hold did not freeze gameplay");require(!player.interactionManager.tryBreakBlock(BREAK_TARGET.down()),"held direct mining was permitted");require(!player.damage(player.getEntityWorld(),player.getDamageSources().generic(),2),"held damage permitted");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(!SessionGameplay.frozen(player),"release did not resume gameplay");}
+                case "hold" -> {require(service.state().phase().name().equals("PAUSED"),"hold trial must begin paused");server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-hold global Building Mode did not enable");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server)&&server.getTickManager().isFrozen(),"paused runtime hold did not suspend building and simulation");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(service.state().phase().name().equals("PAUSED")&&SessionGameplay.frozen(player)&&SessionGameplay.canBuild(player)&&SessionBuilding.enabled(server)&&!server.getTickManager().isFrozen(),"hold release did not restore the same-phase Building Mode choice");server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-resume global Building Mode did not re-enable");service.resume(actor);require(!SessionBuilding.enabled(server),"resume transition did not clear global Building Mode");io.github.chronicle.core.server.RuntimeHolds.hold(server,"native-pause","Pause regression active hold");require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"ACTIVE runtime hold did not freeze gameplay");require(!player.interactionManager.tryBreakBlock(BREAK_TARGET.down()),"held direct mining was permitted");require(!player.damage(player.getEntityWorld(),player.getDamageSources().generic(),2),"held damage permitted");io.github.chronicle.core.server.RuntimeHolds.release(server,"native-pause");require(!SessionGameplay.frozen(player),"release did not resume gameplay");}
                 case "end" -> {service.pause(actor);server.getCommandManager().getDispatcher().execute("chronicle session building on",source.withSilent());require(SessionBuilding.enabled(server),"pre-end global Building Mode did not enable");service.end(actor);require(SessionGameplay.frozen(player)&&!SessionGameplay.canBuild(player)&&!SessionBuilding.enabled(server),"ENDED phase did not freeze or clear Building Mode");require(!player.interactionManager.tryBreakBlock(BREAK_TARGET.down()),"ended direct mining permitted");}
                 default -> throw new IllegalArgumentException("Unknown pause trial transition");
             }
@@ -266,6 +302,9 @@ public final class SessionPauseTrial {
     }
 
     private static void floor(ServerWorld world, BlockPos pos) { world.setBlockState(pos, Blocks.STONE.getDefaultState()); }
+    private static net.minecraft.block.entity.ChestBlockEntity chest(ServerPlayerEntity player) {
+        return (net.minecraft.block.entity.ChestBlockEntity)player.getEntityWorld().getBlockEntity(CHEST_POS);
+    }
     private static int count(ServerPlayerEntity player, net.minecraft.item.Item item) {
         int total = 0;
         for (int slot = 0; slot < player.getInventory().size(); slot++) {
@@ -280,7 +319,7 @@ public final class SessionPauseTrial {
         player.getHungerManager().writeData(view);
         return view.getNbt().getFloat("foodExhaustionLevel",Float.NaN);
     }
-    private static Snapshot snapshot(ServerPlayerEntity player) { return new Snapshot(count(player, Items.DIRT), count(player, Items.BREAD), player.getHealth(), player.getHungerManager().getFoodLevel(), effectDuration(player),player.getHungerManager().getSaturationLevel(),exhaustion(player)); }
+    private static Snapshot snapshot(ServerPlayerEntity player) { return new Snapshot(count(player, Items.DIRT), count(player, Items.BREAD), player.getHealth(), player.getHungerManager().getFoodLevel(), effectDuration(player),player.getHungerManager().getSaturationLevel(),exhaustion(player),player.getEntityWorld().getTime(),io.github.chronicle.core.server.PlayRuntime.elapsedTicks(player.getEntityWorld().getServer())); }
     private static Snapshot snapshotFor(ServerPlayerEntity player) { Snapshot snapshot = SNAPSHOTS.get(player.getUuidAsString()); if (snapshot == null) throw new IllegalStateException("native pause fixture was not set up"); return snapshot; }
     private static void require(boolean condition, String message) { if (!condition) throw new IllegalStateException(message); }
     private static void requireFixture(ServerCommandSource source) {
@@ -292,5 +331,5 @@ public final class SessionPauseTrial {
     }
     private static void pass(ServerCommandSource source, String verb) { source.sendFeedback(() -> Text.literal("Pause trial PASS " + verb), false); }
     private static int fail(ServerCommandSource source, String verb, Exception error) { ChronicleCore.LOGGER.error("Pause native trial failed: " + verb, error); source.sendError(Text.literal("Pause trial FAIL " + verb + ": " + error.getMessage())); return 0; }
-    private record Snapshot(int dirt, int bread, float health, int food, int effectDuration, float saturation,float exhaustion) { }
+    private record Snapshot(int dirt, int bread, float health, int food, int effectDuration, float saturation,float exhaustion,long worldTime,long playTicks) { }
 }

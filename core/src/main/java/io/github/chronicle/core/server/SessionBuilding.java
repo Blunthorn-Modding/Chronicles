@@ -40,9 +40,9 @@ public final class SessionBuilding {
         if (value) ENABLED.put(server, new Window(state.phase(), state.sessionNumber()));
         else ENABLED.remove(server);
         SessionPresentation.changed(server);
-        ChronicleCore.LOGGER.info("Building Mode {} by {}; survival remains frozen", value ? "enabled for everyone" : "disabled", source.getName());
-        return value ? "Building Mode enabled for everyone. Survival remains frozen."
-                : "Building Mode disabled. Map interactions are frozen.";
+        ChronicleCore.LOGGER.info("Building Mode {} by {}; player survival remains held", value ? "enabled for everyone" : "disabled", source.getName());
+        return value ? "Building Mode enabled for everyone. World running; player health and hunger held."
+                : "Building Mode disabled. World and map interactions are frozen.";
     }
 
     public static void stop(MinecraftServer server) { ENABLED.remove(server); }
