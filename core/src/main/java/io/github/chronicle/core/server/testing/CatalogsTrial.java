@@ -34,13 +34,19 @@ public final class CatalogsTrial {
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(
                 literal("chronicle_catalogs_trial").requires(source -> source.hasPermissionLevel(2))
                         .then(literal("prepare").executes(context -> run(context.getSource(), "prepare")))
-                        .then(literal("verify").executes(context -> run(context.getSource(), "verify")))));
+                        .then(literal("verify").executes(context -> run(context.getSource(), "verify")))
+                        .then(literal("verify_edit").executes(context -> run(context.getSource(), "verify_edit")))));
     }
 
     private static int run(ServerCommandSource source, String action) {
         try {
             fixture(source);
-            if (action.equals("prepare")) prepare(source); else verify(source);
+            if (action.equals("prepare")) prepare(source); else if(action.equals("verify_edit")){
+                var definition=Departures.state(source.getServer()).definitions().values().stream().filter(d->d.name().equals("Edited departure")).findFirst().orElseThrow(()->new IllegalStateException("Edited departure not saved"));
+                require(definition.revision()==2,"Editing did not advance exactly one revision");
+                require(definition.areaLink().isPresent(),"Editing lost saved Area state");
+                require(io.github.chronicle.core.server.SessionBuilding.enabled(source.getServer()),"Building Mode lost after editor use");
+            } else verify(source);
             source.sendFeedback(() -> Text.literal("Catalogs trial PASS " + action), false);
             return 1;
         } catch (Exception error) {
@@ -68,6 +74,7 @@ public final class CatalogsTrial {
         player.changeGameMode(GameMode.CREATIVE);
         player.teleport(world, 1.5, 64, 1.5, Set.of(), 0, 0, false);
         player.setVelocity(0, 0, 0); player.onLanding();
+        io.github.chronicle.core.server.SessionBuilding.set(source,true);
     }
 
     private static void verify(ServerCommandSource source) {
@@ -75,6 +82,7 @@ public final class CatalogsTrial {
         AreaChange area = AreaChanges.catalog(server).areas().values().stream()
                 .filter(value -> value.name().equals("Menu sample")).findFirst()
                 .orElseThrow(() -> new IllegalStateException("UI did not persist Menu sample"));
+        require(io.github.chronicle.core.server.SessionBuilding.enabled(server),"Building Mode was discarded by Area capture");
         require(area.end().isPresent() && area.start().isPresent(), "Menu sample must retain its UI-captured Start and End snapshots");
         DepartureDefinition departure = Departures.state(server).definitions().values().stream()
                 .filter(value -> value.name().equals("Menu departure")).findFirst()

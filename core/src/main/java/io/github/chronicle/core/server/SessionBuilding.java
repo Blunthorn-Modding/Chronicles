@@ -19,12 +19,13 @@ public final class SessionBuilding {
         var service = ChronicleRuntime.available(server);
         var state = service == null ? null : service.state();
         Window window = ENABLED.get(server);
-        if (state == null || state.phase() == SessionPhase.ACTIVE || RuntimeHolds.reason(server) != null
+        if (state == null || state.phase() == SessionPhase.ACTIVE
                 || window == null || window.phase() != state.phase() || window.session() != state.sessionNumber()) {
             ENABLED.remove(server);
             return false;
         }
-        return true;
+        // A temporary operation suspends building without discarding the operator's choice.
+        return RuntimeHolds.reason(server) == null;
     }
 
     public static String set(ServerCommandSource source, boolean value) {

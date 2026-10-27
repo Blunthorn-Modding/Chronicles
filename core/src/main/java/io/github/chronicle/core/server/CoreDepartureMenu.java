@@ -18,6 +18,10 @@ final class CoreDepartureMenu {
     private CoreDepartureMenu(){}
     static List<Entry> entries(MinecraftServer server){return Departures.state(server).definitions().values().stream().map(d->new Entry(d.id(),d.name(),"An exact block and boarding Region for a one-way group departure.","DEPARTURE",d.id(),d.revision())).toList();}
     static DepartureDefinition fresh(){return new DepartureDefinition("chronicle:departure_"+UUID.randomUUID().toString().replace("-",""),"New departure",1,Optional.empty(),Optional.empty(),"Everyone inside the boarding Region will leave together. Participants elsewhere will remain behind. Continue?","This is a point of no return. You and the listed passengers will permanently leave this campaign and become spectators. If no enrolled participants remain, the campaign will conclude.",Optional.empty(),true);}
+    static DepartureDefinition decodeAction(String json,long currentRevision,Action action){
+        long replacementRevision=action==Action.DEPARTURE_SAVE?Math.addExact(currentRevision,1):currentRevision;
+        return decode(json,replacementRevision);
+    }
     static DepartureDefinition decode(String json,long revision){
         JsonObject j=BookConfig.strictObject(json);if(!j.keySet().equals(Set.of("id","name","anchorId","anchorRevision","regionId","regionRevision","areaId","areaState","firstText","finalText")))throw new IllegalArgumentException("Invalid departure editor fields.");
         String anchor=text(j,"anchorId"),region=text(j,"regionId"),area=text(j,"areaId");long ar=number(j,"anchorRevision"),rr=number(j,"regionRevision");

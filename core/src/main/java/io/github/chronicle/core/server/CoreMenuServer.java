@@ -144,7 +144,7 @@ public final class CoreMenuServer {
             }
             case DEPARTURE_CREATE,DEPARTURE_SAVE,DEPARTURE_BIND_LOOK -> {
                 editor(player);if(c.page!=Page.DEPARTURES||held(server)||c.departureDraft==null)throw new IllegalStateException("Open the Departure editor first.");
-                var draft=CoreDepartureMenu.decode(arg,c.departureDraft.revision());if(!draft.id().equals(c.departureDraft.id()))throw new IllegalStateException("Departure draft identity changed.");
+                var draft=CoreDepartureMenu.decodeAction(arg,c.departureDraft.revision(),request.action());if(!draft.id().equals(c.departureDraft.id()))throw new IllegalStateException("Departure draft identity changed.");
                 if(request.action()==Action.DEPARTURE_BIND_LOOK){c.departureDraft=CoreDepartureMenu.bindLook(source,draft);return "Block site selected. Your other draft settings are retained.";}
                 if(c.departureCreating!=(request.action()==Action.DEPARTURE_CREATE))throw new IllegalStateException("Departure editor changed; reopen it.");
                 if(c.departureCreating)Departures.create(source,draft,Departures.state(server).revision());else Departures.save(source,draft,c.departureDraft.revision(),Departures.state(server).revision());c.departureDraft=null;c.departureCreating=false;return "Departure saved.";

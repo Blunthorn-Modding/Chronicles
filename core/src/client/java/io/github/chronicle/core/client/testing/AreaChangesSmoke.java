@@ -31,7 +31,7 @@ public final class AreaChangesSmoke {
     private static final String OUTPUT=System.getenv("CHRONICLE_AREAS_SMOKE"),ROOT=System.getenv("CHRONICLE_AREAS_SERVER_DIR"),PHASE=System.getenv("CHRONICLE_AREAS_PHASE"),ADDRESS="127.0.0.1:25575";
     private static final BlockPos FIRST=new BlockPos(4,64,4),SECOND=new BlockPos(5,64,4);
     private static AreaChangesSmoke instance;
-    private final Path output,root;private final List<String>checks=new ArrayList<>(),messages=new ArrayList<>();private boolean connecting,done;private long began=System.nanoTime();private int step,wait;
+    private final Path output,root;private final List<String>checks=new ArrayList<>(),messages=new ArrayList<>();private boolean connecting,done;private long began=System.nanoTime();private int step,wait;private long lastPreviewFrames;
     private AreaChangesSmoke(){output=Path.of(OUTPUT).toAbsolutePath().normalize();root=Path.of(ROOT).toAbsolutePath().normalize();if(!Files.isRegularFile(root.resolve(".area-changes-fixture")))throw new IllegalArgumentException("refusing Area smoke outside disposable fixture");if(output.startsWith(root))throw new IllegalArgumentException("Area evidence must be outside fixture");if(!List.of("initial","restart").contains(PHASE))throw new IllegalArgumentException("CHRONICLE_AREAS_PHASE must be initial or restart");}
     public static void register(){if(OUTPUT==null)return;try{if(ROOT==null||PHASE==null)throw new IllegalArgumentException("Area smoke fixture/phase is required");instance=new AreaChangesSmoke();ClientReceiveMessageEvents.GAME.register((message,overlay)->{if(!overlay)instance.messages.add(message.getString());});ClientTickEvents.END_CLIENT_TICK.register(instance::tick);}catch(Exception error){ChronicleCore.LOGGER.error("Area changes smoke setup failed",error);}}
 
@@ -48,7 +48,11 @@ public final class AreaChangesSmoke {
         if(step==2){if(!seen("Area change 'Smoke' started"))return;command(client,"chronicle_areas_trial remember_tool");step++;return;}
         if(step==3){if(!passed("remember_tool"))return;require(client.interactionManager.attackBlock(FIRST,Direction.UP),"left-click selection packet was refused client-side");wait=4;step++;return;}
         if(step==4){if(wait-->0)return;var hit=new BlockHitResult(Vec3d.ofCenter(SECOND),Direction.UP,SECOND,false);client.interactionManager.interactBlock(client.player,Hand.MAIN_HAND,hit);wait=4;step++;return;}
-        if(step==5){if(wait-->0)return;command(client,"chronicles author region pos2");wait=4;step++;return;}
+        if(step==5){if(wait-->0)return;requirePreview(4,6);client.player.setPitch(40);capture(client,"selection-initial");var third=new BlockPos(7,64,4);client.interactionManager.interactBlock(client.player,Hand.MAIN_HAND,new BlockHitResult(Vec3d.ofCenter(third),Direction.UP,third,false));wait=8;step=501;return;}
+        if(step==501){if(wait-->0)return;requirePreview(4,8);capture(client,"selection-extended");require(client.interactionManager.attackBlock(SECOND,Direction.UP),"changed left selection refused");wait=8;step=502;return;}
+        if(step==502){if(wait-->0)return;requirePreview(5,8);capture(client,"selection-first-moved");require(client.interactionManager.attackBlock(FIRST,Direction.UP),"restored left selection refused");wait=8;step=503;return;}
+        if(step==503){if(wait-->0)return;requirePreview(4,8);checks.add("client preview payload and continuing render frames followed repeated right and left Debug shovel changes before saving");command(client,"chronicle_areas_trial invalid_corner");step=504;return;}
+        if(step==504){if(!passed("invalid_corner"))return;requirePreview(4,8);checks.add("oversized corner refusal retained the prior valid draft and private selection/outline");command(client,"chronicles author region pos2");wait=4;step=6;return;}
         if(step==6){if(wait-->0)return;command(client,"chronicles area change save");step++;return;}
         if(step==7){if(count("Saved Area change 'Smoke' with its START state.")<1)return;checks.add("debug shovel left/right packets and the compatible pos2 command created Start");command(client,"chronicle_areas_trial make_end");step++;return;}
         if(step==8){if(!passed("make_end"))return;command(client,"chronicles area change capture area_smoke end 1");step++;return;}
@@ -101,6 +105,11 @@ public final class AreaChangesSmoke {
         if(step==107){if(!passed("delete_quota"))return;checks.add("leave-unchanged deletion retired the quota Area without terrain access");finish(client,true,"restart, deletion and narrow Area menu passed");}
     }
 
+    private void requirePreview(double minX,double maxX){
+        try{var field=io.github.chronicle.core.client.AuthoringPreviewRenderer.class.getDeclaredField("preview");field.setAccessible(true);var box=(io.github.chronicle.core.network.AuthoringPreviewPayload)field.get(null);require(box!=null&&box.visible()&&box.minX()==minX&&box.maxX()==maxX,"displayed bounding box did not follow the latest shovel corners; expected "+minX+" to "+maxX+", got "+box);
+        require(io.github.chronicle.core.client.AuthoringPreviewRenderer.renderedFrames()>lastPreviewFrames,"outline renderer stopped drawing between corner changes");lastPreviewFrames=io.github.chronicle.core.client.AuthoringPreviewRenderer.renderedFrames();}
+        catch(ReflectiveOperationException failure){throw new IllegalStateException(failure);}
+    }
     private static void verifyMenu(CoreMenuScreen menu){var widgets=menu.visibleWidgetBoundsForTest();var create=widgets.stream().filter(value->value.label().equals("Create new area")).findFirst().orElseThrow(()->new IllegalStateException("Create new area button missing"));require(menu.state().entries().size()>=2,"paired Areas are missing from menu");var first=widgets.stream().filter(value->menu.state().entries().stream().anyMatch(entry->entry.label().equals(value.label()))).findFirst().orElseThrow(()->new IllegalStateException("Area list entry is not visible"));require(create.y()<first.y(),"Create new area is not above the list");}
     private boolean passed(String verb){for(String value:messages){if(value.contains("Areas trial FAIL "+verb))throw new IllegalStateException(value);if(value.contains("Areas trial PASS "+verb))return true;}return false;}
     private boolean seen(String text){return messages.stream().anyMatch(value->value.contains(text));}

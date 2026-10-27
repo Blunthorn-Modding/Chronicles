@@ -47,7 +47,7 @@ public final class AreaChangesTrial {
         if(!"true".equals(System.getenv("CHRONICLE_AREAS_TRIAL")))return;
         CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->{
             var root=literal("chronicle_areas_trial").requires(source->source.hasPermissionLevel(2));
-            for(String verb:List.of("prepare","remember_tool","make_end","target_start","verify_start","target_end","verify_end","make_start2","target_start2","verify_start2","player_refusal","unloaded","lore_begin","lore_verify","seed_cancel","restore_stale","verify_cancel","quota_start","quota_end","quota_refuse","quota_verify","restart","delete_main","verify_delete","delete_quota"))root.then(literal(verb).executes(context->run(context.getSource(),verb)));
+            for(String verb:List.of("prepare","invalid_corner","remember_tool","make_end","target_start","verify_start","target_end","verify_end","make_start2","target_start2","verify_start2","player_refusal","unloaded","lore_begin","lore_verify","seed_cancel","restore_stale","verify_cancel","quota_start","quota_end","quota_refuse","quota_verify","restart","delete_main","verify_delete","delete_quota"))root.then(literal(verb).executes(context->run(context.getSource(),verb)));
             dispatcher.register(root);
         });
     }
@@ -57,6 +57,12 @@ public final class AreaChangesTrial {
             fixture(source);ServerPlayerEntity player=source.getPlayerOrThrow();
             switch(verb){
                 case "prepare"->prepare(source,player);
+                case "invalid_corner"->{
+                    var before=AreaChanges.draft(source.getServer(),player.getUuid()).orElseThrow();var presentation=AuthoringRuntime.get(source.getServer()).presentation(player.getUuid());
+                    try{AreaChanges.setDraftCorner(player,2,new BlockPosition(700,64,4));throw new IllegalStateException("oversized Area corner accepted");}
+                    catch(IllegalArgumentException expected){require(expected.getMessage().contains("Corner not changed"),"unexpected corner refusal: "+expected.getMessage());}
+                    require(before.equals(AreaChanges.draft(source.getServer(),player.getUuid()).orElseThrow()),"invalid corner changed Area draft");require(presentation.equals(AuthoringRuntime.get(source.getServer()).presentation(player.getUuid())),"invalid corner changed private outline/selection");
+                }
                 case "remember_tool"->{require(AreaChanges.hasDraft(source.getServer(),player.getUuid()),"Area draft missing");staleTool=player.getMainHandStack().copy();require(AreaChanges.isDebugTool(staleTool),"debug shovel was not issued");}
                 case "make_end"->setEnd(source.getWorld());
                 case "target_start"->{setTarget(source.getWorld());outside(player,source.getWorld());operation=WorldAreaOperations.apply(source,AREA,AreaState.START,area(source,AREA).revision(),false);}

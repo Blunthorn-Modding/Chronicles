@@ -87,7 +87,11 @@ public final class CatalogsSmoke {
         if (step == 31) { if (!simple(client,"DepartureEditorScreen")) return; click(client,"State: start"); require(textValue(client,0).equals("Menu departure"), "draft name did not survive final End selection");wait=4;step=311;return; }
         if(step==311){if(wait-->0)return;capture(client,"departure-editor-complete");click(client,"Save");step=32;return;}
         if (step == 32) { if (!(client.currentScreen instanceof CoreMenuScreen) || ((CoreMenuScreen)client.currentScreen).pending()) return; command(client,"chronicle_catalogs_trial verify"); step++; return; }
-        if (step == 33) { if (!passed("verify")) return; checks.add("actual Departure editor persisted name, catalog_helm, catalog_boarding, Menu sample and End through real Save"); finish(client,true,"catalog popup forms and selectors passed"); }
+        if (step == 33) { if (!passed("verify")) return; checks.add("actual Departure editor persisted name, catalog_helm, catalog_boarding, Menu sample and End through real Save with Building Mode retained");menu.selectForTest(menu.state().selected());step=331;return; }
+        if(step==331){if(menu==null||menu.pending())return;require(menu.triggerForTest("Edit departure"),"existing Departure edit unavailable");step=34;return;}
+        if(step==34){if(!simple(client,"DepartureEditorScreen"))return;text(client,0,"Edited departure");click(client,"Save");step++;return;}
+        if(step==35){if(menu==null||menu.pending())return;command(client,"chronicle_catalogs_trial verify_edit");step++;return;}
+        if(step==36){if(!passed("verify_edit"))return;checks.add("actual existing Departure editor Save advanced one revision without losing settings or Building Mode");finish(client,true,"catalog popup forms and selectors passed"); }
     }
     private boolean settled(MinecraftClient client){if(captureScreen!=client.currentScreen){captureScreen=client.currentScreen;stableTicks=0;return false;}return ++stableTicks>=4;}
     private static boolean simple(MinecraftClient client,String name){return client.currentScreen!=null&&client.currentScreen.getClass().getSimpleName().equals(name);}

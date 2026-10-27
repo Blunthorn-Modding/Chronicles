@@ -185,9 +185,16 @@ public final class AreaChanges {
         if(which!=1&&which!=2)throw new IllegalArgumentException("Area corner must be 1 or 2");
         if(!draft.dimension.equals(dimension(player)))throw new IllegalStateException("Area draft is in another dimension.");
         ServerWorld world=(ServerWorld)player.getEntityWorld();checkPosition(world,position);
-        if(which==1)draft.first=position;else draft.second=position;
-        AuthoringRuntime authoring=AuthoringRuntime.get(world.getServer());authoring.selection(player.getUuid(),new AuthoringRuntime.Selection(draft.dimension,draft.first,draft.second));
-        if(draft.first!=null&&draft.second!=null){AuthoringSite.Region region=new AuthoringSite.Region(draft.id,draft.dimension,1,draft.first,draft.second);new AreaBounds(region.id(),region.dimension(),region.revision(),region.min(),region.max());authoring.preview(player,region);}else{BlockPosition p=draft.first==null?draft.second:draft.first;authoring.preview(player,new AuthoringSite.Location("area_draft_corner",draft.dimension,1,p.x()+.5,p.y()+.5,p.z()+.5,0,0));}
+        BlockPosition first=which==1?position:draft.first,second=which==2?position:draft.second;
+        AuthoringSite preview;
+        if(first!=null&&second!=null){
+            AuthoringSite.Region region=new AuthoringSite.Region(draft.id,draft.dimension,1,first,second);
+            try{new AreaBounds(region.id(),region.dimension(),region.revision(),region.min(),region.max());}
+            catch(IllegalArgumentException invalid){throw new IllegalArgumentException("Corner not changed: "+invalid.getMessage()+". The previous selection is retained.",invalid);}
+            preview=region;
+        }else{BlockPosition p=first==null?second:first;preview=new AuthoringSite.Location("area_draft_corner",draft.dimension,1,p.x()+.5,p.y()+.5,p.z()+.5,0,0);}
+        draft.first=first;draft.second=second;
+        AuthoringRuntime authoring=AuthoringRuntime.get(world.getServer());authoring.selection(player.getUuid(),new AuthoringRuntime.Selection(draft.dimension,first,second));authoring.preview(player,preview);
         draft.presentationEpoch=authoring.presentationEpoch(player.getUuid());return draft.view(false);
     }
 
