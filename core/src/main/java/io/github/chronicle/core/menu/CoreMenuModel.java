@@ -22,7 +22,8 @@ public final class CoreMenuModel {
         AREA_NEW, AREA_BEGIN, AREA_CAPTURE_OPEN, AREA_CAPTURE, AREA_PREVIEW, AREA_APPLY_REVIEW, AREA_APPLY, AREA_DELETE_REVIEW, AREA_DELETE, AREA_RECOVER,
         DEPARTURE_NEW, DEPARTURE_EDIT, DEPARTURE_CREATE, DEPARTURE_SAVE, DEPARTURE_DELETE, DEPARTURE_BIND_LOOK,
         SITE_SUBTYPES_OPEN, SITE_SUBTYPE_SET, REGION_BEGIN, AREA_CAPTURE_REVIEW, REGION_SAVE_REVIEW,
-        BOOK_NEW, BOOK_EDIT_DETAILS, BOOK_EDIT_PAGES, BOOK_RULE, BOOK_CREATE, BOOK_SAVE, BOOK_RELOAD, BOOK_REF_ADD, BOOK_REF_REMOVE, BOOK_OPEN, CHEST_BOOK_SET, BOOK_KEEP, BOOK_KEEP_START, BOOK_KEEP_STOP, BOOK_KEEP_REVIEW, BOOK_GIVE_OPEN, BOOK_GIVE_REVIEW, BOOK_GIVE, LOOT_NEW
+        BOOK_NEW, BOOK_EDIT_DETAILS, BOOK_EDIT_PAGES, BOOK_RULE, BOOK_CREATE, BOOK_SAVE, BOOK_RELOAD, BOOK_REF_ADD, BOOK_REF_REMOVE, BOOK_OPEN, CHEST_BOOK_SET, BOOK_KEEP, BOOK_KEEP_START, BOOK_KEEP_STOP, BOOK_KEEP_REVIEW, BOOK_GIVE_OPEN, BOOK_GIVE_REVIEW, BOOK_GIVE, LOOT_NEW,
+        EVENT_NEW, EVENT_EDIT, EVENT_CREATE, EVENT_DEFINITION_SAVE, EVENT_DELETE, EVENT_DRAFT_PREVIEW, EVENT_SHOW_BOUNDS, EVENT_RECOVER, EVENT_ACK_MEDIA
     }
     public record Entry(String id, String label, String description, String kind, String reference, long revision) {
         public Entry { text(id,160);text(label,160);text(description,2048);text(kind,32);text(reference,160);if(revision<0)throw new IllegalArgumentException("Invalid revision"); }
@@ -100,25 +101,32 @@ public final class CoreMenuModel {
     }
     public record View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
                        boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
-                       List<Entry> entries,Detail detail,Picker picker,boolean close,BlockLimitsForm blockLimits) {
+                       List<Entry> entries,Detail detail,Picker picker,boolean close,BlockLimitsForm blockLimits,EventEditorForm eventEditor) {
+        public View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
+                    boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
+                    List<Entry> entries,Detail detail,Picker picker,boolean close,BlockLimitsForm blockLimits) {
+            this(token,page,index,pages,filter,selected,phase,session,editing,editable,operator,hold,clock,message,success,
+                    entries,detail,picker,close,blockLimits,null);
+        }
         /** Existing callers remain valid when no block-policy dialog data is needed. */
         public View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
                     boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
                     List<Entry> entries,Detail detail,Picker picker,boolean close) {
             this(token,page,index,pages,filter,selected,phase,session,editing,editable,operator,hold,clock,message,success,
-                    entries,detail,picker,close,null);
+                    entries,detail,picker,close,null,null);
         }
         public View {
             Objects.requireNonNull(page);text(filter,32);text(selected,160);text(phase,32);text(hold,512);text(clock,256);text(message,4096);entries=List.copyOf(entries);
             if(token<1||index<0||pages<1||index>=pages||session<0||entries.size()>12)throw new IllegalArgumentException("Invalid menu view");
             if(blockLimits!=null&&page!=Page.SETUP)throw new IllegalArgumentException("Block-limit forms belong to Game setup");
+            if(eventEditor!=null&&page!=Page.EVENTS)throw new IllegalArgumentException("Event editors belong to Events");
             if(!operator) {
-                if(blockLimits!=null||page!=Page.PLAYERS||editing||editable||!hold.isBlank()||!clock.isBlank()||picker!=null||entries.size()>1||entries.stream().anyMatch(e->!e.id().equals(selected)))throw new IllegalArgumentException("Public player view contains management state");
+                if(eventEditor!=null||blockLimits!=null||page!=Page.PLAYERS||editing||editable||!hold.isBlank()||!clock.isBlank()||picker!=null||entries.size()>1||entries.stream().anyMatch(e->!e.id().equals(selected)))throw new IllegalArgumentException("Public player view contains management state");
                 if(detail!=null&&(detail.role()!=null||detail.area()!=null||detail.departure()!=null||detail.loot()!=null||detail.event()!=null||detail.region()!=null||detail.book()!=null||detail.lore()!=null||detail.controls().stream().anyMatch(c->switch(c.action()){case CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->false;default->true;})))throw new IllegalArgumentException("Public player view contains management controls");
                 if(detail!=null&&detail.roleAssignment()!=null&&(detail.roleAssignment().canAssign()||!detail.roleAssignment().playerId().equals(selected)||!detail.roleAssignment().pendingRoleId().isEmpty()))throw new IllegalArgumentException("Public role form contains management data");
             }
         }
-        public boolean sameControls(View other) {return other!=null&&token==other.token&&page==other.page&&index==other.index&&pages==other.pages&&filter.equals(other.filter)&&selected.equals(other.selected)&&phase.equals(other.phase)&&session==other.session&&editing==other.editing&&editable==other.editable&&operator==other.operator&&hold.equals(other.hold)&&entries.equals(other.entries)&&Objects.equals(detail,other.detail)&&Objects.equals(picker,other.picker)&&Objects.equals(blockLimits,other.blockLimits);}
+        public boolean sameControls(View other) {return other!=null&&token==other.token&&page==other.page&&index==other.index&&pages==other.pages&&filter.equals(other.filter)&&selected.equals(other.selected)&&phase.equals(other.phase)&&session==other.session&&editing==other.editing&&editable==other.editable&&operator==other.operator&&hold.equals(other.hold)&&entries.equals(other.entries)&&Objects.equals(detail,other.detail)&&Objects.equals(picker,other.picker)&&Objects.equals(blockLimits,other.blockLimits)&&Objects.equals(eventEditor,other.eventEditor);}
     }
     private static void text(String value,int max) {if(value==null||value.length()>max||value.indexOf('\0')>=0)throw new IllegalArgumentException("Menu text exceeds bounds");}
 }

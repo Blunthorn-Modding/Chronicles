@@ -122,7 +122,11 @@ public final class PlayRuntime {
     public static void reset(ServerCommandSource source, String id) throws IOException {
         requireAuthor(source);
         var delivery = service(source.getServer()).state().deliveries().get(id);
-        if (delivery == null) throw new IllegalStateException("observation delivery does not exist: " + id);
+        if (delivery == null) {
+            var execution=service(source.getServer()).state().executions().get(id);
+            if(execution==null)throw new IllegalStateException("Event delivery does not exist: "+id);
+            write(source.getServer(),()->service(source.getServer()).reset(id));return;
+        }
         // Retain the old receipt before clearing it. A crash/failure between stores records a
         // reset request, never a false claim that the reset completed or the cue was delivered.
         Map<String, String> evidence = new LinkedHashMap<>();
@@ -161,73 +165,15 @@ public final class PlayRuntime {
      * Builds a read-only, short-lived manual delivery preview. It does not claim completion or play the cue.
      */
     public static Preview preview(MinecraftServer server, String id) {
-        requireServerThread(server);
-        Runtime runtime = runtime(server);
-        CampaignState campaign = activeCampaign(server);
-        if (RuntimeHolds.reason(server) != null) throw new IllegalStateException("Resolve the active Chronicle operation before previewing an observation.");
-
-        ObservationCatalog.Definition definition = definition(id);
-        AuthoringRegistry authoring = authoring(server);
-        PlayState.Binding binding = runtime.service.validate(definition, authoring, id);
-        if (runtime.service.state().deliveries().containsKey(id)) throw new IllegalStateException("Observation has already been claimed; reset it in non-active Editing to use it again.");
-        requireFlag(binding, campaign.flags());
-        List<ServerPlayerEntity> recipients = audience(server, runtime.service.state(), definition, binding, authoring);
-        if (recipients.isEmpty()) throw new IllegalStateException("Observation has no eligible recipients.");
-        List<UUID> recipientIds = recipients.stream().map(ServerPlayerEntity::getUuid).toList();
-        String recipientNames = recipients.stream().limit(8)
-                .map(player -> player.getName().getString() + "[" + player.getUuidAsString().substring(0, 8) + "]")
-                .reduce((left, right) -> left + ", " + right).orElse("none");
-        if (recipients.size() > 8) recipientNames += ", +" + (recipients.size() - 8) + " more";
-        String description = bounded(definition.label() + ": " + definition.text() + " Recipients=" + recipientIds.size()
-                + " (" + recipientNames + ")"
-                + (definition.sound().isBlank() ? "; no sound." : "; private sound=" + definition.sound() + "."), 1_000);
-        return new Preview(id, definition.fingerprint(), binding.revision(), campaign.sessionNumber(), recipientIds,
-                System.nanoTime(), description);
+        var review=EventRuntime.review(server,id);
+        return new Preview(id,review.configuration().definition().fingerprint(),review.configuration().definition().revision(),review.session(),review.recipients(),review.createdAtNanos(),review.description(),review);
     }
 
     /** Rechecks every pinned input before durably claiming and privately delivering the observation. */
     public static void fire(MinecraftServer server, String id, Preview preview, UUID actor) throws IOException {
-        requireServerThread(server);
-        if (preview == null) throw new IllegalStateException("Preview this observation before firing it.");
-        Objects.requireNonNull(actor, "manual observation actor is required");
-        if (!Objects.equals(id, preview.observationId())) throw new IllegalStateException("Preview belongs to a different observation.");
-        long previewAge = System.nanoTime() - preview.createdAtNanos();
-        if (previewAge < 0 || previewAge > PREVIEW_NANOS) throw new IllegalStateException("Observation preview expired; preview it again.");
-        Runtime runtime = runtime(server);
-        CampaignState campaign = activeCampaign(server);
-        if (RuntimeHolds.reason(server) != null) throw new IllegalStateException("Resolve the active Chronicle operation before firing an observation.");
-        if (campaign.sessionNumber() != preview.sessionNumber()) throw new IllegalStateException("Session changed after the observation preview.");
-
-        ObservationCatalog.Definition definition = definition(id);
-        if (!definition.fingerprint().equals(preview.definitionFingerprint())) throw new IllegalStateException("Observation definition changed after preview.");
-        AuthoringRegistry authoring = authoring(server);
-        PlayState.Binding binding = runtime.service.validate(definition, authoring, id);
-        if (binding.revision() != preview.bindingRevision()) throw new IllegalStateException("Observation binding changed after preview.");
-        requireFlag(binding, campaign.flags());
-        List<ServerPlayerEntity> recipients = audience(server, runtime.service.state(), definition, binding, authoring);
-        List<UUID> currentRecipients = recipients.stream().map(ServerPlayerEntity::getUuid).toList();
-        if (!currentRecipients.equals(preview.recipients())) throw new IllegalStateException("Eligible observation audience changed after preview; preview it again.");
-        if (recipients.isEmpty()) throw new IllegalStateException("Observation has no eligible recipients.");
-
-        SoundEvent sound = sound(definition);
-        boolean claimed;
-        try {
-            claimed = runtime.service.claim(definition, authoring, id, PlayState.DeliverySource.MANUAL, actor,
-                    campaign.sessionNumber(), currentRecipients, campaign.flags());
-            runtime.lastCheckpointTicks = runtime.service.elapsedTicks();
-        } catch (IOException exception) {
-            disable(server, exception, "manual observation claim persistence failed");
-            throw exception;
-        }
-        if (!claimed) throw new IllegalStateException("Observation has already been claimed.");
-        try {
-            deliver(recipients, definition, sound);
-            runtime.service.finish(id);
-            runtime.lastCheckpointTicks = runtime.service.elapsedTicks();
-        } catch (IOException | RuntimeException exception) {
-            disable(server, exception, "manual observation delivery remained uncertain after its durable claim");
-            throw exception;
-        }
+        var player=server.getPlayerManager().getPlayer(actor);
+        if(player==null)throw new IllegalStateException("The Event operator must be online.");
+        EventRuntime.run(player,id,preview==null?null:preview.eventReview());
     }
 
     private static void tick(MinecraftServer server) {
@@ -263,48 +209,7 @@ public final class PlayRuntime {
     /** Scans bounded configured bindings and stops after the first actual claim/delivery attempt. */
     private static void automatic(MinecraftServer server, Runtime runtime, CampaignState campaign,
                                   List<ServerPlayerEntity> eligible) throws IOException {
-        PlayState state = runtime.service.state();
-        AuthoringRegistry authoring = authoring(server);
-        runtime.invalidBindings.keySet().retainAll(state.bindings().keySet());
-        List<String> ids = new ArrayList<>(state.bindings().keySet());
-        ids.sort(String::compareTo);
-        for (String id : ids) {
-            if (state.deliveries().containsKey(id)) continue;
-            PlayState.Binding saved = state.bindings().get(id);
-            AutomaticCandidate candidate;
-            try {
-                ObservationCatalog.Definition definition = definition(id);
-                PlayState.Binding binding = runtime.service.validate(definition, authoring, id);
-                List<ServerPlayerEntity> present = binding.regionId().isBlank()
-                        ? List.of() : playersInRegion(eligible, region(authoring, binding));
-                if (!runtime.service.due(binding, !present.isEmpty(), campaign.flags())) {
-                    runtime.valid(id);
-                    continue;
-                }
-                List<ServerPlayerEntity> recipients = audience(eligible, definition, binding, authoring);
-                if (recipients.isEmpty()) {
-                    runtime.valid(id);
-                    continue;
-                }
-                PlayState.DeliverySource source = deliverySource(binding.mode());
-                UUID actor = source == PlayState.DeliverySource.ENTRY ? present.getFirst().getUuid() : null;
-                candidate = new AutomaticCandidate(definition, recipients, source, actor,
-                        recipients.stream().map(ServerPlayerEntity::getUuid).toList(), sound(definition));
-                runtime.valid(id);
-            } catch (IllegalArgumentException | IllegalStateException exception) {
-                runtime.invalid(id, saved.revision(), exception);
-                continue;
-            }
-            if (!runtime.service.claim(candidate.definition(), authoring, id, candidate.source(), candidate.actor(),
-                    campaign.sessionNumber(), candidate.recipientIds(), campaign.flags())) continue;
-            runtime.lastCheckpointTicks = runtime.service.elapsedTicks();
-            deliver(candidate.recipients(), candidate.definition(), candidate.sound());
-            runtime.service.finish(id);
-            runtime.lastCheckpointTicks = runtime.service.elapsedTicks();
-            ChronicleCore.LOGGER.info("Chronicle observation delivered: id={} source={} recipients={}",
-                    id, candidate.source(), candidate.recipientIds().size());
-            return;
-        }
+        EventRuntime.automatic(server);
     }
 
     private static void stopping(MinecraftServer server) {
@@ -469,7 +374,7 @@ public final class PlayRuntime {
     }
 
     public record Preview(String observationId, String definitionFingerprint, long bindingRevision, int sessionNumber,
-                          List<UUID> recipients, long createdAtNanos, String description) {
+                          List<UUID> recipients, long createdAtNanos, String description, EventRuntime.Review eventReview) {
         public Preview {
             Objects.requireNonNull(observationId, "observation ID is required");
             Objects.requireNonNull(definitionFingerprint, "definition fingerprint is required");

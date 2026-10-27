@@ -20,11 +20,19 @@ public final class CoreMenuClient {
         io.github.chronicle.core.client.testing.CoreMenuSmoke.onView(response.view());
         io.github.chronicle.core.client.testing.BooksLoreSmoke.onView(response.view());
         io.github.chronicle.core.client.testing.PlayerRolesSmoke.onView(response.view());
+        io.github.chronicle.core.client.testing.EventEditorSmoke.onView(response.view());
         if (client.currentScreen instanceof CoreMenuScreen screen) {
             screen.accept(response.view());
         } else if (client.currentScreen instanceof CatalogAddPopup popup) {
-            if(popup.parentScreen() instanceof PlayerRoleEditorScreen editor&&editor.parentMenu()!=null){editor.parentMenu().acceptWhileEditorOpen(response.view());editor.serverUpdated(response.view());}
-            popup.acceptServerView(response.view());
+            if (popup.parentScreen() instanceof EventEditorScreen editor) {
+                editor.parentMenu().acceptWhileEditorOpen(response.view());
+                popup.acceptServerView(response.view());
+            } else {
+                if(popup.parentScreen() instanceof PlayerRoleEditorScreen editor&&editor.parentMenu()!=null){editor.parentMenu().acceptWhileEditorOpen(response.view());editor.serverUpdated(response.view());}
+                popup.acceptServerView(response.view());
+            }
+        } else if (client.currentScreen instanceof EventEditorScreen editor) {
+            editor.parentMenu().acceptWhileEventEditorOpen(editor, response.view());
         } else if (client.currentScreen instanceof PlayerRoleEditorScreen editor && editor.parentMenu() != null) {
             editor.parentMenu().acceptWhileEditorOpen(response.view()); editor.serverUpdated(response.view());
         } else if (client.currentScreen instanceof PlayerRoleChoiceScreen choice && choice.parentMenu() instanceof CoreMenuScreen parent) {

@@ -15,6 +15,7 @@ import io.github.chronicle.core.menu.CoreMenuModel.Control;
 import io.github.chronicle.core.menu.CoreMenuModel.Detail;
 import io.github.chronicle.core.menu.CoreMenuModel.Entry;
 import io.github.chronicle.core.menu.CoreMenuModel.EventForm;
+import io.github.chronicle.core.menu.EventEditorForm;
 import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import io.github.chronicle.core.menu.CoreMenuModel.RegionForm;
 import io.github.chronicle.core.menu.CoreMenuModel.RoleAssignmentForm;
@@ -124,6 +125,8 @@ public final class CoreMenuScreen extends Screen {
     private PlayerRoleEditorScreen failedRoleEditor;
     private long failedRoleToken;
     private DepartureEditorScreen failedDepartureEditor;
+    /** Kept only while this exact child has an in-flight editor request. */
+    private EventEditorScreen pendingEventEditor;
     private String areaReviewState = "";
 
     public CoreMenuScreen(View initial) {
@@ -256,6 +259,10 @@ public final class CoreMenuScreen extends Screen {
             failedLootCreator = null;
             if (updated.success()) detailOnCompact = true;
         }
+        if ((receivedFor == Action.EVENT_NEW || receivedFor == Action.EVENT_EDIT) && updated.success() && updated.eventEditor() != null) {
+            openEventEditor(updated.eventEditor());
+            return;
+        }
         if (receivedFor == Action.BOOK_CREATE && updated.success() && updated.detail() != null && updated.detail().book() != null) {
             failedBookEditor = null;
             openBookEditor(updated.detail().book(), BookEditorScreen.Mode.PAGES, false);
@@ -371,6 +378,36 @@ public final class CoreMenuScreen extends Screen {
         if (!updated.message().isBlank()) notice = updated.message();
     }
 
+    /**
+     * Receives a reply for the dedicated event editor without treating a successful save as a
+     * stale child merely because its authoritative save advanced the menu token.
+     */
+    void acceptWhileEventEditorOpen(EventEditorScreen editor, View updated) {
+        Action receivedFor = requestedAction;
+        long priorToken = state.token();
+        boolean owned = pendingEventEditor == editor;
+        acceptWhileEditorOpen(updated);
+        if (!owned) { editor.serverUpdated(updated); return; }
+        if (receivedFor == Action.EVENT_CREATE || receivedFor == Action.EVENT_DEFINITION_SAVE) {
+            pendingEventEditor = null;
+            if (updated.success()) {
+                detailOnCompact = true;
+                client.setScreen(this);
+                clearAndInit();
+            } else {
+                editor.rejected(blank(updated.message(), "The server rejected this event draft."), priorToken != updated.token());
+            }
+            return;
+        }
+        if (receivedFor == Action.EVENT_DRAFT_PREVIEW && !updated.success()) {
+            pendingEventEditor = null;
+            editor.rejected(blank(updated.message(), "The server could not preview this event."), priorToken != updated.token());
+            return;
+        }
+        if (receivedFor == Action.EVENT_DRAFT_PREVIEW || receivedFor == Action.EVENT_SHOW_BOUNDS) pendingEventEditor = null;
+        editor.serverUpdated(updated);
+    }
+
     /** Used by child popups to keep their parent current while a background refresh arrives. */
     long token() { return state.token(); }
 
@@ -469,7 +506,7 @@ public final class CoreMenuScreen extends Screen {
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.LOOT_NEW || creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
+                if (creator.action() == Action.LOOT_NEW || creator.action() == Action.EVENT_NEW || creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
                     control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
@@ -582,7 +619,7 @@ public final class CoreMenuScreen extends Screen {
             cursor = wrapped("Unavailable: " + unavailable.reason(), x, cursor, w, 0xFFFFCC66, 2); break;
         }
         for (Control control : detail.controls()) {
-            if (control.action()==Action.LOOT_NEW || control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
+            if (control.action()==Action.LOOT_NEW || control.action()==Action.EVENT_NEW || control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
             control(control, x, cursor, w); cursor += 20;
         }
         detailContentHeight = cursor + detailScroll - y;
@@ -733,6 +770,10 @@ public final class CoreMenuScreen extends Screen {
                 request(Action.LOOT_NEW, Page.LOOT_TABLES, value.id(), LootTableDraftJson.encode(value), popup[0].openingToken(), state.index(), state.filter(), "", false);
             });
             client.setScreen(popup[0]);
+            return;
+        }
+        if (control.action() == Action.EVENT_NEW || control.action() == Action.EVENT_EDIT) {
+            request(control.action(), Page.EVENTS, detailId(), "", state.index(), state.filter(), "", false);
             return;
         }
         if (control.action() == Action.REGION_NEW) {
@@ -1003,7 +1044,7 @@ public final class CoreMenuScreen extends Screen {
             else context.drawItem(new net.minecraft.item.ItemStack(net.minecraft.item.Items.WRITTEN_BOOK),x,y);
         }
     }
-    private static View withoutPicker(View value,int page){return new View(value.token(),value.page(),Math.min(page,value.pages()-1),value.pages(),value.filter(),value.selected(),value.phase(),value.session(),value.editing(),value.editable(),value.operator(),value.hold(),value.clock(),value.message(),value.success(),value.entries(),value.detail(),null,value.close(),value.blockLimits());}
+    private static View withoutPicker(View value,int page){return new View(value.token(),value.page(),Math.min(page,value.pages()-1),value.pages(),value.filter(),value.selected(),value.phase(),value.session(),value.editing(),value.editable(),value.operator(),value.hold(),value.clock(),value.message(),value.success(),value.entries(),value.detail(),null,value.close(),value.blockLimits(),value.eventEditor());}
     private void refreshCatalogOwner(CatalogSession session){
         state=withoutPicker(state,session.listPage);pickerAction=null;
         request(Action.REFRESH,session.page,session.id,"",session.listPage,session.filter,"",false);
@@ -1378,6 +1419,42 @@ public final class CoreMenuScreen extends Screen {
                     state.index(), state.filter(), "", false);
         });
         client.setScreen(editor[0]);
+    }
+
+    /** Opens a complete local event draft after the server has pinned it. */
+    private void openEventEditor(EventEditorForm form) {
+        EventEditorScreen[] editor = new EventEditorScreen[1];
+        editor[0] = new EventEditorScreen(this, form, new EventEditorScreen.Transport() {
+            @Override public void requestCatalog(CatalogAddPopup popup, String kind, String query, int page) {
+                requestEventCatalog(editor[0], popup, kind, query, page);
+            }
+            @Override public void save(EventEditorForm value) { sendEventEditor(editor[0], value, false); }
+            @Override public void preview(EventEditorForm value) { sendEventEditor(editor[0], value, true); }
+            @Override public void showBounds(EventEditorForm.Change change) { showEventBounds(editor[0], change); }
+        });
+        client.setScreen(editor[0]);
+    }
+
+    private void requestEventCatalog(EventEditorScreen editor, CatalogAddPopup popup, String kind, String query, int page) {
+        if (editor.openingToken() != state.token()) { popup.markStale(); return; }
+        if (pending) return;
+        pendingEventEditor = editor;
+        request(Action.OPTIONS, Page.EVENTS, state.selected(), kind, editor.openingToken(), state.index(), state.filter(), query, false);
+    }
+
+    private void sendEventEditor(EventEditorScreen editor, EventEditorForm form, boolean preview) {
+        if (editor.openingToken() != state.token()) { editor.rejected("Chronicle changed. Reopen the event before saving.", true); return; }
+        if (pending) return;
+        pendingEventEditor = editor;
+        request(preview ? Action.EVENT_DRAFT_PREVIEW : (form.creating() ? Action.EVENT_CREATE : Action.EVENT_DEFINITION_SAVE),
+                Page.EVENTS, form.id(), new Gson().toJson(form), editor.openingToken(), state.index(), state.filter(), "", false);
+    }
+
+    private void showEventBounds(EventEditorScreen editor, EventEditorForm.Change change) {
+        if (editor.openingToken() != state.token()) { editor.rejected("Chronicle changed. Reopen the event before showing bounds.", true); return; }
+        if (pending) return;
+        pendingEventEditor = editor;
+        request(Action.EVENT_SHOW_BOUNDS, Page.EVENTS, change.regionId(), change.state(), editor.openingToken(), state.index(), state.filter(), "", false);
     }
 
     private void openDepartureEditor(DepartureForm form) {

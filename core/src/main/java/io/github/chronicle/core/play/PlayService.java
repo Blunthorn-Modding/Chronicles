@@ -59,6 +59,8 @@ public final class PlayService {
         requireDefinition(definition);
         requireRegistry(registry);
         if (configuration == null) throw new IllegalArgumentException("observation configuration is required");
+        if (current.events().containsKey(definition.id())) throw new IllegalStateException("Use the unified Events editor to change this Event.");
+        requireEditableEvent(definition.id());
         PlayState.Binding prior = current.bindings().get(definition.id());
         if (replace && prior == null) throw new IllegalStateException("observation binding does not exist: " + definition.id());
         if (!replace && prior != null) throw new IllegalStateException("observation binding already exists: " + definition.id());
@@ -86,6 +88,8 @@ public final class PlayService {
     /** Turns one trigger off without deleting its delivery evidence. */
     public synchronized void off(String id) throws IOException {
         requireId(id);
+        if (current.events().containsKey(id)) throw new IllegalStateException("Use the unified Events editor to remove this Event's configuration.");
+        requireEditableEvent(id);
         if (!current.bindings().containsKey(id)) return;
         Map<String, PlayState.Binding> bindings = new LinkedHashMap<>(current.bindings());
         bindings.remove(id);
@@ -95,7 +99,14 @@ public final class PlayService {
     /** Explicitly clears one receipt and freshly arms its binding, if still configured. */
     public synchronized void reset(String id) throws IOException {
         requireId(id);
-        if (!current.deliveries().containsKey(id)) throw new IllegalStateException("observation delivery does not exist: " + id);
+        EventExecution execution = current.executions().get(id);
+        if (execution != null) {
+            if (execution.phase() != EventExecution.Phase.COMPLETE)
+                throw new IllegalStateException("Resolve the existing Event execution before allowing another run.");
+            repository.archiveEvent(execution);
+        }
+        if (!current.deliveries().containsKey(id) && execution == null)
+            throw new IllegalStateException("observation delivery does not exist: " + id);
         long nextRevision = nextRevision();
         Map<String, PlayState.Binding> bindings = new LinkedHashMap<>(current.bindings());
         PlayState.Binding binding = bindings.get(id);
@@ -105,7 +116,12 @@ public final class PlayService {
         }
         Map<String, PlayState.Delivery> deliveries = new LinkedHashMap<>(current.deliveries());
         deliveries.remove(id);
-        commit(nextRevision, current.participants(), bindings, deliveries);
+        Map<String, EventConfiguration> events = new LinkedHashMap<>(current.events());
+        EventConfiguration event = events.get(id);
+        if (event != null) events.put(id, revised(event, nextRevision, liveTicks, event.mode(), event.enabled()));
+        Map<String, EventExecution> executions = new LinkedHashMap<>(current.executions());
+        executions.remove(id);
+        commit(nextRevision, current.participants(), bindings, deliveries, events, executions);
     }
 
     /** Resolves a configured binding only while its campaign definition and authoring region are exact. */
@@ -148,6 +164,7 @@ public final class PlayService {
     public synchronized boolean claim(ObservationCatalog.Definition definition, AuthoringRegistry registry, String id,
                                       PlayState.DeliverySource source, UUID actor, int session,
                                       List<UUID> recipients, Map<String, Boolean> flags) throws IOException {
+        if (current.executions().containsKey(id)) return false;
         PlayState.Binding binding = validate(definition, registry, id);
         if (source == null) throw new IllegalArgumentException("observation delivery source is required");
         requireFlags(flags);
@@ -178,6 +195,7 @@ public final class PlayService {
 
     public synchronized void finish(String id) throws IOException {
         requireId(id);
+        if (current.executions().containsKey(id)) throw new IllegalStateException("This Event uses coordinated execution completion.");
         PlayState.Delivery prior = current.deliveries().get(id);
         if (prior == null) throw new IllegalStateException("observation delivery has not been claimed: " + id);
         if (prior.status() != PlayState.Status.CLAIMED) throw new IllegalStateException("observation delivery is already finished: " + id);
@@ -185,6 +203,143 @@ public final class PlayService {
         deliveries.put(id, new PlayState.Delivery(prior.id(), PlayState.Status.DELIVERED, prior.source(), prior.actor(),
                 prior.session(), prior.elapsedTicks(), prior.recipients()));
         commit(current.participants(), current.bindings(), deliveries);
+    }
+
+    /** The caller pins this revision while resolving current Region and snapshot references. */
+    public synchronized long nextEventRevision() { return nextRevision(); }
+
+    /** One whole-event save; replacing a legacy cue migrates only that setup, preserving its receipts. */
+    public synchronized void putEvent(EventConfiguration event, EventConfiguration expected, boolean creating) throws IOException {
+        if (event == null) throw new IllegalArgumentException("Event configuration is required.");
+        String id = event.definition().id();
+        EventConfiguration old = current.events().get(id);
+        if (!java.util.Objects.equals(old, expected)) throw new IllegalStateException("The Event changed; reopen its editor.");
+        if (creating && (old != null || current.bindings().containsKey(id) || current.deliveries().containsKey(id)
+                || current.executions().containsKey(id))) throw new IllegalStateException("That Event ID already exists or has execution history.");
+        requireEditableEvent(id);
+        long revision = nextRevision();
+        if (event.definition().revision() != revision || event.armedAtTicks() != liveTicks)
+            throw new IllegalStateException("The Event revision or play clock changed before saving.");
+        Map<String, EventConfiguration> events = new LinkedHashMap<>(current.events());
+        events.put(id, event);
+        Map<String, PlayState.Binding> bindings = new LinkedHashMap<>(current.bindings());
+        bindings.remove(id);
+        commit(revision, current.participants(), bindings, current.deliveries(), events, current.executions());
+    }
+
+    /** Removes a custom definition, retaining legacy delivery evidence and an immutable final run archive. */
+    public synchronized void deleteEvent(String id, EventConfiguration expected) throws IOException {
+        requireId(id);
+        EventConfiguration old = current.events().get(id);
+        if (old == null || !old.equals(expected)) throw new IllegalStateException("The Event changed; reopen it before deleting.");
+        EventExecution execution = current.executions().get(id);
+        if (execution != null) {
+            if (execution.phase() != EventExecution.Phase.COMPLETE)
+                throw new IllegalStateException("Resolve the existing Event execution before deleting its definition.");
+            repository.archiveEvent(execution);
+        }
+        Map<String, EventConfiguration> events = new LinkedHashMap<>(current.events());
+        events.remove(id);
+        Map<String, EventExecution> executions = new LinkedHashMap<>(current.executions());
+        executions.remove(id);
+        Map<String, PlayState.Binding> bindings = new LinkedHashMap<>(current.bindings());
+        bindings.remove(id);
+        commit(nextRevision(), current.participants(), bindings, current.deliveries(), events, executions);
+    }
+
+    /** Publishes the sole current run pointer after immutable batch evidence exists, before any effects. */
+    public synchronized void beginExecution(EventExecution execution) throws IOException {
+        if (execution == null) throw new IllegalArgumentException("Event execution is required.");
+        String id = execution.eventId();
+        if (current.executions().containsKey(id) || current.deliveries().containsKey(id))
+            throw new IllegalStateException("This Event already has an execution or delivery record.");
+        EventConfiguration configured = current.events().get(id);
+        if (configured != null) {
+            if (!configured.equals(execution.configuration())) throw new IllegalStateException("Event setup changed during preparation.");
+        } else if (!matchesLegacy(execution.configuration(), current.bindings().get(id))) {
+            throw new IllegalStateException("This Event has no current, matching configuration.");
+        }
+        if (!execution.configuration().enabled()) throw new IllegalStateException("This Event is not configured for live execution.");
+        if (execution.elapsedTicks() != liveTicks) throw new IllegalStateException("Play time changed during Event preparation.");
+        EventExecution.Phase initial = execution.configuration().definition().changes().isEmpty()
+                ? EventExecution.Phase.EVENT_OUTCOME : EventExecution.Phase.PREPARED;
+        if (execution.phase() != initial) throw new IllegalArgumentException("Invalid initial Event execution phase.");
+        if (execution.source() != PlayState.DeliverySource.MANUAL
+                && !execution.source().name().equals(execution.configuration().mode().name()))
+            throw new IllegalArgumentException("Automatic Event source does not match its trigger.");
+        if (execution.source() == PlayState.DeliverySource.ENTRY && !current.participants().contains(execution.actor()))
+            throw new IllegalStateException("The entering Event participant left during preparation.");
+        for (UUID recipient : execution.recipients()) if (!current.participants().contains(recipient))
+            throw new IllegalStateException("An Event recipient left during preparation; review the audience again.");
+        Map<String, EventExecution> executions = new LinkedHashMap<>(current.executions());
+        executions.put(id, execution);
+        commit(nextRevision(), current.participants(), current.bindings(), current.deliveries(), current.events(), executions);
+    }
+
+    /** Advances only the pinned run; external world evidence is checked by the trusted coordinator. */
+    public synchronized EventExecution advanceExecution(String id, UUID operationId, EventExecution.Phase phase, String detail) throws IOException {
+        requireId(id);
+        EventExecution old = current.executions().get(id);
+        if (old == null || !old.operationId().equals(operationId)) throw new IllegalStateException("The Event execution changed.");
+        if (phase == old.phase()) return old;
+        if (!transitionAllowed(old.phase(), phase)) throw new IllegalStateException("Invalid Event execution transition: " + old.phase() + " to " + phase);
+        EventExecution next = old.with(phase, detail);
+        Map<String, EventExecution> executions = new LinkedHashMap<>(current.executions());
+        executions.put(id, next);
+        Map<String, PlayState.Delivery> deliveries = new LinkedHashMap<>(current.deliveries());
+        if (phase == EventExecution.Phase.COMPLETE) {
+            PlayState.Status status = old.phase() == EventExecution.Phase.MEDIA_UNCERTAIN
+                    ? PlayState.Status.CLAIMED : PlayState.Status.DELIVERED;
+            deliveries.put(id, new PlayState.Delivery(id, status, old.source(), old.actor(), old.session(), old.elapsedTicks(), old.recipients()));
+        }
+        commit(nextRevision(), current.participants(), current.bindings(), deliveries, current.events(), executions);
+        return next;
+    }
+
+    /** An explicit GM acknowledgement finishes uncertain media without replaying it or terrain. */
+    public synchronized void acknowledgeEventMedia(String id) throws IOException {
+        EventExecution execution = current.executions().get(id);
+        if (execution == null || execution.phase() != EventExecution.Phase.MEDIA_UNCERTAIN)
+            throw new IllegalStateException("This Event has no uncertain media to acknowledge.");
+        advanceExecution(id, execution.operationId(), EventExecution.Phase.COMPLETE,
+                "Media uncertainty acknowledged; no message, sound or Region change was replayed.");
+    }
+
+    private void requireEditableEvent(String id) {
+        EventExecution execution = current.executions().get(id);
+        if (execution != null && execution.phase() != EventExecution.Phase.COMPLETE) throw new IllegalStateException("This Event has an unresolved execution; finish or acknowledge it first.");
+    }
+
+    private static boolean matchesLegacy(EventConfiguration event, PlayState.Binding binding) {
+        if (binding == null || !binding.id().equals(event.definition().id()) || binding.revision() != event.definition().revision()
+                || binding.mode() != event.mode() || binding.armedAtTicks() != event.armedAtTicks()
+                || binding.delayTicks() != event.delayTicks() || !binding.requiredFlag().equals(event.requiredFlag())) return false;
+        for (var pin : List.of(event.triggerRegion(), event.definition().audienceRegion())) {
+            if (pin.isPresent() && (!pin.get().id().equals(binding.regionId()) || pin.get().revision() != binding.regionRevision())) return false;
+        }
+        return binding.regionId().isEmpty() || event.triggerRegion().isPresent() || event.definition().audienceRegion().isPresent();
+    }
+
+    private static EventConfiguration revised(EventConfiguration event, long revision, long armedAt, PlayState.Mode mode, boolean enabled) {
+        EventDefinition d = event.definition();
+        EventDefinition next = new EventDefinition(d.id(), revision, d.label(), d.description(), d.text(), d.sound(), d.audience(), d.audienceRegion(), d.changes());
+        return new EventConfiguration(next, mode, event.triggerRegion(), armedAt, event.delayTicks(), event.requiredFlag(), enabled);
+    }
+
+    private static boolean transitionAllowed(EventExecution.Phase from, EventExecution.Phase to) {
+        return switch (from) {
+            case PREPARED -> to == EventExecution.Phase.APPLYING || to == EventExecution.Phase.TERRAIN_SAVED
+                    || to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
+            case APPLYING -> to == EventExecution.Phase.TERRAIN_SAVED || to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
+            case TERRAIN_SAVED -> to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
+            case WORLD_COMMITTED -> to == EventExecution.Phase.EVENT_OUTCOME || to == EventExecution.Phase.CONFLICT;
+            case EVENT_OUTCOME -> to == EventExecution.Phase.MEDIA_CLAIMED;
+            case MEDIA_CLAIMED -> to == EventExecution.Phase.COMPLETE || to == EventExecution.Phase.MEDIA_UNCERTAIN;
+            case MEDIA_UNCERTAIN -> to == EventExecution.Phase.COMPLETE;
+            case CONFLICT -> to == EventExecution.Phase.PREPARED || to == EventExecution.Phase.APPLYING
+                    || to == EventExecution.Phase.TERRAIN_SAVED || to == EventExecution.Phase.WORLD_COMMITTED;
+            case COMPLETE -> false;
+        };
     }
 
     private boolean flagSatisfied(PlayState.Binding binding, Map<String, Boolean> flags) {
@@ -198,7 +353,13 @@ public final class PlayService {
 
     private void commit(long revision, Set<UUID> participants, Map<String, PlayState.Binding> bindings,
                         Map<String, PlayState.Delivery> deliveries) throws IOException {
-        PlayState candidate = new PlayState(revision, liveTicks, participants, bindings, deliveries);
+        commit(revision, participants, bindings, deliveries, current.events(), current.executions());
+    }
+
+    private void commit(long revision, Set<UUID> participants, Map<String, PlayState.Binding> bindings,
+                        Map<String, PlayState.Delivery> deliveries, Map<String, EventConfiguration> events,
+                        Map<String, EventExecution> executions) throws IOException {
+        PlayState candidate = new PlayState(revision, liveTicks, participants, bindings, deliveries, events, executions);
         repository.save(candidate);
         current = candidate;
     }

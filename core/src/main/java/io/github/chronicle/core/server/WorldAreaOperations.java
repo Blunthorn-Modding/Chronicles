@@ -51,8 +51,8 @@ public final class WorldAreaOperations {
             AuthoringRuntime.get(server).service().addMutationGuard((old,next,operation)->{
                 if(r.retiringAnchor!=null&&old!=null&&r.retiringAnchor.equals(old.id()))return;
                 AuthoringSite site=old==null?next:old;if(site==null)return;
-                if(site instanceof AuthoringSite.Region&&(r.preparation!=null&&r.preparation.area.bounds().regionId().equals(site.id())||r.prepared!=null&&r.prepared.operation().bounds().regionId().equals(site.id())))throw new IllegalStateException("This Region is reserved by an Area preparation.");
-                if(site instanceof AuthoringSite.Anchor anchor&&reserved(server,anchor.dimension(),anchor.position()))throw new IllegalStateException("This block site is reserved by an Area operation.");
+                if(site instanceof AuthoringSite.Region&&(r.preparation!=null&&r.preparation.area.bounds().regionId().equals(site.id())||r.prepared!=null&&r.prepared.operation().bounds().regionId().equals(site.id())||EventWorldBatches.reservedRegion(server,site.id())))throw new IllegalStateException("This Region is reserved by an Area or Event operation.");
+                if(site instanceof AuthoringSite.Anchor anchor&&(reserved(server,anchor.dimension(),anchor.position())||EventWorldBatches.reserved(server,anchor.dimension(),anchor.position())))throw new IllegalStateException("This block site is reserved by an Area or Event operation.");
             });
             for(AreaOperation operation:AreaChanges.operations(server).state().operations().values()){
                 if(operation.unresolved()){
@@ -195,9 +195,9 @@ public final class WorldAreaOperations {
         }
         return new AreaEffectFiles.Effects(p.id.toString(),managed==null?"":Base64.getEncoder().encodeToString(ManagedAreaReplacementCodec.encode(managed)),p.contentRevision,affected,retired,p.books,anchors);
     }
-    private static ChestTarget legacyTarget(Map<String,AuthoringSite> sites,ChestBinding b){AuthoringSite site=sites.get(b.anchorId());if(!(site instanceof AuthoringSite.Anchor a)||a.revision()!=b.anchorRevision())return null;return new ChestTarget(a.id(),a.revision(),a.dimension(),a.position().x(),a.position().y(),a.position().z(),a.expectedBlock());}
+    static ChestTarget legacyTarget(Map<String,AuthoringSite> sites,ChestBinding b){AuthoringSite site=sites.get(b.anchorId());if(!(site instanceof AuthoringSite.Anchor a)||a.revision()!=b.anchorRevision())return null;return new ChestTarget(a.id(),a.revision(),a.dimension(),a.position().x(),a.position().y(),a.position().z(),a.expectedBlock());}
     private static void retireAnchors(MinecraftServer server,Runtime r,AreaEffectFiles.Effects effects)throws IOException{for(String id:effects.retiredAnchors()){if(!AuthoringRuntime.get(server).service().state().sites().containsKey(id))continue;if(MapSiteAssignments.bindings(server).values().stream().anyMatch(b->b.siteId().equals(id)))throw new IllegalStateException("Block site gained another map consumer during the Area operation: "+id);r.retiringAnchor=id;try{AuthoringRuntime.get(server).service().remove(id);}finally{r.retiringAnchor=null;}}}
-    private static Set<AreaEffectFiles.Book> bookMarkers(MinecraftServer server,NbtElement root){
+    static Set<AreaEffectFiles.Book> bookMarkers(MinecraftServer server,NbtElement root){
         Set<AreaEffectFiles.Book> result=new HashSet<>();Deque<NbtElement> todo=new ArrayDeque<>();todo.push(root);int count=0;
         var ledger=ChestAuthoring.service(server).state().bookDelivery();
         while(!todo.isEmpty()){
@@ -221,11 +221,11 @@ public final class WorldAreaOperations {
         ChronicleCore.managedBlocks().byBlock(newId).ifPresent(d->p.placements.add(new ManagedAreaReplacementPlan.Placement(d.typeId(),at)));
         if(before.blockEntityNbt()!=null)p.books.addAll(bookMarkers(server,StringNbtReader.readCompound(before.blockEntityNbt())));
     }
-    private static void validateSavedCell(MinecraftServer server,ServerWorld world,BlockPos pos,AreaCell cell)throws Exception{
+    static void validateSavedCell(MinecraftServer server,ServerWorld world,BlockPos pos,AreaCell cell)throws Exception{
         BlockState state=decode(server,cell);if(cell.blockEntityNbt()!=null){NbtCompound nbt=StringNbtReader.readCompound(cell.blockEntityNbt());if(BlockEntity.createFromNbt(pos,state,nbt,server.getRegistryManager())==null)throw new IllegalStateException("Saved block entity is incompatible at "+pos);}
         AreaWorldPolicies.validateCell(world,pos,cell,cell);
     }
-    private static void writeCell(MinecraftServer server,ServerWorld world,BlockPos pos,AreaCell cell)throws Exception{
+    static void writeCell(MinecraftServer server,ServerWorld world,BlockPos pos,AreaCell cell)throws Exception{
         BlockState desired=decode(server,cell);BlockEntity replacement=null;
         if(cell.blockEntityNbt()!=null){NbtCompound nbt=StringNbtReader.readCompound(cell.blockEntityNbt());nbt.putInt("x",pos.getX());nbt.putInt("y",pos.getY());nbt.putInt("z",pos.getZ());replacement=BlockEntity.createFromNbt(pos,desired,nbt,server.getRegistryManager());if(replacement==null)throw new IllegalStateException("Cannot reconstruct saved block entity.");}
         world.removeBlockEntity(pos);WRITING.set(new WriteCell(world,pos.toImmutable()));try{world.setBlockState(pos,desired,Block.FORCE_STATE_AND_SKIP_CALLBACKS_AND_DROPS|Block.NOTIFY_LISTENERS);}finally{WRITING.remove();}
@@ -233,19 +233,19 @@ public final class WorldAreaOperations {
         if(replacement!=null){world.addBlockEntity(replacement);replacement.markDirty();world.updateListeners(pos,desired,desired,Block.NOTIFY_LISTENERS);}
         world.getChunk(pos).markNeedsSaving();
     }
-    private static BlockState decode(MinecraftServer server,AreaCell cell){return BlockState.CODEC.parse(RegistryOps.of(JsonOps.INSTANCE,server.getRegistryManager()),JsonParser.parseString(cell.blockStateJson())).getOrThrow(m->new IllegalArgumentException("Invalid saved Area block: "+m));}
-    private static String id(BlockState state){return Registries.BLOCK.getId(state.getBlock()).toString();}
+    static BlockState decode(MinecraftServer server,AreaCell cell){return BlockState.CODEC.parse(RegistryOps.of(JsonOps.INSTANCE,server.getRegistryManager()),JsonParser.parseString(cell.blockStateJson())).getOrThrow(m->new IllegalArgumentException("Invalid saved Area block: "+m));}
+    static String id(BlockState state){return Registries.BLOCK.getId(state.getBlock()).toString();}
     private static void requireOperator(ServerCommandSource source){if(source.getPlayer()==null||!source.hasPermissionLevel(2))throw new IllegalStateException("An operator player is required.");if(ChronicleRuntime.service(source.getServer()).state().phase()!=SessionPhase.ACTIVE&&!AuthoringRuntime.isAuthor(source.getPlayer()))throw new IllegalStateException("Enable Editing, or apply during active play.");}
     private static void idle(MinecraftServer server){Runtime r=runtime(server);if(AreaChanges.operations(server).state().operations().size()>=AreaOperationJournal.MAX_OPERATIONS)throw new IllegalStateException("Area operation history is full; archive this campaign before further changes.");if(!r.problem.isBlank()||busy(server)||AreaChanges.busy(server)||RuntimeHolds.reason(server)!=null||AreaChanges.operations(server).state().operations().values().stream().anyMatch(AreaOperation::unresolved))throw new IllegalStateException("Resolve the current operation before starting another Area change.");}
-    private static AreaChange requireArea(MinecraftServer server,String id,long revision){AreaChange area=AreaChanges.catalog(server).areas().get(id);if(area==null||area.revision()!=revision)throw new IllegalStateException("Area change is missing or stale; review again.");return area;}
-    private static ServerWorld world(MinecraftServer server,AreaBounds b){ServerWorld world=server.getWorld(RegistryKey.of(RegistryKeys.WORLD,Identifier.of(b.dimension())));if(world==null)throw new IllegalStateException("Area dimension unavailable.");return world;}
-    private static void loaded(ServerWorld world,AreaBounds b){for(int x=Math.floorDiv(b.min().x(),16);x<=Math.floorDiv(b.max().x(),16);x++)for(int z=Math.floorDiv(b.min().z(),16);z<=Math.floorDiv(b.max().z(),16);z++)if(!world.getChunkManager().isChunkLoaded(x,z))throw new IllegalStateException("Area chunks are not all loaded; no chunks were forced.");}
-    private static void clearOfPlayers(ServerWorld world,AreaBounds b,Set<UUID> exempt){Box box=new Box(b.min().x(),b.min().y(),b.min().z(),b.max().x()+1d,b.max().y()+1d,b.max().z()+1d);for(ServerPlayerEntity player:world.getPlayers())if(!player.isSpectator()&&!exempt.contains(player.getUuid())&&player.getBoundingBox().intersects(box))throw new IllegalStateException("Move non-spectator player '"+player.getName().getString()+"' clear of the Area before applying.");}
-    private static void closeContainers(MinecraftServer server){for(ServerPlayerEntity player:server.getPlayerManager().getPlayerList())if(player.currentScreenHandler!=player.playerScreenHandler)player.closeHandledScreen();}
+    static AreaChange requireArea(MinecraftServer server,String id,long revision){AreaChange area=AreaChanges.catalog(server).areas().get(id);if(area==null||area.revision()!=revision)throw new IllegalStateException("Area change is missing or stale; review again.");return area;}
+    static ServerWorld world(MinecraftServer server,AreaBounds b){ServerWorld world=server.getWorld(RegistryKey.of(RegistryKeys.WORLD,Identifier.of(b.dimension())));if(world==null)throw new IllegalStateException("Area dimension unavailable.");return world;}
+    static void loaded(ServerWorld world,AreaBounds b){for(int x=Math.floorDiv(b.min().x(),16);x<=Math.floorDiv(b.max().x(),16);x++)for(int z=Math.floorDiv(b.min().z(),16);z<=Math.floorDiv(b.max().z(),16);z++)if(!world.getChunkManager().isChunkLoaded(x,z))throw new IllegalStateException("Area chunks are not all loaded; no chunks were forced.");}
+    static void clearOfPlayers(ServerWorld world,AreaBounds b,Set<UUID> exempt){Box box=new Box(b.min().x(),b.min().y(),b.min().z(),b.max().x()+1d,b.max().y()+1d,b.max().z()+1d);for(ServerPlayerEntity player:world.getPlayers())if(!player.isSpectator()&&!exempt.contains(player.getUuid())&&player.getBoundingBox().intersects(box))throw new IllegalStateException("Move non-spectator player '"+player.getName().getString()+"' clear of the Area before applying.");}
+    static void closeContainers(MinecraftServer server){for(ServerPlayerEntity player:server.getPlayerManager().getPlayerList())if(player.currentScreenHandler!=player.playerScreenHandler)player.closeHandledScreen();}
     private static boolean reserved(MinecraftServer server,String dimension,BlockPosition pos){Runtime r=WORLDS.get(server);if(r==null)return false;if(r.preparation!=null&&contains(r.preparation.area.bounds(),dimension,pos))return true;if(r.prepared!=null&&contains(r.prepared.operation().bounds(),dimension,pos))return true;try{return AreaChanges.operations(server).state().operations().values().stream().anyMatch(o->o.unresolved()&&contains(o.bounds(),dimension,pos));}catch(IllegalStateException unavailable){return true;}}
     static BlockPos position(AreaBounds b,int i){int x=i%b.sizeX(),q=i/b.sizeX(),z=q%b.sizeZ(),y=q/b.sizeZ();return new BlockPos(b.min().x()+x,b.min().y()+y,b.min().z()+z);}
     static int index(AreaBounds b,BlockPos p){return p.getX()-b.min().x()+b.sizeX()*(p.getZ()-b.min().z()+b.sizeZ()*(p.getY()-b.min().y()));}
-    private static BlockPosition blockPosition(BlockPos p){return new BlockPosition(p.getX(),p.getY(),p.getZ());}
+    static BlockPosition blockPosition(BlockPos p){return new BlockPosition(p.getX(),p.getY(),p.getZ());}
     static boolean contains(AreaBounds b,String dimension,BlockPosition p){return b.dimension().equals(dimension)&&p.x()>=b.min().x()&&p.x()<=b.max().x()&&p.y()>=b.min().y()&&p.y()<=b.max().y()&&p.z()>=b.min().z()&&p.z()<=b.max().z();}
     private static Runtime runtime(MinecraftServer server){if(!server.isOnThread())throw new IllegalStateException("Area operations require server thread.");Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Area operations unavailable.");return r;}
     private static String message(Exception e){String m=Objects.requireNonNullElse(e.getMessage(),"Area operation failed; inspect server log.");return m.substring(0,Math.min(480,m.length()));}

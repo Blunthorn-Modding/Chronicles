@@ -53,6 +53,7 @@ public final class ChronicleCommands {
                 })))
                 .then(literal("end").requires(ChronicleCommands::isGm).executes(context -> mutate(context.getSource(), (service, actor) -> {
                     Departures.requireNoPending(context.getSource().getServer());
+                    EventRuntime.requireNoPending(context.getSource().getServer());
                     service.end(actor);
                     return "Ended Chronicle session " + service.state().sessionNumber() + ".";
                 })));
@@ -129,6 +130,7 @@ public final class ChronicleCommands {
     private static int start(ServerCommandSource source, Integer number) {
         return mutate(source, (service, actor) -> {
             Departures.requireCampaignOpen(source.getServer());
+            EventRuntime.requireNoPending(source.getServer());
             service.start(actor, number);
             return "Started Chronicle session " + service.state().sessionNumber() + ".";
         });

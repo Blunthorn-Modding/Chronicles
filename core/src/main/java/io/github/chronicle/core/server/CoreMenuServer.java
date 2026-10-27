@@ -9,6 +9,7 @@ import io.github.chronicle.core.content.ChestBinding;
 import io.github.chronicle.core.loot.*;
 import io.github.chronicle.core.books.*;
 import io.github.chronicle.core.menu.CoreMenuModel.*;
+import io.github.chronicle.core.menu.EventEditorForm;
 import io.github.chronicle.core.managed.*;
 import io.github.chronicle.core.network.CoreMenuPayloads.*;
 import io.github.chronicle.core.play.*;
@@ -109,10 +110,12 @@ public final class CoreMenuServer {
         long now=System.nanoTime();if(now-context.window>1_000_000_000L){context.window=now;context.requests=0;}
         if(++context.requests>20)return;
         boolean gm=player.getCommandSource().hasPermissionLevel(2);
-        boolean read=switch(request.action()){case OPEN,REFRESH,OPTIONS,EVENT_PREVIEW,EVENT_AUDIO,EVENT_CHECK->true;default->false;};
+        boolean eventRead=request.action()==Action.EVENT_DRAFT_PREVIEW||request.action()==Action.EVENT_SHOW_BOUNDS;
+        boolean read=switch(request.action()){case OPEN,REFRESH,OPTIONS,EVENT_PREVIEW,EVENT_AUDIO,EVENT_CHECK,EVENT_DRAFT_PREVIEW,EVENT_SHOW_BOUNDS->true;default->false;};
         try {
             if(!gm&&!publicAction(request.action()))throw new IllegalStateException("Operator permission level 2 is required for management.");
             Frame current=frame(player);
+            if(eventRead&&(request.token()!=context.token||!Objects.equals(current,context.frame))){invalidate(context);send(player,context,"Server state changed. Reopen the Event editor before previewing.",false,false,false);return;}
             if(!read&&(request.token()!=context.token||!Objects.equals(current,context.frame))){invalidate(context);send(player,context,"Server state changed. Review the refreshed selection before retrying.",false,false,false);return;}
             if(!Objects.equals(current,context.frame))invalidate(context);
             if(request.action()==Action.OPEN){invalidate(context);context.roleReview=null;context.roleReviewAt=0;context.roleTarget="";context.token=0;context.visible=true;context.keepBook="";context.keepTable="";clearGive(context);}
@@ -125,7 +128,7 @@ public final class CoreMenuServer {
 
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
             if(request.action()==Action.OPEN&&context.page==Page.BOOKS_LORE)context.expectedBook=null;
-            if(request.action()==Action.OPEN){context.departureDraft=null;context.departureCreating=false;context.roleDraft=null;context.roleCreating=false;context.pendingRole="";}
+            if(request.action()==Action.OPEN){context.departureDraft=null;context.departureCreating=false;context.roleDraft=null;context.roleCreating=false;context.pendingRole="";context.eventEditor=null;context.expectedEvent=null;context.eventSelection="";context.eventReview=null;}
             context.picker=null;
             String message="";boolean close=false;
             if(request.action()==Action.OPTIONS){
@@ -133,7 +136,7 @@ public final class CoreMenuServer {
                 if(request.argument().equals("BLOCK_LIMIT_TYPE")&&context.page!=Page.SETUP)throw new IllegalArgumentException("Block limits are under Game setup.");
                 context.picker=picker(player,request.argument(),request.query(),request.index());
                 context.index=0;
-            } else if(!read || request.action()==Action.EVENT_PREVIEW || request.action()==Action.EVENT_AUDIO || request.action()==Action.EVENT_CHECK) {
+            } else if(!read || eventRead || request.action()==Action.EVENT_PREVIEW || request.action()==Action.EVENT_AUDIO || request.action()==Action.EVENT_CHECK) {
                 message=act(player,request,context);
                 close=request.action()==Action.REGION_CONTINUE||request.action()==Action.AREA_BEGIN||request.action()==Action.REGION_BEGIN;
                 if(close)context.visible=false;
@@ -157,7 +160,7 @@ public final class CoreMenuServer {
     private static io.github.chronicle.core.areas.AreaChange area(MinecraftServer server,String id){return Optional.ofNullable(AreaChanges.catalog(server).areas().get(id)).orElseThrow(()->new IllegalStateException("Choose an existing Area change."));}
     private static void requireAreaOperator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2)||(!ChronicleRuntime.service(player.getEntityWorld().getServer()).state().phase().name().equals("ACTIVE")&&!AuthoringRuntime.isAuthor(player)))throw new IllegalStateException("Enable Editing, or apply during active play.");}
     private static boolean publicAction(Action action){return switch(action){case OPEN,REOPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->true;default->false;};}
-    private static void invalidate(Context c){c.token=0;c.observation=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;clearGive(c);c.pendingRole="";c.roleReview=null;}
+    private static void invalidate(Context c){c.token=0;c.observation=null;c.eventReview=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;clearGive(c);c.pendingRole="";c.roleReview=null;}
     private static void clearGive(Context c){c.giveBook="";c.giveTarget="";c.giveDefinition=null;c.giveAt=0;}
 
     private static String act(ServerPlayerEntity player,Request request,Context c) throws Exception {
@@ -293,30 +296,43 @@ public final class CoreMenuServer {
             case PLAYER_MOVE -> {requireReview(player,c,id);c.reviewId="";return MenuPlayerDestinations.move(source,UUID.fromString(id));}
             case EVENT_PREVIEW -> {
                 if(id.startsWith("world:"))return AreaWorldEvents.preview(player,id);
-                if(id.startsWith("cue:")){var d=cue(id);previewCue(player,d);return d.text()+"\nSound: "+(d.sound().isBlank()?"none":d.sound())+"\nPreview sent only to you. No event completion or trigger changed.";}
+                if(id.startsWith("cue:")){EventRuntime.previewMedia(player,raw(id));return "Message and sound previewed only to you. No Event completion, trigger or Region changed.";}
                 var event=gameEvent(id);return event.description()+"\nState action only. Required conditions: "+event.requiredFlags()+". This preview does not invoke its handler.";
             }
             case EVENT_AUDIO -> {
-                var d=cue(id);if(d.sound().isBlank())throw new IllegalStateException("This event has no sound.");
-                previewCue(player,d);return "Message and sound previewed only to you. No event completion, timer or world state changed.";
+                EventRuntime.previewMedia(player,raw(id));return "Message and sound previewed only to you. No Event completion, timer or world state changed.";
             }
             case EVENT_CHECK,EVENT_REVIEW -> {
                 if(id.startsWith("world:")){requireAreaOperator(player);String result=AreaWorldEvents.review(player,id);if(request.action()==Action.EVENT_REVIEW){c.reviewId=id;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();}return result;}
                 String result;
-                if(id.startsWith("cue:")){var preview=PlayRuntime.preview(server,raw(id));result=preview.description();if(request.action()==Action.EVENT_REVIEW)c.observation=preview;}
+                if(id.startsWith("cue:")){var review=EventRuntime.review(server,raw(id));result=review.description();if(request.action()==Action.EVENT_REVIEW)c.eventReview=review;}
                 else {result=ChronicleRuntime.service(server).preview(raw(id));if(!result.equals("Ready."))throw new IllegalStateException(result);if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the active operation hold first.");}
                 if(request.action()==Action.EVENT_REVIEW){c.reviewId=id;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();}return result;
             }
             case EVENT_RUN -> {
                 requireReview(player,c,id);c.reviewId="";
                 if(id.startsWith("world:"))return AreaWorldEvents.run(source,id);
-                if(id.startsWith("cue:")){var preview=c.observation;c.observation=null;PlayRuntime.fire(server,raw(id),preview,player.getUuid());return "Event delivered once. Manual and automatic runs share completion history.";}
+                if(id.startsWith("cue:")){var review=c.eventReview;c.eventReview=null;EventRuntime.run(player,raw(id),review);return "Event execution started. Saved Region changes complete before player media.";}
                 return command(source,"chronicle debug events trigger "+Identifier.of(raw(id)).toString());
             }
-            case EVENT_SAVE -> {var config=ObservationConfiguration.decode(arg);var old=PlayRuntime.service(server).state().bindings().get(raw(id));PlayRuntime.bind(source,raw(id),config,old!=null);return "Event configuration saved atomically. Existing completion is retained; no event ran now.";}
-            case EVENT_DISABLE_AUTO -> {var old=PlayRuntime.service(server).state().bindings().get(raw(id));if(old==null)throw new IllegalStateException("Configure the event first.");PlayRuntime.bind(source,raw(id),new ObservationConfiguration(PlayState.Mode.MANUAL,old.regionId(),old.requiredFlag(),0),true);return "Automatic triggering disabled. Audience, prerequisites and completion remain; manual control is available.";}
-            case EVENT_REMOVE -> {PlayRuntime.off(source,raw(id));return "Event configuration removed. Its registered definition and completion history remain.";}
+            case EVENT_NEW -> {editor(player);if(c.page!=Page.EVENTS)throw new IllegalArgumentException("Create Events under Events.");c.eventSelection=id;c.expectedEvent=null;c.eventEditor=CoreEventMenu.emptyForm();return "";}
+            case EVENT_EDIT -> {editor(player);if(!id.startsWith("cue:"))throw new IllegalArgumentException("Choose an Event to edit.");String eventId=raw(id);c.eventSelection=id;c.expectedEvent=EventRuntime.stored(server,eventId);c.eventEditor=CoreEventMenu.form(server,eventId);return "";}
+            case EVENT_CREATE,EVENT_DEFINITION_SAVE -> {
+                var form=EventEditorJson.decode(arg);boolean creating=request.action()==Action.EVENT_CREATE;
+                if(form.creating()!=creating||!form.id().equals(id))throw new IllegalArgumentException("The Event editor identity changed; reopen it.");
+                c.selected=c.eventSelection;
+                String persistedId=EventRuntime.save(player,form,c.expectedEvent,creating);c.selected="cue:"+persistedId;c.eventSelection=c.selected;c.expectedEvent=EventRuntime.stored(server,persistedId);c.eventEditor=null;
+                return creating?"Event created. Nothing ran; review it before live use.":"Event saved. Nothing ran; existing completion history remains.";
+            }
+            case EVENT_DRAFT_PREVIEW -> {var form=EventEditorJson.decode(arg);try{EventRuntime.previewMedia(player,form);return "Draft message and sound previewed only to you. Nothing was saved or completed.";}finally{c.selected=c.eventSelection;}}
+            case EVENT_SHOW_BOUNDS -> {try{EventRuntime.showBounds(player,id,arg);return "Private saved-state bounds shown. No Region state was applied.";}finally{c.selected=c.eventSelection;}}
+            case EVENT_DELETE -> {String eventId=raw(id);var expected=EventRuntime.stored(server,eventId);if(expected==null)throw new IllegalStateException("Only a custom Event can be deleted.");EventRuntime.delete(player,eventId,expected);c.selected="";c.eventEditor=null;c.expectedEvent=null;return "Custom Event deleted. Immutable execution history is retained.";}
+            case EVENT_SAVE -> {throw new IllegalStateException("Open Edit event to change this Event's complete definition and trigger.");}
+            case EVENT_DISABLE_AUTO -> {EventRuntime.disableAutomatic(player,raw(id));return "Automatic triggering disabled. Manual review remains available.";}
+            case EVENT_REMOVE -> {EventRuntime.removeConfiguration(player,raw(id));return "Event configuration removed. Its definition and completion history remain.";}
             case EVENT_RESET -> {PlayRuntime.reset(source,raw(id));return "Another run is now permitted; configured timer delay starts again. No event ran now.";}
+            case EVENT_RECOVER -> {EventRuntime.recover(player,raw(id));return "Exact Event recovery requested. No new operation was created.";}
+            case EVENT_ACK_MEDIA -> {EventRuntime.acknowledge(player,raw(id));return "Uncertain media acknowledged without replay. Terrain and outcome were not repeated.";}
             case CONDITION_SET -> {return command(source,"chronicle events flags set "+Identifier.of(raw(id)).toString()+" "+parseBoolean(arg));}
             case CHEST_BIND -> {return command(source,"chronicle chests bind "+quote(arg));}
             case TABLE_OPEN -> {c.page=Page.LOOT_TABLES;c.selected=chest(server,id).lootType();c.expectedLoot=null;return "Opened the chest's assigned loot table.";}
@@ -455,7 +471,7 @@ public final class CoreMenuServer {
         try{detail=detail(player,c);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
         var campaign=ChronicleRuntime.service(server).state();
         String clock=gm?"Active play: "+PlayRuntime.elapsedTicks(server)/20+"s":"";
-        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c));
+        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c),gm?c.eventEditor:null);
         if(c.picker==null&&(c.visible||close))c.navigation=new Navigation(c.page,c.selected,c.index,c.filter);
         ServerPlayNetworking.send(player,new Response(view,open));
     }
@@ -496,7 +512,7 @@ public final class CoreMenuServer {
                 yield players.entrySet().stream().map(e->entry(e.getKey(),e.getValue(),server.getPlayerManager().getPlayer(UUID.fromString(e.getKey()))==null?"Offline saved participant":"Online","PLAYER","",0)).toList();
             }
             case EVENTS -> {
-                var result=new ArrayList<Entry>();result.addAll(AreaWorldEvents.entries(server));ChronicleCore.observations().definitions().forEach(d->result.add(entry("cue:"+d.id(),d.label(),d.text(),"CUE",d.id(),0)));
+                var result=new ArrayList<Entry>();result.addAll(AreaWorldEvents.entries(server));result.addAll(CoreEventMenu.entries(server));
                 ChronicleCore.events().events().forEach(e->result.add(entry("action:"+e.id(),eventLabel(e.id()),e.description(),"ACTION",e.id(),0)));
                 ChronicleRuntime.service(server).state().flags().forEach((id,value)->result.add(entry("flag:"+id,id,"Game condition: "+value,"FLAG",id,0)));yield result;
             }
@@ -608,7 +624,7 @@ public final class CoreMenuServer {
                 }
             }
             case EVENTS -> {
-                if(id.isBlank())break;
+                if(id.isBlank())return CoreEventMenu.detail(player,"",false);
                 if(id.startsWith("world:"))return AreaWorldEvents.detail(player,id,c.reviewId.equals(id));
                 if(id.startsWith("flag:")) {
                     title=raw(id);description="A game condition used by event triggers. Changing it can make an event ready to run.";
@@ -616,22 +632,7 @@ public final class CoreMenuServer {
                     controls.add(control(Action.CONDITION_SET,"Set condition…",active,"Live condition changes require active play.",true,"TEXT"));break;
                 }
                 if(id.startsWith("cue:")) {
-                    var d=cue(id);title=d.label();description="A message and optional sound for players. Preview is private and works before a trigger is configured.";
-                    var state=PlayRuntime.available(server);var binding=state==null?null:state.bindings().get(raw(id));var delivery=state==null?null:state.deliveries().get(raw(id));
-                    facts.add(new Fact("Content",d.text()));facts.add(new Fact("Sound",d.sound().isBlank()?"None":"Included"));if(!d.sound().isBlank())facts.add(new Fact("Sound ID",d.sound()));
-                    facts.add(new Fact("Audience",d.audience()==ObservationCatalog.Audience.REGION?"Participants currently inside the selected region":"All participating players who can receive events"));
-                    facts.add(new Fact("Completion",delivery==null?"Not delivered":delivery.status()+" · "+delivery.recipients().size()+" recipients"));
-                    facts.add(new Fact("Configuration",binding==null?"Not configured; private preview is available":binding.mode()+" · region="+binding.regionId()+" · condition="+binding.requiredFlag()));
-                    facts.add(new Fact("Entry/audience region","For an entry trigger, the same region also defines who receives a regional cue."));
-                    event=new EventForm(binding==null?"MANUAL":binding.mode().name(),binding==null?"":binding.regionId(),binding==null?"":binding.requiredFlag(),binding==null?60:binding.delayTicks()/20,binding!=null,true,!d.sound().isBlank());
-                    controls.add(control(Action.EVENT_PREVIEW,"Preview cue",true,"",false,""));
-                    if(!d.sound().isBlank())controls.add(control(Action.EVENT_AUDIO,"Preview sound",true,"",false,""));
-                    controls.add(control(Action.EVENT_CHECK,"Check audience",true,"",false,""));
-                    controls.add(control(Action.EVENT_REVIEW,"Review run",active&&!held(server)&&binding!=null&&delivery==null,"Start play and save this cue's trigger first. A cue already run must be reset before it can run again.",false,""));
-                    if(c.reviewId.equals(id))controls.add(control(Action.EVENT_RUN,"Run now",true,"",true,""));
-                    controls.add(control(Action.EVENT_SAVE,"Save event configuration",canEdit,editReason,false,"EVENT_DRAFT"));
-                    if(binding!=null){controls.add(control(Action.EVENT_DISABLE_AUTO,"Disable automatic trigger",canEdit,editReason,true,""));controls.add(control(Action.EVENT_REMOVE,"Remove event configuration",canEdit,editReason,true,""));}
-                    if(delivery!=null)controls.add(control(Action.EVENT_RESET,"Allow event again",canEdit,editReason,true,""));
+                    return CoreEventMenu.detail(player,id,c.reviewId.equals(id)&&c.eventReview!=null);
                 } else {
                     var d=gameEvent(id);title=eventLabel(d.id());description="Game action. "+d.description();
                     facts.add(new Fact("Required conditions",d.requiredFlags().toString()));facts.add(new Fact("Completion",ChronicleRuntime.service(server).state().completedEvents().contains(raw(id))?"Completed":"Not completed"));
@@ -775,6 +776,7 @@ public final class CoreMenuServer {
     private static Picker picker(ServerPlayerEntity player,String kind,String query,int index) {
         var server=player.getEntityWorld().getServer();String needle=query.toLowerCase(Locale.ROOT);var choices=new ArrayList<Entry>();
         switch(kind) {
+            case "EVENT_SOUND","EVENT_REGION","EVENT_FLAG","EVENT_STATE" -> choices.addAll(CoreEventMenu.catalog(server,kind));
             case "BOOKS" -> BookRuntime.books(server).values().forEach(b->choices.add(entry(b.id(),b.title(),b.author(),"BOOK",b.id(),0)));
             case "ITEMS" -> Registries.ITEM.getIds().stream().sorted().forEach(id->{var item=Registries.ITEM.get(id);String label=item.getName().getString();if((id+" "+label).toLowerCase(Locale.ROOT).contains(needle))choices.add(entry(id.toString(),shortText(label,160),id.toString(),"ITEM",Integer.toString(item.getMaxCount()),0));});
             case "LOOT_TYPE" -> TypedChestLoot.types(server).values().forEach(t->choices.add(entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)));
@@ -798,7 +800,7 @@ public final class CoreMenuServer {
     private static Frame frame(ServerPlayerEntity player) {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
-        var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries());
+        var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries(),play.events(),play.executions());
         return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),PlayerRoles.revision(server),optional(()->WorldAreaOperations.revision(server)),optional(()->Departures.state(server)),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
@@ -937,13 +939,13 @@ public final class CoreMenuServer {
         var output=new CommandOutput(){@Override public void sendMessage(Text text){if(feedback.size()<8)feedback.add(shortText(text.getString(),512));}@Override public boolean shouldReceiveFeedback(){return true;}@Override public boolean shouldTrackOutput(){return true;}@Override public boolean shouldBroadcastConsoleToOps(){return false;}};
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
-    private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries) { }
+    private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries,Map<String,EventConfiguration> events,Map<String,EventExecution> executions) { }
     private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object areas,Object departures,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private record Navigation(Page page,String selected,int index,String filter) { }
     private static final class Context {
         Navigation navigation=new Navigation(Page.SESSION,"",0,"POINT");
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
-        PlayRuntime.Preview observation;LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;
+        PlayRuntime.Preview observation;EventRuntime.Review eventReview;EventConfiguration expectedEvent;EventEditorForm eventEditor;String eventSelection="";LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;
         String giveBook="",giveTarget="";long giveAt;
         boolean visible,roleCreating,departureCreating;io.github.chronicle.core.departures.DepartureDefinition departureDraft;io.github.chronicle.core.roles.PlayerRole roleDraft,expectedRole;String pendingRole="",roleTarget="";Frame roleReview;long roleReviewAt;
     }

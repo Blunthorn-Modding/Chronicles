@@ -10,13 +10,16 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -24,11 +27,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/** Strict, bounded, atomic schema-1 storage for the independent play runtime. */
+/** Strict, bounded, atomic storage for the independent play and unified Event runtime. */
 public final class PlayStore implements PlayRepository {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final long MAX_FILE_BYTES = 16L * 1024 * 1024;
-    private static final Set<String> ROOT_FIELDS = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries");
+    private static final Set<String> ROOT_FIELDS_V1 = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries");
+    private static final Set<String> ROOT_FIELDS_V2 = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries", "events", "executions");
     private static final Set<String> BINDING_FIELDS = Set.of("id", "revision", "definitionFingerprint", "mode", "regionId", "regionRevision", "armedAtTicks", "delayTicks", "requiredFlag");
     private static final Set<String> DELIVERY_FIELDS = Set.of("id", "status", "source", "actor", "session", "elapsedTicks", "recipients");
 
@@ -98,6 +102,29 @@ public final class PlayStore implements PlayRepository {
         }
     }
 
+    @Override
+    public synchronized void archiveEvent(EventExecution execution) throws IOException {
+        if (execution == null) throw new IllegalArgumentException("event execution is required");
+        byte[] bytes = EventJson.encodeExecution(execution).toString().getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > EventJson.MAX_ENCODED_BYTES) throw new IOException("event execution archive exceeds 64 KiB");
+        Path history = file.resolveSibling("event-history");
+        Files.createDirectories(history);
+        Path target = history.resolve(execution.operationId() + ".json");
+        if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+            verifyArchive(target, execution, bytes);
+            return;
+        }
+        Path temporary = Files.createTempFile(history, ".event-", ".tmp");
+        try {
+            forceWrite(temporary, bytes);
+            try { Files.createLink(target, temporary); }
+            catch (FileAlreadyExistsException race) { verifyArchive(target, execution, bytes); }
+            verifyArchive(target, execution, bytes);
+        } finally {
+            delete(temporary);
+        }
+    }
+
     private byte[] current() throws IOException {
         if (!Files.isRegularFile(file)) throw new IOException("play runtime path is not a regular file: " + file);
         if (Files.size(file) > MAX_FILE_BYTES) throw new IOException("play runtime file exceeds 16 MiB limit: " + file);
@@ -110,10 +137,10 @@ public final class PlayStore implements PlayRepository {
 
     private static PlayState decode(String json) {
         JsonObject root = PlayJson.object(json, "play runtime JSON");
-        PlayJson.fields(root, ROOT_FIELDS, "play runtime root");
-        if (PlayJson.integer(PlayJson.required(root, "schemaVersion"), "schemaVersion") != SCHEMA_VERSION) {
-            throw new IllegalArgumentException("unsupported play runtime schema version");
-        }
+        int schema = PlayJson.integer(PlayJson.required(root, "schemaVersion"), "schemaVersion");
+        if (schema == 1) PlayJson.fields(root, ROOT_FIELDS_V1, "play runtime root");
+        else if (schema == SCHEMA_VERSION) PlayJson.fields(root, ROOT_FIELDS_V2, "play runtime root");
+        else throw new IllegalArgumentException("unsupported play runtime schema version");
         long revision = PlayJson.number(PlayJson.required(root, "revision"), "play revision");
         long elapsedTicks = PlayJson.number(PlayJson.required(root, "elapsedTicks"), "elapsed play ticks");
 
@@ -166,7 +193,27 @@ public final class PlayStore implements PlayRepository {
                     recipients);
             if (deliveries.putIfAbsent(delivery.id(), delivery) != null) throw new IllegalArgumentException("duplicate observation delivery: " + delivery.id());
         }
-        return new PlayState(revision, elapsedTicks, participants, bindings, deliveries);
+        Map<String, EventConfiguration> events = new LinkedHashMap<>();
+        Map<String, EventExecution> executions = new LinkedHashMap<>();
+        if (schema == SCHEMA_VERSION) {
+            JsonArray eventValues = PlayJson.array(PlayJson.required(root, "events"), "events");
+            if (eventValues.size() > PlayState.MAX_EVENTS) throw new IllegalArgumentException("too many events");
+            for (JsonElement value : eventValues) {
+                EventConfiguration configuration = EventJson.decodeConfiguration(PlayJson.object(value, "event configuration"));
+                String id = configuration.definition().id();
+                if (events.putIfAbsent(id, configuration) != null) throw new IllegalArgumentException("duplicate event: " + id);
+            }
+
+            JsonArray executionValues = PlayJson.array(PlayJson.required(root, "executions"), "event executions");
+            if (executionValues.size() > PlayState.MAX_EXECUTIONS) throw new IllegalArgumentException("too many event executions");
+            for (JsonElement value : executionValues) {
+                EventExecution execution = EventJson.decodeExecution(PlayJson.object(value, "event execution"));
+                if (executions.putIfAbsent(execution.eventId(), execution) != null) {
+                    throw new IllegalArgumentException("duplicate event execution: " + execution.eventId());
+                }
+            }
+        }
+        return new PlayState(revision, elapsedTicks, participants, bindings, deliveries, events, executions);
     }
 
     private static String encode(PlayState state) {
@@ -210,7 +257,35 @@ public final class PlayStore implements PlayRepository {
             deliveries.add(object);
         });
         root.add("deliveries", deliveries);
+
+        JsonArray events = new JsonArray();
+        state.events().values().forEach(configuration -> events.add(EventJson.encodeConfiguration(configuration)));
+        root.add("events", events);
+
+        JsonArray executions = new JsonArray();
+        state.executions().values().forEach(execution -> executions.add(EventJson.encodeExecution(execution)));
+        root.add("executions", executions);
         return root.toString();
+    }
+
+    private static void verifyArchive(Path target, EventExecution expected, byte[] expectedBytes) throws IOException {
+        if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("event execution archive is not a regular file: " + target);
+        }
+        long size = Files.size(target);
+        if (size < 1 || size > EventJson.MAX_ENCODED_BYTES) {
+            throw new IOException("event execution archive size is outside limits: " + target);
+        }
+        byte[] actual = Files.readAllBytes(target);
+        EventExecution decoded;
+        try { decoded = EventJson.decodeExecution(PlayJson.object(new String(actual, StandardCharsets.UTF_8), "event execution archive")); }
+        catch (RuntimeException exception) { throw new IOException("event execution archive is invalid: " + target, exception); }
+        if (!decoded.operationId().equals(expected.operationId())) {
+            throw new IOException("event execution archive operation ID does not match its file: " + target);
+        }
+        if (!Arrays.equals(actual, expectedBytes)) {
+            throw new IOException("event execution archive already exists with different contents: " + target);
+        }
     }
 
     private static void forceWrite(Path target, byte[] bytes) throws IOException {

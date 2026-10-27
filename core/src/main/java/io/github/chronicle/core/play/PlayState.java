@@ -15,10 +15,14 @@ import java.util.regex.Pattern;
 
 /** Immutable durable participation, active-time and observation-delivery state for one world. */
 public record PlayState(long revision, long elapsedTicks, Set<UUID> participants,
-                        Map<String, Binding> bindings, Map<String, Delivery> deliveries) {
+                        Map<String, Binding> bindings, Map<String, Delivery> deliveries,
+                        Map<String, EventConfiguration> events,
+                        Map<String, EventExecution> executions) {
     public static final int MAX_PARTICIPANTS = 512;
     public static final int MAX_BINDINGS = 128;
     public static final int MAX_DELIVERIES = 512;
+    public static final int MAX_EVENTS = 128;
+    public static final int MAX_EXECUTIONS = 128;
     private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{64}");
 
     public PlayState {
@@ -27,9 +31,19 @@ public record PlayState(long revision, long elapsedTicks, Set<UUID> participants
         participants = participants(participants);
         bindings = bindings(bindings, revision, elapsedTicks);
         deliveries = deliveries(deliveries, elapsedTicks);
+        events = events(events, revision, elapsedTicks);
+        executions = executions(executions, revision, elapsedTicks);
     }
 
-    public static PlayState empty() { return new PlayState(0, 0, Set.of(), Map.of(), Map.of()); }
+    /** Backward-compatible constructor for callers that have not yet adopted unified Events. */
+    public PlayState(long revision, long elapsedTicks, Set<UUID> participants,
+                     Map<String, Binding> bindings, Map<String, Delivery> deliveries) {
+        this(revision, elapsedTicks, participants, bindings, deliveries, Map.of(), Map.of());
+    }
+
+    public static PlayState empty() {
+        return new PlayState(0, 0, Set.of(), Map.of(), Map.of(), Map.of(), Map.of());
+    }
 
     public enum Mode { MANUAL, ENTRY, TIMER, CONDITION }
     public enum Status { CLAIMED, DELIVERED }
@@ -123,5 +137,52 @@ public record PlayState(long revision, long elapsedTicks, Set<UUID> participants
             ordered.put(entry.getKey(), delivery);
         }
         return Collections.unmodifiableMap(ordered);
+    }
+
+    private static Map<String, EventConfiguration> events(Map<String, EventConfiguration> source,
+                                                           long revision, long elapsedTicks) {
+        if (source == null || source.size() > MAX_EVENTS) {
+            throw new IllegalArgumentException("events may contain at most " + MAX_EVENTS + " entries");
+        }
+        LinkedHashMap<String, EventConfiguration> ordered = new LinkedHashMap<>();
+        for (Map.Entry<String, EventConfiguration> entry : new TreeMap<>(source).entrySet()) {
+            EventConfiguration configuration = entry.getValue();
+            if (configuration == null || !entry.getKey().equals(configuration.definition().id())) {
+                throw new IllegalArgumentException("event configuration key must match its definition ID");
+            }
+            validateConfigurationTime(configuration, revision, elapsedTicks);
+            ordered.put(entry.getKey(), configuration);
+        }
+        return Collections.unmodifiableMap(ordered);
+    }
+
+    private static Map<String, EventExecution> executions(Map<String, EventExecution> source,
+                                                           long revision, long elapsedTicks) {
+        if (source == null || source.size() > MAX_EXECUTIONS) {
+            throw new IllegalArgumentException("event executions may contain at most " + MAX_EXECUTIONS + " entries");
+        }
+        LinkedHashMap<String, EventExecution> ordered = new LinkedHashMap<>();
+        for (Map.Entry<String, EventExecution> entry : new TreeMap<>(source).entrySet()) {
+            EventExecution execution = entry.getValue();
+            if (execution == null || !entry.getKey().equals(execution.eventId())) {
+                throw new IllegalArgumentException("event execution key must match its event ID");
+            }
+            validateConfigurationTime(execution.configuration(), revision, elapsedTicks);
+            if (execution.elapsedTicks() > elapsedTicks) {
+                throw new IllegalArgumentException("event execution time may not exceed elapsed play time");
+            }
+            ordered.put(entry.getKey(), execution);
+        }
+        return Collections.unmodifiableMap(ordered);
+    }
+
+    private static void validateConfigurationTime(EventConfiguration configuration,
+                                                  long revision, long elapsedTicks) {
+        if (configuration.definition().revision() > revision) {
+            throw new IllegalArgumentException("event definition revision may not exceed play revision");
+        }
+        if (configuration.armedAtTicks() > elapsedTicks) {
+            throw new IllegalArgumentException("event armed time may not exceed elapsed play time");
+        }
     }
 }

@@ -90,7 +90,7 @@ public final class CoreMenuCommands {
     /** Event kind is explicit because cue and state-action registrations may share a raw ID. */
     private static LiteralArgumentBuilder<ServerCommandSource> eventOperation(String verb, Action action) {
         return literal(verb).requires(CoreMenuCommands::isGm)
-                .then(literal("cue").then(argument("id", StringArgumentType.string()).suggests((c, b) -> cues(b))
+                .then(literal("cue").then(argument("id", StringArgumentType.string()).suggests((c, b) -> cues(c.getSource(),b))
                         .executes(context -> execute(context.getSource(), action, Page.EVENTS, "cue:" + string(context, "id"), ""))))
                 .then(literal("action").then(argument("id", StringArgumentType.string()).suggests((c, b) -> stateActions(b))
                         .executes(context -> execute(context.getSource(), action, Page.EVENTS, "action:" + string(context, "id"), ""))));
@@ -190,6 +190,6 @@ public final class CoreMenuCommands {
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> gameToolVerbs(String toolId, SuggestionsBuilder builder) {
         return CommandSource.suggestMatching(GameSetupTools.get(toolId).map(GameSetupTools.Tool::verbs).orElse(List.of()).stream().map(GameSetupTools.Verb::id), builder);
     }
-    private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> cues(SuggestionsBuilder builder) { return CommandSource.suggestMatching(ChronicleCore.observations().definitions().stream().map(d -> d.id()), builder); }
+    private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> cues(ServerCommandSource source,SuggestionsBuilder builder) { return CommandSource.suggestMatching(EventRuntime.configurations(source.getServer()).keySet(), builder); }
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> stateActions(SuggestionsBuilder builder) { return CommandSource.suggestMatching(ChronicleCore.events().events().stream().map(e -> e.id()), builder); }
 }

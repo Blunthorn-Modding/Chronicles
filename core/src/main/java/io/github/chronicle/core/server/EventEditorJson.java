@@ -1,0 +1,135 @@
+package io.github.chronicle.core.server;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import io.github.chronicle.core.books.BookConfig;
+import io.github.chronicle.core.menu.EventEditorForm;
+
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Set;
+
+/** Strict bounded network codec for the incomplete native Event editor draft. */
+public final class EventEditorJson {
+    public static final int MAX_ENCODED_BYTES = 64 * 1024;
+    private static final Set<String> FIELDS = Set.of(
+            "id", "revision", "name", "description", "message", "sound", "audience", "audienceRegion",
+            "audienceRegionRevision", "mode", "triggerRegion", "triggerRegionRevision", "seconds", "flag",
+            "changes", "creating");
+    private static final Set<String> CHANGE_FIELDS = Set.of(
+            "regionId", "label", "state", "areaRevision", "snapshotHash", "dimension", "current", "problem");
+
+    private EventEditorJson() { }
+
+    public static String encode(EventEditorForm form) {
+        if (form == null) throw new IllegalArgumentException("event editor form is required");
+        JsonObject object = new JsonObject();
+        object.addProperty("id", form.id());
+        object.addProperty("revision", form.revision());
+        object.addProperty("name", form.name());
+        object.addProperty("description", form.description());
+        object.addProperty("message", form.message());
+        object.addProperty("sound", form.sound());
+        object.addProperty("audience", form.audience());
+        object.addProperty("audienceRegion", form.audienceRegion());
+        object.addProperty("audienceRegionRevision", form.audienceRegionRevision());
+        object.addProperty("mode", form.mode());
+        object.addProperty("triggerRegion", form.triggerRegion());
+        object.addProperty("triggerRegionRevision", form.triggerRegionRevision());
+        object.addProperty("seconds", form.seconds());
+        object.addProperty("flag", form.flag());
+        JsonArray changes = new JsonArray();
+        for (EventEditorForm.Change change : form.changes()) {
+            JsonObject value = new JsonObject();
+            value.addProperty("regionId", change.regionId());
+            value.addProperty("label", change.label());
+            value.addProperty("state", change.state());
+            value.addProperty("areaRevision", change.areaRevision());
+            value.addProperty("snapshotHash", change.snapshotHash());
+            value.addProperty("dimension", change.dimension());
+            value.addProperty("current", change.current());
+            value.addProperty("problem", change.problem());
+            changes.add(value);
+        }
+        object.add("changes", changes);
+        object.addProperty("creating", form.creating());
+        String encoded = object.toString();
+        bounded(encoded);
+        return encoded;
+    }
+
+    public static EventEditorForm decode(String encoded) {
+        bounded(encoded);
+        JsonObject object = BookConfig.strictObject(encoded);
+        exact(object, FIELDS, "event editor");
+        JsonArray values = array(required(object, "changes"), "event changes");
+        if (values.size() > EventEditorForm.MAX_CHANGES) throw new IllegalArgumentException("too many event changes");
+        ArrayList<EventEditorForm.Change> changes = new ArrayList<>(values.size());
+        for (JsonElement element : values) {
+            JsonObject value = object(element, "event change");
+            exact(value, CHANGE_FIELDS, "event change");
+            changes.add(new EventEditorForm.Change(
+                    string(value, "regionId"), string(value, "label"), string(value, "state"),
+                    number(value, "areaRevision"), string(value, "snapshotHash"), string(value, "dimension"),
+                    bool(value, "current"), string(value, "problem")));
+        }
+        return new EventEditorForm(
+                string(object, "id"), number(object, "revision"), string(object, "name"),
+                string(object, "description"), string(object, "message"), string(object, "sound"),
+                string(object, "audience"), string(object, "audienceRegion"), number(object, "audienceRegionRevision"),
+                string(object, "mode"), string(object, "triggerRegion"), number(object, "triggerRegionRevision"),
+                number(object, "seconds"), string(object, "flag"), changes, bool(object, "creating"));
+    }
+
+    private static void bounded(String encoded) {
+        if (encoded == null || encoded.getBytes(StandardCharsets.UTF_8).length > MAX_ENCODED_BYTES) {
+            throw new IllegalArgumentException("event editor JSON must be at most " + MAX_ENCODED_BYTES + " encoded bytes");
+        }
+    }
+
+    private static void exact(JsonObject object, Set<String> fields, String name) {
+        if (!object.keySet().equals(fields)) throw new IllegalArgumentException(name + " fields do not match schema");
+    }
+
+    private static JsonElement required(JsonObject object, String field) {
+        if (!object.has(field) || object.get(field).isJsonNull()) throw new IllegalArgumentException("missing " + field);
+        return object.get(field);
+    }
+
+    private static JsonObject object(JsonElement value, String name) {
+        if (value == null || !value.isJsonObject()) throw new IllegalArgumentException(name + " must be an object");
+        return value.getAsJsonObject();
+    }
+
+    private static JsonArray array(JsonElement value, String name) {
+        if (value == null || !value.isJsonArray()) throw new IllegalArgumentException(name + " must be an array");
+        return value.getAsJsonArray();
+    }
+
+    private static String string(JsonObject object, String field) {
+        JsonElement value = required(object, field);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) {
+            throw new IllegalArgumentException(field + " must be a string");
+        }
+        return value.getAsString();
+    }
+
+    private static long number(JsonObject object, String field) {
+        JsonElement value = required(object, field);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()
+                || !value.getAsString().matches("-?(0|[1-9][0-9]*)")) {
+            throw new IllegalArgumentException(field + " must be an integer");
+        }
+        try { return Long.parseLong(value.getAsString()); }
+        catch (NumberFormatException exception) { throw new IllegalArgumentException(field + " is outside the long range", exception); }
+    }
+
+    private static boolean bool(JsonObject object, String field) {
+        JsonElement value = required(object, field);
+        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean()) {
+            throw new IllegalArgumentException(field + " must be a boolean");
+        }
+        return value.getAsBoolean();
+    }
+}
