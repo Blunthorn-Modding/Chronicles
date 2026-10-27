@@ -87,22 +87,22 @@ public final class AreaChangesSmoke {
         if(step==37){if(wait-->0)return;require(seen("replacement exceeds its limit"),"quota refusal was not privately explained");command(client,"chronicle_areas_trial quota_verify");step++;return;}
         if(step==38){if(!passed("quota_verify"))return;checks.add("managed-block quota refusal left terrain, ledger and operation journal unchanged");command(client,"chronicles");step++;return;}
         CoreMenuScreen menu=client.currentScreen instanceof CoreMenuScreen value?value:null;
-        if(step==39){if(menu==null||menu.pending())return;require(menu.triggerForTest("Area changes"),"Area changes navigation missing");step++;return;}
-        if(step==40){if(menu==null||menu.pending()||menu.state().page()!=Page.AREA_CHANGES)return;wait=4;step++;return;}
-        if(step==41){if(wait-->0)return;require(client.getWindow().getScaledWidth()==640&&client.getWindow().getScaledHeight()==360,"initial logical viewport is not 640x360");verifyMenu(menu);capture(client,"area-menu");checks.add("640x360 native Area changes menu captured after stable frames");finish(client,true,"initial Area capture/apply/refusal checks passed");}
+        if(step==39){if(menu==null||menu.pending())return;require(menu.triggerForTest("Regions"),"Regions navigation missing");step++;return;}
+        if(step==40){if(menu==null||menu.pending()||menu.state().page()!=Page.REGIONS)return;wait=4;step++;return;}
+        if(step==41){if(wait-->0)return;require(client.getWindow().getScaledWidth()==640&&client.getWindow().getScaledHeight()==360,"initial logical viewport is not 640x360");verifyMenu(menu);capture(client,"area-menu");checks.add("640x360 native Regions menu captured after stable frames");finish(client,true,"initial Area capture/apply/refusal checks passed");}
     }
 
     private void restart(MinecraftClient client){
         if(step==0){command(client,"chronicle_areas_trial restart");step=100;return;}
         if(step==100){if(!passed("restart"))return;checks.add("clean restart retained paired snapshots and quota-refused terrain without unresolved operations");command(client,"chronicles");step++;return;}
         CoreMenuScreen menu=client.currentScreen instanceof CoreMenuScreen value?value:null;
-        if(step==101){if(menu==null||menu.pending())return;require(menu.triggerForTest("Area changes"),"restart Area changes navigation missing");step++;return;}
-        if(step==102){if(menu==null||menu.pending()||menu.state().page()!=Page.AREA_CHANGES)return;wait=4;step++;return;}
-        if(step==103){if(wait-->0)return;require(client.getWindow().getScaledWidth()==480&&client.getWindow().getScaledHeight()==480,"restart logical viewport is not 480x480");verifyMenu(menu);capture(client,"area-menu");checks.add("480x480 restart Area changes menu captured after stable frames");client.setScreen(null);command(client,"chronicle_areas_trial delete_main");step++;return;}
+        if(step==101){if(menu==null||menu.pending())return;require(menu.triggerForTest("Regions"),"restart Regions navigation missing");step++;return;}
+        if(step==102){if(menu==null||menu.pending()||menu.state().page()!=Page.REGIONS)return;wait=4;step++;return;}
+        if(step==103){if(wait-->0)return;require(client.getWindow().getScaledWidth()==480&&client.getWindow().getScaledHeight()==480,"restart logical viewport is not 480x480");verifyMenu(menu);capture(client,"area-menu");checks.add("480x480 restart Regions menu captured after stable frames");client.setScreen(null);command(client,"chronicle_areas_trial delete_main");step++;return;}
         if(step==104){if(!passed("delete_main"))return;wait=35;step++;return;}
         if(step==105){if(wait-->0)return;command(client,"chronicle_areas_trial verify_delete");step++;return;}
         if(step==106){if(!passed("verify_delete"))return;checks.add("delete applied the chosen state, tombstoned the Area, retained the surviving binding and emitted no drops");command(client,"chronicle_areas_trial delete_quota");step++;return;}
-        if(step==107){if(!passed("delete_quota"))return;checks.add("leave-unchanged deletion retired the quota Area without terrain access");finish(client,true,"restart, deletion and narrow Area menu passed");}
+        if(step==107){if(!passed("delete_quota"))return;checks.add("leave-unchanged deletion retired the quota Area without terrain access");finish(client,true,"restart, deletion and narrow Regions menu passed");}
     }
 
     private void requirePreview(double minX,double maxX){
@@ -110,7 +110,7 @@ public final class AreaChangesSmoke {
         require(io.github.chronicle.core.client.AuthoringPreviewRenderer.renderedFrames()>lastPreviewFrames,"outline renderer stopped drawing between corner changes");lastPreviewFrames=io.github.chronicle.core.client.AuthoringPreviewRenderer.renderedFrames();}
         catch(ReflectiveOperationException failure){throw new IllegalStateException(failure);}
     }
-    private static void verifyMenu(CoreMenuScreen menu){var widgets=menu.visibleWidgetBoundsForTest();var create=widgets.stream().filter(value->value.label().equals("Create new area")).findFirst().orElseThrow(()->new IllegalStateException("Create new area button missing"));require(menu.state().entries().size()>=2,"paired Areas are missing from menu");var first=widgets.stream().filter(value->menu.state().entries().stream().anyMatch(entry->entry.label().equals(value.label()))).findFirst().orElseThrow(()->new IllegalStateException("Area list entry is not visible"));require(create.y()<first.y(),"Create new area is not above the list");}
+    private static void verifyMenu(CoreMenuScreen menu){var widgets=menu.visibleWidgetBoundsForTest();var create=widgets.stream().filter(value->value.label().equals("Create region\u2026")).findFirst().orElseThrow(()->new IllegalStateException("Create region button missing"));require(menu.state().entries().size()>=2,"saved Regions are missing from menu");var first=widgets.stream().filter(value->menu.state().entries().stream().anyMatch(entry->entry.label().equals(value.label()))).findFirst().orElseThrow(()->new IllegalStateException("Region list entry is not visible"));require(create.y()<first.y(),"Create region is not above the list");}
     private boolean passed(String verb){for(String value:messages){if(value.contains("Areas trial FAIL "+verb))throw new IllegalStateException(value);if(value.contains("Areas trial PASS "+verb))return true;}return false;}
     private boolean seen(String text){return messages.stream().anyMatch(value->value.contains(text));}
     private int count(String text){return(int)messages.stream().filter(value->value.contains(text)).count();}

@@ -52,9 +52,9 @@ public final class CoreMenuScreen extends Screen {
     private static final int REFRESH_TICKS = 20 * 2;
     private static final Page[] NAVIGATION = {Page.SESSION, Page.PLAYERS, Page.EVENTS, Page.CHESTS,
             Page.LOOT_TABLES, Page.BOOKS_LORE, Page.REGIONS, Page.LOCATIONS, Page.PLAYER_ROLES,
-            Page.DEPARTURES, Page.AREA_CHANGES, Page.SETUP};
+            Page.SETUP};
     private static final String[] NAVIGATION_LABELS = {"Session", "Players", "Events", "Chests",
-            "Loot Tables", "Books & Lore", "Regions", "Locations", "Player Roles", "Departures", "Area changes", "Game setup"};
+            "Loot Tables", "Books & Lore", "Regions", "Locations", "Player Roles", "Game setup"};
 
     private View state;
     private boolean pending;
@@ -250,7 +250,7 @@ public final class CoreMenuScreen extends Screen {
             openRoleEditor(updated.detail().role());
             return;
         }
-        if ((receivedFor == Action.DEPARTURE_NEW || receivedFor == Action.DEPARTURE_EDIT || receivedFor == Action.DEPARTURE_BIND_LOOK)
+        if ((receivedFor == Action.DEPARTURE_NEW || receivedFor == Action.DEPARTURE_EDIT || receivedFor == Action.DEPARTURE_BIND_LOOK || receivedFor == Action.SITE_SUBTYPE_SET && updated.detail() != null && updated.detail().departure() != null && updated.detail().departure().creating())
                 && updated.success() && updated.detail() != null && updated.detail().departure() != null) {
             openDepartureEditor(updated.detail().departure());
             return;
@@ -260,12 +260,36 @@ public final class CoreMenuScreen extends Screen {
             retry.serverRejected(blank(updated.message(), "The server rejected this departure. Correct it and save again."));
             client.setScreen(retry); return;
         }
-        if ((receivedFor == Action.AREA_APPLY_REVIEW || receivedFor == Action.AREA_DELETE_REVIEW) && updated.success()) {
-            Action finalAction = receivedFor == Action.AREA_APPLY_REVIEW ? Action.AREA_APPLY : Action.AREA_DELETE;
+        if (receivedFor == Action.SITE_SUBTYPES_OPEN && updated.success() && updated.picker() != null && updated.picker().kind().equals("SITE_SUBTYPES")) {
+            client.setScreen(new SiteSubtypeScreen(this, updated.picker().entries(), selectedTypes -> {
+                client.setScreen(this);
+                var original = updated.picker().entries().stream().filter(e -> e.kind().startsWith("ASSIGNED")).map(Entry::id).collect(java.util.stream.Collectors.toSet());
+                if (updated.detail() != null && updated.detail().area() != null && original.contains("chronicle_core:saved_states") && !selectedTypes.contains("chronicle_core:saved_states")) {
+                    var otherOriginal = new java.util.HashSet<>(original); otherOriginal.remove("chronicle_core:saved_states");
+                    if (!otherOriginal.equals(selectedTypes)) { notice = "Remove Saved states separately from other subtype changes."; request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false); return; }
+                    AreaForm area = updated.detail().area(); var disabled = new java.util.HashSet<String>();
+                    if (!area.startSaved() || area.stale()) disabled.add("start"); if (!area.endSaved() || area.stale()) disabled.add("end");
+                    client.setScreen(new AreaStateScreen(this, "Remove Saved states", "Choose whether removal restores Start, End, or leaves the world unchanged.", List.of("start", "end", "unchanged"), choice -> {
+                        areaReviewState = choice; request(Action.AREA_DELETE_REVIEW, state.page(), detailId(), choice, state.index(), state.filter(), "", false);
+                    }, disabled, () -> request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false)));
+                    return;
+                }
+                var json = new com.google.gson.JsonObject(); var values = new com.google.gson.JsonArray(); selectedTypes.forEach(values::add); json.add("selected", values);
+                request(Action.SITE_SUBTYPE_SET, state.page(), detailId(), json.toString(), state.index(), state.filter(), "", false);
+            }, () -> { client.setScreen(this); request(Action.REFRESH, state.page(), detailId(), "", state.index(), state.filter(), "", false); }));
+            return;
+        }
+        if(receivedFor==Action.REGION_SAVE_REVIEW&&updated.success()){
+            confirmation=new Confirmation("Save changed Region bounds",updated.message(),updated.token(),
+                    ()->request(Action.REGION_SAVE,state.page(),detailId(),"",state.index(),state.filter(),"",false));
+            clearAndInit();return;
+        }
+        if ((receivedFor == Action.AREA_APPLY_REVIEW || receivedFor == Action.AREA_DELETE_REVIEW || receivedFor == Action.AREA_CAPTURE_REVIEW) && updated.success()) {
+            Action finalAction = receivedFor == Action.AREA_CAPTURE_REVIEW ? Action.AREA_CAPTURE : receivedFor == Action.AREA_APPLY_REVIEW ? Action.AREA_APPLY : Action.AREA_DELETE;
             String stateChoice = areaReviewState;
-            confirmation = new Confirmation(receivedFor == Action.AREA_APPLY_REVIEW ? "Apply reviewed state" : "Delete area",
+            confirmation = new Confirmation(receivedFor == Action.AREA_CAPTURE_REVIEW ? "Recapture changed Region" : receivedFor == Action.AREA_APPLY_REVIEW ? "Apply reviewed state" : "Remove Saved states",
                     blank(updated.message(), "Review this destructive area operation before confirming."), updated.token(),
-                    () -> request(finalAction, Page.AREA_CHANGES, detailId(), stateChoice, state.index(), state.filter(), "", false));
+                    () -> request(finalAction, state.page(), detailId(), stateChoice, state.index(), state.filter(), "", false));
             clearAndInit(); return;
         }
         if ((receivedFor == Action.ROLE_CHOICE_OPEN || receivedFor == Action.ROLE_ASSIGN_REVIEW) && updated.success()
@@ -530,7 +554,7 @@ public final class CoreMenuScreen extends Screen {
             cursor = wrapped("Unavailable: " + unavailable.reason(), x, cursor, w, 0xFFFFCC66, 2); break;
         }
         for (Control control : detail.controls()) {
-            if (control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
+            if (control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
             control(control, x, cursor, w); cursor += 20;
         }
         detailContentHeight = cursor + detailScroll - y;
@@ -673,6 +697,14 @@ public final class CoreMenuScreen extends Screen {
 
     private void activate(Control control) {
         if (!control.enabled()) return;
+        if (control.action() == Action.REGION_NEW) {
+            long editorToken = state.token(); int index = state.index(); String filter = state.filter();
+            client.setScreen(new RegionCreateScreen(this, draft -> {
+                client.setScreen(this);
+                request(Action.REGION_BEGIN, Page.REGIONS, "", draft, editorToken, index, filter, "", false);
+            }));
+            return;
+        }
         if (control.action() == Action.BOOK_NEW) {
             openBookEditor(new BookDefinition("chronicle_core:draft", "Untitled book", "", "Draft lore book", List.of(""), BookDefinition.Rule.OFF), BookEditorScreen.Mode.DETAILS, true);
             return;
@@ -688,28 +720,34 @@ public final class CoreMenuScreen extends Screen {
             }));
             return;
         }
+        if(control.action()==Action.REGION_SAVE&&state.detail()!=null&&state.detail().area()!=null){
+            request(Action.REGION_SAVE_REVIEW,state.page(),detailId(),"",state.index(),state.filter(),"",false);return;
+        }
+        if (control.action() == Action.SITE_SUBTYPES_OPEN) {
+            request(control.action(), state.page(), detailId(), "", state.index(), state.filter(), "", false); return;
+        }
         if (control.action() == Action.DEPARTURE_NEW || control.action() == Action.DEPARTURE_EDIT) {
-            request(control.action(), Page.DEPARTURES, detailId(), "", state.index(), state.filter(), "", false); return;
+            request(control.action(), state.page(), detailId(), "", state.index(), state.filter(), "", false); return;
         }
         if (control.action() == Action.AREA_CAPTURE_OPEN) {
-            openAreaChoice("Save current area state", "Choose the state to capture. Replacing a saved state needs a second confirmation.",
+            openAreaChoice("Capture Region state", "Choose the state to capture. Replacing a saved state needs a second confirmation.",
                     List.of("start", "end"), choice -> {
                         AreaForm area = state.detail() == null ? null : state.detail().area();
+                        if(area!=null&&area.stale()&&(choice.equals("start")?area.endSaved():area.startSaved())){areaReviewState=choice;request(Action.AREA_CAPTURE_REVIEW,state.page(),detailId(),choice,state.index(),state.filter(),"",false);return;}
                         boolean replacing = area != null && (choice.equals("start") ? area.startSaved() : area.endSaved());
-                        Runnable send = () -> request(Action.AREA_CAPTURE, Page.AREA_CHANGES, detailId(), choice, state.index(), state.filter(), "", false);
+                        Runnable send = () -> request(Action.AREA_CAPTURE, state.page(), detailId(), choice, state.index(), state.filter(), "", false);
                         if (replacing) { confirmation = new Confirmation("Replace saved " + choice + " state", "The prior captured state will be overwritten. This does not change the world.", state.token(), send); clearAndInit(); }
                         else send.run();
                     }); return;
         }
         if (control.action() == Action.AREA_PREVIEW) {
-            openAreaChoice("Preview saved area state", "Only saved, current states can be previewed.", List.of("start", "end"),
-                    choice -> request(Action.AREA_PREVIEW, Page.AREA_CHANGES, detailId(), choice, state.index(), state.filter(), "", false),true); return;
+            request(Action.AREA_PREVIEW, state.page(), detailId(), "", state.index(), state.filter(), "", false); return;
         }
         if (control.action() == Action.AREA_APPLY_REVIEW || control.action() == Action.AREA_DELETE_REVIEW) {
             List<String> choices = control.action() == Action.AREA_DELETE_REVIEW ? List.of("start", "end", "unchanged") : List.of("start", "end");
-            openAreaChoice(control.action() == Action.AREA_DELETE_REVIEW ? "Delete area" : "Apply saved area state",
+            openAreaChoice(control.action() == Action.AREA_DELETE_REVIEW ? "Remove Saved states" : "Apply saved Region state",
                     control.action() == Action.AREA_DELETE_REVIEW ? "Choose whether deletion restores Start, End, or leaves the world unchanged." : "This replaces blocks and container contents. Review before the final confirmation.",
-                    choices, choice -> { areaReviewState = choice; request(control.action(), Page.AREA_CHANGES, detailId(), choice, state.index(), state.filter(), "", false); },true); return;
+                    choices, choice -> { areaReviewState = choice; request(control.action(), state.page(), detailId(), choice, state.index(), state.filter(), "", false); },true); return;
         }
         if (state.detail() != null && state.detail().book() != null) {
             if (control.action() == Action.BOOK_EDIT_DETAILS) { openBookEditor(state.detail().book(), BookEditorScreen.Mode.DETAILS, false); return; }
@@ -1162,7 +1200,7 @@ public final class CoreMenuScreen extends Screen {
         }
         Page page = state.page(); int index = state.index(); String filter = state.filter();
         Runnable send = () -> request(control.action(), page, id, argument, index, filter, "", false);
-        if (!control.confirm()) { send.run(); return; }
+        if (!control.confirm() && !(control.action() == Action.REGION_SAVE && state.detail().area() != null)) { send.run(); return; }
         String effect = switch (control.action()) {
             case LOOT_SAVE -> "Save this entire loot table. Bound chests use it at their next configured fill; no chest is filled now.";
             case LOOT_RELOAD -> "Replace the loaded loot definitions with the server JSON configuration. Unsaved table edits will be discarded.";
@@ -1189,7 +1227,7 @@ public final class CoreMenuScreen extends Screen {
             case SESSION_START -> "Start a play window and unfreeze world simulation. Bound loot chests receive their configured session fill, replacing contents.";
             case SESSION_END -> "Finish the current play window and freeze world simulation. Campaign progress remains saved.";
             case SITE_DELETE -> "Delete this saved site. Systems pinned to it will require a new assignment.";
-            case REGION_SAVE -> "Replace the bounds of this region under the same ID. References to its previous revision must be reviewed.";
+            case REGION_SAVE -> "Replace the bounds of this region under the same ID. References to its previous revision must be reviewed." + (state.detail().area() == null ? "" : " Saved states become unavailable and must be recaptured." + (state.detail().area().consumers().isEmpty() ? "" : " Consumers: " + String.join(", ", state.detail().area().consumers())));
             case REGION_NEW -> "Start a new draft named " + argument + ", replacing your current draft. Save any bounds you want to keep before continuing.";
             case REGION_EDIT -> "Load this region's saved bounds into your current draft. Unsaved positions in the previous draft will be discarded.";
             default -> "Apply this change to the selected target.";
@@ -1243,11 +1281,11 @@ public final class CoreMenuScreen extends Screen {
         editor[0] = new DepartureEditorScreen(this, form, state.token(), draft -> {
             failedDepartureEditor = editor[0];
             client.setScreen(this);
-            request(form.creating() ? Action.DEPARTURE_CREATE : Action.DEPARTURE_SAVE, Page.DEPARTURES, draft.id(), draft.json(), state.index(), state.filter(), "", false);
+            request(form.creating() ? Action.DEPARTURE_CREATE : Action.DEPARTURE_SAVE, state.page(), state.page() == Page.LOCATIONS ? detailId() : draft.id(), draft.json(), state.index(), state.filter(), "", false);
         }, draft -> {
             failedDepartureEditor = editor[0];
             client.setScreen(this);
-            request(Action.DEPARTURE_BIND_LOOK, Page.DEPARTURES, draft.id(), draft.json(), state.index(), state.filter(), "", false);
+            request(Action.DEPARTURE_BIND_LOOK, state.page(), state.page() == Page.LOCATIONS ? detailId() : draft.id(), draft.json(), state.index(), state.filter(), "", false);
         });
         client.setScreen(editor[0]);
     }
@@ -1263,7 +1301,7 @@ public final class CoreMenuScreen extends Screen {
     private int areaDetails(AreaForm form, List<Control> controls, int x, int cursor, int width) {
         if(!debug)return cursor;
         drawLine("Start: " + (form.startSaved() ? "saved" : "missing") + " · End: " + (form.endSaved() ? "saved" : "missing"), x, cursor, width, 0xFFCCCCCC); cursor += 12;
-        if (form.stale()) { drawLine("Region changed: recreate this Area or delete it without changing terrain.", x, cursor, width, 0xFFFFCC66); cursor += 12; }
+        if (form.stale()) { drawLine("Region changed: recapture saved states before using them.", x, cursor, width, 0xFFFFCC66); cursor += 12; }
         if (form.busy()) { drawLine("Area operation in progress: " + form.operationStage(), x, cursor, width, 0xFFFFCC66); cursor += 12; }
         if (!form.problem().isBlank()) { cursor = wrapped(form.problem(), x, cursor, width, 0xFFFF9966, 2); }
         if (debug && !form.consumers().isEmpty()) { cursor = wrapped("Consumers: " + String.join(", ", form.consumers()), x, cursor, width, 0xFFA0A0A0, 3); }

@@ -243,7 +243,10 @@ public final class AuthoringCommands {
 
     private static String persist(ServerCommandSource source, AuthoringRuntime runtime, AuthoringSite site, boolean replace) throws IOException {
         ChronicleCore.authoring().validate(site);
-        var saved = runtime.service().put(site, replace);
+        if(site instanceof AuthoringSite.Region proposed&&runtime.service().state().sites().get(site.id()) instanceof AuthoringSite.Region existing
+                &&!AuthoringRuntime.sameGeometry(existing,proposed)&&AreaChanges.forRegion(source.getServer(),site.id()).isPresent())
+            throw new IllegalStateException("Saved states require a bounds review. Use /chronicle author region edit "+site.id()+", change the corners, then /chronicle region save and /chronicle region save confirm.");
+        var saved = replace&&site instanceof AuthoringSite.Region proposed&&runtime.service().state().sites().get(site.id()) instanceof AuthoringSite.Region existing&&AuthoringRuntime.sameGeometry(existing,proposed)?existing:runtime.service().put(site, replace);
         log(source, replace ? "replace" : "save", saved.id(), saved.revision());
         runtime.preview(player(source), saved);
         return "Saved " + describe(saved) + ".";
@@ -387,6 +390,7 @@ public final class AuthoringCommands {
                 .withClickEvent(new ClickEvent.SuggestCommand(command)).withHoverEvent(new HoverEvent.ShowText(Text.literal(help))));
     }
     private static void requireEditor(ServerCommandSource source, AuthoringRuntime runtime) {
+        if(RuntimeHolds.reason(source.getServer())!=null)throw new IllegalStateException("Finish pending Chronicle operations before authoring changes.");
         requireEditable(source);
         var player = player(source);
         runtime.selection(player.getUuid());

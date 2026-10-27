@@ -30,6 +30,11 @@ public final class AuthoringRuntime {
     private final Map<UUID, RegionDraft> regionDrafts = new HashMap<>();
     private final Map<UUID, Preview> previews = new HashMap<>();
     private final Map<UUID, Long> presentationEpochs = new HashMap<>();
+    private final Map<UUID, BoundsReview> boundsReviews = new HashMap<>();
+
+    private record BoundsReview(RegionDraft draft, AuthoringSite.Region original,
+                                io.github.chronicle.core.areas.AreaChange states,
+                                java.util.List<String> consumers, long catalogRevision, long createdAt) { }
 
     private AuthoringRuntime(AuthoringService service) { this.service = service; }
 
@@ -62,6 +67,7 @@ public final class AuthoringRuntime {
             runtime.regionDrafts.remove(player.getUuid());
             runtime.previews.remove(player.getUuid());
             runtime.presentationEpochs.remove(player.getUuid());
+            runtime.boundsReviews.remove(player.getUuid());
         }
     }
 
@@ -81,6 +87,7 @@ public final class AuthoringRuntime {
     public void disable(UUID player) {
         authors.remove(player);
         regionDrafts.remove(player);
+        boundsReviews.remove(player);
         bump(player);
     }
     public Selection selection(UUID player) {
@@ -112,6 +119,7 @@ public final class AuthoringRuntime {
         if (service.state().sites().containsKey(id)) {
             throw new IllegalStateException("Region already exists: " + id + "; use region edit " + id + ".");
         }
+        Presentation previous=presentation(player.getUuid());
         Selection selected = selection(player.getUuid());
         String dimension = dimension(player);
         if (selected.dimension() != null && !selected.dimension().equals(dimension)) {
@@ -123,6 +131,7 @@ public final class AuthoringRuntime {
         regionDrafts.put(player.getUuid(), draft);
         selection(player.getUuid(), new Selection(draft.dimension(), draft.first(), draft.second()));
         previewRegionDraft(player);
+        RegionAuthoringWorkflow.loan(player,previous);
         return draft;
     }
 
@@ -133,9 +142,11 @@ public final class AuthoringRuntime {
     public RegionDraft resumeRegionDraft(ServerPlayerEntity player, String id) {
         requireEditableAuthor(player);
         requireNoAreaDraft(player);
+        Presentation previous=presentation(player.getUuid());
         RegionDraft current = regionDrafts.get(player.getUuid());
         if (current != null && current.id().equals(id)) {
             previewRegionDraft(player);
+            RegionAuthoringWorkflow.loan(player,previous);
             return current;
         }
         AuthoringSite site = service.state().sites().get(id);
@@ -149,6 +160,7 @@ public final class AuthoringRuntime {
         regionDrafts.put(player.getUuid(), draft);
         selection(player.getUuid(), new Selection(draft.dimension(), draft.first(), draft.second()));
         previewRegionDraft(player);
+        RegionAuthoringWorkflow.loan(player,previous);
         return draft;
     }
 
@@ -158,11 +170,43 @@ public final class AuthoringRuntime {
         requireNoAreaDraft(player);
         RegionDraft draft = regionDrafts.get(player.getUuid());
         if (draft == null) throw new IllegalStateException("No region draft is open; use region edit <id> or region create <id>.");
-        previewRegionDraft(player);
+        var previous=presentation(player.getUuid());previewRegionDraft(player);RegionAuthoringWorkflow.loan(player,previous);
         return draft;
     }
 
     public Optional<RegionDraft> regionDraft(UUID player) { return Optional.ofNullable(regionDrafts.get(player)); }
+    void discardRegionDraft(UUID player){regionDrafts.remove(player);boundsReviews.remove(player);}
+
+    public boolean needsBoundsReview(ServerPlayerEntity player) {
+        RegionDraft draft=regionDrafts.get(player.getUuid());
+        return draft!=null&&draft.complete()&&service.state().sites().get(draft.id()) instanceof AuthoringSite.Region original
+                &&!sameGeometry(original,draft.region())&&AreaChanges.forRegion(player.getEntityWorld().getServer(),draft.id()).isPresent();
+    }
+
+    /** Pins the exact proposed bounds, snapshots and affected consumers before any geometry write. */
+    public String reviewRegionDraft(ServerPlayerEntity player) {
+        requireEditableAuthor(player);requireNoAreaDraft(player);
+        RegionDraft draft=regionDrafts.get(player.getUuid());
+        if(draft==null||!draft.complete())throw new IllegalStateException("Select both Region corners first.");
+        if(!needsBoundsReview(player))return "The selected Region has no saved states affected by these bounds.";
+        var original=(AuthoringSite.Region)service.state().sites().get(draft.id());
+        if(original.revision()!=draft.baseRevision())throw new IllegalStateException("Region changed; reopen its edit before reviewing.");
+        var server=player.getEntityWorld().getServer();var states=AreaChanges.forRegion(server,draft.id()).orElseThrow();
+        var consumers=CoreAreaMenu.consumers(server,states.id());
+        boundsReviews.put(player.getUuid(),new BoundsReview(draft,original,states,consumers,service.state().revision(),System.nanoTime()));
+        return "Changing this Region's bounds makes both saved states stale. Recapture them before applying or using them. Affected uses: "
+                +String.join(", ",consumers)+". No bounds changed yet. Confirm within 30 seconds with /chronicle region save confirm.";
+    }
+
+    private void requireBoundsReview(ServerPlayerEntity player,RegionDraft draft,AuthoringSite.Region original) {
+        if(!needsBoundsReview(player))return;
+        BoundsReview review=boundsReviews.remove(player.getUuid());var server=player.getEntityWorld().getServer();
+        var states=AreaChanges.forRegion(server,draft.id()).orElseThrow();
+        if(review==null||System.nanoTime()-review.createdAt()>30_000_000_000L||!review.draft().equals(draft)
+                ||!review.original().equals(original)||!review.states().equals(states)
+                ||!review.consumers().equals(CoreAreaMenu.consumers(server,states.id()))||review.catalogRevision()!=service.state().revision())
+            throw new IllegalStateException("Review these exact changed bounds first with /chronicle region save, then /chronicle region save confirm.");
+    }
 
     /** Replaces one selected corner only and refreshes the private draft outline. */
     public RegionDraft setRegionDraftCorner(ServerPlayerEntity player, int corner, BlockPosition position) {
@@ -177,7 +221,7 @@ public final class AuthoringRuntime {
         draft = draft.withCorner(corner, position);
         regionDrafts.put(player.getUuid(), draft);
         selection(player.getUuid(), new Selection(draft.dimension(), draft.first(), draft.second()));
-        previewRegionDraft(player);
+        previewRegionDraft(player);RegionAuthoringWorkflow.changed(player);
         return draft;
     }
 
@@ -219,11 +263,13 @@ public final class AuthoringRuntime {
         } else if (current != null) {
             throw new IllegalStateException("Region was created while this draft was open. Reopen it before saving.");
         }
-        AuthoringSite.Region saved = (AuthoringSite.Region) service.put(candidate, replace);
+        if(current instanceof AuthoringSite.Region original)requireBoundsReview(player,draft,original);
+        AuthoringSite.Region saved = current instanceof AuthoringSite.Region old&&sameGeometry(old,candidate)?old:(AuthoringSite.Region)service.put(candidate,replace);
         RegionDraft savedDraft = RegionDraft.edit(saved);
         regionDrafts.put(player.getUuid(), savedDraft);
         selection(player.getUuid(), new Selection(saved.dimension(), saved.min(), saved.max()));
         preview(player, saved);
+        RegionAuthoringWorkflow.saved(player);regionDrafts.remove(player.getUuid());boundsReviews.remove(player.getUuid());
         return saved;
     }
     public void preview(ServerPlayerEntity player, AuthoringSite site) {
@@ -271,6 +317,7 @@ public final class AuthoringRuntime {
             }
             runtime.authors.clear();
             runtime.regionDrafts.clear();
+            runtime.boundsReviews.clear();
         }
         for (var entry : java.util.List.copyOf(runtime.previews.entrySet())) {
             var player = server.getPlayerManager().getPlayer(entry.getKey());
@@ -288,7 +335,10 @@ public final class AuthoringRuntime {
         return player.getEntityWorld().getRegistryKey().getValue().toString();
     }
 
+    static boolean sameGeometry(AuthoringSite.Region a,AuthoringSite.Region b){return a.id().equals(b.id())&&a.dimension().equals(b.dimension())&&a.min().equals(b.min())&&a.max().equals(b.max());}
+
     private void requireEditableAuthor(ServerPlayerEntity player) {
+        if(RuntimeHolds.reason(player.getEntityWorld().getServer())!=null)throw new IllegalStateException("Finish pending Chronicle operations before editing Region geometry.");
         if (!editable(player.getEntityWorld().getServer())) {
             throw new IllegalStateException("Authoring edits require a non-active, available Chronicle session.");
         }
@@ -296,7 +346,7 @@ public final class AuthoringRuntime {
     }
 
     private void requireNoAreaDraft(ServerPlayerEntity player){
-        if(AreaChanges.hasDraft(player.getEntityWorld().getServer(),player.getUuid()))throw new IllegalStateException("An Area change draft is active. Save it with /chronicle area change save or cancel it first.");
+        if(AreaChanges.hasDraft(player.getEntityWorld().getServer(),player.getUuid()))throw new IllegalStateException("An Area change draft is active. Save it with /chronicle region save or cancel it with /chronicle region cancel first.");
     }
 
     private void bump(UUID player){presentationEpochs.put(player,presentationEpochs.getOrDefault(player,0L)+1);}

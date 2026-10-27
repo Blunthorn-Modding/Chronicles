@@ -49,7 +49,7 @@ public final class PlayerRoles {
     public static Map<String, PlayerRole> definitions(MinecraftServer server) { return state(server).roles; }
     public static PlayerRoleAssignments assignments(MinecraftServer server) { return state(server).assignments.state(); }
     public static Object revision(MinecraftServer server) { return ready(server) ? List.of(definitions(server),assignments(server)) : "unavailable"; }
-    public static PlayerRole roleFor(MinecraftServer server, UUID player) { return ready(server) ? definitions(server).get(assignments(server).assigned().get(player)) : null; }
+    public static PlayerRole roleFor(MinecraftServer server, UUID player) { if(!ready(server))return null;String id=assignments(server).assigned().get(player);return id==null?null:definitions(server).get(id); }
     public static void markStarted(MinecraftServer server, UUID player) throws IOException { state(server).assignments.markStarted(player); }
     public static void setPolicyDisabled(MinecraftServer server,UUID player,boolean arrival,boolean disabled) throws IOException { state(server).assignments.setPolicyDisabled(player,arrival,disabled); }
     public static long assigned(MinecraftServer server, String id) { return assignments(server).assigned().values().stream().filter(id::equals).count(); }

@@ -24,7 +24,7 @@ public final class PlayerRolesTrial {
         if (!"true".equals(System.getenv("CHRONICLE_ROLES_TRIAL"))) return;
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("chronicle_roles_trial").requires(source -> source.hasPermissionLevel(2));
-            for (String verb : List.of("prepare", "full", "uncertain", "verify_uncertain", "release", "verify", "repeat", "clear", "death", "verify_death", "manual_respawn", "verify_manual", "off_respawn", "verify_off", "restart"))
+            for (String verb : List.of("verify_editor", "seed_component", "verify_component", "prepare", "full", "uncertain", "verify_uncertain", "release", "verify", "repeat", "clear", "death", "verify_death", "manual_respawn", "verify_manual", "off_respawn", "verify_off", "restart"))
                 root.then(literal(verb).executes(context -> run(context.getSource(), verb)));
             dispatcher.register(root);
         });
@@ -34,6 +34,26 @@ public final class PlayerRolesTrial {
         try {
             fixture(source);ServerPlayerEntity player = source.getPlayerOrThrow();
             switch (verb) {
+                case "verify_editor" -> {
+                    var role = PlayerRoles.definitions(source.getServer()).values().stream().filter(value -> value.name().equals("Smoke role")).findFirst().orElseThrow();
+                    require(role.items().size() == 1, "saved role has unexpected supply rows");
+                    var stack = com.google.gson.JsonParser.parseString(role.items().getFirst().stackJson()).getAsJsonObject();
+                    require(stack.get("id").getAsString().equals("minecraft:bread") && stack.get("count").getAsInt() == 3, "saved supply or quantity incorrect");
+                }
+                case "seed_component" -> {
+                    var item = new io.github.chronicle.core.roles.StartingItem("{\"id\":\"minecraft:paper\",\"count\":2,\"components\":{\"minecraft:custom_name\":{\"text\":\"Smoke keepsake\"}}}");
+                    PlayerRoles.create(source, new io.github.chronicle.core.roles.PlayerRole("test:component_role", "Component role", "", false, 1, null, null, List.of(item), List.of()));
+                }
+                case "verify_component" -> {
+                    var role = PlayerRoles.definitions(source.getServer()).get("test:component_role");
+                    require(role != null && role.items().size() == 2, "custom and plain paper were not kept separate");
+                    var custom = com.google.gson.JsonParser.parseString(role.items().get(0).stackJson()).getAsJsonObject();
+                    var plain = com.google.gson.JsonParser.parseString(role.items().get(1).stackJson()).getAsJsonObject();
+                    var expected = com.google.gson.JsonParser.parseString("{\"minecraft:custom_name\":{\"text\":\"Smoke keepsake\"}}");
+                    require(custom.get("id").getAsString().equals("minecraft:paper") && custom.get("count").getAsInt() == 4 && expected.equals(custom.get("components")), "custom paper components or quantity changed");
+                    require(plain.get("id").getAsString().equals("minecraft:paper") && plain.get("count").getAsInt() == 1 && !plain.has("components"), "plain paper was merged or modified");
+                    PlayerRoles.delete(source, role.id(), role);
+                }
                 case "prepare" -> prepare(source, player);
                 case "full" -> {require(!PlayerRoles.assignments(source.getServer()).started().contains(player.getUuid()),"full inventory did not defer first entry");require(count(player,Items.BREAD)==0,"kit issued into full inventory");}
                 case "uncertain" -> {clear(player);io.github.chronicle.core.server.AutomaticPlayerSpawns.service(source.getServer()).claim(player.getUuid(),"test:prior");}

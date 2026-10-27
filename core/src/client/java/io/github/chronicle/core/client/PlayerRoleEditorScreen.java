@@ -1,5 +1,7 @@
 package io.github.chronicle.core.client;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import io.github.chronicle.core.menu.CoreMenuModel.Entry;
 import io.github.chronicle.core.roles.PlayerRole;
 import io.github.chronicle.core.roles.StartingItem;
@@ -10,6 +12,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -17,6 +20,8 @@ import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -43,7 +48,9 @@ final class PlayerRoleEditorScreen extends Screen {
     private final List<String> selectedBooks = new ArrayList<>();
     private TextFieldWidget name, description, capacity, itemSearch, itemCount;
     private String itemQuery = "", selectedItemId = "", itemCountDraft = "1";
-    private int itemOffset, pointOffset, bookOffset;
+    private int itemOffset, catalogOffset, pointOffset, bookOffset;
+    private boolean addingItem;
+    private final Map<Integer, String> quantityDrafts = new HashMap<>();
     private String problem = "";
     private boolean stale;
 
@@ -68,6 +75,7 @@ final class PlayerRoleEditorScreen extends Screen {
 
     @Override protected void init() {
         retainInputs(); clearChildren(); drawProblem = "";
+        name = description = capacity = itemSearch = itemCount = null;
         int w = Math.min(440, Math.max(240, width - 24)); int x = (width - w) / 2; int y = Math.max(18, (height - 226) / 2);
         switch (mode) {
             case DETAILS -> details(x, y, w);
@@ -93,30 +101,101 @@ final class PlayerRoleEditorScreen extends Screen {
     }
 
     private void items(int x, int y, int w) {
+        if (addingItem) { itemCatalog(x, y, w); return; }
+        int shown = Math.min(5, items.size());
+        itemOffset = Math.clamp(itemOffset, 0, Math.max(0, items.size() - shown));
+        for (int index = 0; index < shown; index++) {
+            int row = itemOffset + index, rowY = y + 30 + index * 24;
+            String stack = items.get(row);
+            button(stackLabel(stack), x + 20, rowY, w - 170, () -> { }, stack);
+            input(x + w - 146, rowY, 40, "Quantity", quantityDrafts.getOrDefault(row, stackCount(stack)),
+                    value -> quantityDrafts.put(row, value));
+            button("Set", x + w - 102, rowY, 42, () -> setQuantity(row), "Update this stack's quantity");
+            button("Remove", x + w - 56, rowY, 56, () -> {
+                items.remove(row);
+                Map<Integer, String> remaining = new HashMap<>(quantityDrafts); quantityDrafts.clear();
+                remaining.forEach((key, value) -> { if (key != row) quantityDrafts.put(key > row ? key - 1 : key, value); });
+                problem = ""; clearAndInit();
+            }, "Remove this starting supply from the draft");
+        }
+        if (items.isEmpty()) drawProblem = "No starting supplies assigned.";
+        if (items.size() > shown) {
+            button("<", x, y + 154, 45, () -> { itemOffset = Math.max(0, itemOffset - 5); clearAndInit(); }, "Earlier supplies", itemOffset > 0);
+            button(">", x + 49, y + 154, 45, () -> { itemOffset = Math.min(items.size() - shown, itemOffset + 5); clearAndInit(); }, "Later supplies", itemOffset + shown < items.size());
+        }
+        button("Add item...", x + w - 120, y + 154, 120, () -> {
+            addingItem = true; selectedItemId = ""; itemCountDraft = "1"; itemQuery = ""; itemSearch = itemCount = null; catalogOffset = 0; problem = ""; clearAndInit();
+        }, "Browse available items");
+        button("Back", x, y + 181, w, () -> { mode = Mode.DETAILS; problem = ""; clearAndInit(); }, "Keep this local supplies draft and return to role details");
+    }
+
+    private void itemCatalog(int x, int y, int w) {
         itemSearch = input(x, y + 27, w - 58, "Find item", itemQuery, value -> itemQuery = value);
-        button("Find", x + w - 54, y + 27, 54, () -> { problem = ""; clearAndInit(); }, "Filter the local item registry");
+        button("Find", x + w - 54, y + 27, 54, () -> { catalogOffset = 0; problem = ""; clearAndInit(); }, "Filter available items");
         List<Identifier> matches = matchingItems();
-        for (int index = 0; index < Math.min(3, matches.size()); index++) {
-            Identifier candidate = matches.get(index); String id = candidate.toString();
-            button((id.equals(selectedItemId) ? "> " : "") + itemLabel(candidate), x, y + 54 + index * 19, w,
-                    () -> { selectedItemId = id; problem = ""; clearAndInit(); }, id);
+        int shown = Math.min(4, matches.size());
+        catalogOffset = Math.clamp(catalogOffset, 0, Math.max(0, matches.size() - shown));
+        for (int index = 0; index < shown; index++) {
+            Identifier candidate = matches.get(catalogOffset + index); String id = candidate.toString();
+            boolean assigned = plainItemAssigned(id);
+            button((id.equals(selectedItemId) ? "> " : "") + itemLabel(candidate) + (assigned ? " (assigned)" : ""),
+                    x + 20, y + 50 + index * 20, w - 20,
+                    () -> { selectedItemId = id; problem = ""; clearAndInit(); },
+                    assigned ? "Already assigned; edit its quantity in the supplies list" : id, !assigned);
         }
         if (matches.isEmpty()) drawProblem = "No matching registered item.";
-        itemCount = input(x, y + 113, 58, "Count", itemCountDraft, value -> itemCountDraft = value);
-        button("Add " + (selectedItemId.isBlank() ? "item" : compact(selectedItemId)), x + 62, y + 113, w - 62, this::addItem,
-                "Add one selected item stack to this role's starting gear");
-        itemOffset = Math.clamp(itemOffset, 0, Math.max(0, items.size() - 1));
-        if (!items.isEmpty()) {
-            int row = itemOffset; String text = compact(items.get(row));
-            button(text, x, y + 137, w - 62, () -> { }, "Configured starting item stack");
-            button("Remove", x + w - 58, y + 137, 58, () -> { items.remove(row); clearAndInit(); }, "Remove this starting stack");
+        if (matches.size() > shown) {
+            button("<", x, y + 132, 45, () -> { catalogOffset = Math.max(0, catalogOffset - 4); clearAndInit(); }, "Earlier available items", catalogOffset > 0);
+            button(">", x + 49, y + 132, 45, () -> { catalogOffset = Math.min(matches.size() - shown, catalogOffset + 4); clearAndInit(); }, "Later available items", catalogOffset + shown < matches.size());
         }
-        if (items.size() > 1) {
-            button("< stack", x, y + 156, w / 2 - 2, () -> { itemOffset--; clearAndInit(); }, "Earlier configured starting stack", itemOffset > 0);
-            button("> stack", x + w / 2 + 2, y + 156, w / 2 - 2, () -> { itemOffset++; clearAndInit(); }, "Later configured starting stack", itemOffset + 1 < items.size());
+        itemCount = input(x + 100, y + 132, 44, "Quantity", itemCountDraft, value -> itemCountDraft = value);
+        button("Add item", x + 148, y + 132, w - 148, this::addItem, "Add the selected item and quantity");
+        button("Cancel", x, y + 181, w, () -> { addingItem = false; problem = ""; clearAndInit(); }, "Return without adding an item; keep the role draft");
+    }
+
+    private JsonObject stackObject(String stack) { return JsonParser.parseString(stack).getAsJsonObject(); }
+    private String stackCount(String stack) {
+        try { JsonObject object = stackObject(stack); return object.has("count") ? object.get("count").getAsString() : "1"; }
+        catch (RuntimeException exception) { return "?"; }
+    }
+    private Identifier stackId(String stack) {
+        try { return Identifier.of(stackObject(stack).get("id").getAsString()); }
+        catch (RuntimeException exception) { return null; }
+    }
+    private String stackLabel(String stack) {
+        Identifier id = stackId(stack);
+        if (id == null || !Registries.ITEM.containsId(id)) return "Unavailable item";
+        String name = Registries.ITEM.get(id).getName().getString();
+        try { if (stackObject(stack).has("components") && !stackObject(stack).getAsJsonObject("components").isEmpty()) name += " (custom)"; }
+        catch (RuntimeException ignored) { }
+        return name;
+    }
+    private boolean plainItemAssigned(String id) {
+        for (String stack : items) {
+            try {
+                JsonObject object = stackObject(stack);
+                if (object.has("id") && id.equals(object.get("id").getAsString())
+                        && object.keySet().stream().allMatch(key -> key.equals("id") || key.equals("count")
+                                || (key.equals("components") && object.get(key).isJsonObject() && object.getAsJsonObject(key).isEmpty()))) return true;
+            } catch (RuntimeException ignored) { }
         }
-        if (!items.isEmpty()) drawProblem = "Starting stack " + (itemOffset + 1) + " of " + items.size() + ".";
-        button("Back", x, y + 181, w, () -> { mode = Mode.DETAILS; clearAndInit(); }, "Keep this local gear draft and return to role details");
+        return false;
+    }
+    private void applyQuantity(int row) {
+        JsonObject object = stackObject(items.get(row));
+        Identifier id = stackId(items.get(row));
+        if (id == null || !Registries.ITEM.containsId(id)) throw new IllegalArgumentException("This item is unavailable.");
+        int count;
+        try { count = Integer.parseInt(quantityDrafts.getOrDefault(row, stackCount(items.get(row)))); }
+        catch (NumberFormatException exception) { throw new IllegalArgumentException("Enter a whole number for the quantity."); }
+        int max = Registries.ITEM.get(id).getMaxCount();
+        if (count < 1 || count > max) throw new IllegalArgumentException("Count must be between 1 and " + max + " for this item.");
+        object.addProperty("count", count);
+        items.set(row, object.toString()); quantityDrafts.remove(row);
+    }
+    private void setQuantity(int row) {
+        try { applyQuantity(row); problem = ""; clearAndInit(); }
+        catch (RuntimeException exception) { problem = exception.getMessage(); }
     }
 
     private String drawProblem = "";
@@ -168,6 +247,7 @@ final class PlayerRoleEditorScreen extends Screen {
     private String pointLabel(SpawnBinding binding) { return binding == null ? "Vanilla default" : java.util.Optional.ofNullable(availablePoint(binding)).map(Entry::label).orElse("Unavailable: " + binding.locationId()); }
     private void addItem() {
         if (selectedItemId.isBlank()) { problem = "Choose an item from the registry first."; return; }
+        if (plainItemAssigned(selectedItemId)) { problem = "Already assigned; edit its quantity in the supplies list."; return; }
         if (items.size() >= PlayerRole.MAX_ITEMS) { problem = "A role may contain at most " + PlayerRole.MAX_ITEMS + " item stacks."; return; }
         try {
             Identifier id = Identifier.of(selectedItemId); Item selected = Registries.ITEM.get(id);
@@ -175,13 +255,14 @@ final class PlayerRoleEditorScreen extends Screen {
             if (count < 1 || count > selected.getMaxCount()) throw new IllegalArgumentException("Count must be between 1 and " + selected.getMaxCount() + " for this item.");
             // This compact stack form is decoded and registry-checked again by the server.
             items.add("{\"id\":\"" + id + "\",\"count\":" + count + "}");
-            problem = ""; selectedItemId = ""; itemCountDraft = "1"; clearAndInit();
+            problem = ""; addingItem = false; selectedItemId = ""; itemCountDraft = "1"; itemCount = null; clearAndInit();
         } catch (IllegalArgumentException exception) { problem = exception.getMessage(); }
     }
     private void toggleBook(String id) { if (selectedBooks.contains(id)) selectedBooks.remove(id); else if (selectedBooks.size() < PlayerRole.MAX_BOOKS) selectedBooks.add(id); else { problem = "A role may reference at most " + PlayerRole.MAX_BOOKS + " books."; return; } clearAndInit(); }
     private void save() {
         retainInputs();
         try {
+            for (int row : List.copyOf(quantityDrafts.keySet())) applyQuantity(row);
             int cap = Integer.parseInt(capacityDraft);
             PlayerRole value = new PlayerRole(base.id(), nameDraft, descriptionDraft, selectable, cap, starting, respawn,
                     items.stream().map(StartingItem::new).toList(), selectedBooks);
@@ -192,7 +273,7 @@ final class PlayerRoleEditorScreen extends Screen {
         String needle = itemQuery.trim().toLowerCase(java.util.Locale.ROOT);
         return Registries.ITEM.getIds().stream().filter(id -> needle.isBlank() || id.toString().contains(needle)
                         || Registries.ITEM.get(id).getName().getString().toLowerCase(java.util.Locale.ROOT).contains(needle))
-                .sorted(Comparator.comparing(Identifier::toString)).limit(3).toList();
+                .sorted(Comparator.comparing(Identifier::toString)).toList();
     }
     private String itemLabel(Identifier id) {
         String name = Registries.ITEM.get(id).getName().getString();
@@ -212,10 +293,22 @@ final class PlayerRoleEditorScreen extends Screen {
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         int w = Math.min(440, Math.max(240, width - 24)); int x = (width - w) / 2; int y = Math.max(18, (height - 226) / 2);
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, x - 6, y - 6, w + 12, 226);
-        String title = switch (mode) { case DETAILS -> creating ? "New player role" : "Edit player role"; case STARTING_ITEMS -> "Starting gear"; case LORE -> "Private lore books"; case STARTING_POINT -> "Starting position"; case RESPAWN_POINT -> "Respawn position"; };
+        String title = switch (mode) { case DETAILS -> creating ? "New player role" : "Edit player role"; case STARTING_ITEMS -> addingItem ? "Available items" : "Assigned starting supplies"; case LORE -> "Private lore books"; case STARTING_POINT -> "Starting position"; case RESPAWN_POINT -> "Respawn position"; };
         context.drawTextWithShadow(textRenderer, Text.literal(title), x, y, 0xFFFFFFFF);
         if (mode == Mode.DETAILS) { context.drawTextWithShadow(textRenderer, Text.literal("Role name"), x, y + 14, 0xFFCCCCCC); context.drawTextWithShadow(textRenderer, Text.literal("Public description"), x, y + 48, 0xFFCCCCCC); context.drawTextWithShadow(textRenderer, Text.literal("Player limit"), x, y + 82, 0xFFCCCCCC); }
-        if (mode == Mode.STARTING_ITEMS) context.drawTextWithShadow(textRenderer, Text.literal("Find an item, choose one result, then choose its stack count."), x, y + 14, 0xFFA0A0A0);
+        if (mode == Mode.STARTING_ITEMS) {
+            context.drawTextWithShadow(textRenderer, Text.literal(addingItem ? "Search, select an item, and enter a quantity." : "Edit quantities or remove supplies from this role."), x, y + 14, 0xFFA0A0A0);
+            if (addingItem) {
+                List<Identifier> matches = matchingItems();
+                for (int i = 0; i < Math.min(4, matches.size() - catalogOffset); i++)
+                    context.drawItem(new ItemStack(Registries.ITEM.get(matches.get(catalogOffset + i))), x, y + 51 + i * 20);
+            } else {
+                for (int i = 0; i < Math.min(5, items.size() - itemOffset); i++) {
+                    Identifier id = stackId(items.get(itemOffset + i));
+                    if (id != null && Registries.ITEM.containsId(id)) context.drawItem(new ItemStack(Registries.ITEM.get(id)), x, y + 31 + i * 24);
+                }
+            }
+        }
         if (mode == Mode.LORE) context.drawTextWithShadow(textRenderer, Text.literal("These named books are personal first-entry entitlements."), x, y + 14, 0xFFA0A0A0);
         if (mode == Mode.STARTING_POINT || mode == Mode.RESPAWN_POINT) context.drawTextWithShadow(textRenderer, Text.literal("Choose a saved Point, or leave this role on vanilla rules."), x, y + 14, 0xFFA0A0A0);
         String message = stale ? "Chronicle changed. This draft is preserved, but reopen the role before saving." : !problem.isBlank() ? problem : drawProblem;

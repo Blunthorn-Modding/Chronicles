@@ -17,6 +17,13 @@ import java.util.*;
 final class CoreDepartureMenu {
     private CoreDepartureMenu(){}
     static List<Entry> entries(MinecraftServer server){return Departures.state(server).definitions().values().stream().map(d->new Entry(d.id(),d.name(),"An exact block and boarding Region for a one-way group departure.","DEPARTURE",d.id(),d.revision())).toList();}
+    static String pendingKey(String id){return "unbound:"+UUID.nameUUIDFromBytes(id.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+    static List<Entry> pendingEntries(MinecraftServer server){var sites=AuthoringRuntime.get(server).service().state().sites();return Departures.state(server).definitions().values().stream().filter(d->!Departures.state(server).usedByDefinition().containsKey(d.id())).filter(d->d.exactBlockAnchor().isEmpty()||!(sites.get(d.exactBlockAnchor().orElseThrow().id()) instanceof AuthoringSite.Anchor)).map(d->new Entry(pendingKey(d.id()),d.name()+" (choose control)","Departure settings waiting for a bound control block.","UNBOUND_DEPARTURE",d.id(),d.revision())).toList();}
+    static DepartureDefinition selected(MinecraftServer server,String selection){
+        if(AuthoringRuntime.get(server).service().state().sites().get(selection) instanceof AuthoringSite.Anchor)return SiteSubtypes.departure(server,selection).orElse(null);
+        return pendingEntries(server).stream().filter(e->e.id().equals(selection)).findFirst().map(e->Departures.state(server).definitions().get(e.reference())).orElse(null);
+    }
+    static DepartureDefinition bindSite(DepartureDefinition draft,AuthoringSite.Anchor anchor){return new DepartureDefinition(draft.id(),draft.name(),draft.revision(),Optional.of(new SiteRef(anchor.id(),anchor.revision())),draft.boardingRegion(),draft.firstText(),draft.finalText(),draft.areaLink(),true);}
     static DepartureDefinition fresh(){return new DepartureDefinition("chronicle:departure_"+UUID.randomUUID().toString().replace("-",""),"New departure",1,Optional.empty(),Optional.empty(),"Everyone inside the boarding Region will leave together. Participants elsewhere will remain behind. Continue?","This is a point of no return. You and the listed passengers will permanently leave this campaign and become spectators. If no enrolled participants remain, the campaign will conclude.",Optional.empty(),true);}
     static DepartureDefinition decodeAction(String json,long currentRevision,Action action){
         long replacementRevision=action==Action.DEPARTURE_SAVE?Math.addExact(currentRevision,1):currentRevision;
@@ -46,7 +53,7 @@ final class CoreDepartureMenu {
         var sites=AuthoringRuntime.get(server).service().state().sites();
         var anchors=sites.values().stream().filter(AuthoringSite.Anchor.class::isInstance).map(a->new Entry(a.id(),a.id(),"Saved Block site","BLOCK",a.id(),a.revision())).toList();
         var regions=sites.values().stream().filter(AuthoringSite.Region.class::isInstance).map(a->new Entry(a.id(),a.id(),"Saved boarding Region","REGION",a.id(),a.revision())).toList();
-        var areas=AreaChanges.catalog(server).areas().values().stream().map(a->new Entry(a.id(),a.name(),AreaChanges.stale(server,a)?"Stale Region reference":"Paired Area states","AREA",a.id(),a.revision())).toList();
+        var areas=AreaChanges.catalog(server).areas().values().stream().map(a->new Entry(a.id(),a.name(),AreaChanges.stale(server,a)?"Stale Region reference":"Saved Region states",AreaChanges.stale(server,a)?"STALE":a.start().isPresent()?(a.end().isPresent()?"START_END":"START"):(a.end().isPresent()?"END":"EMPTY"),a.bounds().regionId(),a.revision())).toList();
         SiteRef anchor=def.exactBlockAnchor().orElse(null),region=def.boardingRegion().orElse(null);AreaLink area=def.areaLink().orElse(null);
         DepartureForm form=new DepartureForm(def.id(),def.name(),def.revision(),anchor==null?"":anchor.id(),anchor==null?0:anchor.revision(),region==null?"":region.id(),region==null?0:region.revision(),area==null?"":area.areaId(),area==null?"":area.requestedState().name().toLowerCase(Locale.ROOT),def.firstText(),def.finalText(),creating,used,anchors,regions,areas);
         List<Fact> facts=List.of(new Fact("Block site",anchor==null?"Choose a Block site":anchor.id()),new Fact("Boarding Region",region==null?"Choose a Region":region.id()),new Fact("Area change",area==null?"None":area.areaId()+" / "+area.requestedState()),new Fact("Use",used?"Already departed":"Single use"));

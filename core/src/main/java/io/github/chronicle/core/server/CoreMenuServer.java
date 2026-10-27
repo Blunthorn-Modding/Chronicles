@@ -105,6 +105,9 @@ public final class CoreMenuServer {
             context.filter=gm&&"BLOCK".equals(request.filter())?"BLOCK":"POINT";
             context.index=request.index();
             context.selected=gm?request.id():player.getUuidAsString();
+            if(gm&&request.action()==Action.OPEN&&context.page==Page.AREA_CHANGES){var legacy=AreaChanges.catalog(server).areas().get(context.selected);context.page=Page.REGIONS;context.selected=legacy==null?"":legacy.bounds().regionId();}
+            if(gm&&request.action()==Action.OPEN&&context.page==Page.DEPARTURES){var legacy=Departures.state(server).definitions().get(context.selected);context.page=Page.LOCATIONS;context.filter="BLOCK";context.selected=legacy==null?"":legacy.exactBlockAnchor().filter(r->sites(server).get(r.id()) instanceof AuthoringSite.Anchor).map(io.github.chronicle.core.departures.SiteRef::id).orElse(CoreDepartureMenu.pendingKey(legacy.id()));}
+
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
             if(request.action()==Action.OPEN&&context.page==Page.BOOKS_LORE)context.expectedBook=null;
             if(request.action()==Action.OPEN){context.departureDraft=null;context.departureCreating=false;context.roleDraft=null;context.roleCreating=false;context.pendingRole="";}
@@ -117,7 +120,7 @@ public final class CoreMenuServer {
                 context.index=0;
             } else if(!read || request.action()==Action.EVENT_PREVIEW || request.action()==Action.EVENT_AUDIO || request.action()==Action.EVENT_CHECK) {
                 message=act(player,request,context);
-                close=request.action()==Action.REGION_CONTINUE||request.action()==Action.AREA_BEGIN;
+                close=request.action()==Action.REGION_CONTINUE||request.action()==Action.AREA_BEGIN||request.action()==Action.REGION_BEGIN;
                 if(close)context.visible=false;
                 if(!read)context.token=0;
             }
@@ -128,6 +131,11 @@ public final class CoreMenuServer {
         }
     }
 
+    private static io.github.chronicle.core.areas.AreaChange selectedArea(MinecraftServer server,Context c){if(c.page==Page.REGIONS)return AreaChanges.forRegion(server,c.selected).orElseThrow(()->new IllegalStateException("This Region has no Saved states subtype."));if(c.page==Page.AREA_CHANGES)return area(server,c.selected);throw new IllegalArgumentException("Choose a Region with Saved states.");}
+    private static List<Entry> regionEntries(MinecraftServer server){List<Entry> entries=new ArrayList<>();Set<String> live=new HashSet<>();for(var site:sites(server).values())if(site instanceof AuthoringSite.Region r){live.add(r.id());var states=AreaChanges.forRegion(server,r.id());entries.add(new Entry(r.id(),states.map(io.github.chronicle.core.areas.AreaChange::name).orElse(r.id()),"A bounded Region with independent optional subtypes.","REGION",r.id(),r.revision()));}for(var states:AreaChanges.catalog(server).areas().values())if(!live.contains(states.bounds().regionId()))entries.add(new Entry(states.bounds().regionId(),shortText(states.name(),138)+" (Region missing)","Saved states whose Core Region is missing. Remove the state capability without changing terrain, or repair its geometry explicitly.","MISSING_REGION",states.id(),states.revision()));return List.copyOf(entries);}
+    private static List<Entry> locationBlockEntries(MinecraftServer server){var entries=new ArrayList<Entry>(blockEntries(server));entries.addAll(CoreDepartureMenu.pendingEntries(server));return List.copyOf(entries);}
+    private static io.github.chronicle.core.departures.DepartureDefinition locationDeparture(MinecraftServer server,String selection){if(selection.startsWith("managed:")&&manualAliases(server,managedInstance(server,selection)).size()!=1)return null;return CoreDepartureMenu.selected(server,manualSiteId(server,selection));}
+    private static DepartureForm locationDepartureForm(MinecraftServer server,String selection,DepartureForm form){if(form==null)return null;List<Entry> anchors=List.of();var selected=sites(server).get(manualSiteId(server,selection));if(selected instanceof AuthoringSite.Anchor a)anchors=List.of(siteEntry(a));return new DepartureForm(form.id(),form.name(),form.revision(),form.anchorId(),form.anchorRevision(),form.regionId(),form.regionRevision(),form.areaId(),form.areaState(),form.firstText(),form.finalText(),form.creating(),form.used(),anchors,form.regions(),form.areas());}
     private static io.github.chronicle.core.areas.AreaState areaState(String value){return switch(value.toLowerCase(Locale.ROOT)){case "start"->io.github.chronicle.core.areas.AreaState.START;case "end"->io.github.chronicle.core.areas.AreaState.END;default->throw new IllegalArgumentException("Choose Start or End.");};}
     private static io.github.chronicle.core.areas.AreaChange area(MinecraftServer server,String id){return Optional.ofNullable(AreaChanges.catalog(server).areas().get(id)).orElseThrow(()->new IllegalStateException("Choose an existing Area change."));}
     private static void requireAreaOperator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2)||(!ChronicleRuntime.service(player.getEntityWorld().getServer()).state().phase().name().equals("ACTIVE")&&!AuthoringRuntime.isAuthor(player)))throw new IllegalStateException("Enable Editing, or apply during active play.");}
@@ -138,47 +146,68 @@ public final class CoreMenuServer {
     private static String act(ServerPlayerEntity player,Request request,Context c) throws Exception {
         var source=player.getCommandSource();var server=source.getServer();String id=c.selected,arg=request.argument();
         switch(request.action()) {
+            case SITE_SUBTYPES_OPEN -> {
+                if(c.page!=Page.REGIONS&&c.page!=Page.LOCATIONS)throw new IllegalArgumentException("Choose a Region or Location first.");
+                var site=sites(server).get(manualSiteId(server,id));if(site==null)throw new IllegalStateException("Choose an existing geometry item first.");
+                c.picker=new Picker("SITE_SUBTYPES","",0,1,SiteSubtypes.choices(server,site,AuthoringRuntime.isAuthor(player)&&AuthoringRuntime.editable(server)&&!held(server)));return "";
+            }
+            case SITE_SUBTYPE_SET -> {
+                editor(player);if(c.page!=Page.REGIONS&&c.page!=Page.LOCATIONS)throw new IllegalArgumentException("Choose a Region or Location first.");
+                var site=sites(server).get(manualSiteId(server,id));if(site==null)throw new IllegalStateException("The selected geometry item is missing.");
+                var json=BookConfig.strictObject(arg);if(!json.keySet().equals(Set.of("selected"))||!json.get("selected").isJsonArray()||json.getAsJsonArray("selected").size()>12)throw new IllegalArgumentException("Invalid subtype selection.");
+                Set<String> selected=new LinkedHashSet<>();for(var value:json.getAsJsonArray("selected")){if(!value.isJsonPrimitive()||!value.getAsJsonPrimitive().isString()||!selected.add(value.getAsString()))throw new IllegalArgumentException("Invalid duplicate subtype selection.");}
+                var results=SiteSubtypes.set(source,site,selected);if(results.contains(SiteSubtypes.Change.CONFIGURE_DEPARTURE)){if(!(site instanceof AuthoringSite.Anchor anchor))throw new IllegalStateException("Departure requires a bound Block site.");c.departureDraft=CoreDepartureMenu.bindSite(CoreDepartureMenu.fresh(),anchor);c.departureCreating=true;return "Configure this departure before saving its subtype.";}
+                c.departureDraft=null;return "Subtypes updated.";
+            }
+            case REGION_BEGIN -> {
+                editor(player);if(c.page!=Page.REGIONS||held(server))throw new IllegalStateException("Finish pending operations first.");var json=BookConfig.strictObject(arg);if(!json.keySet().equals(Set.of("name","savedStates","state"))||!json.get("name").isJsonPrimitive()||!json.getAsJsonPrimitive("name").isString()||!json.get("savedStates").isJsonPrimitive()||!json.getAsJsonPrimitive("savedStates").isBoolean()||!json.get("state").isJsonPrimitive()||!json.getAsJsonPrimitive("state").isString())throw new IllegalArgumentException("Invalid Region creation draft.");
+                String state=json.get("state").getAsString();boolean saved=json.get("savedStates").getAsBoolean();if(!saved&&!state.isBlank())throw new IllegalArgumentException("Ordinary Regions have no initial saved state.");c.selected=RegionAuthoringWorkflow.begin(source,json.get("name").getAsString(),saved?areaState(state):null);return "Select both corners with the Debug shovel, then /chronicle region save.";
+            }
             case DEPARTURE_NEW,DEPARTURE_EDIT -> {
-                editor(player);if(c.page!=Page.DEPARTURES||held(server))throw new IllegalStateException("Manage Departures after finishing pending operations.");c.departureCreating=request.action()==Action.DEPARTURE_NEW;
-                c.departureDraft=c.departureCreating?CoreDepartureMenu.fresh():Departures.state(server).definitions().get(id);if(c.departureDraft==null)throw new IllegalStateException("Choose an existing departure.");c.selected=c.departureDraft.id();return "";
+                editor(player);if(c.page!=Page.DEPARTURES&&c.page!=Page.LOCATIONS||held(server))throw new IllegalStateException("Manage departures under Locations after finishing pending operations.");c.departureCreating=request.action()==Action.DEPARTURE_NEW;
+                c.departureDraft=c.departureCreating?CoreDepartureMenu.fresh():c.page==Page.DEPARTURES?Departures.state(server).definitions().get(id):locationDeparture(server,id);if(c.departureDraft==null)throw new IllegalStateException("Choose an existing departure.");if(c.page==Page.DEPARTURES)c.selected=c.departureDraft.id();return "";
             }
             case DEPARTURE_CREATE,DEPARTURE_SAVE,DEPARTURE_BIND_LOOK -> {
-                editor(player);if(c.page!=Page.DEPARTURES||held(server)||c.departureDraft==null)throw new IllegalStateException("Open the Departure editor first.");
+                editor(player);if(c.page!=Page.DEPARTURES&&c.page!=Page.LOCATIONS||held(server)||c.departureDraft==null)throw new IllegalStateException("Open the Departure editor first.");
                 var draft=CoreDepartureMenu.decodeAction(arg,c.departureDraft.revision(),request.action());if(!draft.id().equals(c.departureDraft.id()))throw new IllegalStateException("Departure draft identity changed.");
-                if(request.action()==Action.DEPARTURE_BIND_LOOK){c.departureDraft=CoreDepartureMenu.bindLook(source,draft);return "Block site selected. Your other draft settings are retained.";}
+                if(request.action()==Action.DEPARTURE_BIND_LOOK){c.departureDraft=CoreDepartureMenu.bindLook(source,draft);if(c.page==Page.LOCATIONS){c.selected=c.departureDraft.exactBlockAnchor().orElseThrow().id();c.filter="BLOCK";}return "Block site selected. Your other draft settings are retained.";}
                 if(c.departureCreating!=(request.action()==Action.DEPARTURE_CREATE))throw new IllegalStateException("Departure editor changed; reopen it.");
+                if(c.page==Page.LOCATIONS){var selectedSite=sites(server).get(manualSiteId(server,id));if(!(selectedSite instanceof AuthoringSite.Anchor a)||draft.exactBlockAnchor().filter(r->r.id().equals(a.id())&&r.revision()==a.revision()).isEmpty())throw new IllegalStateException("Explicitly choose the current selected Block site before saving.");}
                 if(c.departureCreating)Departures.create(source,draft,Departures.state(server).revision());else Departures.save(source,draft,c.departureDraft.revision(),Departures.state(server).revision());c.departureDraft=null;c.departureCreating=false;return "Departure saved.";
             }
             case DEPARTURE_DELETE -> {
-                editor(player);if(c.page!=Page.DEPARTURES)throw new IllegalArgumentException("Use Departures.");var def=Departures.state(server).definitions().get(id);if(def==null)throw new IllegalStateException("Departure missing.");Departures.delete(source,id,def.revision(),Departures.state(server).revision());c.departureDraft=null;c.selected="";return "Unused departure deleted. History retained.";
+                editor(player);var def=c.page==Page.LOCATIONS?locationDeparture(server,id):Departures.state(server).definitions().get(id);if(def==null)throw new IllegalStateException("Departure missing.");Departures.delete(source,def.id(),def.revision(),Departures.state(server).revision());c.departureDraft=null;return "Unused departure deleted. History retained.";
             }
-            case AREA_NEW,AREA_CAPTURE_OPEN -> {if(c.page!=Page.AREA_CHANGES)throw new IllegalArgumentException("Use Area changes.");return "";}
+            case AREA_NEW,AREA_CAPTURE_OPEN -> {editor(player);if(c.page!=Page.AREA_CHANGES&&c.page!=Page.REGIONS)throw new IllegalArgumentException("Use Regions.");return "";}
             case AREA_BEGIN -> {
-                editor(player);if(c.page!=Page.AREA_CHANGES||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation before creating an Area.");
+                editor(player);if(c.page!=Page.AREA_CHANGES&&c.page!=Page.REGIONS||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation before creating an Area.");
                 var json=BookConfig.strictObject(arg);if(!json.keySet().equals(Set.of("name","state")))throw new IllegalArgumentException("Invalid Area draft.");
                 var draft=AreaChanges.begin(source,json.get("name").getAsString(),areaState(json.get("state").getAsString()));c.selected=draft.id();return "Select both corners, then use /chronicle area change save.";
             }
+            case AREA_CAPTURE_REVIEW -> {
+                editor(player);if(held(server))throw new IllegalStateException("Finish pending operations first.");var area=selectedArea(server,c);areaState(arg);c.reviewId="capture:"+area.id()+":"+arg;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();return "The Region pin changed. Capturing "+arg+" will adopt its current bounds and invalidate the other saved state. That state must be recaptured before use. No blocks change. Linked uses: "+String.join(", ",CoreAreaMenu.consumers(server,area.id()));
+            }
             case AREA_CAPTURE -> {
-                if(c.page!=Page.AREA_CHANGES||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation first.");
-                var area=area(server,id);AreaChanges.currentRegion(server,area);AreaChanges.captureCurrent(source,id,areaState(arg),area.revision());return "Saving the current Region as "+arg+". You will receive a message when verification finishes.";
+                editor(player);if(c.page!=Page.AREA_CHANGES&&c.page!=Page.REGIONS||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation first.");
+                var area=selectedArea(server,c);boolean invalidating=AreaChanges.invalidatesOtherState(server,area,areaState(arg));if(invalidating)requireReview(player,c,"capture:"+area.id()+":"+arg);AreaChanges.captureCurrent(source,area.id(),areaState(arg),area.revision(),invalidating);c.reviewId="";return "Saving the current Region as "+arg+". You will receive a message when verification finishes.";
             }
             case AREA_PREVIEW -> {
-                if(c.page!=Page.AREA_CHANGES)throw new IllegalArgumentException("Use Area changes.");var area=area(server,id);var region=AreaChanges.currentRegion(server,area);area.requireSnapshot(areaState(arg));AuthoringRuntime.get(server).preview(player,region);return "Private outline shown for "+area.name()+" ("+arg+"). Applying replaces the outlined blocks and container contents.";
+                var area=selectedArea(server,c);var site=sites(server).get(area.bounds().regionId());if(!(site instanceof AuthoringSite.Region region))throw new IllegalStateException("The Core Region is missing.");AuthoringRuntime.get(server).preview(player,region);return "Private bounding box shown. No blocks changed.";
             }
             case AREA_APPLY_REVIEW,AREA_DELETE_REVIEW -> {
-                if(c.page!=Page.AREA_CHANGES||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation first.");
+                if(c.page!=Page.AREA_CHANGES&&c.page!=Page.REGIONS||held(server)||WorldAreaOperations.busy(server))throw new IllegalStateException("Finish the current operation first.");
                 boolean deleting=request.action()==Action.AREA_DELETE_REVIEW;if(deleting)editor(player);else requireAreaOperator(player);
-                var area=area(server,id);if(!deleting||!arg.equals("unchanged")){AreaChanges.currentRegion(server,area);area.requireSnapshot(areaState(arg));}
-                c.reviewId="area:"+id+":"+arg+":"+deleting;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();
-                String uses=String.join(", ",CoreAreaMenu.consumers(server,id));return (deleting?"Delete this Area definition after ":"Apply ")+arg+" for '"+area.name()+"'. "+(arg.equals("unchanged")?"Terrain stays unchanged.":"This replaces every block and container content inside the Region; replaced contents are discarded. Move non-spectator players clear first.")+(uses.isBlank()?"":" Linked uses will become unavailable: "+uses);
+                var area=selectedArea(server,c);if(!deleting||!arg.equals("unchanged")){AreaChanges.currentRegion(server,area);area.requireSnapshot(areaState(arg));}
+                c.reviewId="area:"+area.id()+":"+arg+":"+deleting;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();
+                String uses=String.join(", ",CoreAreaMenu.consumers(server,area.id()));return (deleting?"Delete this Area definition after ":"Apply ")+arg+" for '"+area.name()+"'. "+(arg.equals("unchanged")?"Terrain stays unchanged.":"This replaces every block and container content inside the Region; replaced contents are discarded. Move non-spectator players clear first.")+(uses.isBlank()?"":" Linked uses will become unavailable: "+uses);
             }
             case AREA_APPLY,AREA_DELETE -> {
-                boolean deleting=request.action()==Action.AREA_DELETE;requireReview(player,c,"area:"+id+":"+arg+":"+deleting);if(deleting)editor(player);else requireAreaOperator(player);
-                var area=area(server,id);c.reviewId="";if(deleting&&arg.equals("unchanged")){WorldAreaOperations.deleteUnchanged(source,id,area.revision());c.selected="";return "Area definition deleted. Terrain and the Core Region were retained.";}
-                UUID operation=WorldAreaOperations.apply(source,id,areaState(arg),area.revision(),deleting);return "Area operation "+operation+" is preparing. The world stays held until its saved result verifies.";
+                var area=selectedArea(server,c);boolean deleting=request.action()==Action.AREA_DELETE;requireReview(player,c,"area:"+area.id()+":"+arg+":"+deleting);if(deleting)editor(player);else requireAreaOperator(player);
+                c.reviewId="";if(deleting&&arg.equals("unchanged")){WorldAreaOperations.deleteUnchanged(source,area.id(),area.revision());if(c.page==Page.AREA_CHANGES)c.selected="";return "Area definition deleted. Terrain and the Core Region were retained.";}
+                UUID operation=WorldAreaOperations.apply(source,area.id(),areaState(arg),area.revision(),deleting);return "Area operation "+operation+" is preparing. The world stays held until its saved result verifies.";
             }
             case AREA_RECOVER -> {
-                if(c.page!=Page.AREA_CHANGES)throw new IllegalArgumentException("Use Area changes.");var op=AreaChanges.operations(server).state().operations().values().stream().filter(o->o.areaId().equals(id)&&(o.unresolved()||o.deletionObligation())).reduce((a,b)->b).orElseGet(()->WorldAreaOperations.pendingPrepared(server,id).orElseThrow(()->new IllegalStateException("No pending Area operation.")));WorldAreaOperations.recover(source,op.operationId());return "Rechecking original before/after evidence. Conflicting cells will remain held.";
+                if(c.page!=Page.AREA_CHANGES&&c.page!=Page.REGIONS)throw new IllegalArgumentException("Use Regions.");var area=selectedArea(server,c);var op=AreaChanges.operations(server).state().operations().values().stream().filter(o->o.areaId().equals(area.id())&&(o.unresolved()||o.deletionObligation())).reduce((a,b)->b).orElseGet(()->WorldAreaOperations.pendingPrepared(server,area.id()).orElseThrow(()->new IllegalStateException("No pending Area operation.")));WorldAreaOperations.recover(source,op.operationId());return "Rechecking original before/after evidence. Conflicting cells will remain held.";
             }
             case ROLE_NEW,ROLE_EDIT -> {
                 editor(player);if(c.page!=Page.PLAYER_ROLES)throw new IllegalArgumentException("Manage definitions under Player Roles.");
@@ -332,13 +361,14 @@ public final class CoreMenuServer {
             }
             case BOOK_RELOAD -> {BookRuntime.reload(source);c.expectedBook=null;return "Book configuration reloaded. Existing books and discovery history retained.";}
             case LOOT_RELOAD -> {String result=command(source,"chronicle author chest reload");c.expectedLoot=null;return result;}
-            case REGION_NEW -> {AuthoringRuntime.get(server).beginRegionDraft(player,arg);c.selected=arg;return "Draft created. Continue in world activates the outline; use pos1 and pos2, then return to save.";}
+            case REGION_NEW -> {AuthoringRuntime.get(server).beginRegionDraft(player,arg);c.selected=arg;return "Region selection is active. Use the Debug shovel or pos1 and pos2, then /chronicle region save.";}
             case REGION_EDIT -> {AuthoringRuntime.get(server).resumeRegionDraft(player,id);return "Both saved bounds loaded. Change either position independently; the region ID stays the same.";}
             case REGION_POSITION -> {
                 editor(player);requireSelectedDraft(player,id);int colon=arg.indexOf(':');if(colon!=1)throw new IllegalArgumentException("Choose position 1 or 2 and three integer coordinates.");
                 AuthoringRuntime.get(server).setRegionDraftCorner(player,Integer.parseInt(arg.substring(0,1)),position(arg.substring(2)));return "Draft position updated; the other position is retained. Save to apply the bounds.";
             }
-            case REGION_CONTINUE -> {requireSelectedDraft(player,id);AuthoringRuntime.get(server).resumeRegionDraft(player);AuthoringRuntime.get(server).previewRegionDraft(player);player.sendMessage(Text.literal("Stand at the first corner: /chronicles author region pos1"),false);player.sendMessage(Text.literal("Stand at the other corner: /chronicles author region pos2. Reopen Regions to save."),false);return "Region editing is active and the private outline is on. Select positions, then reopen Regions.";}
+            case REGION_CONTINUE -> {requireSelectedDraft(player,id);AuthoringRuntime.get(server).resumeRegionDraft(player);RegionAuthoringWorkflow.instructions(player);return "Region selection is active. Select corners, then /chronicle region save.";}
+            case REGION_SAVE_REVIEW -> {editor(player);requireSelectedDraft(player,id);return AuthoringRuntime.get(server).reviewRegionDraft(player);}
             case REGION_CREATE,REGION_SAVE -> {requireSelectedDraft(player,id);var saved=AuthoringRuntime.get(server).saveRegionDraft(player);c.selected=saved.id();return "Region saved under the same ID. Existing revision-pinned consumers must be deliberately revalidated after bounds changes.";}
             case REGION_ASSIGN -> {String purpose=regionPurpose(c,arg);requireSelectedRegion(server,id);MapSiteAssignments.assign(source,purpose,id);return "Region use saved at its current revision. Its bounds were not copied or changed.";}
             case REGION_UNASSIGN -> {String purpose=regionPurpose(c,arg);requireSelectedRegion(server,id);var binding=MapSiteAssignments.bindings(server).get(purpose);if(binding==null||!binding.siteId().equals(id))throw new IllegalStateException("This purpose is not assigned to the selected region.");MapSiteAssignments.clear(source,purpose);return "Region use cleared; the saved region is retained.";}
@@ -355,7 +385,7 @@ public final class CoreMenuServer {
             case BLOCK_LIMIT_SET -> {editor(player);if(c.page!=Page.SETUP)throw new IllegalArgumentException("Block limits are under Game setup.");if(!id.startsWith("limit:"))throw new IllegalArgumentException("Choose a managed block type.");int value=Integer.parseInt(arg);ManagedBlocks.setLimit(source,id.substring("limit:".length()),value,c.managedPolicyRevision);return "Managed block limit saved. Existing blocks remain in place.";}
             case MANAGED_SHOW -> {if(!id.startsWith("managed:"))throw new IllegalArgumentException("Choose a managed block site.");ManagedBlocks.preview(player,UUID.fromString(id.substring("managed:".length())));return "Private managed block-site outline shown without loading chunks.";}
             case MANUAL_REFERENCES -> {if(!id.startsWith("managed:")||!arg.startsWith("manual:"))throw new IllegalArgumentException("Choose a manual reference from this managed block site.");var instance=managedInstance(server,id);String alias=arg.substring("manual:".length());if(manualAliases(server,instance).stream().noneMatch(anchor->anchor.id().equals(alias)))throw new IllegalArgumentException("That manual reference is no longer at this managed block site.");c.selected=arg;return "Opened manual reference.";}
-            case SITE_DELETE -> {return command(source,"chronicle author remove "+quote(manualSiteId(server,id)));}
+            case SITE_DELETE -> {var key=manualSiteId(server,id);if(sites(server).get(key) instanceof AuthoringSite.Region&&AreaChanges.forRegion(server,key).isPresent())throw new IllegalStateException("Remove Saved states before deleting this Region.");return command(source,"chronicle author remove "+quote(key));}
             case SETUP_ASSIGN,SETUP_CLEAR -> throw new IllegalStateException("Geometry uses are managed under Regions or Locations.");
             case TOOL_ACTION -> {return GameSetupTools.execute(source, toolId(id), arg);}
             case SHOW -> {
@@ -397,7 +427,7 @@ public final class CoreMenuServer {
         if(c.page==Page.LOCATIONS&&!c.selected.isBlank()&&!selectedManualAlias&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
         if(c.selected.isBlank()&&!all.isEmpty())c.selected=all.get(c.index*12).id();
         Detail detail;
-        try{detail=detail(player,c);}catch(RuntimeException exception){detail=new Detail(c.selected,"Service unavailable",shortText(exception.getMessage(),2048),List.of(),List.of(),null,null,null);}
+        try{detail=detail(player,c);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
         var campaign=ChronicleRuntime.service(server).state();
         String clock=gm?"Active play: "+PlayRuntime.elapsedTicks(server)/20+"s":"";
         var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c));
@@ -450,8 +480,8 @@ public final class CoreMenuServer {
             case DEPARTURES -> CoreDepartureMenu.entries(server);
             case BOOKS_LORE -> BookRuntime.books(server).values().stream().map(b->entry(b.id(),b.title(),b.description(),"BOOK",b.id(),0)).toList();
             case LOOT_TABLES -> TypedChestLoot.types(server).values().stream().map(t->entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)).toList();
-            case REGIONS -> sites(server).values().stream().filter(AuthoringSite.Region.class::isInstance).map(CoreMenuServer::siteEntry).toList();
-            case LOCATIONS -> "BLOCK".equals(filter)?blockEntries(server):sites(server).values().stream().filter(AuthoringSite.Location.class::isInstance).map(CoreMenuServer::siteEntry).toList();
+            case REGIONS -> regionEntries(server);
+            case LOCATIONS -> "BLOCK".equals(filter)?locationBlockEntries(server):sites(server).values().stream().filter(AuthoringSite.Location.class::isInstance).map(CoreMenuServer::siteEntry).toList();
             case SETUP -> {
                 var tools=new ArrayList<Entry>();
                 tools.add(entry("limits","Block limits","Set how many supplied blocks may be placed.","LIMITS","",0));
@@ -466,7 +496,7 @@ public final class CoreMenuServer {
         boolean gm=source.hasPermissionLevel(2),editing=gm&&AuthoringRuntime.isAuthor(player),active=ChronicleRuntime.service(server).state().phase().name().equals("ACTIVE");
         boolean canEdit=editing&&AuthoringRuntime.editable(server);String editReason=active?"Pause play to edit these settings.":"Enable editing to change these settings.";
         var facts=new ArrayList<Fact>();var controls=new ArrayList<Control>();String title="Choose an item",description="Select an item in the middle to inspect its details.";
-        LootType loot=null;EventForm event=null;RegionForm region=null;BookDefinition book=null;LoreForm lore=null;RoleForm roleForm=null;RoleAssignmentForm roleAssignment=null;
+        LootType loot=null;EventForm event=null;RegionForm region=null;BookDefinition book=null;LoreForm lore=null;RoleForm roleForm=null;RoleAssignmentForm roleAssignment=null;AreaForm areaForm=null;DepartureForm departureForm=null;
         switch(c.page) {
             case PLAYER_ROLES -> {
                 title="Player Roles";description="Define characters or shared backgrounds, their starting supplies and their destinations.";
@@ -620,15 +650,15 @@ public final class CoreMenuServer {
                 controls.add(control(Action.LOOT_RELOAD,"Reload loot configuration",canEdit,editReason,true,""));
             }
             case REGIONS -> {
-                title="Regions";description="Create a region, continue in the world to select its two corners, then return here to save.";
+                title="Regions";description="Create a Region, select its two corners with the Debug shovel, then /chronicle region save.";
                 var draft=canEdit?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null;
                 controls.add(control(Action.REGION_NEW,"Create region…",canEdit,editReason,draft!=null,"ID"));
                 var unassigned=ChronicleCore.authoring().roles().stream().filter(role->role.kind()==AuthoringCatalog.Kind.REGION).filter(role->!MapSiteAssignments.bindings(server).containsKey(role.id())).map(AuthoringCatalog.Role::label).toList();
-                if(!unassigned.isEmpty())facts.add(new Fact("Unassigned purposes",summary(unassigned,3800)+". Create or select a region, then use Use for…"));
                 if(!id.isBlank()&&sites(server).get(id) instanceof AuthoringSite.Region saved) {
-                    title=saved.id();facts.add(new Fact("Saved bounds",saved.min()+" to "+saved.max()));facts.add(regionUsage(server,id));facts.add(new Fact("Other references",nonRegionReferences(server,id)));
-                    controls.add(control(Action.SHOW,"Show region",true,"",false,""));controls.add(control(Action.REGION_EDIT,"Edit region",canEdit,editReason,draft!=null&&!draft.id().equals(id),""));controls.add(control(Action.SITE_DELETE,"Delete region",canEdit,editReason,true,""));controls.add(control(Action.REGION_ASSIGN,"Use for…",canEdit,editReason,true,"REGION_PURPOSE"));if(regionUsageCount(server,id)>0)controls.add(control(Action.REGION_UNASSIGN,"Clear use…",canEdit,editReason,true,"REGION_BOUND"));
+                    title=saved.id();description="A named part of the world. Edit its bounds with the Debug shovel; optional subtypes add behavior.";facts.add(new Fact("Saved bounds",saved.min()+" to "+saved.max()));facts.add(regionUsage(server,id));facts.add(new Fact("Other references",nonRegionReferences(server,id)));
+                    controls.add(control(Action.SHOW,"Preview bounding box",true,"",false,""));controls.add(control(Action.SITE_SUBTYPES_OPEN,"Choose subtypes",true,"",false,""));controls.add(control(Action.REGION_EDIT,"Edit region",canEdit,editReason,draft!=null&&!draft.id().equals(id),""));controls.add(control(Action.SITE_DELETE,"Delete region",canEdit,editReason,true,""));
                 }
+                var linked=id.isBlank()?java.util.Optional.<io.github.chronicle.core.areas.AreaChange>empty():AreaChanges.forRegion(server,id);if(linked.isPresent()){var capability=CoreAreaMenu.detail(player,linked.orElseThrow().id());areaForm=capability.area();controls.addAll(capability.controls().stream().filter(control->control.action()!=Action.AREA_PREVIEW).toList());facts.addAll(capability.facts());description="This Region can capture and apply saved Start and End states, including container contents.";}
                 if(draft!=null&&draft.id().equals(id)) {
                     title="Region draft · "+draft.id();region=new RegionForm(draft.id(),draft.dimension(),draft.baseRevision(),coordinates(draft.first()),coordinates(draft.second()));
                     facts.add(new Fact("Step 1","Continue in world; stand at a corner and run /chronicles author region pos1 or pos2. Each changes only its own position."));
@@ -647,8 +677,10 @@ public final class CoreMenuServer {
                     controls.add(control(Action.BLOCK_CREATE,"Bind looked-at block…",canEdit&&!lookedAtManagedBlock(player),!canEdit?editReason:"Supplied managed blocks register automatically.",false,"ID"));
                 }
                 else controls.add(control(Action.POINT_CREATE,"Save my position…",canEdit,editReason,false,"ID"));
+                var selectedDeparture=locationDeparture(server,id);
+                if(selectedDeparture!=null||c.departureDraft!=null){var def=c.departureDraft!=null?c.departureDraft:selectedDeparture;var departure=CoreDepartureMenu.detail(player,def.id(),c.departureDraft,c.departureCreating);departureForm=locationDepartureForm(server,id,departure.departure());facts.addAll(departure.facts());controls.add(control(Action.DEPARTURE_EDIT,"Configure departure",canEdit&&!Departures.state(server).usedByDefinition().containsKey(def.id()),editReason,false,""));if(id.startsWith("unbound:")){title=def.name();description="Departure settings waiting for a physical control block. Configure and bind the control to finish this Location.";break;}}
                 if(block&&id.startsWith("managed:")){title=managedInstance(server,id).label();managedDetail(server,c,id,facts,controls,canEdit,editReason);break;}
-                var site=sites(server).get(manualSiteId(server,id));if(site!=null){title=site.id();facts.add(new Fact("Location",describe(site)));facts.add(new Fact("Used by",references(server,site.id())));controls.add(control(Action.SHOW,block?"Show block site":"Show point",true,"",false,""));controls.add(control(block?Action.BLOCK_UPDATE:Action.POINT_UPDATE,block?"Replace block site":"Update to my position",canEdit,editReason,true,""));controls.add(control(Action.SITE_DELETE,"Delete location",canEdit,editReason,true,""));if(!block&&!pointRoles().isEmpty()){controls.add(control(Action.POINT_ASSIGN,"Use for…",canEdit,editReason,true,"POINT_PURPOSE"));if(pointPurposeCount(server,site.id())>0)controls.add(control(Action.POINT_UNASSIGN,"Clear use…",canEdit,editReason,true,"POINT_BOUND"));}}
+                var site=sites(server).get(manualSiteId(server,id));if(site!=null){title=site.id();controls.add(control(Action.SITE_SUBTYPES_OPEN,"Choose subtypes",true,"",false,""));facts.add(new Fact("Location",describe(site)));facts.add(new Fact("Used by",references(server,site.id())));controls.add(control(Action.SHOW,block?"Show block site":"Show point",true,"",false,""));controls.add(control(block?Action.BLOCK_UPDATE:Action.POINT_UPDATE,block?"Replace block site":"Update to my position",canEdit,editReason,true,""));controls.add(control(Action.SITE_DELETE,"Delete location",canEdit,editReason,true,""));if(!block&&!pointRoles().isEmpty()){controls.add(control(Action.POINT_ASSIGN,"Use for…",canEdit,editReason,true,"POINT_PURPOSE"));if(pointPurposeCount(server,site.id())>0)controls.add(control(Action.POINT_UNASSIGN,"Clear use…",canEdit,editReason,true,"POINT_BOUND"));}}
                 facts.add(new Fact("Behavior",block?"Game blocks register when placed. A manual reference only marks a location.":"Saving a point moves nobody. Choose player travel destinations under Players."));
             }
             case SETUP -> {
@@ -704,7 +736,7 @@ public final class CoreMenuServer {
             if(book!=null&&c.giveBook.equals(book.id()))give=BookGifts.form(player.getCommandSource(),book,c.giveTarget);
             lore=new LoreForm(refs,tableUses,chestUses,direct,keep,status,give);
         }
-        return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region,book,lore,roleForm,roleAssignment);
+        return new Detail(id,shortText(title,160),shortText(description,4096),facts,controls,loot,event,region,book,lore,roleForm,roleAssignment,areaForm,departureForm);
     }
 
     private static Picker picker(ServerPlayerEntity player,String kind,String query,int index) {
@@ -863,7 +895,7 @@ public final class CoreMenuServer {
     private static String coordinates(BlockPosition p){return p==null?"Not selected":p.x()+" "+p.y()+" "+p.z();}
     private static Entry entry(String id,String label,String description,String kind,String reference,long revision){return new Entry(id,shortText(label,160),shortText(description,2048),kind,reference,revision);}
     private static Control control(Action action,String label,boolean enabled,String reason,boolean confirm,String input){return new Control(action,label,enabled,enabled?"":reason,confirm,input);}
-    private static void editor(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2)||!AuthoringRuntime.isAuthor(player)||!AuthoringRuntime.editable(player.getEntityWorld().getServer()))throw new IllegalStateException("Requires operator permission and non-active server editing mode.");}
+    private static void editor(ServerPlayerEntity player){if(RuntimeHolds.reason(player.getEntityWorld().getServer())!=null)throw new IllegalStateException("Finish pending operations first.");if(!player.getCommandSource().hasPermissionLevel(2)||!AuthoringRuntime.isAuthor(player)||!AuthoringRuntime.editable(player.getEntityWorld().getServer()))throw new IllegalStateException("Requires operator permission and non-active server editing mode.");}
     private static boolean held(MinecraftServer server){return RuntimeHolds.reason(server)!=null;}
     private static String quote(String value){return StringArgumentType.escapeIfRequired(value);}
     private static String shortText(String value,int max){return value==null?"":value.substring(0,Math.min(value.length(),max));}

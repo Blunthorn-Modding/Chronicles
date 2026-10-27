@@ -1,5 +1,7 @@
 # CF21 paired Area changes
 
+**27 October editor update:** The current editor places Start/End snapshots under the Region Saved states subtype. All Region creation/editing uses the same Debug shovel and `/chronicle region save`; old Area commands remain compatible. Standalone navigation below describes the original dev55 implementation. See [current implementation](EDITOR_SUBTYPES_IMPLEMENTATION.md).
+
 Implemented on `feat/core-roles-areas-departures` for the combined dev55 review; human acceptance remains pending.
 
 Advanced → **Area changes** owns the capture/apply workflow. **Create new area** is above the middle list. Creation chooses a name and Start/End, closes the menu, and privately lends a tagged Debug shovel. Left/right click select the two corners; `/chronicles author region pos1` and `pos2` remain equivalent. `/chronicle area change save` verifies loaded terrain and publishes one ordinary Core Region plus the initial immutable snapshot. Cancel restores the previous private selection when it has not independently changed. A moved or copied stale shovel has no authority.

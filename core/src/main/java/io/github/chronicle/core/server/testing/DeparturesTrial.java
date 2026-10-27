@@ -115,8 +115,8 @@ public final class DeparturesTrial {
         putHelm(world);
         AuthoringRuntime.get(server).enable(actor.getUuid());
         AreaChanges.begin(source, AREA, "Departure ship", AreaState.START);
-        AreaChanges.setDraftCorner(actor, 1, position(HELM));
-        AreaChanges.setDraftCorner(actor, 2, position(HELM));
+        AreaChanges.setDraftCorner(actor, 1, new BlockPosition(2,64,2));
+        AreaChanges.setDraftCorner(actor, 2, new BlockPosition(7,66,6));
         AreaChanges.saveDraft(source);
     }
 
@@ -143,8 +143,7 @@ public final class DeparturesTrial {
         var authoring = AuthoringRuntime.get(server).service();
         AuthoringSite.Anchor anchor = (AuthoringSite.Anchor) authoring.put(new AuthoringSite.Anchor(
                 ANCHOR, "minecraft:overworld", 1, position(HELM), "minecraft:barrel"), false);
-        AuthoringSite.Region boarding = (AuthoringSite.Region) authoring.put(new AuthoringSite.Region(
-                BOARDING, "minecraft:overworld", 1, new BlockPosition(2, 64, 2), new BlockPosition(7, 66, 6)), false);
+        AuthoringSite.Region boarding = AreaChanges.currentRegion(server,area);
         DepartureDefinition definition = new DepartureDefinition(DEPARTURE, "Smoke vessel", 1,
                 Optional.of(new SiteRef(anchor.id(), anchor.revision())),
                 Optional.of(new SiteRef(boarding.id(), boarding.revision())),

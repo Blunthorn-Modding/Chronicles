@@ -500,11 +500,13 @@ public final class Departures {
         return UUID.nameUUIDFromBytes((departureOperation + ":area").getBytes(StandardCharsets.UTF_8));
     }
 
+    static void requireSameRegionState(String boarding,String stateRegion){if(!boarding.equals(stateRegion))throw new IllegalStateException("The saved state belongs to another Region. Reopen Configure departure and explicitly choose this boarding Region's state or Leave unchanged.");}
     private static Optional<AreaPin> areaPin(MinecraftServer server, DepartureDefinition definition) throws IOException {
         if (definition.areaLink().isEmpty()) return Optional.empty();
         AreaLink link = definition.areaLink().orElseThrow();
         AreaChange area = AreaChanges.catalog(server).areas().get(link.areaId());
         if (area == null) throw new IllegalStateException("The linked Area change is missing.");
+        requireSameRegionState(definition.boardingRegion().orElseThrow().id(),area.bounds().regionId());
         AreaChanges.currentRegion(server, area);
         var snapshot = area.requireSnapshot(link.requestedState());
         AreaChanges.snapshots(server).load(snapshot); // Fail closed on a missing/corrupt snapshot before showing terms.

@@ -1,5 +1,7 @@
 # CF20 group departures
 
+**27 October editor update:** The current editor places Departures under the bound Location subtype, with one boarding Region and its optional saved state. Standalone navigation and the separate Area selector below describe the original dev55 implementation. See [current implementation](EDITOR_SUBTYPES_IMPLEMENTATION.md).
+
 Implemented and deployed on `feat/core-roles-areas-departures` for the combined dev55 review. Human acceptance remains pending.
 
 **Advanced → Departures** is separate from Locations and Game setup. Create is above the list. A definition selects an existing exact Block site, a boarding Region, two warning texts, and an optional Area change/Start or End. **Bind looked-at block** creates or reuses one ordinary Core Anchor while retaining the other editor fields. The paged selectors retain missing reference IDs rather than silently clearing them. Used definitions remain immutable history.
