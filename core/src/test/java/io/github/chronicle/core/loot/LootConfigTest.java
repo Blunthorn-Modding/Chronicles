@@ -111,4 +111,60 @@ class LootConfigTest {
         Files.delete(backup);
         assertEquals(replacement, config.replaceType(replacement, original).get(replacement.id()));
     }
+
+    @Test void createsCustomTableDurablyWithoutChangingOtherTypesAndRetainsBooksAndComponents() throws Exception {
+        Path file = directory.resolve("loot.json");
+        LootType original = type("example:camp", "Camp");
+        LootConfig config = new LootConfig(file);
+        config.loadOrCreate(Map.of(original.id(), original));
+        String before = Files.readString(file);
+        LootType custom = new LootType("custom:library", "Library", "Research supplies.", 0, 0,
+                original.entries(), List.of(new io.github.chronicle.core.books.BookChance("example:journal", 25)));
+        Map<String, LootType> saved = config.createType(custom);
+        assertEquals(Map.of(original.id(), original, custom.id(), custom), saved);
+        assertEquals(saved, new LootConfig(file).loadOrCreate(Map.of(original.id(), original)));
+        assertEquals(before, Files.readString(file.resolveSibling("loot.json.bak")));
+        assertThrows(UnsupportedOperationException.class, () -> saved.clear());
+    }
+
+    @Test void creationRefusesDuplicatesAndStaleWritersWithoutReplacingExistingBytes() throws Exception {
+        Path file = directory.resolve("loot.json");
+        LootType original = type("example:camp", "Camp");
+        LootConfig first = new LootConfig(file), stale = new LootConfig(file);
+        first.loadOrCreate(Map.of(original.id(), original));
+        stale.loadOrCreate(Map.of(original.id(), original));
+        String before = Files.readString(file);
+        assertThrows(IllegalStateException.class, () -> first.createType(type(original.id(), "Cannot replace")));
+        assertEquals(before, Files.readString(file));
+        first.createType(type("custom:new", "New"));
+        String saved = Files.readString(file);
+        assertThrows(IOException.class, () -> stale.createType(type("custom:other", "Other")));
+        assertEquals(saved, Files.readString(file));
+        assertThrows(IllegalStateException.class, () -> first.createType(type("custom:new", "Duplicate")));
+        assertEquals(saved, Files.readString(file));
+    }
+
+    @Test void creationHonorsCatalogCapAndFailedBackupDoesNotPublishTheNewType() throws Exception {
+        Path fullFile = directory.resolve("full.json");
+        Map<String, LootType> full = new java.util.TreeMap<>();
+        for (int i = 0; i < LootCatalog.MAX_TYPES; i++) {
+            var value = type("example:type_" + i, "Type " + i); full.put(value.id(), value);
+        }
+        LootConfig capped = new LootConfig(fullFile);
+        capped.loadOrCreate(full);
+        String before = Files.readString(fullFile);
+        assertThrows(IllegalArgumentException.class, () -> capped.createType(type("custom:extra", "Extra")));
+        assertEquals(before, Files.readString(fullFile));
+
+        Path file = directory.resolve("failure.json"), backup = directory.resolve("failure.json.bak");
+        LootConfig config = new LootConfig(file);
+        config.loadOrCreate(Map.of());
+        String empty = Files.readString(file);
+        Files.createDirectory(backup); Files.writeString(backup.resolve("keep"), "Retain this directory.");
+        var custom = type("custom:retry", "Retry");
+        assertThrows(IOException.class, () -> config.createType(custom));
+        assertEquals(empty, Files.readString(file));
+        Files.delete(backup.resolve("keep")); Files.delete(backup);
+        assertEquals(custom, config.createType(custom).get(custom.id()));
+    }
 }

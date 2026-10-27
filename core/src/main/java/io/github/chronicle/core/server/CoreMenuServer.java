@@ -324,6 +324,14 @@ public final class CoreMenuServer {
                 if(!TypedChestLoot.types(server).containsKey(arg))throw new IllegalArgumentException("Unknown loot table.");
                 ChestAuthoring.resolve(server,binding.directTarget());ChestAuthoring.service(server).putTypedBinding(arg,binding.directTarget(),true);return "Chest table changed. Existing contents and fill history are unchanged.";
             }
+            case LOOT_NEW -> {
+                if(c.page!=Page.LOOT_TABLES)throw new IllegalArgumentException("Create loot tables under Loot Tables.");
+                var type=LootTableDraftJson.decode(arg);
+                if(!type.id().equals(id))throw new IllegalArgumentException("Loot table ID does not match its definition.");
+                TypedChestLoot.createType(source,type);c.selected=type.id();c.expectedLoot=type;
+                var ids=new ArrayList<>(TypedChestLoot.types(server).keySet());c.index=ids.indexOf(type.id())/12;
+                return "Loot table created. Add items or lore books, then Save loot table to keep those changes. No chest filled now.";
+            }
             case LOOT_SAVE -> {var type=LootTableDraftJson.decode(arg);if(!type.id().equals(id)||c.expectedLoot==null||!id.equals(c.expectedLoot.id()))throw new IllegalArgumentException("Review this loot table before saving.");TypedChestLoot.saveType(source,type,c.expectedLoot);c.expectedLoot=type;return "Loot table saved. Future fills use these independent entries; no chest filled now.";}
             case BOOK_OPEN -> {if(!BookRuntime.books(server).containsKey(arg))throw new IllegalArgumentException("Choose a registered book.");c.page=Page.BOOKS_LORE;c.selected=arg;c.expectedBook=null;return "";}
             case CHEST_BOOK_SET -> {
@@ -656,6 +664,8 @@ public final class CoreMenuServer {
             }
             case LOOT_TABLES -> {
                 title="Loot Tables";description="Reusable independent item rolls. Scheduled fills replace all managed chest contents; changes do not fill immediately.";
+                boolean room=TypedChestLoot.types(server).size()<LootCatalog.MAX_TYPES;
+                controls.add(control(Action.LOOT_NEW,"Create new loot table",canEdit&&!held(server)&&room,!room?"The loot table limit has been reached.":held(server)?"Finish pending operations first.":editReason,false,""));
                 if(!id.isBlank()) {
                     var t=TypedChestLoot.types(server).get(id);if(t==null)break;title=t.label();
                     facts.add(new Fact("Description",t.description()));facts.add(new Fact("Entries",t.entries().size()+" / "+LootType.MAX_ENTRIES));

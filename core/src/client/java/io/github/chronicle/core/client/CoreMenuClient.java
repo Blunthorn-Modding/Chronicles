@@ -34,6 +34,9 @@ public final class CoreMenuClient {
             // A background refresh must keep the menu current, while the popup becomes read-only if its frame changed.
             parent.acceptWhileEditorOpen(response.view());
             give.serverUpdated(response.view());
+        } else if (client.currentScreen instanceof LootTableCreateScreen creator) {
+            creator.parentMenu().acceptWhileEditorOpen(response.view());
+            creator.serverUpdated(response.view());
         } else if (client.currentScreen instanceof BookEditorScreen editor && editor.parentMenu() != null) {
             // A refresh arriving behind a local editor must advance the menu frame, but never close the editor.
             editor.parentMenu().acceptWhileEditorOpen(response.view());

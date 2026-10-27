@@ -158,7 +158,7 @@ public final class CoreMenuSmoke {
         if(step>=20000){driveBuildingMode(client);return;}
         // The former reverse "Use for" Region assignment workflow was removed.
         // Region create/edit and all remaining block/setup permission oracles ran first.
-        if(step>=210&&step<1000){finish(client,true,"completed "+checks.size()+" native operator checks");return;}
+        if(step>=210&&step<1000){driveLootCreation(client);return;}
         if(step>=110){driveBlockBindings(client);return;}
         switch (step) {
             case 0 -> { openMenu(client); advance("operator opened the native menu"); }
@@ -363,6 +363,53 @@ public final class CoreMenuSmoke {
         }
     }
 
+    private static final String CUSTOM_LOOT = "chronicle_core:loot_review_supplies";
+    private String customBook;
+    private boolean creationReloadSelected;
+    private void driveLootCreation(MinecraftClient client) {
+        switch(step) {
+            case 210 -> navigate(client,"Loot Tables",Page.LOOT_TABLES);
+            case 211 -> {snapshot("loot creation cancel",lootFile);require(press(screen(client),"Create new loot table"),"Create new loot table unavailable");step++;}
+            case 212 -> {creationFields(client).getFirst().setText("Cancelled supplies");popupPress(client,"Cancel");step++;}
+            case 213 -> {require(sameSnapshot("loot creation cancel",lootFile),"Cancel created a table");advance("loot table creation Cancel leaves config unchanged");}
+            case 214 -> {require(press(screen(client),"Create new loot table"),"creator unavailable");step++;}
+            case 215 -> {
+                var f=creationFields(client);f.get(0).setText("Review supplies");f.get(1).setText("invalid id");require(!popupButton(client,"Create").active,"invalid ID allowed creation");f.get(1).setText("");
+                for(var child:client.currentScreen.children())if(child instanceof net.minecraft.client.gui.widget.ClickableWidget w)require(w.getX()>=0&&w.getY()>=0&&w.getX()+w.getWidth()<=client.getWindow().getScaledWidth()&&w.getY()+w.getHeight()<=client.getWindow().getScaledHeight(),"creator escapes viewport");
+                capture(client,"menu-create-loot-table.png");snapshot("chests before creation",serverRoot.resolve("world/chronicle/chest-content.json"));waitingFor=viewCount;popupPress(client,"Create");step++;
+            }
+            case 216 -> awaitView(()->screen(client).state().success()&&screen(client).state().selected().equals(CUSTOM_LOOT)&&screen(client).state().detail().loot().entries().isEmpty()&&sameSnapshot("chests before creation",serverRoot.resolve("world/chronicle/chest-content.json")),"native Create saves and selects an empty custom table without filling chests");
+            case 217 -> {require(press(screen(client),"Add item"),"new table Add item unavailable");step++;}
+            case 218 -> {if(!popupReady(client))return;client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).findFirst().orElseThrow().setText("apple");popupPress(client,"Find");step++;}
+            case 219 -> {if(lastView==null||lastView.picker()==null||!lastView.picker().query().equals("apple")||lastView.picker().entries().stream().noneMatch(e->e.id().equals("minecraft:apple")))return;popupPress(client,lastView.picker().entries().stream().filter(e->e.id().equals("minecraft:apple")).findFirst().orElseThrow().label());popupPress(client,"Add");step++;}
+            case 220 -> {var m=screen(client);m.selectLootEntryForTest(0);m.setLootChanceForTest("37.5");m.setLootMaxForTest("3");m.setLootMinForTest("2");require(press(m,"Lore books"),"Lore books unavailable");require(press(m,"Add book\u2026"),"Add book unavailable");step++;}
+            case 221 -> {if(!popupReady(client)||lastView==null||lastView.picker()==null||!lastView.picker().kind().equals("BOOKS")||lastView.picker().entries().isEmpty())return;var b=lastView.picker().entries().getFirst();customBook=b.id();popupPress(client,b.label());popupPress(client,"Add");step++;}
+            case 222 -> {require(press(screen(client),"Save loot table"),"new table Save unavailable");waitingFor=viewCount;step++;}
+            case 223 -> awaitView(()->screen(client).state().success()&&customTableReady(screen(client)),"new custom table saves item probabilities and lore through the shared pickers");
+            case 224 -> {snapshot("loot duplicate",lootFile);screen(client).triggerForTest("Back to list");require(press(screen(client),"Create new loot table"),"duplicate creator unavailable");creationFields(client).getFirst().setText("Review supplies");waitingFor=viewCount;popupPress(client,"Create");step++;}
+            case 225 -> {if(viewCount<=waitingFor||client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("LootTableCreateScreen"))return;require(!lastView.success()&&sameSnapshot("loot duplicate",lootFile)&&creationFields(client).getFirst().getText().equals("Review supplies"),"duplicate replaced data or lost fields");popupPress(client,"Cancel");advance("duplicate loot table creation preserves the table and popup fields");}
+            case 226 -> {if(!creationReloadSelected){screen(client).selectForTest(CUSTOM_LOOT);creationReloadSelected=true;waitingFor=viewCount;return;}if(viewCount<=waitingFor)return;require(press(screen(client),"Reload loot configuration"),"reload unavailable");waitingFor=viewCount;step++;}
+            case 227 -> awaitView(()->screen(client).state().success()&&customTableReady(screen(client)),"custom loot table survives authoritative config reload");
+            case 228 -> {snapshot("loot stale creator",lootFile);screen(client).triggerForTest("Back to list");require(press(screen(client),"Create new loot table"),"stale creator unavailable");creationFields(client).getFirst().setText("Do not create");client.player.networkHandler.sendChatCommand("chronicle editing off");step++;}
+            case 229 -> {if(lastView==null||lastView.editing())return;require(!popupButton(client,"Create").active&&sameSnapshot("loot stale creator",lootFile),"stale creator retained authority");popupPress(client,"Cancel");advance("editing changes invalidate an open loot creator without changing config");}
+            case 230 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.LOOT_NEW,Page.LOOT_TABLES,"chronicle_core:forged",io.github.chronicle.core.loot.LootTableDraftJson.encode(new io.github.chronicle.core.loot.LootType("chronicle_core:forged","Forged","Must be refused.",0,0,List.of())),screen(client).state().token(),0,"",""));step++;}
+            case 231 -> awaitView(()->!screen(client).state().success()&&sameSnapshot("loot stale creator",lootFile),"forged creation outside Editing is refused without a config write");
+            case 232 -> finish(client,true,"completed "+checks.size()+" native operator checks");
+            default -> throw new IllegalStateException("unexpected loot creation step "+step);
+        }
+    }
+    private boolean customTableReady(CoreMenuScreen menu) {
+        var t=menu.state().detail()==null?null:menu.state().detail().loot();
+        return t!=null&&t.id().equals(CUSTOM_LOOT)&&t.label().equals("Review supplies")&&t.entries().size()==1&&t.entries().getFirst().item().equals("minecraft:apple")&&t.entries().getFirst().chancePercent()==37.5&&t.entries().getFirst().minCount()==2&&t.entries().getFirst().maxCount()==3&&t.books().size()==1&&(customBook==null||t.books().getFirst().bookId().equals(customBook));
+    }
+    private static List<net.minecraft.client.gui.widget.TextFieldWidget> creationFields(MinecraftClient client) {
+        require(client.currentScreen!=null&&client.currentScreen.getClass().getSimpleName().equals("LootTableCreateScreen"),"loot creator did not open");
+        var f=client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).toList();require(f.size()==3,"creation fields missing");return f;
+    }
+    private static net.minecraft.client.gui.widget.ButtonWidget popupButton(MinecraftClient client,String label) {return client.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).filter(b->b.getMessage().getString().equals(label)).findFirst().orElseThrow();}
+    private static void popupPress(MinecraftClient client,String label) {var b=popupButton(client,label);require(b.active,"popup action disabled: "+label);b.onPress(new net.minecraft.client.input.MouseInput(0,0));}
+    private static boolean popupReady(MinecraftClient client) {return client.currentScreen!=null&&client.currentScreen.getClass().getSimpleName().equals("CatalogAddPopup")&&popupButton(client,"Find").active;}
+
     private void driveBlockBindings(MinecraftClient client){
         switch(step){
             case 110 -> navigate(client,"Locations",Page.LOCATIONS);
@@ -498,7 +545,9 @@ public final class CoreMenuSmoke {
             case 10 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&sameSnapshot("non-op block bindings",assignmentsFile),"forged non-operator block binding denied without assignment changes");
             case 11 -> {if(!Files.isRegularFile(output.resolve("prompt-disconnect-ready")))return;waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.SESSION_BUILD_ON,Page.SESSION,"play","",screen(client).state().token(),0,"",""));step=13;}
             case 13 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator(),"forged non-operator global Building Mode request is denied");
-            case 14 -> {checks.add("disconnect while the operator has an unsaved naming prompt");finish(client, true, "completed " + checks.size() + " ordinary-player checks");}
+            case 14 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.LOOT_NEW,Page.LOOT_TABLES,"chronicle_core:forbidden",io.github.chronicle.core.loot.LootTableDraftJson.encode(new io.github.chronicle.core.loot.LootType("chronicle_core:forbidden","Forbidden","Must be refused.",0,0,List.of())),screen(client).state().token(),0,"",""));step++;}
+            case 15 -> awaitView(()->!screen(client).state().success()&&!fileContains(lootFile,"chronicle_core:forbidden"),"non-operator cannot create a loot table through a forged request");
+            case 16 -> {checks.add("disconnect while the operator has an unsaved naming prompt");finish(client, true, "completed " + checks.size() + " ordinary-player checks");}
             default -> throw new IllegalStateException("unexpected ordinary-player menu step "+step);
         }
     }
@@ -513,7 +562,7 @@ public final class CoreMenuSmoke {
             case 4 -> navigate(client, "Events", Page.EVENTS);
             case 5 -> navigate(client, "Chests", Page.CHESTS);
             case 6 -> navigate(client, "Loot Tables", Page.LOOT_TABLES);
-            case 7 -> navigate(client, "Regions", Page.REGIONS);
+            case 7 -> {if(screen(client).state().page()==Page.LOOT_TABLES){require(screen(client).state().entries().stream().anyMatch(e->e.id().equals(CUSTOM_LOOT))&&customTableReady(screen(client)),"saved custom table lost entries after layout/restart");checks.add("saved custom loot table remains available with item and lore entries");}navigate(client,"Regions",Page.REGIONS);}
             case 8 -> { screen(client).selectForTest("menu_smoke_region"); waitingFor = viewCount; step++; }
             case 9 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().detail().id().equals("menu_smoke_region"), "layout region detail rendered");
             case 10 -> { capture(client, "menu-layout-region-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); advance("captured meaningful region detail"); }

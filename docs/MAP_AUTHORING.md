@@ -1,5 +1,7 @@
 # Map authoring
 
+**Custom loot tables (dev59):** Loot Tables > Create new loot table opens a native name/optional ID/description popup. Create saves an empty definition; use the existing shared item/book picker and Save loot table for its contents. See [creation behavior](LOOT_TABLE_CREATION.md).
+
 For the current editor, use the [command reference](COMMAND_REFERENCE.md) and [normalization contract](EDITOR_COMMAND_NORMALIZATION.md). Press **O** or `/chronicle` to return to your last page in this connection. Use the direct family command, such as `/chronicle regions`, to open a particular page.
 
 Enable Editing while play is paused or stopped. Use explicit global Building Mode when terrain construction is needed. All Regions use the same Create/edit workflow: temporary Debug shovel, two corner clicks (or `/chronicle regions pos1` and `pos2`), visible bounding box, then `/chronicle regions save` or `cancel`. Saved states is an optional Region subtype. Departure settings remain one popup under a Block site's Location subtypes. These reusable tools belong to Core.

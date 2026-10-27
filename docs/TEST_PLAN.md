@@ -1,5 +1,17 @@
 # Bootstrap validation
 
+## 27 October: custom loot table creation (dev59)
+
+[Core creation flow](LOOT_TABLE_CREATION.md) adds Create new loot table above the existing list. The native popup asks for name, optional ID and description; Cancel writes nothing, explicit Create saves an empty table and opens the existing editor/shared item and lore pickers. The ID can be generated from the name. Existing IDs cannot be overwritten. Menu v7 requires the matching dev59 pack; no config schema or dependency changes.
+
+- `python scripts/workspace.py build`: PASS, 529 discovered Java tests, **527 passed / 2 intentional skips**, zero failures/errors. New storage checks exercise exact component/book preservation, create/backup/reload, duplicate and stale writers, catalog cap and failed-backup retry.
+- `python -m unittest discover -s scripts -p 'test_*.py' -q`: PASS, 93 tests. `python -m compileall -q scripts`, documentation links and `git diff --check` pass.
+- `python scripts/menu_smoke.py`: PASS `../reports/core-menu-smoke-20261027T193307663840Z`. The native operator completed109 checks and ordinary player10. Actual popup Cancel, malformed ID, auto ID, empty create without chest mutation, shared item/book pickers with37.5% and count2-3, duplicate refusal with fields retained, reload, stale Editing and forged non-operator/non-Editing requests all pass. Three additional logical layouts and a clean restart each pass21 checks, retaining the custom table and both item/lore entries through ordinary server transport. The320x240 popup capture was visually inspected. Initial probe retries corrected compact-list/detail navigation in the test driver; no gameplay or authority bypass was added.
+
+Independent source review found no material issue in the creation authority, stale popup, duplicate checks or durable publication. This bounded addition does not recertify unrelated ecology, full-world/group soak, disk faults or process-kill scenarios. The accepted dev58 regression evidence below remains historical; only the relevant suites were rerun.
+
+Deployment PASS `../reports/combined-dev59-deployment.json`: stopped backup `server-20261027T194054787503Z.zip` verified by CRC and protected hashes; 97 files exact at swap, 28 readable gameplay/config/access files unchanged after startup/save. The matching pack's CRC, owned jars, license notices, GUI2/narrator/onboarding/multiplayer/FancyMenu defaults and live preset pass. Authenticated `127.0.0.1:25589`, voice24469, retains ENDED session4, OP4 and whitelist. Wrapper console71856; no forced chunks or trial roots. Branch `feat/core-loot-table-creation`, no main merge; organizer review pending.
+
 ## 27 October: editor, picker and command normalization (dev58)
 
 [Implementation and combined review](EDITOR_COMMAND_NORMALIZATION.md), [canonical command reference](COMMAND_REFERENCE.md). O or /chronicle restores server-validated navigation within the current connection, with fresh authority. One responsive native Add popup is reused by roles, loot-table items/books and direct-chest books; whole-table drafts, components, Cancel and chance dialogs are retained. Only /chronicle is registered; obsolete aliases, reverse setup CLI and the CF09 transport are retired. Core's offering presentation is neutral and Quiet Below supplies Altar flavor.

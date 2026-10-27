@@ -109,7 +109,12 @@ def run() -> None:
                     'Locations has no policy editor and forged old policy routes are denied',
                     'deleting all manual references cannot free physical quota',
                     'saved Regions remain independent geometry without obsolete reverse use assignment',
-                    'generic opener restored the Region page and validated selected record'}
+                    'generic opener restored the Region page and validated selected record',
+                    'native Create saves and selects an empty custom table without filling chests',
+                    'new custom table saves item probabilities and lore through the shared pickers',
+                    'duplicate loot table creation preserves the table and popup fields',
+                    'custom loot table survives authoritative config reload',
+                    'forged creation outside Editing is refused without a config write'}
         missing = required.difference(operator.get('checks', []))
         if missing:
             raise RuntimeError('Menu probe ended before required assertions: ' + repr(sorted(missing)))
@@ -135,6 +140,24 @@ def run() -> None:
         fabric_smoke._stop(server); server = None
         server_log.close(); server_log = None
         report['checks'].append('clean disposable server stop')
+        # Reboot the exact disposable world and read the new table through normal menu transport.
+        _reserve_ports()
+        restart_log = reports / 'server-restart.log'
+        server_log = restart_log.open('w', encoding='utf-8')
+        server = subprocess.Popen(w.server_command(), cwd=root, env=w.env(), stdin=subprocess.PIPE,
+                                  stdout=server_log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
+        _wait_ready(server, restart_log)
+        restart = reports / 'restart'
+        restart.mkdir()
+        clients = [_client(w, launch, root, restart, 'A', 'restart', 1280, 720, layout_only=True)]
+        fabric_smoke._await_clients(clients, [restart / 'role-A.json'])
+        result = _read_result(restart / 'role-A.json')
+        if 'saved custom loot table remains available with item and lore entries' not in result.get('checks', []):
+            raise RuntimeError('Restart did not verify the saved custom loot table')
+        clients[0][1].close(); clients = []
+        fabric_smoke._stop(server); server = None
+        server_log.close(); server_log = None
+        report['checks'].append('custom loot table and its item/lore entries survived a clean server restart')
         report['result'] = 'PASS'
         print('PASS: Core menu native smoke; evidence:', reports, flush=True)
     except BaseException as error:

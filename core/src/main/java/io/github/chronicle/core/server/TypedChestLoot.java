@@ -11,6 +11,7 @@ import io.github.chronicle.core.content.InventorySnapshot;
 import io.github.chronicle.core.content.LootSchedule;
 import io.github.chronicle.core.content.PendingChestOperation;
 import io.github.chronicle.core.loot.LootConfig;
+import io.github.chronicle.core.loot.LootCatalog;
 import io.github.chronicle.core.loot.LootRoller;
 import io.github.chronicle.core.loot.LootType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
@@ -130,6 +131,21 @@ public final class TypedChestLoot {
         Map<String, LootType> saved = runtime.config.replaceType(replacement, expected);
         // Do not publish a candidate before the config and its valid backup are durable.
         runtime.types = saved;
+    }
+
+    /** Publishes a newly created custom table only after the existing durable config writer succeeds. */
+    public static void createType(ServerCommandSource source, LootType addition) throws IOException {
+        if (!source.hasPermissionLevel(2)) throw new IllegalStateException("Loot chest authoring requires operator permission level 2.");
+        requireAuthor(source);
+        if (RuntimeHolds.reason(source.getServer()) != null) throw new IllegalStateException("Finish pending operations before creating a loot table.");
+        if (addition == null) throw new IllegalArgumentException("new loot table is required");
+        Runtime runtime = runtime(source.getServer());
+        if (runtime.types.containsKey(addition.id())) throw new IllegalStateException("A loot table with this ID already exists; choose another ID.");
+        TreeMap<String, LootType> candidate = new TreeMap<>(runtime.types);
+        candidate.put(addition.id(), addition);
+        if (candidate.size() > LootCatalog.MAX_TYPES) throw new IllegalStateException("The loot table limit has been reached.");
+        validateTypes(source.getServer(), candidate);
+        runtime.types = runtime.config.createType(addition);
     }
 
     private static Runtime runtime(MinecraftServer server) {

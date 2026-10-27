@@ -1,4 +1,4 @@
-# Chronicle commands (dev58)
+# Chronicle commands (dev59)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored.
 
@@ -103,6 +103,8 @@ Capture/apply/remove confirmations must follow a fresh review of that exact oper
 /chronicle loot-tables reload
 /chronicle roles reload
 ```
+
+In **Loot Tables**, choose **Create new loot table** above the list. Enter a name, optional ID and description. Create saves an empty table and opens its editor; add items/books with the shared popup and save those entries with **Save loot table**. An omitted ID is generated as `chronicle_core:loot_<name>`. Duplicate IDs are refused.
 
 Bind/rebind uses the looked-at supported container. `chests inspect <binding-id>` opens the named entry; bare inspect reports the looked-at container. Edit distributions, direct-chest lore and role supplies in their screens. Every **Add item** / **Add lore book** opens the same searchable popup: choose an entry, then Add or Cancel. Role items include quantity. Direct-chest lore continues to the existing chance popup; table entries retain whole-table Save/Discard. Existing rich item components, percentages, count ranges and delivery rules are preserved.
 

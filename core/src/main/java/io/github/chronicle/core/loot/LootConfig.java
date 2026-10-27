@@ -72,6 +72,18 @@ public final class LootConfig {
         if (observedTypes == null || observedBytes == null) throw new IllegalStateException("Loot configuration must be loaded before editing");
         if (!expected.equals(observedTypes.get(expected.id()))) throw new IllegalStateException("Loot table changed since this editor opened; reopen it before saving");
 
+        return writeType(replacement);
+    }
+
+    /** Adds a new effective type without allowing a default or custom type to be overwritten. */
+    public synchronized Map<String, LootType> createType(LootType addition) throws IOException {
+        if (addition == null) throw new IllegalArgumentException("new loot type is required");
+        if (observedTypes == null || observedBytes == null) throw new IllegalStateException("Loot configuration must be loaded before editing");
+        if (observedTypes.containsKey(addition.id())) throw new IllegalStateException("A loot table with this ID already exists; choose another ID.");
+        return writeType(addition);
+    }
+
+    private Map<String, LootType> writeType(LootType replacement) throws IOException {
         byte[] current = current();
         if (!MessageDigest.isEqual(observedBytes, current)) {
             throw new IOException("loot config changed outside Chronicle; reload it before saving " + file);

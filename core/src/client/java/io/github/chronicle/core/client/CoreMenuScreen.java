@@ -118,6 +118,7 @@ public final class CoreMenuScreen extends Screen {
     private View limitBackdrop;
     private boolean limitCloseRequested;
     private String limitServerProblem = "";
+    private LootTableCreateScreen failedLootCreator;
     private BookEditorScreen failedBookEditor;
     private long failedBookToken;
     private PlayerRoleEditorScreen failedRoleEditor;
@@ -245,6 +246,16 @@ public final class CoreMenuScreen extends Screen {
         if (receivedFor == Action.LOOT_SAVE && !updated.success()) notice = notice + " Draft retained; reload before choosing to replace it.";
         if (updated.detail() != null && updated.detail().region() != null && updated.page() == Page.REGIONS) detailOnCompact = true;
         if (updated.success() && (receivedFor == Action.POINT_CREATE || receivedFor == Action.BLOCK_CREATE || receivedFor == Action.BLOCK_LIMITS || receivedFor == Action.MANUAL_REFERENCES)) detailOnCompact = true;
+        if (receivedFor == Action.LOOT_NEW) {
+            if (!updated.success() && failedLootCreator != null) {
+                var retry = failedLootCreator; failedLootCreator = null;
+                retry.rejected(blank(updated.message(), "The server rejected this loot table."), retry.openingToken() != updated.token());
+                client.setScreen(retry);
+                return;
+            }
+            failedLootCreator = null;
+            if (updated.success()) detailOnCompact = true;
+        }
         if (receivedFor == Action.BOOK_CREATE && updated.success() && updated.detail() != null && updated.detail().book() != null) {
             failedBookEditor = null;
             openBookEditor(updated.detail().book(), BookEditorScreen.Mode.PAGES, false);
@@ -458,7 +469,7 @@ public final class CoreMenuScreen extends Screen {
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
+                if (creator.action() == Action.LOOT_NEW || creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
                     control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
@@ -571,7 +582,7 @@ public final class CoreMenuScreen extends Screen {
             cursor = wrapped("Unavailable: " + unavailable.reason(), x, cursor, w, 0xFFFFCC66, 2); break;
         }
         for (Control control : detail.controls()) {
-            if (control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
+            if (control.action()==Action.LOOT_NEW || control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
             control(control, x, cursor, w); cursor += 20;
         }
         detailContentHeight = cursor + detailScroll - y;
@@ -714,6 +725,16 @@ public final class CoreMenuScreen extends Screen {
 
     private void activate(Control control) {
         if (!control.enabled()) return;
+        if (control.action() == Action.LOOT_NEW) {
+            LootTableCreateScreen[] popup = new LootTableCreateScreen[1];
+            popup[0] = new LootTableCreateScreen(this, value -> {
+                failedLootCreator = popup[0];
+                client.setScreen(this);
+                request(Action.LOOT_NEW, Page.LOOT_TABLES, value.id(), LootTableDraftJson.encode(value), popup[0].openingToken(), state.index(), state.filter(), "", false);
+            });
+            client.setScreen(popup[0]);
+            return;
+        }
         if (control.action() == Action.REGION_NEW) {
             long editorToken = state.token(); int index = state.index(); String filter = state.filter();
             client.setScreen(new RegionCreateScreen(this, draft -> {

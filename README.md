@@ -1,8 +1,10 @@
 # Chronicle
 
-**Current dev58 workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
+**Current dev59:** [Create custom loot tables](docs/LOOT_TABLE_CREATION.md) from the Loot Tables page, then populate them with the shared item/book picker.
 
-The matching [dev58 review pack](../client/Chronicle-M9-1.21.10.mrpack) is ready at **127.0.0.1:25589**. Existing world/configuration and your ended session4 are retained. See [verification and limits](docs/TEST_PLAN.md).
+**Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
+
+The matching [dev59 review pack](../client/Chronicle-M9-1.21.10.mrpack) is ready at **127.0.0.1:25589**. Existing world/configuration and your ended session4 are retained. See [verification and limits](docs/TEST_PLAN.md).
 
 ## Historical development checkpoints
 
