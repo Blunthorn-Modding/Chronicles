@@ -19,12 +19,16 @@ Example: **City discovered** (Region entry -> `city_discovered = On`); **First o
 
 ## Event editor changes
 
-Keep four pages and the existing native components:
+Follow the Event's logical flow, using the established native components. The organizer rejected forcing the design into the old four pages and splitting actions into Regions / Flags modes. Screen pagination is a later layout decision, not the model:
 
-- **Basics:** existing identity/description controls.
-- **Message & sound:** existing optional media and private preview.
-- **Trigger:** existing trigger controls plus a list of prerequisite flags and **Add prerequisite** using the shared picker. The rule is explicitly **All required flags must be On**. A completed-system-action trigger uses the same page and registered source/target pickers.
-- **Changes:** rename the current Region changes page and provide **Regions / Flags** section selectors. Regions retains its existing saved-state controls. Flags offers **Add flag update**, a flag picker, the desired On/Off value and Remove. Saving a draft does not change any live flag.
+- **When:** choose the trigger and its registered target, for example Region entry, a particular block interaction/activity, a completed prayer or a selected book being opened.
+- **Requirements:** a list of prerequisite flags and **Add prerequisite** through the shared picker. The rule is explicitly **All required flags must be On**.
+- **Delay:** an optional active-play countdown beginning when prerequisites are satisfied, using the confirmed reset-on-Off rule.
+- **What happens:** one action list with **Add action**. Available actions include update flag, send text, play sound and apply a saved Region state. Each action has its own fields; updating a flag selects its ID and desired On/Off value, while applying a Region state selects the existing saved target. All use shared pickers. Saving a draft does not perform any action.
+
+Block trigger configuration selects the bound/managed location (or a supported block type) and the activity to observe. Supplied Altar/Forge blocks use their existing automatic registration. Vanilla block sites reuse Locations. Offer explicit activity kinds, such as player interaction, a container actually opening, successful station work, placement or breaking, as supported by registered providers. Cancelled/refused interactions and automatic terrain replacement do not count as successful player activity.
+
+For books, provide separate **Book found** and **Book opened** triggers, selecting the specific Books & Lore entry. In this plan, opening the real in-world book counts as reading it; it does not claim the player read every page or understood the text. Inventory possession alone is the existing discovery occurrence. GM/editor previews do not count as gameplay reading. Verify the actual managed book identity and active player's interaction rather than trusting a supplied title or an unrestricted client report. The trigger belongs to the Event; updating a flag belongs in its action list.
 
 Permit a flag-only Event with no message, sound or terrain change. For example, entering the Ancient City can silently record discovery. Private preview continues to preview media only; it never writes flags or completes an Event.
 
@@ -41,16 +45,17 @@ Every row below is an input to an ordinary Event. The chosen Event decides wheth
 | First Region visit | First eligible participant observed inside the selected Region during active play. Existing entry dispatch supplies this. | `city_discovered = On` | Core; first implementation pass. |
 | Existing manual, timed or conditional Event | Its real outcome succeeds, with no flag updates from preview/check/editor saves. | `investigation_started = On`, `investigation_pending = Off` | Core; first pass. |
 | Departure completed | The selected departure's committed player/optional terrain work completes. Accepting the first confirmation is insufficient. | `ship_departed = On` | Core; source integration pass. |
-| Bound block interacted with | An authorized interaction with a selected bound/managed block; label this interaction explicitly. | `door_examined = On` | Core hook/provider. Do not label opening a workstation as successful crafting/praying. |
+| Selected block activity | An eligible player's authorized interaction, actual container opening, supported placement/break or provider-confirmed activity at the chosen block/site. Each activity is explicitly labelled. | `door_examined = On` | Core hook/provider; cancelled work, authoring and automated world changes are excluded. Opening a workstation and successfully crafting/praying are distinct sources. |
 | Altar prayer completed | A specific bargain, or any prayer, actually commits. Opening its menu, cancellation or refusal does not count. | `first_offering_made = On` | Core offering evidence; Quiet Below registers Altar/prayer labels and selectors. |
 | Forge enchantment completed | A valid recipe produces an actual enchantment. Unrelated offerings/scraps or capped unchanged equipment do not count as this success. | `forge_mastered = On` | Core workshop integration with durable result evidence; Quiet Below supplies Forge semantics. |
-| Lore book found | Existing campaign-wide first inventory discovery; current semantics also count GM gifts and role-issued books. | `research_journal_found = On` | Core; durable discovery already exists. Reading a page is a separate future occurrence. |
+| Lore book found | Existing campaign-wide first inventory discovery; current semantics also count GM gifts and role-issued books. | `research_journal_found = On` | Core; durable discovery already exists. |
+| Specific lore book opened | An eligible participant opens the actual selected managed book during gameplay. Preview and merely carrying it do not count as opening/reading. | `forge_notes_read = On` | Core; a new validated opening occurrence is required. Finding and opening remain separate triggers. |
 | Saved Region state applied | The selected Start/End state is durably applied, including an apply initiated by a departure or Event. Capturing a template or viewing bounds does not count. | `sinkhole_opened = On` | Core; direct/departure Area operation receipts and composed Event batch commit evidence are separate authorities. |
 | Role assigned / first entry completed | Separate named sources: assigning a role and successfully delivering its initial setup are different facts. | `expedition_ready = On` | Core; later reusable integration. |
 | Ecology milestone reached | Quiet Below reports an actual ecology transition, such as first reaching Established or Extensive. | `sculk_has_reached_established = On` | Quiet Below provider; Core hosts the trigger API/editor. |
 | Relic Heart destroyed | Durable network ending after a valid pickaxe destruction. Complete sculk cleanup is a different milestone. | `heart_destroyed = On` | Quiet Below provider; durable ending authority exists. |
 
-Recommended first source integrations after the Event foundation: departure, Altar, Forge, lore discovery and saved-state completion. Role/ecology extensions then use the same provider boundary. Routine crop ticks, healing pulses and every item movement do not need individual flags for the current scenario.
+Recommended first source integrations after the Event foundation: departure, block interaction/activity, Altar, Forge, lore discovery/opening and saved-state completion. Role/ecology extensions then use the same provider boundary. Routine crop ticks, healing pulses and every item movement do not need individual flags for the current scenario.
 
 ## Countdown and completion semantics
 
@@ -101,7 +106,7 @@ The critical implementation work is outcome persistence, not merely calling the 
 1. **Review this behavior/UI plan.** The organizer has selected a full countdown reset when any prerequisite turns Off; the remaining plan still awaits review. A dedicated native UI design/review precedes editor changes, as established for this project.
 2. **Event progression foundation in Core:** multi-flag All prerequisites, atomic flag outcomes including silent Events, provenance/relationships and migration/recovery. Prove Region entry -> set flag -> another Event allowed.
 3. **Prerequisite-started timers in Core:** persist activation/elapsed progress, phase/occupancy guards, restart and deliberate rearm. Prove two prerequisite Events -> full delayed Event, with no save-time countdown credit.
-4. **Existing system triggers:** departure, successful Altar prayer, successful Forge enchantment, lore discovery and Region state applied. Connect durable success evidence and ensure final departure completion records its fact even if it concludes play.
+4. **Existing system triggers:** departure, selected block interaction/activity, successful Altar prayer, successful Forge enchantment, separate lore discovery/opening and Region state applied. Connect durable success evidence and ensure final departure completion records its fact even if it concludes play.
 5. **Quiet Below progression providers/defaults:** ecology milestones and Heart ending, optional recommended Event wiring. Do not impose session-specific story beats. Final prose/lore balancing and handcrafted map integration remain their existing review tasks.
 
 Foundation and timer slices can be reviewed together. System integrations can form one subsequent combined review; a separate client/world per source is unnecessary. Progress is gated by design decisions and meaningful human checks, not merely by the existence of a built feature.
@@ -111,7 +116,7 @@ Foundation and timer slices can be reviewed together. System integrations can fo
 - Unit tests: all prerequisites, atomic On/Off patches, duplicate operation IDs and later overrides, conditional activation, full timer reset when any prerequisite turns Off (including Off -> On between dispatch ticks), arming/edit/rearm, schema1/2 reads and archive/in-flight compatibility.
 - Native chain: first eligible City visit sets only the configured flags; opening/previewing/editing does not; all required flags start a full countdown; a successful outcome can unlock a later Event.
 - Native clocks: pause, Building Mode, empty play, holds, disconnect/reconnect and restart preserve the chosen countdown semantics without downtime credit.
-- Native sources: departure cancellations/refusals vs completion; Altar menu/refusal vs purchase; Forge scraps/capped unchanged gear vs actual enchantment; inventory discovery vs book preview; template capture vs state apply; Heart ended vs cleanup complete.
+- Native sources: departure cancellations/refusals vs completion; selected block interaction vs cancelled/automatic changes; Altar menu/refusal vs purchase; Forge scraps/capped unchanged gear vs actual enchantment; book inventory discovery vs gameplay opening vs GM/editor preview, with wrong-book/spoofed identity rejected; template capture vs state apply; Heart ended vs cleanup complete.
 - Recovery: interruption before/after world, flag patch and media checkpoints; no duplicate/reverted flag writes or media replay; final-departure metadata finishes without triggering ended-world actions; historical import stays explicit.
 - UI: shared Add pickers, compact/wide frames, flags' linked Event navigation, existing two Events filters, Clean/Debug, stale authority and ordinary-player denial.
 - Use the workspace Java environment for `gradlew.bat --no-daemon build`; run `python scripts/event_editor_smoke.py`, `python scripts/events_smoke.py`, `python scripts/event_recovery_smoke.py` and the affected departure/bargain/forge/lore suites serially on their shared test ports. Exact harness extensions follow implementation, not fabricated passing claims in this plan.
