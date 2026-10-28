@@ -59,6 +59,15 @@ public final class ChronicleCommands {
                 })));
 
         var flag = literal("flags").requires(ChronicleCommands::isGm)
+                .executes(context -> CoreMenuServer.open(context.getSource(), io.github.chronicle.core.menu.CoreMenuModel.Page.FLAGS))
+                .then(literal("create").then(argument("id", IdentifierArgumentType.identifier()).executes(context -> {
+                    String id = IdentifierArgumentType.getIdentifier(context, "id").toString();
+                    return mutate(context.getSource(), (service, actor) -> {
+                        CoreFlagMenu.requireDefinitionAuthor(context.getSource());
+                        service.defineFlag(actor, id);
+                        return "Flag created: " + id + ". Current value: Off.";
+                    });
+                })))
                 .then(literal("list").executes(context -> query(context.getSource(), service ->
                         "Chronicle flags (" + service.state().flags().size() + "): " + new TreeMap<>(service.state().flags()))))
                 .then(literal("get").then(argument("id", IdentifierArgumentType.identifier())
@@ -71,6 +80,8 @@ public final class ChronicleCommands {
                             String id = IdentifierArgumentType.getIdentifier(context, "id").toString();
                             boolean value = BoolArgumentType.getBool(context, "value");
                             return mutate(context.getSource(), (service, actor) -> {
+                                if (RuntimeHolds.reason(context.getSource().getServer()) != null)
+                                    throw new IllegalStateException("Finish pending operations before changing flags.");
                                 service.setFlag(actor, id, value);
                                 return "Chronicle flag " + id + " = " + value + ".";
                             });
@@ -101,7 +112,7 @@ public final class ChronicleCommands {
                                 .executes(context -> history(context.getSource(), IntegerArgumentType.getInteger(context, "limit"), true))));
 
         dispatcher.register(literal("chronicle").then(session)
-                .then(literal("events").requires(ChronicleCommands::isGm).then(flag))
+                .then(flag)
                 .then(literal("debug").requires(ChronicleCommands::isGm).then(event)));
     }
 

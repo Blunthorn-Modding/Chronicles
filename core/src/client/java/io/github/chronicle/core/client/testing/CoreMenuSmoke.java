@@ -569,7 +569,9 @@ public final class CoreMenuSmoke {
             case 13 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator(),"forged non-operator global Building Mode request is denied");
             case 14 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.LOOT_NEW,Page.LOOT_TABLES,"chronicle_core:forbidden",io.github.chronicle.core.loot.LootTableDraftJson.encode(new io.github.chronicle.core.loot.LootType("chronicle_core:forbidden","Forbidden","Must be refused.",0,0,List.of())),screen(client).state().token(),0,"",""));step++;}
             case 15 -> awaitView(()->!screen(client).state().success()&&!fileContains(lootFile,"chronicle_core:forbidden"),"non-operator cannot create a loot table through a forged request");
-            case 16 -> {checks.add("disconnect while the operator has an unsaved naming prompt");finish(client, true, "completed " + checks.size() + " ordinary-player checks");}
+            case 16 -> {waitingFor=viewCount;ClientPlayNetworking.send(new CoreMenuPayloads.Request(Action.FLAG_CREATE,Page.FLAGS,"chronicle_core:forbidden_flag","",screen(client).state().token(),0,"",""));step++;}
+            case 17 -> awaitView(()->!screen(client).state().success()&&!screen(client).state().operator()&&!fileContains(serverRoot.resolve("world/chronicle/campaign-state.json"),"chronicle_core:forbidden_flag"),"non-operator cannot create a flag through a forged request");
+            case 18 -> {checks.add("disconnect while the operator has an unsaved naming prompt");finish(client, true, "completed " + checks.size() + " ordinary-player checks");}
             default -> throw new IllegalStateException("unexpected ordinary-player menu step "+step);
         }
     }

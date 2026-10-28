@@ -6,6 +6,7 @@ import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.client.CatalogAddPopup;
 import io.github.chronicle.core.client.CoreMenuScreen;
 import io.github.chronicle.core.client.EventEditorScreen;
+import io.github.chronicle.core.client.FlagCreateScreen;
 import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import io.github.chronicle.core.menu.CoreMenuModel.View;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -46,6 +47,7 @@ public final class EventEditorSmoke {
     private int step, ticks;
     private boolean complete;
     private boolean cancellationIssued, cancellationVerified;
+    private String campaignBeforeCancel, campaignAfterCreate, selectedGame, selectedWorld;
 
     private EventEditorSmoke(Path output, Path serverRoot) throws IOException {
         this.output = output.toAbsolutePath().normalize(); this.serverRoot = serverRoot.toAbsolutePath().normalize();
@@ -96,7 +98,37 @@ public final class EventEditorSmoke {
                 checks.add("opened native Chronicle menu"); checks.add("Clean and Debug remain separate from Event editor authority"); step++;
             }
             case 3 -> { if (menu(client).state().editing()) { checks.add("fixture retained authoritative Editing"); step++; } else { require(menu(client).triggerForTest("Enable editing"), "editing control is unavailable"); waitViews = views; step++; } }
-            case 4 -> await(() -> menu(client).state().editing(), "server acknowledged Editing");
+            case 4 -> { if (views > waitViews && menu(client).state().editing()) { checks.add("server acknowledged Editing"); step = 100; } }
+            case 100 -> { CoreMenuScreen m=menu(client); if (!m.triggerForTest("Flags")) { require(m.triggerForTest("v"), "Flags navigation unavailable"); return; } waitViews=views; step++; }
+            case 101 -> { if (views<=waitViews || menu(client).state().page()!=Page.FLAGS) return; campaignBeforeCancel=campaignText(); capture(client,"flags-list.png"); require(press(menu(client),"Create flag"),"Create flag unavailable"); step++; }
+            case 102 -> { if (!(client.currentScreen instanceof FlagCreateScreen popup)) return; capture(client,"flag-create.png"); popup.setIdForTest("chronicle_core:cancelled_flag"); require(popup.pressForTest("Cancel"),"flag Cancel unavailable"); step++; }
+            case 103 -> { if (!(client.currentScreen instanceof CoreMenuScreen m)) return; require(campaignBeforeCancel.equals(campaignText()),"Cancel changed campaign state"); require(press(m,"Create flag"),"Create flag unavailable after Cancel"); step++; }
+            case 104 -> { if (!(client.currentScreen instanceof FlagCreateScreen popup)) return; popup.setIdForTest("chronicle_core:ui_gate"); require(popup.pressForTest("Create"),"valid flag Create unavailable"); waitViews=views; step++; }
+            case 105 -> { if (!(client.currentScreen instanceof CoreMenuScreen m) || views<=waitViews) return; require(m.state().success(),"flag creation failed: "+m.state().message()); campaignAfterCreate=campaignText(); require(campaignAfterCreate.contains("chronicle_core:ui_gate") && campaignAfterCreate.contains("flag.define"),"created flag or audit missing from persisted campaign"); var json=com.google.gson.JsonParser.parseString(campaignAfterCreate).getAsJsonObject(); require(!json.getAsJsonObject("flags").get("chronicle_core:ui_gate").getAsBoolean(),"new flag did not start Off"); m.triggerForTest("Back to list"); capture(client,"flags-created.png"); require(press(m,"Create flag"),"duplicate test Create unavailable"); step++; }
+            case 106 -> { if (!(client.currentScreen instanceof FlagCreateScreen popup)) return; popup.setIdForTest("chronicle_core:ui_gate"); require(popup.pressForTest("Create"),"duplicate request unavailable"); waitViews=views; step++; }
+            case 107 -> { if (!(client.currentScreen instanceof FlagCreateScreen popup) || views<=waitViews) return; require(popup.idForTest().equals("chronicle_core:ui_gate"),"duplicate rejection lost draft"); require(campaignAfterCreate.equals(campaignText()),"duplicate flag changed campaign state"); require(popup.pressForTest("Cancel"),"duplicate popup Cancel unavailable"); checks.add("flag Cancel and duplicate preserve state; creation persists Off with define audit"); step=112; }
+            case 112 -> { menu(client).triggerForTest("Back to list"); require(press(menu(client),"Create flag"),"stale popup Create unavailable"); step++; }
+            case 113 -> { if (!(client.currentScreen instanceof FlagCreateScreen popup)) return; popup.setIdForTest("chronicle_core:stale_flag"); client.player.networkHandler.sendChatCommand("chronicle editing off"); waitViews=views; step++; }
+            case 114 -> { if (!(client.currentScreen instanceof FlagCreateScreen popup) || views<=waitViews) return; require(popup.idForTest().equals("chronicle_core:stale_flag") && !popup.pressForTest("Create"),"stale flag popup did not preserve and lock draft"); require(campaignAfterCreate.equals(campaignText()),"stale flag draft changed campaign state"); require(popup.pressForTest("Cancel"),"stale flag popup Cancel unavailable"); step++; }
+            case 115 -> { CoreMenuScreen m=menu(client); require(!m.state().editing(),"Editing remained enabled"); require(m.triggerForTest("Enable editing"),"re-enable Editing unavailable"); waitViews=views; step++; }
+            case 116 -> { if (views<=waitViews || !menu(client).state().editing()) return; menu(client).selectForTest("flag:chronicle_core:ui_gate"); waitViews=views; step++; }
+            case 117 -> { if (views<=waitViews) return; require(!press(menu(client),"Turn On"),"flag could be changed while paused"); client.player.networkHandler.sendChatCommand("chronicle session resume"); waitViews=views; step++; }
+            case 118 -> { if (views<=waitViews || !menu(client).state().phase().equals("ACTIVE")) return; CoreMenuScreen m=menu(client); require(m.state().detail().controls().stream().filter(c->c.action()==io.github.chronicle.core.menu.CoreMenuModel.Action.FLAG_CREATE).noneMatch(c->c.enabled()),"flag creation enabled during active play"); require(press(m,"Turn On"),"live Turn On unavailable"); require(m.triggerForTest("Confirm: Turn On"),"Turn On confirmation unavailable"); waitViews=views; step++; }
+            case 119 -> { if (views<=waitViews) return; require(flagValue(),"confirmed Turn On was not persisted"); require(press(menu(client),"Turn Off"),"live Turn Off unavailable"); require(menu(client).triggerForTest("Confirm: Turn Off"),"Turn Off confirmation unavailable"); waitViews=views; step++; }
+            case 120 -> { if (views<=waitViews) return; require(!flagValue(),"confirmed Turn Off was not persisted"); client.player.networkHandler.sendChatCommand("chronicle session pause"); waitViews=views; step++; }
+            case 121 -> { if (views<=waitViews || !menu(client).state().phase().equals("PAUSED")) return; require(menu(client).triggerForTest("Enable editing"),"Editing unavailable after pause"); waitViews=views; step++; }
+            case 122 -> { if (views<=waitViews || !menu(client).state().editing()) return; checks.add("stale flag draft locks after Editing revoked; confirmed live On and Off persist while active creation is disabled"); step=108; }
+            case 108 -> { CoreMenuScreen m=menu(client); require(m.triggerForTest("Events"),"Events tab unavailable after Flags"); waitViews=views; step++; }
+            case 109 -> { if (views<=waitViews || menu(client).state().page()!=Page.EVENTS) return; CoreMenuScreen m=menu(client); require(m.state().entries().stream().noneMatch(e->e.id().startsWith("world:")||e.id().startsWith("flag:")),"Game Events contains direct changes or flags"); require(!m.state().entries().isEmpty(),"fixture has no Game Events"); selectedGame=m.state().entries().getFirst().id(); m.selectForTest(selectedGame); waitViews=views; step=123; }
+            case 123 -> { if (views<=waitViews) return; CoreMenuScreen m=menu(client); m.triggerForTest("Back to list"); require(m.triggerForTest("Region Changes"),"Region Changes filter unavailable"); waitViews=views; step=110; }
+            case 110 -> { if (views<=waitViews) return; CoreMenuScreen m=menu(client); require(!m.state().entries().isEmpty() && m.state().entries().stream().allMatch(e->e.id().startsWith("world:")),"Region Changes contains non-world entry or no fixture"); require(m.state().detail().controls().stream().noneMatch(c->c.action()==io.github.chronicle.core.menu.CoreMenuModel.Action.EVENT_NEW),"Region Changes exposes event creation"); capture(client,"event-region-changes-filter.png"); selectedWorld=m.state().entries().getFirst().id(); m.selectForTest(selectedWorld); waitViews=views; step=124; }
+            case 124 -> { if (views<=waitViews) return; CoreMenuScreen m=menu(client); m.triggerForTest("Back to list"); require(m.triggerForTest("Game Events"),"Game Events filter unavailable"); waitViews=views; step=125; }
+            case 125 -> { if (views<=waitViews) return; CoreMenuScreen m=menu(client); require(m.state().selected().equals(selectedGame),"Game Event selection was not remembered"); require(m.triggerForTest("Region Changes"),"Region Changes filter unavailable on return"); waitViews=views; step=126; }
+            case 126 -> { if (views<=waitViews) return; CoreMenuScreen m=menu(client); require(m.state().selected().equals(selectedWorld),"Region Change selection was not remembered"); require(m.triggerForTest("Game Events"),"Game Events filter unavailable on return"); waitViews=views; step=111; }
+            case 111 -> { if (views<=waitViews) return; require(menu(client).state().selected().equals(selectedGame),"Game Event selection changed on second return"); menu(client).close(); client.player.networkHandler.sendChatCommand("chronicle");waitViews=views;step=127; }
+            case 127 -> { if (!(client.currentScreen instanceof CoreMenuScreen m)||views<=waitViews||m.pending())return;require(m.state().selected().equals(selectedGame),"reopening lost selected Game Event");m.triggerForTest("Back to list");require(m.triggerForTest("Region Changes"),"reopened Region Changes filter unavailable");waitViews=views;step++; }
+            case 128 -> { if(views<=waitViews)return;var m=menu(client);require(m.state().selected().equals(selectedWorld),"reopening lost the other Event filter selection");require(m.triggerForTest("Game Events"),"Game Events filter unavailable after reopen");waitViews=views;step++; }
+            case 129 -> { if(views<=waitViews)return;require(menu(client).state().selected().equals(selectedGame),"Game Event selection changed after reopen filter switch");checks.add("Events filters separate Game Events and direct Region Changes and remember selections, including close and reopen");step=7; }
             case 5 -> { require(menu(client).triggerForTest("Events"), "Events tab unavailable"); waitViews = views; step++; }
             case 6 -> await(() -> menu(client).state().page() == Page.EVENTS, "opened Events");
             case 7 -> { require(press(menu(client), "Create new event"), "Create new event unavailable"); waitViews = views; step++; }
@@ -145,7 +177,7 @@ public final class EventEditorSmoke {
             case 20 -> { EventEditorScreen editor=editor(client); if (!"TRIGGER".equals(editor.pageForTest())) return; editor.setDraftForTest("seconds", "30"); frame(client,editor);capture(client,"event-trigger-region-timer.png"); require(pressSuffix(editor, "Participants"), "Participants audience restore unavailable"); step++; }
             case 21 -> { EventEditorScreen editor=editor(client); require(pressSuffix(editor, "Manual"), "Manual trigger restore unavailable"); step++; }
             case 22 -> { EventEditorScreen editor=editor(client); require(pressPrefix(editor, "Optional flag"), "optional flag picker is unavailable for Manual trigger"); step++; }
-            case 23 -> selectPopup(client, "quiet_below:m8_gate", "selected a registered optional prerequisite flag");
+            case 23 -> selectPopup(client, "chronicle_core:ui_gate", "selected the newly created optional prerequisite flag");
             case 24 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Region changes"), "Region changes page unavailable"); step++; }
             case 25 -> { EventEditorScreen editor=editor(client);frame(client,editor);capture(client,"event-changes-empty.png"); if (!"CHANGES".equals(editor.pageForTest())) return; require(pressPrefix(editor, "Add Saved state"), "Saved-state picker unavailable"); step++; }
             case 26 -> selectPopup(client, "event_region_a|START", "added first Region Saved state through shared picker");
@@ -162,7 +194,7 @@ public final class EventEditorSmoke {
                 checks.add("native create/save returns to the updated selected Event without reopening a stale editor");
                 capture(client, "event-editor-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); require(press(menu,"Edit event"),"saved Event editor unavailable");step++;
             }
-            case 35 -> { if(!(client.currentScreen instanceof EventEditorScreen))return; client.player.networkHandler.sendChatCommand("chronicle editing off");waitViews=views;step++; }
+            case 35 -> { if(!(client.currentScreen instanceof EventEditorScreen editor))return; require(editor.valuesForTest().flag().equals("chronicle_core:ui_gate"),"flag prerequisite did not survive save and reopen"); client.player.networkHandler.sendChatCommand("chronicle editing off");waitViews=views;step++; }
             case 36 -> { if(!(client.currentScreen instanceof EventEditorScreen editor)||views<=waitViews)return; require(!editor.pressForTest("Save edits"),"stale editor allowed Save after Editing was revoked"); require(!editor.parentMenu().state().editing(),"server retained Editing");checks.add("revoking Editing preserves the draft but disables stale Event writes");finish(client,true,"completed "+checks.size()+" native Event editor checks"); }
             default -> throw new IllegalStateException("unexpected Event editor step " + step);
         }
@@ -226,6 +258,8 @@ public final class EventEditorSmoke {
     private static EventEditorScreen editor(MinecraftClient client) { if (!(client.currentScreen instanceof EventEditorScreen screen)) throw new IllegalStateException("Event editor is not open"); return screen; }
     private static boolean press(CoreMenuScreen screen,String label) { for(int i=0;i<42;i++){if(screen.triggerForTest(label))return true;screen.scrollDetailForTest(i%2==0?1:-1);}return false; }
     private static void require(boolean ok,String message){if(!ok)throw new IllegalStateException(message);}
+    private String campaignText() { try { return Files.readString(serverRoot.resolve("world/chronicle/campaign-state.json"), StandardCharsets.UTF_8); } catch (IOException error) { throw new IllegalStateException("Cannot read campaign fixture", error); } }
+    private boolean flagValue() { return com.google.gson.JsonParser.parseString(campaignText()).getAsJsonObject().getAsJsonObject("flags").get("chronicle_core:ui_gate").getAsBoolean(); }
     private void frame(MinecraftClient client,EventEditorScreen editor){
         var widgets=editor.visibleWidgetBoundsForTest();
         for(var w:widgets)require(w.x()>=0&&w.y()>=0&&w.x()+w.width()<=client.getWindow().getScaledWidth()&&w.y()+w.height()<=client.getWindow().getScaledHeight(),"editor widget escapes viewport: "+w);

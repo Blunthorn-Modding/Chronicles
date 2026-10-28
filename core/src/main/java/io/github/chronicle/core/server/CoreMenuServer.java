@@ -10,6 +10,7 @@ import io.github.chronicle.core.loot.*;
 import io.github.chronicle.core.books.*;
 import io.github.chronicle.core.menu.CoreMenuModel.*;
 import io.github.chronicle.core.menu.EventEditorForm;
+import io.github.chronicle.core.menu.CoreMenuFilters;
 import io.github.chronicle.core.managed.*;
 import io.github.chronicle.core.network.CoreMenuPayloads.*;
 import io.github.chronicle.core.play.*;
@@ -74,7 +75,7 @@ public final class CoreMenuServer {
         var player=source.getPlayer();if(player==null){source.sendError(Text.literal("This action requires a player; use the explicit /chronicle command families instead."));return 0;}
         if(!source.hasPermissionLevel(2)&&!publicAction(action)){source.sendError(Text.literal("Operator permission level 2 is required."));return 0;}
         var c=WORLDS.computeIfAbsent(source.getServer(),s->new HashMap<>()).computeIfAbsent(player.getUuid(),u->new Context());
-        c.page=page;c.selected=id;c.filter="POINT";
+        c.page=page;c.selected=id;c.filter=CoreMenuFilters.normalize(page,id.startsWith("world:")?CoreMenuFilters.REGION_CHANGES:"");
         if(!source.hasPermissionLevel(2))c.selected=player.getUuidAsString();
         try{if(action==Action.AREA_CAPTURE){var area=selectedArea(source.getServer(),c);requireReview(player,c,"capture:"+area.id()+":"+argument);}
             String result=page==Page.SETUP&&(action==Action.SETUP_ASSIGN||action==Action.SETUP_CLEAR||action==Action.SHOW)
@@ -120,7 +121,7 @@ public final class CoreMenuServer {
             if(!Objects.equals(current,context.frame))invalidate(context);
             if(request.action()==Action.OPEN){invalidate(context);context.roleReview=null;context.roleReviewAt=0;context.roleTarget="";context.token=0;context.visible=true;context.keepBook="";context.keepTable="";clearGive(context);}
             context.page=gm?request.page():Page.PLAYERS;
-            context.filter=gm&&"BLOCK".equals(request.filter())?"BLOCK":"POINT";
+            context.filter=CoreMenuFilters.normalize(context.page,gm?request.filter():"");
             context.index=request.index();
             context.selected=gm?request.id():player.getUuidAsString();
             if(gm&&request.action()==Action.OPEN&&context.page==Page.AREA_CHANGES){var legacy=AreaChanges.catalog(server).areas().get(context.selected);context.page=Page.REGIONS;context.selected=legacy==null?"":legacy.bounds().regionId();}
@@ -333,7 +334,17 @@ public final class CoreMenuServer {
             case EVENT_RESET -> {PlayRuntime.reset(source,raw(id));return "Another run is now permitted; configured timer delay starts again. No event ran now.";}
             case EVENT_RECOVER -> {EventRuntime.recover(player,raw(id));return "Exact Event recovery requested. No new operation was created.";}
             case EVENT_ACK_MEDIA -> {EventRuntime.acknowledge(player,raw(id));return "Uncertain media acknowledged without replay. Terrain and outcome were not repeated.";}
-            case CONDITION_SET -> {return command(source,"chronicle events flags set "+Identifier.of(raw(id)).toString()+" "+parseBoolean(arg));}
+            case FLAG_CREATE -> {
+                if(c.page!=Page.FLAGS)throw new IllegalArgumentException("Create flags under Advanced → Flags.");
+                if(id.length()>128||!Identifier.of(id).toString().equals(id))throw new IllegalArgumentException("Enter a namespaced flag ID, for example chronicle_core:my_flag.");
+                String result=command(source,"chronicle flags create "+Identifier.of(id));
+                c.selected="flag:"+id;c.index=new ArrayList<>(new TreeSet<>(ChronicleRuntime.service(server).state().flags().keySet())).indexOf(id)/12;
+                return result;
+            }
+            case CONDITION_SET -> {
+                if(c.page!=Page.FLAGS||!id.startsWith("flag:")||!ChronicleRuntime.service(server).state().flags().containsKey(raw(id)))throw new IllegalArgumentException("Choose an existing flag under Advanced → Flags.");
+                return command(source,"chronicle flags set "+Identifier.of(raw(id))+" "+parseBoolean(arg));
+            }
             case CHEST_BIND -> {return command(source,"chronicle chests bind "+quote(arg));}
             case TABLE_OPEN -> {c.page=Page.LOOT_TABLES;c.selected=chest(server,id).lootType();c.expectedLoot=null;return "Opened the chest's assigned loot table.";}
             case CHEST_RETYPE,CHEST_UNBIND -> {
@@ -465,10 +476,10 @@ public final class CoreMenuServer {
         if(c.page==Page.REGIONS&&c.selected.isBlank()&&gm&&AuthoringRuntime.isAuthor(player))AuthoringRuntime.get(server).regionDraft(player.getUuid()).ifPresent(d->c.selected=d.id());
         boolean selectedManualAlias=c.page==Page.LOCATIONS&&"BLOCK".equals(c.filter)&&c.selected.startsWith("manual:")&&sites(server).get(c.selected.substring("manual:".length())) instanceof AuthoringSite.Anchor;
 
-        if(c.page==Page.LOCATIONS&&!c.selected.isBlank()&&!selectedManualAlias&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
+        if((c.page==Page.LOCATIONS||c.page==Page.EVENTS||c.page==Page.FLAGS)&&!c.selected.isBlank()&&!selectedManualAlias&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
         if(c.selected.isBlank()&&!all.isEmpty())c.selected=all.get(c.index*12).id();
         Detail detail;
-        try{detail=detail(player,c);if(gm&&c.page==Page.EVENTS)detail=CoreEventMenu.withCreator(player,detail);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
+        try{detail=detail(player,c);if(gm&&c.page==Page.EVENTS&&CoreMenuFilters.GAME_EVENTS.equals(c.filter))detail=CoreEventMenu.withCreator(player,detail);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
         var campaign=ChronicleRuntime.service(server).state();
         String clock=gm?"Active play: "+PlayRuntime.elapsedTicks(server)/20+"s":"";
         var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c),gm?c.eventEditor:null);
@@ -514,8 +525,9 @@ public final class CoreMenuServer {
             case EVENTS -> {
                 var result=new ArrayList<Entry>();result.addAll(AreaWorldEvents.entries(server));result.addAll(CoreEventMenu.entries(server));
                 ChronicleCore.events().events().forEach(e->result.add(entry("action:"+e.id(),eventLabel(e.id()),e.description(),"ACTION",e.id(),0)));
-                ChronicleRuntime.service(server).state().flags().forEach((id,value)->result.add(entry("flag:"+id,id,"Game condition: "+value,"FLAG",id,0)));yield result;
+                yield result.stream().filter(entry->CoreMenuFilters.acceptsEvent(filter,entry)).toList();
             }
+            case FLAGS -> CoreFlagMenu.entries(server);
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
             case PLAYER_ROLES -> !PlayerRoles.ready(server)?List.of():PlayerRoles.definitions(server).values().stream().map(r->entry(r.id(),r.name(),r.description(),"PLAYER_ROLE",r.id(),0)).toList();
             case AREA_CHANGES -> CoreAreaMenu.entries(server);
@@ -623,14 +635,10 @@ public final class CoreMenuServer {
                     if(attempt!=null&&policy!=null&&policy.arrival()!=null)controls.add(control(Action.STARTING_RESET,"Allow another placement attempt",canEdit,editReason,true,""));
                 }
             }
+            case FLAGS -> {return CoreFlagMenu.detail(player,id);}
             case EVENTS -> {
-                if(id.isBlank())return CoreEventMenu.detail(player,"",false);
+                if(id.isBlank())return CoreMenuFilters.REGION_CHANGES.equals(c.filter)?new Detail("","Region Changes","Apply saved Start or End states. Create Regions and capture their states under Regions.",List.of(),List.of(),null,null,null):CoreEventMenu.detail(player,"",false);
                 if(id.startsWith("world:"))return AreaWorldEvents.detail(player,id,c.reviewId.equals(id));
-                if(id.startsWith("flag:")) {
-                    title=raw(id);description="A game condition used by event triggers. Changing it can make an event ready to run.";
-                    facts.add(new Fact("Value",Boolean.toString(ChronicleRuntime.service(server).state().flag(raw(id)))));
-                    controls.add(control(Action.CONDITION_SET,"Set condition…",active,"Live condition changes require active play.",true,"TEXT"));break;
-                }
                 if(id.startsWith("cue:")) {
                     return CoreEventMenu.detail(player,id,c.reviewId.equals(id)&&c.eventReview!=null);
                 } else {

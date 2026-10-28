@@ -105,12 +105,15 @@ def run() -> None:
             'selected a registered sound through the shared picker and explicit Add',
             'selected a Region audience through the shared picker',
             'media preview works with an incomplete Region/Entry trigger and audience',
-            'selected a registered optional prerequisite flag',
+            'selected the newly created optional prerequisite flag',
             'added first Region Saved state through shared picker',
             'added second Region Saved state',
             'duplicate Region target was rejected',
             'duplicate Region target is refused and a target can be removed',
             'native create/save returns to the updated selected Event without reopening a stale editor',
+            'flag Cancel and duplicate preserve state; creation persists Off with define audit',
+            'stale flag draft locks after Editing revoked; confirmed live On and Off persist while active creation is disabled',
+            'Events filters separate Game Events and direct Region Changes and remember selections, including close and reopen',
         }
         missing = required.difference(result.get('checks', []))
         if missing:

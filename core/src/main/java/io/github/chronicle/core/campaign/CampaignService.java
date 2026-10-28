@@ -70,6 +70,24 @@ public final class CampaignService {
         commit(SessionPhase.ENDED, current.sessionNumber(), current.flags(), current.completedEvents(), actor, "session.end", "session", Map.of());
     }
 
+    public synchronized void defineFlag(Actor actor, String id) throws IOException {
+        requireActor(actor);
+        CampaignValidation.identifier(id, "flag ID");
+        if (current.phase() == SessionPhase.ACTIVE) {
+            throw new IllegalStateException("cannot define flags while campaign session is active");
+        }
+        if (current.flags().containsKey(id)) {
+            throw new IllegalArgumentException("campaign flag already exists: " + id);
+        }
+        if (current.flags().size() >= CampaignValidation.MAX_FLAGS) {
+            throw new IllegalStateException("campaign may contain at most " + CampaignValidation.MAX_FLAGS + " flags");
+        }
+        Map<String, Boolean> flags = new LinkedHashMap<>(current.flags());
+        flags.put(id, false);
+        commit(current.phase(), current.sessionNumber(), flags, current.completedEvents(), actor, "flag.define", id,
+                Map.of("value", "false"));
+    }
+
     public synchronized void setFlag(Actor actor, String id, boolean value) throws IOException {
         requireActor(actor);
         requirePhase(SessionPhase.ACTIVE, "edit flags");

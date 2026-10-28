@@ -7,6 +7,7 @@ import io.github.chronicle.core.loot.LootEntry;
 import io.github.chronicle.core.loot.LootTableDraftJson;
 import io.github.chronicle.core.loot.LootType;
 import io.github.chronicle.core.menu.CoreMenuLayout;
+import io.github.chronicle.core.menu.CoreMenuFilters;
 import io.github.chronicle.core.menu.CoreMenuPresentation;
 import io.github.chronicle.core.menu.CoreMenuModel.Action;
 import io.github.chronicle.core.menu.CoreMenuModel.BlockLimitType;
@@ -53,9 +54,9 @@ public final class CoreMenuScreen extends Screen {
     private static final int REFRESH_TICKS = 20 * 2;
     private static final Page[] NAVIGATION = {Page.SESSION, Page.PLAYERS, Page.EVENTS, Page.CHESTS,
             Page.LOOT_TABLES, Page.BOOKS_LORE, Page.REGIONS, Page.LOCATIONS, Page.PLAYER_ROLES,
-            Page.SETUP};
+            Page.FLAGS, Page.SETUP};
     private static final String[] NAVIGATION_LABELS = {"Session", "Players", "Events", "Chests",
-            "Loot Tables", "Books & Lore", "Regions", "Locations", "Player Roles", "Game setup"};
+            "Loot Tables", "Books & Lore", "Regions", "Locations", "Player Roles", "Flags", "Game setup"};
 
     private View state;
     private boolean pending;
@@ -73,6 +74,9 @@ public final class CoreMenuScreen extends Screen {
     private boolean debug;
     private String selected = "";
     private String locationFilter = "";
+    private String eventFilter = CoreMenuFilters.GAME_EVENTS;
+    private record EventNavigation(String selected, int index) { }
+    private final Map<String, EventNavigation> eventSelections = new java.util.HashMap<>();
     private final Map<Page, String> pageSelections = new java.util.EnumMap<>(Page.class);
     private final Map<String, String> locationSelections = new java.util.HashMap<>();
     private String notice = "";
@@ -120,6 +124,7 @@ public final class CoreMenuScreen extends Screen {
     private boolean limitCloseRequested;
     private String limitServerProblem = "";
     private LootTableCreateScreen failedLootCreator;
+    private FlagCreateScreen failedFlagCreator;
     private BookEditorScreen failedBookEditor;
     private long failedBookToken;
     private PlayerRoleEditorScreen failedRoleEditor;
@@ -136,14 +141,17 @@ public final class CoreMenuScreen extends Screen {
         notice = initial.message();
         debug = EditorMenuPreferences.debug();
         loadForms(initial.detail());
+        rememberEventNavigation();
         CoreMenuClient.restore(this);
     }
 
     record NavigationSnapshot(Page page,String selected,String filter,int index,int listOffset,int detailScroll,
-                              int advancedOffset,boolean detailPane) { }
-    NavigationSnapshot navigationSnapshot(){return new NavigationSnapshot(state.page(),state.selected(),state.filter(),state.index(),listOffset,detailScroll,advancedNavOffset,detailOnCompact);}
+                              int advancedOffset,boolean detailPane,String eventFilter,Map<String,EventNavigation> events) { }
+    NavigationSnapshot navigationSnapshot(){rememberEventNavigation();return new NavigationSnapshot(state.page(),state.selected(),state.filter(),state.index(),listOffset,detailScroll,advancedNavOffset,detailOnCompact,eventFilter,Map.copyOf(eventSelections));}
     void restoreNavigation(NavigationSnapshot saved){
         pageSelections.put(state.page(),state.selected());if(state.page()==Page.LOCATIONS){locationFilter=state.filter();locationSelections.put(state.filter(),state.selected());}
+        eventSelections.putAll(saved.events());eventFilter=saved.eventFilter();
+        rememberEventNavigation();
         if(state.page()==saved.page()&&state.selected().equals(saved.selected())&&state.filter().equals(saved.filter())&&state.index()==saved.index()){
             listOffset=saved.listOffset();detailScroll=saved.detailScroll();advancedNavOffset=saved.advancedOffset();advancedNavPage=state.page();detailOnCompact=saved.detailPane();
         }
@@ -243,12 +251,23 @@ public final class CoreMenuScreen extends Screen {
         if (retainReview) eventPreview = updated.message();
         if (requestedAction == Action.EVENT_RUN || requestedAction == Action.PLAYER_MOVE || !updated.success()) eventPreview = "";
         state = updated;
+        rememberEventNavigation();
         pending = false; refreshPending = false; pendingTicks = idleTicks = 0; requestedAction = null;
         if (!updated.selected().isBlank()) selected = updated.selected();
         if (!updated.message().isBlank()) notice = updated.message();
         if (receivedFor == Action.LOOT_SAVE && !updated.success()) notice = notice + " Draft retained; reload before choosing to replace it.";
         if (updated.detail() != null && updated.detail().region() != null && updated.page() == Page.REGIONS) detailOnCompact = true;
         if (updated.success() && (receivedFor == Action.POINT_CREATE || receivedFor == Action.BLOCK_CREATE || receivedFor == Action.BLOCK_LIMITS || receivedFor == Action.MANUAL_REFERENCES)) detailOnCompact = true;
+        if (receivedFor == Action.FLAG_CREATE) {
+            if (!updated.success() && failedFlagCreator != null) {
+                var retry = failedFlagCreator; failedFlagCreator = null;
+                retry.rejected(blank(updated.message(), "The server rejected this flag."), retry.openingToken() != updated.token());
+                client.setScreen(retry);
+                return;
+            }
+            failedFlagCreator = null;
+            if (updated.success()) detailOnCompact = true;
+        }
         if (receivedFor == Action.LOOT_NEW) {
             if (!updated.success() && failedLootCreator != null) {
                 var retry = failedLootCreator; failedLootCreator = null;
@@ -373,6 +392,7 @@ public final class CoreMenuScreen extends Screen {
     /** Applies an unsolicited refresh while a child editor is visible without rebuilding or closing that child. */
     void acceptWhileEditorOpen(View updated) {
         state = updated;
+        rememberEventNavigation();
         pending = false; refreshPending = false; pendingTicks = idleTicks = 0; requestedAction = null;
         if (!updated.selected().isBlank()) selected = updated.selected();
         if (!updated.message().isBlank()) notice = updated.message();
@@ -499,6 +519,11 @@ public final class CoreMenuScreen extends Screen {
     }
 
     private void list(int x, int y, int w, int h) {
+        if (state.page() == Page.EVENTS && state.picker() == null) {
+            button("Game Events", x, y, w / 2 - 2, () -> events(CoreMenuFilters.GAME_EVENTS), "Messages, sounds, game actions and composed Region changes", true);
+            button("Region Changes", x + w / 2, y, w / 2 - 2, () -> events(CoreMenuFilters.REGION_CHANGES), "Direct saved Start and End state actions", true);
+            y += 20; h -= 20;
+        }
         if (state.page() == Page.LOCATIONS && state.picker() == null) {
             button("Points", x, y, w / 2 - 2, () -> locations("POINT"), "Named positions used by systems and starting positions", true);
             button("Block sites", x + w / 2, y, w / 2 - 2, () -> locations("BLOCK"), "Named blocks, including optional vanilla references", true);
@@ -506,7 +531,7 @@ public final class CoreMenuScreen extends Screen {
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.LOOT_NEW || creator.action() == Action.EVENT_NEW || creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
+                if (creator.action() == Action.FLAG_CREATE || creator.action() == Action.LOOT_NEW || creator.action() == Action.EVENT_NEW || creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
                     control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
@@ -619,7 +644,7 @@ public final class CoreMenuScreen extends Screen {
             cursor = wrapped("Unavailable: " + unavailable.reason(), x, cursor, w, 0xFFFFCC66, 2); break;
         }
         for (Control control : detail.controls()) {
-            if (control.action()==Action.LOOT_NEW || control.action()==Action.EVENT_NEW || control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
+            if (control.action()==Action.FLAG_CREATE || control.action()==Action.LOOT_NEW || control.action()==Action.EVENT_NEW || control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
             control(control, x, cursor, w); cursor += 20;
         }
         detailContentHeight = cursor + detailScroll - y;
@@ -762,6 +787,18 @@ public final class CoreMenuScreen extends Screen {
 
     private void activate(Control control) {
         if (!control.enabled()) return;
+        if (control.action() == Action.FLAG_CREATE) {
+            FlagCreateScreen[] popup = new FlagCreateScreen[1];
+            popup[0] = new FlagCreateScreen(this, id -> {
+                failedFlagCreator = popup[0]; client.setScreen(this);
+                request(Action.FLAG_CREATE, Page.FLAGS, id, "", popup[0].openingToken(), state.index(), state.filter(), "", false);
+            });
+            client.setScreen(popup[0]); return;
+        }
+        if (control.action() == Action.CONDITION_SET) {
+            applyControl(control, detailId(), "FLAG_ON".equals(control.input()) ? "true" : "false");
+            return;
+        }
         if (control.action() == Action.LOOT_NEW) {
             LootTableCreateScreen[] popup = new LootTableCreateScreen[1];
             popup[0] = new LootTableCreateScreen(this, value -> {
@@ -1320,9 +1357,12 @@ public final class CoreMenuScreen extends Screen {
         selected = id; detailOnCompact = true; actionOffset = factOffset = detailScroll = 0;
         pageSelections.put(state.page(), id);
         if (state.page() == Page.LOCATIONS) locationSelections.put(state.filter(), id);
+        if (state.page() == Page.EVENTS) eventSelections.put(state.filter(), new EventNavigation(id, state.index()));
         request(Action.OPEN, state.page(), id, "", state.index(), state.filter(), "", false);
     }
-    private void open(Page page) { if (page == Page.LOCATIONS) { locations(locationFilter.isBlank() ? "POINT" : locationFilter); return; } detailOnCompact = false; selected = pageSelections.getOrDefault(page, ""); listOffset = detailScroll = 0; request(Action.OPEN, page, selected, "", 0, "", "", false); }
+    private void open(Page page) { if (page == Page.LOCATIONS) { locations(locationFilter.isBlank() ? "POINT" : locationFilter); return; } if(page==Page.EVENTS){events(eventFilter);return;} detailOnCompact = false; selected = pageSelections.getOrDefault(page, ""); listOffset = detailScroll = 0; request(Action.OPEN, page, selected, "", 0, "", "", false); }
+    private void rememberEventNavigation() { if(state.page()==Page.EVENTS){eventFilter=CoreMenuFilters.normalize(Page.EVENTS,state.filter());eventSelections.put(eventFilter,new EventNavigation(state.selected(),state.index()));} }
+    private void events(String filter) { rememberEventNavigation(); eventFilter=CoreMenuFilters.normalize(Page.EVENTS,filter);var saved=eventSelections.getOrDefault(eventFilter,new EventNavigation("",0));selected=saved.selected();detailOnCompact=false;listOffset=detailScroll=0;request(Action.OPEN,Page.EVENTS,selected,"",saved.index(),eventFilter,"",false); }
     private void locations(String filter) { locationFilter = filter; selected = locationSelections.getOrDefault(filter, ""); detailOnCompact = false; listOffset = detailScroll = 0; request(Action.OPEN, Page.LOCATIONS, selected, "", 0, filter, "", false); }
     private void page(int delta) { listOffset=0;request(Action.OPEN, state.page(), selected, "", Math.max(0, Math.min(state.pages() - 1, state.index() + delta)), state.filter(), "", false); }
     private void pickerPage(int delta) { if (state.picker() != null) {listOffset=0;request(Action.OPTIONS, state.page(), detailId(), state.picker().kind(), Math.max(0, Math.min(state.picker().pages() - 1, state.picker().page() + delta)), state.filter(), pickerSearch, false);} }
@@ -1369,7 +1409,7 @@ public final class CoreMenuScreen extends Screen {
             case EVENT_DELETE -> "Delete this custom event definition and its setup. Completed execution history remains; no blocks change and no media plays.";
             case EVENT_RECOVER -> "Recheck the original world evidence and continue this exact operation. Foreign cells remain preserved; no new operation is started.";
             case EVENT_ACK_MEDIA -> "Acknowledge uncertain delivery without claiming it was received. No media or Region changes are replayed. You may deliberately allow another run afterward.";
-            case CONDITION_SET -> "Set this live game condition to " + argument + ". This can satisfy automatic event prerequisites.";
+            case CONDITION_SET -> "Turn this flag " + ("true".equals(argument)?"On":"Off") + ". Turning it On can trigger Events that require it.";
             case SESSION_START -> "Start a play window and unfreeze world simulation. Bound loot chests receive their configured session fill, replacing contents.";
             case SESSION_END -> "Finish the current play window and freeze world simulation. Campaign progress remains saved.";
             case SITE_DELETE -> "Delete this saved site. Systems pinned to it will require a new assignment.";

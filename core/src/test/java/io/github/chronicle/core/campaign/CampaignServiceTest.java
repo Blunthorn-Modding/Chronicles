@@ -24,6 +24,60 @@ class CampaignServiceTest {
     Path temporaryDirectory;
 
     @Test
+    void flagDefinitionsPersistAcrossNonActivePhasesAndNeverOverwrite() throws IOException {
+        CampaignService service = service(new CampaignEvents());
+        service.defineFlag(GM, "quiet:before");
+        assertEquals(Boolean.FALSE, service.state().flags().get("quiet:before"));
+        assertEquals("flag.define", service.state().history().getLast().action());
+        assertEquals("quiet:before", service.state().history().getLast().target());
+        assertEquals(service.state(), service(new CampaignEvents()).state());
+
+        service.start(GM, null);
+        service.setFlag(GM, "quiet:before", true);
+        CampaignState active = service.state();
+        assertThrows(IllegalStateException.class, () -> service.defineFlag(GM, "quiet:active"));
+        assertEquals(active, service.state());
+        service.pause(GM);
+        service.defineFlag(GM, "quiet:paused");
+        CampaignState paused = service.state();
+        assertThrows(IllegalArgumentException.class, () -> service.defineFlag(GM, "quiet:before"));
+        assertEquals(paused, service.state());
+        assertTrue(service.state().flag("quiet:before"));
+        service.end(GM);
+        service.defineFlag(GM, "quiet:ended");
+        assertEquals(Boolean.FALSE, service.state().flags().get("quiet:paused"));
+        assertEquals(Boolean.FALSE, service.state().flags().get("quiet:ended"));
+        assertEquals(service.state(), service(new CampaignEvents()).state());
+    }
+
+    @Test
+    void flagDefinitionsValidateInputsAndCapacity() throws IOException {
+        CampaignService service = service(new CampaignEvents());
+        CampaignState before = service.state();
+        assertThrows(IllegalArgumentException.class, () -> service.defineFlag(null, "quiet:valid"));
+        assertThrows(IllegalArgumentException.class, () -> service.defineFlag(GM, "invalid id"));
+        assertEquals(before, service.state());
+        for (int i = 0; i < CampaignValidation.MAX_FLAGS; i++) {
+            service.defineFlag(GM, "quiet:flag_" + i);
+        }
+        CampaignState full = service.state();
+        assertThrows(IllegalStateException.class, () -> service.defineFlag(GM, "quiet:overflow"));
+        assertEquals(full, service.state());
+        assertEquals(full, service(new CampaignEvents()).state());
+    }
+
+    @Test
+    void failedFlagDefinitionDoesNotPublishStateOrAudit() throws IOException {
+        Path blockedParent = temporaryDirectory.resolve("blocked-flag");
+        CampaignService service = new CampaignService(new CampaignStore(blockedParent.resolve("state.json")), new CampaignEvents(), CLOCK);
+        Files.writeString(blockedParent, "not a directory");
+        CampaignState before = service.state();
+        assertThrows(IOException.class, () -> service.defineFlag(GM, "quiet:failed"));
+        assertEquals(before, service.state());
+        assertFalse(Files.exists(blockedParent.resolve("state.json")));
+    }
+
+    @Test
     void administrativeEvidencePersistsWithoutChangingProgress() throws IOException {
         CampaignService service = service(new CampaignEvents());
         service.start(GM, null);

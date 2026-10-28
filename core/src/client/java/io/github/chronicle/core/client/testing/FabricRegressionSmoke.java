@@ -241,13 +241,13 @@ public final class FabricRegressionSmoke {
                 "active world time did not advance enough: " + firstTime + " -> " + secondTime));
 
         rejectedCommand(client, "reject resume while active", "chronicle session resume", "^cannot resume while campaign session is active$");
-        mutation(client, "set Fabric smoke flag", "chronicle events flags set quiet_below:fabric_smoke true",
+        mutation(client, "set Fabric smoke flag", "chronicle flags set quiet_below:fabric_smoke true",
                 "^Chronicle flag quiet_below:fabric_smoke = true\\.$",
                 () -> require(campaign().getAsJsonObject("flags").get("quiet_below:fabric_smoke").getAsBoolean(), "Fabric smoke flag was not persisted"));
-        command(client, "read Fabric smoke flag", "chronicle events flags get quiet_below:fabric_smoke",
+        command(client, "read Fabric smoke flag", "chronicle flags get quiet_below:fabric_smoke",
                 "^Chronicle flag quiet_below:fabric_smoke = true\\.$");
         command(client, "return discovery group to the city after respawn regressions", "tp @s 17.5 -59 17.5 0 0", ".*Teleported.*");
-        mutation(client, "satisfy M8 city cue prerequisite", "chronicle events flags set quiet_below:m8_gate true",
+        mutation(client, "satisfy M8 city cue prerequisite", "chronicle flags set quiet_below:m8_gate true",
                 "^Chronicle flag quiet_below:m8_gate = true\\.$", () -> require(campaign().getAsJsonObject("flags").get("quiet_below:m8_gate").getAsBoolean(),
                         "M8 cue prerequisite was not persisted as true"));
         awaitObservationDelivery(client, "city presence waits for its configured flag prerequisite", "quiet_below:city_presence");

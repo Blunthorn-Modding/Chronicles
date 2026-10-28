@@ -1,5 +1,7 @@
 # CF22: editable Events and Region Saved-state actions
 
+The organizer confirmed the dev61 Region, sound and text workflow. The subsequent [Flags and Event filters](FLAGS_AND_EVENT_FILTERS.md) follow-up adds a dedicated Advanced Flags page and separates composed Game Events from direct Region Changes in dev62/menu protocol v9. The execution and recovery mechanisms described below are unchanged; the dev61 version/deployment details are historical.
+
 28 October 2026. Dev61 is implemented, verified and deployed for organizer review on `feat/core-event-region-actions`. No main merge. The matching review server is `127.0.0.1:25589`; use the updated `../client/Chronicle-M9-1.21.10.mrpack`.
 
 ## Organizer workflow

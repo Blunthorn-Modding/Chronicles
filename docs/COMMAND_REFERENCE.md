@@ -116,19 +116,26 @@ Bind/rebind uses the looked-at supported container. `chests inspect <binding-id>
 
 The Events menu provides Create/Edit with Basics, Message & sound, Trigger and Region changes. Shared selectors list registered sounds, current Regions, conditions and saved states. Private media previews need no complete trigger configuration and never apply Region changes. Manual and automatic runs share completion history. Recovery, uncertainty acknowledgement, configuration removal and deliberate rearming are available on the selected Event; see [execution and upgrade notes](CF22_IMPLEMENTATION.md). Command completion includes custom Event IDs as well as campaign defaults.
 
+The top filters separate **Game Events** (including composed Events that change Regions) from **Region Changes** (direct saved Start/End state actions). **Flags** has its own Advanced entry: Create flag opens an ID popup and saves it Off. Creation requires non-active Editing; Turn On/Off is an explicitly confirmed live control. In an Event's Trigger page, a chosen prerequisite must be On. Flags survive play windows and restarts. No prerequisite means no flag gate. See [Flags and filters](FLAGS_AND_EVENT_FILTERS.md).
+
 ```
 /chronicle events preview cue "quiet_below:city_presence"
 /chronicle events check cue "quiet_below:city_presence"
 /chronicle events run review cue "quiet_below:city_presence"
 /chronicle events run confirm cue "quiet_below:city_presence"
-/chronicle events flags get quiet_below:example
-/chronicle events flags set quiet_below:example true
+/chronicle flags
+/chronicle flags create quiet_below:example
+/chronicle flags list
+/chronicle flags get quiet_below:example
+/chronicle flags set quiet_below:example true
 /chronicle setup check
 /chronicle setup tool <registered-tool> <verb>
 /chronicle game quiet-below stage status
 ```
 
 `preview` samples message/sound privately; `check` evaluates the current audience, and `run review` / `run confirm` performs the reviewed real delivery. Use `action` instead of `cue` for registered state actions. Event bindings and clocks stay configurable in Events; play windows do not impose narrative stages.
+
+`flags create` refuses duplicates and requires an operator player in non-active Editing with no operation hold. `flags set` retains the existing active-play administrative upsert for scripts; it requires operator permission and no hold. The UI changes only existing flags. There is no duplicate `events flags` command family.
 
 ## Retained diagnostic operations
 

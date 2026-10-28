@@ -158,9 +158,9 @@ final class CoreEventMenu {
                     .sorted(Comparator.comparing(AuthoringSite.Region::id))
                     .forEach(region -> entries.add(entry(region.id(), region.id(), describe(region), "REGION", region.id(), region.revision())));
             case "EVENT_FLAG" -> {
-                entries.add(entry("none", "No prerequisite", "No required game condition", "FLAG", "", 0));
+                entries.add(entry("none", "No prerequisite", "Create flags under Advanced → Flags. A required flag must be On.", "FLAG", "", 0));
                 ChronicleRuntime.service(server).state().flags().entrySet().stream().sorted(Map.Entry.comparingByKey())
-                        .forEach(flag -> entries.add(entry(flag.getKey(), flag.getKey(), "Current value: " + flag.getValue(), "FLAG", flag.getKey(), 0)));
+                        .forEach(flag -> entries.add(entry(flag.getKey(), flag.getKey(), "Current value: " + (flag.getValue()?"On":"Off") + ". Manage under Advanced → Flags.", "FLAG", flag.getKey(), 0)));
             }
             case "EVENT_STATE" -> AreaChanges.catalog(server).areas().values().stream()
                     .sorted(Comparator.comparing(AreaChange::name).thenComparing(AreaChange::id))

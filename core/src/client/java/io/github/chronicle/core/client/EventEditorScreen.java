@@ -179,7 +179,7 @@ public final class EventEditorScreen extends Screen {
         if ("TIMER".equals(modeDraft)) { row+=12;secondsField = field(x, row, w, "Active seconds", secondsDraft, 9, value -> secondsDraft = value); row += 22; }
         String flagLabel = flagDraft.isBlank() ? ("CONDITION".equals(modeDraft) ? "Choose required flag…" : "Optional flag…") : "Flag: " + compact(flagDraft, 36);
         button(flagLabel, x, row, w - 44, () -> openPicker(PickerPurpose.FLAG),
-                "Choose an optional prerequisite; Condition requires one", usable());
+                "Choose a flag that must be On. Create flags under Advanced → Flags.", usable());
         button("Clear", x + w - 40, row, 40, () -> { flagDraft = ""; clearAndInit(); }, "Remove this flag prerequisite", usable() && !flagDraft.isBlank());
     }
 
@@ -266,7 +266,7 @@ public final class EventEditorScreen extends Screen {
         if (!Set.of("MANUAL", "ENTRY", "TIMER", "CONDITION").contains(modeDraft)) return "Choose a trigger.";
         if ("ENTRY".equals(modeDraft) && triggerRegionDraft.isBlank()) return "Choose an entry Region.";
         if ("TIMER".equals(modeDraft) && (parseSeconds() <= 0 || parseSeconds() > EventEditorForm.MAX_SECONDS)) return "Active seconds must be between 1 and " + EventEditorForm.MAX_SECONDS + ".";
-        if ("CONDITION".equals(modeDraft) && flagDraft.isBlank()) return "Choose a registered flag.";
+        if ("CONDITION".equals(modeDraft) && flagDraft.isBlank()) return "Choose a flag. Create flags under Advanced → Flags.";
         if (messageDraft.isBlank() && soundDraft.isBlank() && changes.isEmpty()) return "Add a message, sound, or Region Saved state.";
         Set<String> pins = new HashSet<>();
         for (EventEditorForm.Change change : changes) {
@@ -329,7 +329,7 @@ public final class EventEditorScreen extends Screen {
     private static String pretty(String value) { return switch (value) { case "PARTICIPANTS" -> "Participants"; case "REGION" -> "Selected Region"; case "TIMER" -> "Active time"; default -> value.substring(0, 1) + value.substring(1).toLowerCase(Locale.ROOT); }; }
     private static String pageLabel(Page value) { return switch (value) { case BASICS -> "Basics"; case MEDIA -> "Message & sound"; case TRIGGER -> "Trigger"; case CHANGES -> "Region changes"; }; }
     private static String pageHelp(Page value) { return switch (value) { case BASICS -> "Name and describe this event"; case MEDIA -> "Choose optional private-preview media"; case TRIGGER -> "Choose audience and automatic trigger"; case CHANGES -> "Apply existing Region Saved states"; }; }
-    private static String triggerHelp(String value) { return switch (value) { case "MANUAL" -> "Run only when the organizer asks"; case "ENTRY" -> "Run when a participant enters a Region"; case "TIMER" -> "Run after active play time"; default -> "Run when a registered flag is present"; }; }
+    private static String triggerHelp(String value) { return switch (value) { case "MANUAL" -> "Run only when the organizer asks"; case "ENTRY" -> "Run when a participant enters a Region"; case "TIMER" -> "Run after active play time"; default -> "Run when the required flag is On"; }; }
     private static String pickerTitle(PickerPurpose purpose) { return switch (purpose) { case SOUND -> "Choose sound"; case AUDIENCE_REGION -> "Choose audience Region"; case TRIGGER_REGION -> "Choose entry Region"; case FLAG -> "Choose registered flag"; case STATE -> "Add Region Saved state"; }; }
     private String pageDescription() { return switch (page) { case BASICS -> "Name this event; the server validates its ID."; case MEDIA -> "Message and sound are optional, but an event needs an effect."; case TRIGGER -> "Audience and trigger references are separate from changed Regions."; case CHANGES -> "Saved states are applied only after server review."; }; }
 }
