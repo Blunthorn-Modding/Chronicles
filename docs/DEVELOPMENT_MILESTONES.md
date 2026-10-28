@@ -1,5 +1,7 @@
 # Implementation milestones after the prototype
 
+**28 October progression proposal, awaiting review:** [Event-driven flag progression](EVENT_FLAG_PROGRESSION_PLAN.md) addresses the missing Event flag outcomes, multiple prerequisites and prerequisite-started countdowns, followed by existing system-completion triggers. Events own all actions; flags remain saved facts. The organizer requested planning first. No implementation, schema, client pack or runtime changes are included in this pass. The Off-during-countdown choice is still open.
+
 **28 October current:** the organizer confirmed dev61 [CF22 unified Events](CF22_IMPLEMENTATION.md) Region, sound and text behavior. The dev62 [Flags and filters follow-up](FLAGS_AND_EVENT_FILTERS.md) supplies the missing dedicated Advanced Flags creation/control page and the Game Events / Region Changes list filters. The accepted executor remains unchanged. Core owns reusable mechanics; Quiet Below supplies defaults. Handcrafted map, final writing and realistic group/voice soak remain pending; unrelated format engines stay outside this pass.
 
 **27 October dev59:** [custom loot table creation](LOOT_TABLE_CREATION.md) completes the missing Core authoring entry point. It reuses the accepted list placement, native popup and shared item/book editor, with duplicate/stale-write/authority protection. Native reload/restart and final artifact checks are recorded in [TEST_PLAN](TEST_PLAN.md); this does not advance unrelated scenario milestones.
