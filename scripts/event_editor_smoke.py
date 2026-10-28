@@ -6,6 +6,7 @@ It never reuses a play world, credentials, map, or server port.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import socket
 import subprocess
@@ -39,6 +40,23 @@ def _read(path: Path) -> dict:
     return result
 
 
+def _window_size() -> tuple[str, str, str]:
+    """Return the physical window requested for one supported logical editor frame."""
+    width = os.environ.get('CHRONICLE_EVENT_EDITOR_WIDTH', '640')
+    height = os.environ.get('CHRONICLE_EVENT_EDITOR_HEIGHT', '480')
+    logical = {
+        ('640', '480'): '320x240',
+        ('1280', '720'): '640x360',
+        ('960', '960'): '480x480',
+    }.get((width, height))
+    if logical is None:
+        raise RuntimeError(
+            'CHRONICLE_EVENT_EDITOR_WIDTH/HEIGHT must be one supported physical pair: '
+            '640x480 (logical 320x240), 1280x720 (logical 640x360), or 960x960 (logical 480x480)'
+        )
+    return width, height, logical
+
+
 def run() -> None:
     import workspace as w
     w.require_eula()
@@ -46,6 +64,7 @@ def run() -> None:
     w.validate_managed_mod_names()
     w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':core:remapJar', ':campaigns:quiet-below:remapJar', ':campaigns:quiet-below:writeSmokeClientLaunch'])
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text(encoding='utf-8'))
+    width, height, logical_size = _window_size()
     root = fabric_smoke._stage(w)
     # The test-only trial command refuses to prepare without this marker.
     (root / '.event-actions-fixture').write_text('disposable CF22 native UI fixture\n', encoding='utf-8')
@@ -56,7 +75,8 @@ def run() -> None:
     }], indent=2), encoding='utf-8')
     reports = w.REPORTS / ('event-editor-smoke-' + root.name)
     reports.mkdir(parents=True)
-    report = {'world': str(root), 'reports': str(reports), 'result': 'FAIL', 'checks': []}
+    report = {'world': str(root), 'reports': str(reports), 'physical_size': width + 'x' + height,
+              'logical_size': logical_size, 'result': 'FAIL', 'checks': []}
     server = None
     server_log = None
     client = None
@@ -72,17 +92,19 @@ def run() -> None:
         variables = {
             'CHRONICLE_EVENT_EDITOR_SMOKE': str(reports),
             'CHRONICLE_EVENT_EDITOR_SERVER_DIR': str(root),
-            'CHRONICLE_MENU_WIDTH': '640', 'CHRONICLE_MENU_HEIGHT': '480',
+            'CHRONICLE_MENU_WIDTH': width, 'CHRONICLE_MENU_HEIGHT': height,
             'CHRONICLE_EVENTS_TRIAL': 'true',
         }
-        client, client_log = fabric_smoke._client(w, launch, root, reports, account, 'event-editor-320', variables)
+        client, client_log = fabric_smoke._client(w, launch, root, reports, account, 'event-editor-' + logical_size, variables)
         fabric_smoke._await_clients([(client, client_log)], [reports / 'event-editor.json'])
         client_log.close(); client_log = None
         result = _read(reports / 'event-editor.json')
         required = {
             'opened native Chronicle menu',
             'Create opens the native four-page Event editor and Cancel remains local without a write',
-            'media preview works before audience and trigger are configured',
+            'selected a registered sound through the shared picker and explicit Add',
+            'selected a Region audience through the shared picker',
+            'media preview works with an incomplete Region/Entry trigger and audience',
             'selected a registered optional prerequisite flag',
             'added first Region Saved state through shared picker',
             'added second Region Saved state',

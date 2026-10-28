@@ -229,6 +229,31 @@ def run() -> None:
         log.close()
         log = None
 
+        server, log = _start(w, root, reports, "absent-outcome", env)
+        absent_seed, _ = _client(w, launch, root, reports, "outcome_seed", "A")
+        clients = [absent_seed]
+        server.wait(timeout=180)
+        if server.returncode != 98:
+            raise RuntimeError(f"absent-outcome fixture did not halt at the durable EVENT_OUTCOME boundary: {server.returncode}")
+        server = None
+        log.close()
+        log = None
+        _terminate_client(absent_seed)
+        clients = []
+        report["checks"].append("real JVM halted with a durable EVENT_OUTCOME whose original GM and sole recipient were offline")
+
+        server, log = _start(w, root, reports, "absent-outcome-recovery", env)
+        absent_recovery, absent_recovery_result = _client(w, launch, root, reports, "outcome_recover", "A")
+        clients = [absent_recovery]
+        fabric_smoke._await_clients(clients, [absent_recovery_result], timeout=180)
+        report["checks"].extend(_proof(absent_recovery_result).get("checks", []))
+        absent_recovery[1].close()
+        clients = []
+        fabric_smoke._stop(server)
+        server = None
+        log.close()
+        log = None
+
         max_root = _stage(w, maximum=True)
         report["maximum_world"] = str(max_root)
         server, log = _start(w, max_root, reports, "maximum", env)
@@ -244,7 +269,7 @@ def run() -> None:
         log = None
 
         required = ("zero first-Region writes", "unloaded target", "terrain, NBT, chest binding, managed block and lore",
-                    "ordinary player", "automatic timer", "abrupt first-child", "without replay", "262144-cell/64-chunk")
+                    "ordinary player", "automatic timer", "abrupt first-child", "without replay", "without original GM", "262144-cell/64-chunk")
         missing = [needle for needle in required if not any(needle in check for check in report["checks"])]
         if missing:
             raise RuntimeError("Event smoke ended before required evidence: " + repr(missing))

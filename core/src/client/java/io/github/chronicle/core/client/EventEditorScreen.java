@@ -176,7 +176,7 @@ public final class EventEditorScreen extends Screen {
         }
         row += 22;
         if ("ENTRY".equals(modeDraft)) { button(regionButton("Entry Region", triggerRegionDraft), x, row, w, () -> openPicker(PickerPurpose.TRIGGER_REGION), "Start when a participant enters this Region", usable()); row += 22; }
-        if ("TIMER".equals(modeDraft)) { secondsField = field(x, row, w, "Active seconds", secondsDraft, 9, value -> secondsDraft = value); row += 22; }
+        if ("TIMER".equals(modeDraft)) { row+=12;secondsField = field(x, row, w, "Active seconds", secondsDraft, 9, value -> secondsDraft = value); row += 22; }
         String flagLabel = flagDraft.isBlank() ? ("CONDITION".equals(modeDraft) ? "Choose required flag…" : "Optional flag…") : "Flag: " + compact(flagDraft, 36);
         button(flagLabel, x, row, w - 44, () -> openPicker(PickerPurpose.FLAG),
                 "Choose an optional prerequisite; Condition requires one", usable());
@@ -290,10 +290,10 @@ public final class EventEditorScreen extends Screen {
     }
     private TextFieldWidget field(int x, int y, int width, String hint, String value, int max, java.util.function.Consumer<String> changed) {
         TextFieldWidget field = addDrawableChild(new TextFieldWidget(textRenderer, x, y, width, 18, Text.literal(hint)));
-        field.setMaxLength(max); field.setText(value); field.setChangedListener(changed); field.active = usable(); return field;
+        field.setMaxLength(max); field.setText(value); field.setPlaceholder(Text.literal(hint));field.setTooltip(Tooltip.of(Text.literal(hint))); field.setChangedListener(changed); field.active = usable(); return field;
     }
     private void button(String label, int x, int y, int width, Runnable action, String tooltip, boolean enabled) {
-        ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(label, Math.max(1, width - 8))), ignored -> action.run()).dimensions(x, y, Math.max(1, width), 18).build());
+        ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(label), ignored -> action.run()).dimensions(x, y, Math.max(1, width), 18).build());
         button.active = enabled; button.setTooltip(Tooltip.of(Text.literal(tooltip)));
     }
     private boolean usable() { return !stale; }
@@ -303,8 +303,9 @@ public final class EventEditorScreen extends Screen {
         int w = Math.min(440, Math.max(240, width - 24)); int x = (width - w) / 2; int y = Math.max(8, (height - 240) / 2);
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, x - 6, y - 6, w + 12, 240);
         context.drawTextWithShadow(textRenderer, title, x, y, 0xFFFFFFFF);
-        context.drawTextWithShadow(textRenderer, Text.literal(pageDescription()), x, y + 12, 0xFFA0A0A0);
-        if (page == Page.BASICS && !creating) context.drawTextWithShadow(textRenderer, Text.literal("Event ID: " + compact(idDraft, 44)), x, y + 43, 0xFFCCCCCC);
+        context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth(pageDescription(),w)), x, y + 12, 0xFFA0A0A0);
+        for(var child:children())if(child instanceof TextFieldWidget field)context.drawTextWithShadow(textRenderer,Text.literal(textRenderer.trimToWidth(field.getMessage().getString(),field.getWidth())),field.getX(),field.getY()-10,0xFFCCCCCC);
+        if (page == Page.BASICS && !creating) context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth("Event ID: " + idDraft,w)), x, y + 145, 0xFFCCCCCC);
         String feedback = stale ? "Chronicle changed. Reopen before saving." : problem;
         if (!feedback.isBlank()) context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth(feedback, w)), x, y + 190, stale ? 0xFFFFCC66 : 0xFFFF9966);
         super.render(context, mouseX, mouseY, delta);

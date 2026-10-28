@@ -1,5 +1,14 @@
 # Bootstrap validation
 
+## 28 October: CF22 native verification in progress
+
+The organizer resumed implementation. [Current behavior and upgrade](CF22_IMPLEMENTATION.md) supplements the historical paused checkpoint. No dev61 deployment yet.
+
+- Resumed full `build :campaigns:quiet-below:writeSmokeClientLaunch`: PASS,565 Java tests, no failures/errors. `python -m unittest discover -s scripts -p 'test_*.py' -q`: PASS93. First sandbox metadata attempts failed before compilation; approved network access restored the existing pinned Loom cache. No dependency version changed.
+- Native editor `../reports/event-editor-smoke-20261028T090720337275Z`: PASS14 checks at320x240, including real create/cancel, private media preview, selectors, duplicate refusal, full save, and stale Editing. Subsequent label/description polish and expanded sound/incomplete trigger/three-size coverage are awaiting final native runs.
+- Action runner `../reports/events-20261028T091333408307Z` currently has passing basic/refusal/aggregate checks and runner-controlled real abrupt first-child termination/recovery. The overall runner is still in progress; do not treat its partial phases as final PASS.
+- Independent source review fixed post-outcome original-GM/empty-audience deadlock and added explicit audited supervisor recovery. Further interruption/conflict/full-volume proof and proportional old-workflow regressions remain required.
+
 ## 27 October: CF22 unified Events implementation paused
 
 The organizer accepts dev59 loot-table configuration and dev60 menu feedback/pause/Building Mode, and chooses to create/edit Events including message/sound and optional multiple Region saved-state changes. [Implementation contract](CF22_EVENT_ACTIONS_PLAN.md), [UI contract](CF22_EVENT_UI_DESIGN.md) and [local interactive mockup](design/events.html) are design artifacts only. The organizer approved the workflow, then explicitly paused implementation for today. See [checkpoint](CF22_IMPLEMENTATION_CHECKPOINT.md). Native UI/runtime integration is implemented in the working tree; integrated reliability verification is pending. Accepted dev60 remains installed.

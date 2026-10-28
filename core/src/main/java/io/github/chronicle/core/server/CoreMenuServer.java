@@ -468,7 +468,7 @@ public final class CoreMenuServer {
         if(c.page==Page.LOCATIONS&&!c.selected.isBlank()&&!selectedManualAlias&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
         if(c.selected.isBlank()&&!all.isEmpty())c.selected=all.get(c.index*12).id();
         Detail detail;
-        try{detail=detail(player,c);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
+        try{detail=detail(player,c);if(gm&&c.page==Page.EVENTS)detail=CoreEventMenu.withCreator(player,detail);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
         var campaign=ChronicleRuntime.service(server).state();
         String clock=gm?"Active play: "+PlayRuntime.elapsedTicks(server)/20+"s":"";
         var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c),gm?c.eventEditor:null);

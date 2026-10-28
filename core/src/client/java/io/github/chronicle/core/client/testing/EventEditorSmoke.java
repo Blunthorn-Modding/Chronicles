@@ -77,6 +77,7 @@ public final class EventEditorSmoke {
                 return;
             }
             if (client.player == null || ++ticks % 3 != 0) return;
+            client.getToastManager().clear();
             requireFixture(client);
             if (client.currentScreen instanceof CoreMenuScreen menu && menu.pending()) return;
             drive(client);
@@ -112,37 +113,57 @@ public final class EventEditorSmoke {
                 }
                 if (!(client.currentScreen instanceof EventEditorScreen editor)) return;
                 require("BASICS".equals(editor.pageForTest()), "new Event editor did not open on Basics");
-                frame(client, editor); editor.setDraftForTest("name", "Smoke Event");
+                frame(client, editor); capture(client,"event-basics.png"); editor.setDraftForTest("name", "Smoke Event");
                 require(editor.pressForTest("Message & sound"), "Message & sound page button unavailable");
                 checks.add("Create opens the native four-page Event editor and Cancel remains local without a write"); step++;
             }
             case 9 -> {
                 if (!(client.currentScreen instanceof EventEditorScreen editor) || !"MEDIA".equals(editor.pageForTest())) return;
-                editor.setDraftForTest("message", "A private smoke preview."); require(editor.pressForTest("Preview privately"), "private preview button unavailable before trigger configuration"); waitViews = views; step++;
+                editor.setDraftForTest("message", "A private smoke preview.");
+                require(pressPrefix(editor, "Choose sound"), "shared registered-sound picker is unavailable"); step++;
             }
-            case 10 -> awaitEditor(client, "MEDIA", "media preview works before audience and trigger are configured");
-            case 11 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Trigger"), "Trigger page unavailable"); step++; }
+            case 10 -> selectPopup(client, "minecraft:block.note_block.bell", "selected a registered sound through the shared picker and explicit Add");
+            case 11 -> { EventEditorScreen editor=editor(client); frame(client,editor); capture(client,"event-media.png"); require(editor.pressForTest("Trigger"), "Trigger page unavailable"); step++; }
             case 12 -> {
                 EventEditorScreen editor=editor(client); if (!"TRIGGER".equals(editor.pageForTest())) return;
-                require(pressPrefix(editor, "Optional flag"), "optional flag picker is unavailable for Manual trigger"); step++;
+                frame(client,editor); capture(client,"event-trigger.png");
+                require(pressSuffix(editor, "Selected Region"), "Region audience choice unavailable");
+                require(pressPrefix(editor, "Audience Region"), "Audience Region picker unavailable after choosing Region audience"); step++;
             }
-            case 13 -> selectPopup(client, "quiet_below:m8_gate", "selected a registered optional prerequisite flag");
-            case 14 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Region changes"), "Region changes page unavailable"); step++; }
-            case 15 -> { EventEditorScreen editor=editor(client); if (!"CHANGES".equals(editor.pageForTest())) return; require(pressPrefix(editor, "Add Saved state"), "Saved-state picker unavailable"); step++; }
-            case 16 -> selectPopup(client, "event_region_a|START", "added first Region Saved state through shared picker");
-            case 17 -> { EventEditorScreen editor=editor(client); require(pressPrefix(editor, "Add Saved state"), "second Saved-state picker unavailable"); step++; }
-            case 18 -> selectPopup(client, "event_region_b|START", "added second Region Saved state");
-            case 19 -> { EventEditorScreen editor=editor(client); require(pressPrefix(editor, "Add Saved state"), "duplicate Saved-state picker unavailable"); step++; }
-            case 20 -> duplicatePopupRefused(client);
-            case 21 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Remove"), "Saved-state removal unavailable"); checks.add("duplicate Region target is refused and a target can be removed"); step++; }
-            case 22 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Basics"), "Basics page unavailable"); step++; }
-            case 23 -> { EventEditorScreen editor=editor(client); editor.setDraftForTest("id", "chronicle_core:smoke_event"); require(editor.pressForTest("Create event"), "Create event action unavailable"); waitViews=views; step++; }
-            case 24 -> {
+            case 13 -> selectPopup(client, "event_region_a", "selected a Region audience through the shared picker");
+            case 14 -> { EventEditorScreen editor=editor(client); require(pressSuffix(editor, "Entry"), "Entry trigger choice unavailable"); step++; }
+            case 15 -> {
+                EventEditorScreen editor=editor(client); if (!"TRIGGER".equals(editor.pageForTest())) return;
+                frame(client, editor); capture(client,"event-trigger-region-entry-incomplete.png");
+                require(editor.valuesForTest().audience().equals("REGION") && editor.valuesForTest().triggerRegion().isBlank(), "fixture did not retain an incomplete Region/Entry trigger");
+                require(editor.pressForTest("Message & sound"), "Message & sound page unavailable from incomplete trigger"); step++;
+            }
+            case 16 -> { EventEditorScreen editor=editor(client); if (!"MEDIA".equals(editor.pageForTest())) return; require(editor.pressForTest("Preview privately"), "private preview rejected an incomplete trigger/audience draft"); waitViews = views; step++; }
+            case 17 -> awaitEditor(client, "MEDIA", "media preview works with an incomplete Region/Entry trigger and audience");
+            case 18 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Trigger"), "Trigger page unavailable after private preview"); step++; }
+            case 19 -> { EventEditorScreen editor=editor(client); if (!"TRIGGER".equals(editor.pageForTest())) return; require(pressSuffix(editor, "Active time"), "Timer trigger choice unavailable"); step++; }
+            case 20 -> { EventEditorScreen editor=editor(client); if (!"TRIGGER".equals(editor.pageForTest())) return; editor.setDraftForTest("seconds", "30"); frame(client,editor);capture(client,"event-trigger-region-timer.png"); require(pressSuffix(editor, "Participants"), "Participants audience restore unavailable"); step++; }
+            case 21 -> { EventEditorScreen editor=editor(client); require(pressSuffix(editor, "Manual"), "Manual trigger restore unavailable"); step++; }
+            case 22 -> { EventEditorScreen editor=editor(client); require(pressPrefix(editor, "Optional flag"), "optional flag picker is unavailable for Manual trigger"); step++; }
+            case 23 -> selectPopup(client, "quiet_below:m8_gate", "selected a registered optional prerequisite flag");
+            case 24 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Region changes"), "Region changes page unavailable"); step++; }
+            case 25 -> { EventEditorScreen editor=editor(client);frame(client,editor);capture(client,"event-changes-empty.png"); if (!"CHANGES".equals(editor.pageForTest())) return; require(pressPrefix(editor, "Add Saved state"), "Saved-state picker unavailable"); step++; }
+            case 26 -> selectPopup(client, "event_region_a|START", "added first Region Saved state through shared picker");
+            case 27 -> { EventEditorScreen editor=editor(client); require(pressPrefix(editor, "Add Saved state"), "second Saved-state picker unavailable"); step++; }
+            case 28 -> selectPopup(client, "event_region_b|START", "added second Region Saved state");
+            case 29 -> { EventEditorScreen editor=editor(client);frame(client,editor);capture(client,"event-changes-paired.png"); require(pressPrefix(editor, "Add Saved state"), "duplicate Saved-state picker unavailable"); step++; }
+            case 30 -> duplicatePopupRefused(client);
+            case 31 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Remove"), "Saved-state removal unavailable"); checks.add("duplicate Region target is refused and a target can be removed"); step++; }
+            case 32 -> { EventEditorScreen editor=editor(client); require(editor.pressForTest("Basics"), "Basics page unavailable"); step++; }
+            case 33 -> { EventEditorScreen editor=editor(client); editor.setDraftForTest("id", "chronicle_core:smoke_event"); require(editor.pressForTest("Create event"), "Create event action unavailable"); waitViews=views; step++; }
+            case 34 -> {
                 if (!(client.currentScreen instanceof CoreMenuScreen menu) || views <= waitViews) return;
                 require(menu.state().page() == Page.EVENTS && menu.state().selected().contains("smoke_event"), "successful save did not return to selected Event detail");
                 checks.add("native create/save returns to the updated selected Event without reopening a stale editor");
-                capture(client, "event-editor-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); finish(client, true, "completed " + checks.size() + " native Event editor checks");
+                capture(client, "event-editor-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); require(press(menu,"Edit event"),"saved Event editor unavailable");step++;
             }
+            case 35 -> { if(!(client.currentScreen instanceof EventEditorScreen))return; client.player.networkHandler.sendChatCommand("chronicle editing off");waitViews=views;step++; }
+            case 36 -> { if(!(client.currentScreen instanceof EventEditorScreen editor)||views<=waitViews)return; require(!editor.pressForTest("Save edits"),"stale editor allowed Save after Editing was revoked"); require(!editor.parentMenu().state().editing(),"server retained Editing");checks.add("revoking Editing preserves the draft but disables stale Event writes");finish(client,true,"completed "+checks.size()+" native Event editor checks"); }
             default -> throw new IllegalStateException("unexpected Event editor step " + step);
         }
     }
@@ -151,9 +172,10 @@ public final class EventEditorSmoke {
         if (!(client.currentScreen instanceof CatalogAddPopup popup)) return;
         var search = popup.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).findFirst().orElseThrow();
         if (!search.getText().equals(id)) { search.setText(id); pressPopup(popup, "Find"); return; }
-        String label = pickerLabel(popup, id);
+        String label = pickerLabel(popup, id, true);
+        if (label == null) return; // Wait for the matching server picker response, never an earlier page.
         var button = popup.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast)
-                .filter(value -> value.getMessage().getString().contains(label)).findFirst();
+                .filter(value -> value.getMessage().getString().equals(label)).findFirst();
         if (button.isEmpty()) { // The catalog is paged: search first, then wait for its reply.
             return;
         }
@@ -165,9 +187,10 @@ public final class EventEditorSmoke {
         String id = "event_region_a|END";
         var search = popup.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).findFirst().orElseThrow();
         if (!search.getText().equals(id)) { search.setText(id); pressPopup(popup, "Find"); return; }
-        String label = pickerLabel(popup, id);
+        String label = pickerLabel(popup, id, true);
+        if (label == null) return; // Wait for the exact query rather than inspecting stale picker entries.
         var button = popup.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast)
-                .filter(value -> value.getMessage().getString().contains(label)).findFirst();
+                .filter(value -> value.getMessage().getString().equals(label)).findFirst();
         if (button.isEmpty()) {
             return;
         }
@@ -183,14 +206,18 @@ public final class EventEditorSmoke {
         popup.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast)
                 .filter(value -> value.active && value.getMessage().getString().equals(label)).findFirst().orElseThrow(() -> new IllegalStateException("popup button unavailable: " + label)).onPress(new net.minecraft.client.input.MouseInput(0,0));
     }
-    private static String pickerLabel(CatalogAddPopup popup, String id) {
-        if (!(popup.parentScreen() instanceof EventEditorScreen editor) || editor.parentMenu().state().picker() == null)
-            throw new IllegalStateException("Event catalog response is not present on the parent menu");
-        return editor.parentMenu().state().picker().entries().stream().filter(entry -> entry.id().equals(id)).findFirst()
-                .orElseThrow(() -> new IllegalStateException("Catalog id is not on this picker page: " + id)).label();
+    private static String pickerLabel(CatalogAddPopup popup, String id, boolean waitForExactQuery) {
+        if (!(popup.parentScreen() instanceof EventEditorScreen editor) || editor.parentMenu().state().picker() == null) return null;
+        var picker = editor.parentMenu().state().picker();
+        if (waitForExactQuery && !picker.query().equals(id)) return null;
+        return picker.entries().stream().filter(entry -> entry.id().equals(id)).findFirst()
+                .map(entry -> entry.label()).orElse(null);
     }
     private static boolean pressPrefix(EventEditorScreen editor, String prefix) {
         return editor.visibleWidgetBoundsForTest().stream().map(CoreMenuScreen.WidgetBounds::label).filter(label -> label.startsWith(prefix)).findFirst().map(editor::pressForTest).orElse(false);
+    }
+    private static boolean pressSuffix(EventEditorScreen editor, String suffix) {
+        return editor.visibleWidgetBoundsForTest().stream().map(CoreMenuScreen.WidgetBounds::label).filter(label -> label.endsWith(suffix)).findFirst().map(editor::pressForTest).orElse(false);
     }
     private void await(java.util.function.BooleanSupplier condition, String check) { if (views > waitViews && condition.getAsBoolean()) { checks.add(check); step++; } }
     private void awaitMenu(MinecraftClient client, Page page, String check) { if (client.currentScreen instanceof CoreMenuScreen menu && !menu.pending() && menu.state().page()==page) { checks.add(check); step++; } }
@@ -199,7 +226,11 @@ public final class EventEditorSmoke {
     private static EventEditorScreen editor(MinecraftClient client) { if (!(client.currentScreen instanceof EventEditorScreen screen)) throw new IllegalStateException("Event editor is not open"); return screen; }
     private static boolean press(CoreMenuScreen screen,String label) { for(int i=0;i<42;i++){if(screen.triggerForTest(label))return true;screen.scrollDetailForTest(i%2==0?1:-1);}return false; }
     private static void require(boolean ok,String message){if(!ok)throw new IllegalStateException(message);}
-    private void frame(MinecraftClient client, EventEditorScreen editor) { for(var widget:editor.visibleWidgetBoundsForTest()) require(widget.x()>=0&&widget.y()>=0&&widget.x()+widget.width()<=client.getWindow().getScaledWidth()&&widget.y()+widget.height()<=client.getWindow().getScaledHeight(),"editor widget escapes viewport: "+widget); }
+    private void frame(MinecraftClient client,EventEditorScreen editor){
+        var widgets=editor.visibleWidgetBoundsForTest();
+        for(var w:widgets)require(w.x()>=0&&w.y()>=0&&w.x()+w.width()<=client.getWindow().getScaledWidth()&&w.y()+w.height()<=client.getWindow().getScaledHeight(),"editor widget escapes viewport: "+w);
+        for(int i=0;i<widgets.size();i++)for(int j=i+1;j<widgets.size();j++){var a=widgets.get(i);var b=widgets.get(j);require(a.x()+a.width()<=b.x()||b.x()+b.width()<=a.x()||a.y()+a.height()<=b.y()||b.y()+b.height()<=a.y(),"editor widgets overlap: "+a+" / "+b);}
+    }
     private void requireFixture(MinecraftClient client) { ServerInfo server=client.getCurrentServerEntry(); require(server!=null&&server.address.equals("127.0.0.1:25575"),"refusing outside disposable loopback fixture"); require(client.player.getUuid().equals(UUID.nameUUIDFromBytes("OfflinePlayer:ChronicleEventUI".getBytes(StandardCharsets.UTF_8))),"unexpected smoke account"); }
     private void capture(MinecraftClient client,String name){ScreenshotRecorder.saveScreenshot(output.toFile(),name,client.getFramebuffer(),1,ignored->{});}
     private void finish(MinecraftClient client,boolean pass,String detail){if(complete)return;complete=true;JsonObject result=new JsonObject();result.addProperty("result",pass?"PASS":"FAIL");result.addProperty("detail",detail);result.addProperty("step",step);result.addProperty("views",views);JsonArray rows=new JsonArray();checks.forEach(rows::add);result.add("checks",rows);try{Files.writeString(output.resolve("event-editor.json"),result+"\n",StandardCharsets.UTF_8);}catch(IOException ignored){}client.scheduleStop();}

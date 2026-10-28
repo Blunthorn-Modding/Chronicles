@@ -176,7 +176,7 @@ public final class EventRuntime {
         try{
             var pending=pending(server);if(pending.isEmpty())return;EventExecution e=pending.getFirst();
             if(e.phase()==EventExecution.Phase.MEDIA_CLAIMED){advance(server,e,EventExecution.Phase.MEDIA_UNCERTAIN,"Media was claimed but final delivery is uncertain; no automatic replay.");RuntimeHolds.release(server,HOLD);return;}
-            if(e.phase()==EventExecution.Phase.EVENT_OUTCOME){if(eligible(server,e.configuration(),e.session(),e.source(),e.actor(),false))finishMedia(server,e);return;}
+            if(e.phase()==EventExecution.Phase.EVENT_OUTCOME){if(outcomeEligible(server,e))finishMedia(server,e);return;}
             if(e.phase()==EventExecution.Phase.CONFLICT)return;
             if(!EventWorldBatches.ready(server))return;
             var status=EventWorldBatches.status(server,e.operationId());
@@ -185,14 +185,14 @@ public final class EventRuntime {
                 if(e.phase()!=EventExecution.Phase.WORLD_COMMITTED)e=advance(server,e,EventExecution.Phase.WORLD_COMMITTED,"All Region terrain and aggregate metadata committed.");
                 advance(server,e,EventExecution.Phase.EVENT_OUTCOME,"");return;
             }
-            if(!eligible(server,e.configuration(),e.session(),e.source(),e.actor(),false))return;
+            if(!eligible(server,e.configuration(),e.session(),e.source(),authority(server,e),false))return;
             if(!e.operationId().equals(r.attached))attach(server,e);
             status=EventWorldBatches.status(server,e.operationId());
             if(status.isPresent()&&status.get()==EventWorldBatches.Status.APPLYING&&e.phase()==EventExecution.Phase.PREPARED)advance(server,e,EventExecution.Phase.APPLYING,"");
         }catch(Exception failure){fail(server,failure);}
     }
     private static void attach(MinecraftServer server,EventExecution e)throws IOException{
-        var callback=(java.util.function.BooleanSupplier)()->eligible(server,e.configuration(),e.session(),e.source(),e.actor(),false);
+        var callback=(java.util.function.BooleanSupplier)()->eligible(server,e.configuration(),e.session(),e.source(),authority(server,e),false);
         if(EventWorldBatches.status(server,e.operationId()).isEmpty())EventWorldBatches.commit(server,e.operationId(),e.worldPlanHash(),callback);
         else EventWorldBatches.resume(server,e.operationId(),e.worldPlanHash(),callback);
         runtime(server).attached=e.operationId();
@@ -200,8 +200,14 @@ public final class EventRuntime {
     public static void recover(ServerPlayerEntity player,String id)throws IOException{
         requireOperator(player);var server=server(player);Runtime r=runtime(server);var e=PlayRuntime.service(server).state().executions().get(id);
         if(e==null||e.terminal()||e.phase()==EventExecution.Phase.MEDIA_CLAIMED)throw new IllegalStateException("That Event has no recoverable world operation.");
-        // Recovery may be supervised by another live GM; retain the original actor in immutable run evidence.
-        if(!eligible(server,e.configuration(),e.session(),e.source(),e.actor(),false))throw new IllegalStateException("Restore active play, original operator authority and prerequisites before recovering this Event.");
+        // Explicit recovery grants this live operator authority; the original run actor remains immutable.
+        boolean outcome=e.phase()==EventExecution.Phase.EVENT_OUTCOME||e.phase()==EventExecution.Phase.WORLD_COMMITTED;
+        UUID supervisor=e.source()==PlayState.DeliverySource.MANUAL?player.getUuid():e.actor();
+        if(!(outcome?outcomeEligible(server,e):eligible(server,e.configuration(),e.session(),e.source(),supervisor,false)))throw new IllegalStateException("Restore active play, participation and the operation's prerequisites before recovery.");
+        if(!outcome&&e.source()==PlayState.DeliverySource.MANUAL){
+            ChronicleRuntime.service(server).recordOperation(new Actor(player.getName().getString(),player.getUuidAsString()),"event.recovery.requested",id,Map.of("operation",e.operationId().toString(),"originalActor",e.actor().toString()));
+            r.recoveryOperation=e.operationId();r.recoveryActor=player.getUuid();
+        }
         if(e.phase()==EventExecution.Phase.CONFLICT){attach(server,e);advance(server,e,EventExecution.Phase.PREPARED,"Exact recovery requested by "+player.getUuidAsString());}
         else if(e.phase()!=EventExecution.Phase.EVENT_OUTCOME&&e.phase()!=EventExecution.Phase.WORLD_COMMITTED)attach(server,e);
         r.attached=e.operationId();
@@ -211,7 +217,7 @@ public final class EventRuntime {
     }
 
     private static void finishMedia(MinecraftServer server,EventExecution e)throws IOException{
-        if(!eligible(server,e.configuration(),e.session(),e.source(),e.actor(),false))return;
+        if(!outcomeEligible(server,e))return;
         SoundEvent sound=sound(e.configuration().definition().sound());
         var eligible=PlayRuntime.eligiblePlayers(server);var pinnedRecipients=e.recipients();var recipients=eligible.stream().filter(p->pinnedRecipients.contains(p.getUuid())).toList();
         e=advance(server,e,EventExecution.Phase.MEDIA_CLAIMED,"Media claim persisted before network delivery.");
@@ -224,6 +230,14 @@ public final class EventRuntime {
     private static EventExecution advance(MinecraftServer server,EventExecution e,EventExecution.Phase phase,String detail)throws IOException{
         try{return PlayRuntime.service(server).advanceExecution(e.eventId(),e.operationId(),phase,detail);}catch(IOException failure){fail(server,failure);throw failure;}
     }
+    /** Physical outcome is already authoritative. Finish even if its original actor/audience left; never catch up offline media. */
+    private static boolean outcomeEligible(MinecraftServer server,EventExecution e){
+        try{return active(server).sessionNumber()==e.session()
+                &&configuration(server,e.eventId()).equals(e.configuration())
+                &&!RuntimeHolds.heldByOthers(server,OWN_HOLDS);}
+        catch(RuntimeException failure){return false;}
+    }
+    private static UUID authority(MinecraftServer server,EventExecution e){var r=runtime(server);return e.operationId().equals(r.recoveryOperation)?r.recoveryActor:e.actor();}
     private static boolean eligible(MinecraftServer server,EventConfiguration c,int session,PlayState.DeliverySource source,UUID actor,boolean initial){
         try{
             var campaign=active(server);if(campaign.sessionNumber()!=session||!flagSatisfied(c,campaign)||RuntimeHolds.heldByOthers(server,OWN_HOLDS))return false;
@@ -264,6 +278,6 @@ public final class EventRuntime {
     private static void notifyActor(MinecraftServer server,UUID actor,String text){if(actor!=null){var player=server.getPlayerManager().getPlayer(actor);if(player!=null)player.sendMessage(Text.literal(text),false);}}
     private static void write(MinecraftServer server,Write action)throws IOException{try{action.run();}catch(IOException failure){fail(server,failure);throw failure;}}
     private static void fail(MinecraftServer server,Exception failure){var r=WORLDS.get(server);if(r!=null)r.failure=PlayRuntime.message(failure);RuntimeHolds.hold(server,HOLD,"An Event needs recovery; execution evidence has been preserved.");ChronicleCore.LOGGER.error("Event coordination stopped; no automatic replay",failure);}
-    private static final class Runtime{UUID preparing,attached;long retryAt;String failure;final Map<String,String> invalid=new HashMap<>();}
+    private static final class Runtime{UUID preparing,attached,recoveryOperation,recoveryActor;long retryAt;String failure;final Map<String,String> invalid=new HashMap<>();}
     @FunctionalInterface private interface Write{void run()throws IOException;}
 }

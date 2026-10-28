@@ -79,6 +79,7 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.testing.PlayerRolesTrial.register();
         io.github.chronicle.core.server.testing.AreaChangesTrial.register();
         io.github.chronicle.core.server.testing.EventActionsTrial.register();
+        io.github.chronicle.core.server.testing.EventRecoveryTrial.register();
         io.github.chronicle.core.server.testing.DeparturesTrial.register();
         io.github.chronicle.core.server.testing.SubtypesTrial.register();
         AuthoringPreviewPayload.register();

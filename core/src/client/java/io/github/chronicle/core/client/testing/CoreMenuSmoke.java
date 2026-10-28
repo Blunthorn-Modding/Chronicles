@@ -261,13 +261,13 @@ public final class CoreMenuSmoke {
             }
             case 32 -> awaitView(() -> screen(client).state().detail() != null && screen(client).state().detail().id().equals("cue:quiet_below:city_presence"),
                     "selected unconfigured cue");
-            case 33 -> { capture(client, "menu-event-detail-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); snapshot("unconfigured event before preview", playFile); previewMessageCount = chatCount(CITY_MESSAGE); require(press(screen(client), "Preview cue"), "event preview unavailable"); waitingFor = viewCount; step++; }
+            case 33 -> { capture(client, "menu-event-detail-" + client.getWindow().getScaledWidth() + "x" + client.getWindow().getScaledHeight() + ".png"); snapshot("unconfigured event before preview", playFile); previewMessageCount = chatCount(CITY_MESSAGE); require(press(screen(client), "Preview privately"), "event preview unavailable"); waitingFor = viewCount; step++; }
             case 34 -> awaitView(() -> previewChatArrived(CITY_MESSAGE) && sameSnapshot("unconfigured event before preview", playFile), "paused unconfigured City preview sends private chat without changing play ledger");
             case 35 -> {
                 // This action uses the normal screen callback and server route;
                 // no public delivery or completion is asserted from a sample.
                 previewMessageCount = chatCount(CITY_MESSAGE);
-                if (press(screen(client), "Preview sound")) { waitingFor = viewCount; step++; }
+                if (press(screen(client), "Preview privately")) { waitingFor = viewCount; step++; }
                 else { checks.add("cue has no private audio in this fixture"); step = 37; }
             }
             case 36 -> awaitView(() -> previewChatArrived(CITY_MESSAGE) && sameSnapshot("unconfigured event before preview", playFile), "City playback includes private chat and leaves play ledger unchanged");
@@ -353,9 +353,9 @@ public final class CoreMenuSmoke {
             case 92 -> awaitView(() -> screen(client).state().page() == Page.EVENTS, "opened Events for distant preview");
             case 93 -> { screen(client).selectForTest("cue:quiet_below:distant_stir"); waitingFor = viewCount; step++; }
             case 94 -> awaitView(() -> "cue:quiet_below:distant_stir".equals(screen(client).state().selected()), "selected unconfigured Distant stirring");
-            case 95 -> { snapshot("distant preview", playFile); previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview cue"), "Distant preview unavailable"); waitingFor = viewCount; step++; }
+            case 95 -> { snapshot("distant preview", playFile); previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview privately"), "Distant preview unavailable"); waitingFor = viewCount; step++; }
             case 96 -> awaitView(() -> previewChatArrived(DISTANT_MESSAGE) && sameSnapshot("distant preview", playFile), "paused Distant preview sends private chat without changing play ledger");
-            case 97 -> { previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview sound"), "Distant playback unavailable"); waitingFor = viewCount; step++; }
+            case 97 -> { previewMessageCount = chatCount(DISTANT_MESSAGE); require(press(screen(client), "Preview privately"), "Distant playback unavailable"); waitingFor = viewCount; step++; }
             case 98 -> awaitView(() -> previewChatArrived(DISTANT_MESSAGE) && sameSnapshot("distant preview", playFile), "Distant playback includes private chat and leaves play ledger unchanged");
             case 99 -> { try { Files.writeString(output.resolve("preview-chat-checked"), "done", StandardCharsets.UTF_8); } catch (IOException e) { throw new IllegalStateException(e); } advance("both preview actions checked for both cues"); }
             case 100 -> {require(press(screen(client),"Game setup"),"Game setup unavailable");waitingFor=viewCount;step++;}

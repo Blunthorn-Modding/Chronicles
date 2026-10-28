@@ -613,15 +613,15 @@ public final class FabricRegressionSmoke {
 
     private void previewAndFireTimerObservation(MinecraftClient client) {
         capture("M8 timer state before backend preview", playRuntimeFile);
-        command(client, "review configured timer observation", "chronicle events run review cue \"quiet_below:distant_stir\"", ".*Recipients=2.*");
+        command(client, "review configured timer observation", "chronicle events run review cue \"quiet_below:distant_stir\"", ".*2 recipients.*");
         unchanged("M8 preview is read-only", "M8 timer state before backend preview", playRuntimeFile);
         command(client, "make B temporarily ineligible after review", "gamemode spectator ChronicleFabricB", ".*");
         capture("M8 state before stale audience confirmation", playRuntimeFile);
         command(client, "reviewed fire rejects changed audience", "chronicle events run confirm cue \"quiet_below:distant_stir\"", ".*(audience changed|Review this exact action).*$");
         unchanged("audience-change rejection creates no delivery", "M8 state before stale audience confirmation", playRuntimeFile);
         command(client, "restore B after reviewed audience rejection", "gamemode creative ChronicleFabricB", ".*");
-        command(client, "review restored timer audience", "chronicle events run review cue \"quiet_below:distant_stir\"", ".*Recipients=2.*");
-        command(client, "confirm reviewed timer delivery", "chronicle events run confirm cue \"quiet_below:distant_stir\"", ".*Event delivered once.*");
+        command(client, "review restored timer audience", "chronicle events run review cue \"quiet_below:distant_stir\"", ".*2 recipients.*");
+        command(client, "confirm reviewed timer delivery", "chronicle events run confirm cue \"quiet_below:distant_stir\"", ".*Event execution started.*");
         check("manual timer override records one private delivery", () -> require(observationDelivery("quiet_below:distant_stir").get("source").getAsString().equals("MANUAL"), "manual observation fire did not persist its source"));
         verifyEmptyParticipationClock(client);
     }

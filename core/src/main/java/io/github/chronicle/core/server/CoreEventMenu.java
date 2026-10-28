@@ -29,6 +29,15 @@ import java.util.Optional;
 final class CoreEventMenu {
     private CoreEventMenu() { }
 
+    /** Creation belongs to the Events list, independent of its selected event kind. */
+    static Detail withCreator(ServerPlayerEntity player,Detail selected){
+        if(selected.controls().stream().anyMatch(c->c.action()==Action.EVENT_NEW))return selected;
+        List<Control> controls=new ArrayList<>(detail(player,"",false).controls());controls.addAll(selected.controls());
+        return new Detail(selected.id(),selected.title(),selected.description(),selected.facts(),controls,
+                selected.loot(),selected.event(),selected.region(),selected.book(),selected.lore(),selected.role(),
+                selected.roleAssignment(),selected.area(),selected.departure());
+    }
+
     static List<Entry> entries(MinecraftServer server) {
         return EventRuntime.configurations(server).values().stream()
                 .map(configuration -> {
@@ -68,9 +77,9 @@ final class CoreEventMenu {
     static Detail detail(ServerPlayerEntity player, String selected, boolean reviewed) {
         MinecraftServer server = player.getEntityWorld().getServer();
         boolean editing = AuthoringRuntime.isAuthor(player);
-        boolean canEdit = player.getCommandSource().hasPermissionLevel(2) && editing && AuthoringRuntime.editable(server);
+        boolean canEdit = player.getCommandSource().hasPermissionLevel(2) && editing && AuthoringRuntime.editable(server) && !held(server);
         boolean active = ChronicleRuntime.service(server).state().phase().name().equals("ACTIVE");
-        String editReason = active ? "Pause play to edit Events." : "Enable editing to change Events.";
+        String editReason = held(server)?"Finish pending operations before editing Events.":active ? "Pause play to edit Events." : "Enable editing to change Events.";
         ArrayList<Fact> facts = new ArrayList<>();
         ArrayList<Control> controls = new ArrayList<>();
         boolean room = EventRuntime.configurations(server).size() < ObservationCatalog.MAX_DEFINITIONS;
@@ -117,10 +126,10 @@ final class CoreEventMenu {
                 false, ""));
         if (reviewed) controls.add(control(Action.EVENT_RUN, "Run event", true, "", true, ""));
         if (configuration.enabled() && configuration.mode() != PlayState.Mode.MANUAL) {
-            controls.add(control(Action.EVENT_DISABLE_AUTO, "Disable automatic trigger", canEdit, editReason, true, ""));
+            controls.add(control(Action.EVENT_DISABLE_AUTO, "Disable automatic trigger", canEdit && !unresolved, unresolved?"Resolve the current Event execution first.":editReason, true, ""));
         }
         if (configuration.enabled() && !custom) {
-            controls.add(control(Action.EVENT_REMOVE, "Remove event configuration", canEdit, editReason, true, ""));
+            controls.add(control(Action.EVENT_REMOVE, "Remove event configuration", canEdit && !unresolved, unresolved?"Resolve the current Event execution first.":editReason, true, ""));
         }
         if (execution != null && execution.phase() == EventExecution.Phase.MEDIA_UNCERTAIN) {
             controls.add(control(Action.EVENT_ACK_MEDIA, "Acknowledge uncertain delivery", true, "", true, ""));
