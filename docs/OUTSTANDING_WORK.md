@@ -9,7 +9,7 @@
 3. **Balance on that map (QB-08/09/12/13).** Tune spread rates/count amplification, vitality/stages, crop/healing benefits and contact costs, Forge availability/recipes, Altar sacrifices and Heart weakness/defence. Existing mechanics are implemented and individually tested; balance needs actual geography and players.
 4. **Coherent group and operations review (QB-11 / M13).** Ordinary players and GMs should test discoveries, information boundaries, coexistence/containment/eradication and voluntary ship departure together. Check voice/audibility, late joining, reconnects and realistic long-running load/chunk behavior. Synthetic city-scale, interruption and recovery proofs already exist; they do not replace this playtest.
 
-The organizer-requested three-hour normal vanilla-world soak is running separately with two native clients and a real Ancient City. See [the workload and acceptance rules](PERFORMANCE_SOAK.md) and `../reports/long-soak-latest.json`. Its final result is pending; it does not replace the handcrafted-map/group/voice gates.
+The organizer-requested three-hour normal vanilla-world soak completed with two native clients and a real Ancient City. Average 20.00 TPS, timing budgets and participant continuity passed. The original overall verdict is FAIL because a topology-availability counter reached 6.21% against its 5% budget; that metric also counts routine incremental extensions. Refine availability instrumentation and fix the completed-run client shutdown handshake before a conclusive rerun. See [results and limitations](PERFORMANCE_SOAK_RESULTS.md). This does not replace the handcrafted-map/group/voice gates.
 
 ## Deferred implementation, separate from those gates
 

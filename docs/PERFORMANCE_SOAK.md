@@ -49,8 +49,8 @@ Elapsed duration is separate from performance success. A performance PASS requir
 
 JFR/profile instrumentation adds overhead. The callback span runs from the Fabric start hook to this observer after ecology's end hook; it is not a claim to measure every possible later callback. Heap samples alone cannot establish a leak. An unexpected hold or a failed budget requires analysis of CSV/JFR/logs; three hours elapsing is insufficient evidence that the mod passed.
 
-Build and scripting checks passed before launch. Actual long-run acceptance remains pending until `report.json` is terminal. Startup evidence is recorded separately in `../reports/long-soak-launch.json` and the active run directory.
+Build and scripting checks passed before launch. Startup evidence is recorded separately in `../reports/long-soak-launch.json` and the run directory. The 28 October run has finished; see [the results analysis](PERFORMANCE_SOAK_RESULTS.md) for its original FAIL verdict and the counter/shutdown limitations.
 
-## Active run, 28 October 2026
+## Completed run, 28 October 2026
 
-Reports: `../reports/long-soak-20261028T185441855389Z`; controller PID 53992. Measurement started at **19:01:10 UTC / 20:01 Berlin** and is due to end at **22:01:10 UTC / 23:01 Berlin**. The complete 83,691-cell native census/index, natural Heart unload and 69,366-rooted-cell certification passed. Initial telemetry has two eligible clients, about 20 TPS and increasing owned sculk/growth attempts. `../reports/long-soak-validation.json` records startup verification; **the three-hour result remains pending**.
+Reports: `../reports/long-soak-20261028T185441855389Z`; former controller PID 53992. Measurement ran **19:01:10 to 22:01:10 UTC / 20:01 to 23:01 Berlin**, followed by a clean saving stop. All isolated processes have ended. The complete native index, participant continuity and timing checks passed. **The overall report is FAIL:** the unexpected-unavailability counter was 6.21%, above its 5% budget. That counter also includes normal graph extensions; client shutdown files have a separate supervisor acknowledgement race. See [the results analysis](PERFORMANCE_SOAK_RESULTS.md); neither limitation has been repaired or rerun yet.
