@@ -1485,7 +1485,7 @@ public final class CoreMenuScreen extends Screen {
         if (editor.openingToken() != state.token()) { popup.markStale(); return; }
         if (pending) return;
         pendingEventEditor = editor;
-        request(Action.OPTIONS, Page.EVENTS, state.selected(), kind, editor.openingToken(), state.index(), state.filter(), query, false);
+        request(Action.OPTIONS, Page.EVENTS, state.selected(), kind, editor.openingToken(), page, state.filter(), query, false);
     }
 
     private void sendEventEditor(EventEditorScreen editor, EventEditorForm form, boolean preview) {

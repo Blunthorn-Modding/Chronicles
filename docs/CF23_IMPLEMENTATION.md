@@ -1,6 +1,6 @@
 # CF23: Event-driven flag progression
 
-28 October 2026. **Implemented for organizer review**, authorized by the organizer after the [progression plan](EVENT_FLAG_PROGRESSION_PLAN.md). Branch `feat/event-flag-progression`; no main merge. Authenticated dev63 is running at `127.0.0.1:25589` with the matching client pack. The saved review world and paused session5 are retained; the prior Building Mode On choice was restored after restart. See the [combined review guide](CF23_REVIEW.md).
+28 October 2026. **Implemented for organizer review**, authorized by the organizer after the [progression plan](EVENT_FLAG_PROGRESSION_PLAN.md). Branch `feat/event-flag-progression`; no main merge. The original dev63 delivery retained the saved review world and session. The organizer now confirms its functionality; see the [dev64 picker correction](PICKER_NAVIGATION.md) and [current outstanding work](OUTSTANDING_WORK.md) for the latest delivery state. See the [combined review guide](CF23_REVIEW.md).
 
 ## Agreed behavior and ownership
 

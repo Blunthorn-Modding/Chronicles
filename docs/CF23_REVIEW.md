@@ -1,6 +1,6 @@
 # Event progression review
 
-Use the updated dev63 client pack and the preset server `127.0.0.1:25589`. The existing review world and paused session are retained. Building Mode has been restored to the organizer's previous On choice.
+Use the latest matching client pack and the preset server `127.0.0.1:25589`. The existing review world and the organizer's saved play state are retained.
 
 For authoring, pause play and enable Editing. For gameplay checks, use Survival, participation On and Editing Off, then resume play.
 

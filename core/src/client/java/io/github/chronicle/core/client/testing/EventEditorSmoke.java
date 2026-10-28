@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.AccessibilityOnboardingScreen;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
@@ -48,6 +49,10 @@ public final class EventEditorSmoke {
     private boolean complete;
     private boolean cancellationIssued, cancellationVerified;
     private String campaignBeforeCancel, campaignAfterCreate, selectedGame, selectedWorld, sourceBook;
+    private final java.util.Set<String> pickerVisited = new java.util.HashSet<>(), pickerAll = new java.util.HashSet<>();
+    private List<io.github.chronicle.core.menu.CoreMenuModel.Entry> pickerFirstPage;
+    private boolean pickerReturned;
+    private int pickerMoves;
 
     private EventEditorSmoke(Path output, Path serverRoot) throws IOException {
         this.output = output.toAbsolutePath().normalize(); this.serverRoot = serverRoot.toAbsolutePath().normalize();
@@ -150,7 +155,43 @@ public final class EventEditorSmoke {
                 e.setDraftForTest("name", "Smoke Event"); e.setDraftForTest("id", "chronicle_core:smoke_event");
                 require(e.pressForTest(">"), "When navigation unavailable"); checks.add("Create opens the Event flow and Cancel remains local without a write"); step++;
             }
-            case 9 -> { EventEditorScreen e=editor(client); frame(client,e); require("WHEN".equals(e.pageForTest()), "When section missing"); require(pressPrefix(e,"Trigger:"), "trigger picker unavailable"); step++; }
+            case 9 -> { EventEditorScreen e=editor(client); frame(client,e); require("WHEN".equals(e.pageForTest()), "When section missing"); require(pressPrefix(e,"Trigger:"), "trigger picker unavailable"); step=900; }
+            case 900 -> {
+                if (!(client.currentScreen instanceof CatalogAddPopup p)) return;
+                if(((EventEditorScreen)p.parentScreen()).parentMenu().pending())return;
+                var picker=((EventEditorScreen)p.parentScreen()).parentMenu().state().picker();
+                if(picker==null||!picker.kind().equals("EVENT_TRIGGER")||!picker.query().isEmpty())return;
+                require(++pickerMoves<80,"picker failed to reach its final entries");
+                if(pickerFirstPage==null){require(picker.pages()>1,"trigger fixture needs multiple pages");pickerFirstPage=picker.entries();capture(client,"trigger-picker.png");}
+                for(var entry:picker.entries()){pickerAll.add(entry.id());if(popupHasRow(p,entry.label()))pickerVisited.add(entry.id());}
+                if(popupActive(p,"↓")){pressPopup(p,"↓");return;}
+                require(picker.page()==picker.pages()-1&&picker.entries().size()<12,"Down stopped before the short final page");
+                require(pickerVisited.equals(pickerAll),"scrolling skipped catalog entries");checks.add("Up Down reaches every trigger across server pages without separate page controls");step=901;
+            }
+            case 901 -> {
+                if (!(client.currentScreen instanceof CatalogAddPopup p)) return;
+                if(((EventEditorScreen)p.parentScreen()).parentMenu().pending())return;
+                var picker=((EventEditorScreen)p.parentScreen()).parentMenu().state().picker();
+                if(picker.page()==0&&!pickerReturned){int rows=Math.clamp((client.getWindow().getScaledHeight()-176)/20,1,6);require(popupHasRow(p,pickerFirstPage.get(Math.max(0,pickerFirstPage.size()-rows)).label()),"previous page did not return to its last rows");pickerReturned=true;}
+                require(++pickerMoves<150,"picker failed to return to its start");
+                if(popupActive(p,"↑")){pressPopup(p,"↑");return;}
+                require(picker.page()==0&&pickerReturned&&popupHasRow(p,pickerFirstPage.getFirst().label()),"Up stopped before the first entry");
+                popupSearch(p,"Forge");pressPopup(p,"Find");step=902;
+            }
+            case 902 -> {
+                if (!(client.currentScreen instanceof CatalogAddPopup p)) return;
+                if(((EventEditorScreen)p.parentScreen()).parentMenu().pending())return;
+                var picker=((EventEditorScreen)p.parentScreen()).parentMenu().state().picker();
+                if(!picker.query().equals("Forge"))return;
+                require(picker.page()==0&&picker.entries().size()==1&&picker.entries().getFirst().id().equals("chronicle_core:forge_completed"),"search did not reset the catalog");
+                require(!popupActive(p,"↑")&&!popupActive(p,"↓"),"single search result still scrolls");popupSearch(p,"");pressPopup(p,"Find");step=903;
+            }
+            case 903 -> {
+                if (!(client.currentScreen instanceof CatalogAddPopup p)) return;
+                if(((EventEditorScreen)p.parentScreen()).parentMenu().pending())return;
+                var picker=((EventEditorScreen)p.parentScreen()).parentMenu().state().picker();if(!picker.query().isEmpty())return;
+                require(picker.page()==0&&popupHasRow(p,pickerFirstPage.getFirst().label()),"cleared search did not return to the start");checks.add("Up returns through prior pages and search resets scrolling without losing entries");step=10;
+            }
             case 10 -> { selectPopup(client, "chronicle_core:book_found", "selected Book found source through the shared picker"); if (step==11) step=1001; }
             case 1001 -> { EventEditorScreen e=editor(client); frame(client,e); require(e.visibleWidgetBoundsForTest().stream().anyMatch(w -> w.label().contains("Book found")), "system trigger did not display its catalog label"); capture(client,"event-when.png"); checks.add("captured When section"); require(pressPrefix(e,"Trigger:"), "trigger picker unavailable after source"); step=1002; }
             case 1002 -> { selectPopup(client, "CONDITION", "selected the flags-On trigger through the shared picker"); if (step==1003) step=11; }
@@ -255,6 +296,14 @@ public final class EventEditorSmoke {
         var buttons=editor.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).filter(b -> b.active && b.getMessage().getString().equals("Remove")).toList();
         if (index >= buttons.size()) return false; buttons.get(index).onPress(new net.minecraft.client.input.MouseInput(0,0)); return true;
     }
+    private static boolean popupHasRow(CatalogAddPopup popup,String label) {
+        return popup.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast)
+                .anyMatch(b->b.visible&&(b.getMessage().getString().equals(label)||b.getMessage().getString().equals("> "+label)));
+    }
+    private static void popupSearch(CatalogAddPopup popup,String query) {
+        popup.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance)
+                .map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).findFirst().orElseThrow().setText(query);
+    }
     private static boolean popupActive(CatalogAddPopup popup, String label) {
         return popup.children().stream().filter(net.minecraft.client.gui.widget.ButtonWidget.class::isInstance).map(net.minecraft.client.gui.widget.ButtonWidget.class::cast).anyMatch(b -> b.getMessage().getString().equals(label) && b.active);
     }
@@ -296,6 +345,12 @@ public final class EventEditorSmoke {
         int contentWidth=Math.min(440,Math.max(240,width-24)), rows=Math.clamp((height-176)/20,1,6), panelHeight=150+rows*20;
         int left=(width-contentWidth)/2-6, top=Math.max(8,(height-panelHeight)/2)-6;
         var widgets=popup.children().stream().filter(net.minecraft.client.gui.widget.ClickableWidget.class::isInstance).map(net.minecraft.client.gui.widget.ClickableWidget.class::cast).filter(w -> w.visible).toList();
+        require(widgets.stream().noneMatch(w -> w.getMessage().getString().equals("<") || w.getMessage().getString().equals(">")), "redundant picker page controls remain");
+        if(popup.parentScreen() instanceof EventEditorScreen e && e.parentMenu().state().picker()!=null) {
+            for(var entry:e.parentMenu().state().picker().entries())if(!entry.kind().equals("ITEM")&&!entry.kind().equals("BOOK"))
+                for(var widget:widgets)if(widget.getMessage().getString().equals(entry.label())||widget.getMessage().getString().equals("> "+entry.label()))
+                    require(widget.getX()==left+6&&widget.getWidth()==contentWidth,"text-only picker row is not centered");
+        }
         for(var w:widgets) require(w.getX()>=left && w.getY()>=top && w.getX()+w.getWidth()<=left+contentWidth+12 && w.getY()+w.getHeight()<=top+panelHeight && w.getX()+w.getWidth()<=width && w.getY()+w.getHeight()<=height, "picker widget escapes backdrop: "+w.getMessage().getString());
         for(int a=0;a<widgets.size();a++) for(int b=a+1;b<widgets.size();b++) { var x=widgets.get(a); var y=widgets.get(b); require(x.getX()+x.getWidth()<=y.getX() || y.getX()+y.getWidth()<=x.getX() || x.getY()+x.getHeight()<=y.getY() || y.getY()+y.getHeight()<=x.getY(), "picker widgets overlap"); }
     }

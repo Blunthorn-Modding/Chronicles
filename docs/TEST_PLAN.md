@@ -1,5 +1,15 @@
 # Bootstrap validation
 
+## 28 October: dev64 shared picker navigation/alignment
+
+[Change and diagnosis](PICKER_NAVIGATION.md), [current outstanding work](OUTSTANDING_WORK.md). Final `workspace.build()` PASS2m4s:633 Java tests,628passed/5Windows symlink-privilege skips, no failures/errors; Python unittest discovery PASS93. No new unit tests mirror this low-impact UI patch; the regression drives actual paging and widgets. Matching artifact hashes are in `../reports/dev64-validation.json`.
+
+- `python scripts/event_editor_smoke.py`: PASS39 at logical320x240 and640x360, `event-editor-smoke-20261028T174230946797Z` and `event-editor-smoke-20261028T174438118813Z`. Up/Down reaches all triggers on both server pages including the short last page; backward movement lands at the preceding page's last rows and returns to the first entry. Find/clear resets scrolling. No separate page widgets remain; text-only row bounds are centered. Existing save/preview/prerequisite/action/stale checks pass. Both trigger frames visually inspected.
+- `python scripts/menu_smoke.py`: PASS `core-menu-smoke-20261028T174637936008Z`,110operator/11ordinary checks, three additional layouts and real restart pass21each. Shared item/book search/add/cancel and existing management/permission behavior pass. Dedicated UI design and final read-only source review clear; diff, Python syntax and changed local links pass.
+- Authenticated dev64 at127.0.0.1:25589/voice24469 preserves organizer ACTIVEsession5, BuildingModeOFF and saved world/config. Stopped/CRC/hash backupserver-20261028T175442166482Z.zip verified;105protected files exact atswap and30readable gameplay/config/access files unchanged after startup/probes. Matching pack CRC/owned jars/licenses/preferences/livepreset/auth773/OP4/zero forcedchunks/absent test and obsolete roots PASS `combined-dev64-deployment.json`.
+
+This is a client UI correction, with no domain/schema/protocol changes. Unrelated ecology/Event executor/full-volume/group/voice behavior is not recertified. The five existing Windows skips remain the same as dev63 below.
+
 ## 28 October: CF23 dev63 Event-driven flag progression
 
 [Implementation](CF23_IMPLEMENTATION.md), [dedicated UI design](CF23_EVENT_UI_DESIGN.md) and [combined review](CF23_REVIEW.md). Final `python -u -c "import sys;sys.path.insert(0,'scripts');import workspace as w;w.build()"` PASS2m5s: **633 Java tests, 628 passed and 5 Windows symlink-privilege skips**, zero failures/errors. Python unittest discovery PASS93. AST, changed local documentation links and `git diff --check` pass. Final source/UI reviews are clear; lead inspected source diffs and native frames. Exact counts, skip names, reports and artifact hashes are in `../reports/dev63-validation.json`.

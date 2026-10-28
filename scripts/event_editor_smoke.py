@@ -101,6 +101,8 @@ def run() -> None:
         result = _read(reports / 'event-editor.json')
         required = {
             'opened native Chronicle menu',
+            'Up Down reaches every trigger across server pages without separate page controls',
+            'Up returns through prior pages and search resets scrolling without losing entries',
             'Create opens the Event flow and Cancel remains local without a write',
             'captured When section',
             'captured Requirements section',
