@@ -57,7 +57,7 @@ Recommended first source integrations after the Event foundation: departure, Alt
 - Prerequisites are gates. No prerequisite means no flag gate; several prerequisites use All/AND.
 - A flag-gated countdown starts when all required flags are On during eligible active play, not when the Event was created or the play window began. An already-satisfied gate starts on the next eligible active tick after arming.
 - Pause, Building Mode, operation holds, lack of eligible participants and downtime do not consume countdown time. Connected non-participants, editors, spectators and departed players do not keep the clock running. An already-On gate waits for eligible active play to start its countdown. The remaining time survives reconnects, server restarts and later play windows. Preserve the existing eligibility policy; individual station providers retain their stricter interaction rules.
-- **Organizer choice pending:** if a prerequisite turns Off after the countdown begins, pause/resume the remaining countdown, keep counting but wait to execute, or reset it. Recommended default is pause/resume without discarding accumulated time. This is not yet an accepted gameplay rule.
+- **Organizer decision confirmed:** if any required flag turns Off, reset the countdown and discard its accumulated time. Start the full configured delay again once all required flags are On and eligible active play can advance. Ordinary play pauses preserve the countdown when its flags remain On. Persist flag transitions so a brief Off -> On between dispatch ticks cannot evade the reset.
 - Check prerequisites again before starting real effects. A flag update by one Event is considered by dependent Events on a later eligible dispatch tick, avoiding recursive execution inside a callback.
 - Keep the existing deliberate rearm model: an Event completes once until a GM allows it again. Flags and progress remain campaign-wide across play windows. Automatic session resets are not introduced.
 - First visit uses the current entry semantics: an eligible player already inside when play starts or reconnects may establish discovery. Editing/spectating/departed characters do not count. Repeated visits do not repeatedly complete the once-only Event.
@@ -98,7 +98,7 @@ The critical implementation work is outcome persistence, not merely calling the 
 
 ## Proposed implementation sequence
 
-1. **Review this behavior/UI plan.** Resolve countdown behavior when a gate turns Off. A dedicated native UI design/review precedes editor changes, as established for this project.
+1. **Review this behavior/UI plan.** The organizer has selected a full countdown reset when any prerequisite turns Off; the remaining plan still awaits review. A dedicated native UI design/review precedes editor changes, as established for this project.
 2. **Event progression foundation in Core:** multi-flag All prerequisites, atomic flag outcomes including silent Events, provenance/relationships and migration/recovery. Prove Region entry -> set flag -> another Event allowed.
 3. **Prerequisite-started timers in Core:** persist activation/elapsed progress, phase/occupancy guards, restart and deliberate rearm. Prove two prerequisite Events -> full delayed Event, with no save-time countdown credit.
 4. **Existing system triggers:** departure, successful Altar prayer, successful Forge enchantment, lore discovery and Region state applied. Connect durable success evidence and ensure final departure completion records its fact even if it concludes play.
@@ -108,7 +108,7 @@ Foundation and timer slices can be reviewed together. System integrations can fo
 
 ## Acceptance and verification
 
-- Unit tests: all prerequisites, atomic On/Off patches, duplicate operation IDs and later overrides, conditional activation, timer choice, arming/edit/rearm, schema1/2 reads and archive/in-flight compatibility.
+- Unit tests: all prerequisites, atomic On/Off patches, duplicate operation IDs and later overrides, conditional activation, full timer reset when any prerequisite turns Off (including Off -> On between dispatch ticks), arming/edit/rearm, schema1/2 reads and archive/in-flight compatibility.
 - Native chain: first eligible City visit sets only the configured flags; opening/previewing/editing does not; all required flags start a full countdown; a successful outcome can unlock a later Event.
 - Native clocks: pause, Building Mode, empty play, holds, disconnect/reconnect and restart preserve the chosen countdown semantics without downtime credit.
 - Native sources: departure cancellations/refusals vs completion; Altar menu/refusal vs purchase; Forge scraps/capped unchanged gear vs actual enchantment; inventory discovery vs book preview; template capture vs state apply; Heart ended vs cleanup complete.
