@@ -4,15 +4,34 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import io.github.chronicle.core.books.BookConfig;
 import io.github.chronicle.core.menu.EventEditorForm;
+import io.github.chronicle.core.play.EventSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EventEditorJsonTest {
+    @Test void readsExactLegacyShapeAndWritesOnlyCurrentShape() {
+        EventEditorForm form = new EventEditorForm("test:event", 1, "Event", "", "", "", "PARTICIPANTS", "", 0,
+                "MANUAL", "", 0, 0, "test:ready", List.of(), true);
+        JsonObject legacy = BookConfig.strictObject(EventEditorJson.encode(form));
+        legacy.remove("requiredFlags"); legacy.remove("flagChanges"); legacy.remove("source");
+        legacy.addProperty("flag", "test:ready");
+        assertEquals(form, EventEditorJson.decode(legacy.toString()));
+        JsonObject mixed = legacy.deepCopy(); mixed.add("flagChanges", new JsonObject());
+        assertThrows(IllegalArgumentException.class, () -> EventEditorJson.decode(mixed.toString()));
+        EventEditorForm current = new EventEditorForm(form.id(), form.revision(), form.name(), "", "", "", "PARTICIPANTS", "", 0,
+                "SYSTEM", "", 0, 10, List.of("test:a", "test:b"), List.of(), true,
+                Map.of("test:done", true, "test:reset", false), new EventSource("chronicle:book_opened", "test:book", "read"));
+        assertEquals(current, EventEditorJson.decode(EventEditorJson.encode(current)));
+        JsonObject encoded = BookConfig.strictObject(EventEditorJson.encode(current));
+        encoded.getAsJsonObject("flagChanges").addProperty("test:done", "true");
+        assertThrows(IllegalArgumentException.class, () -> EventEditorJson.decode(encoded.toString()));
+    }
     @Test
     void roundTripsCompleteAndIncompleteDraftsWithoutTrustingPresentationFields() {
         EventEditorForm complete = new EventEditorForm("quiet_below:sinkhole", 7, "Sinkhole", "Organizer note",

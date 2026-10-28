@@ -249,7 +249,7 @@ def run(include_content=True, regression=True):
                 if len(automatic['arrivals']) != 1 or automatic['arrivals'][0]['status'] != expected_arrival:
                     raise RuntimeError('M7 once/uncertain automatic arrival history mismatch')
                 play = json.loads((root / 'world/chronicle/play-runtime.json').read_text(encoding='utf-8'))
-                if play.get('schemaVersion') != 2 or len(play.get('participants', [])) != 2 or len(play.get('bindings', [])) != 2:
+                if play.get('schemaVersion') != 3 or len(play.get('participants', [])) != 2 or len(play.get('bindings', [])) != 2:
                     raise RuntimeError('M8 explicit participation/binding persistence mismatch')
                 deliveries = {delivery['id']: delivery for delivery in play.get('deliveries', [])}
                 expected_city = 'DELIVERED' if phase == 'initial' else 'CLAIMED'

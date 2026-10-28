@@ -259,10 +259,12 @@ public final class RoleFirstEntry {
 
     private static void apply(MinecraftServer server, Runtime runtime, ServerPlayerEntity player, Plan plan) throws IOException {
         RoleEntryOperation operation = plan.operation;
+        boolean sourceOrigin=EventSources.active(player);
         runtime.service.prepare(operation); // A failed save publishes no entitlement claim and mutates nothing.
         hold(server, operation);
         try {
             recheck(server, player, plan);
+            for(RoleBookGrant book:operation.books())BookDeliveryRuntime.prepareDiscovery(server,book.bookId(),book.deliveryToken(),player.getUuid(),sourceOrigin,"rolebook:"+operation.operationId()+":"+book.deliveryToken());
             runtime.service.begin(player.getUuid(), operation.operationId()); // Claims precede every external side effect.
             if (plan.movement != null && !AutomaticPlayerSpawns.service(server).claim(player.getUuid(), plan.movement.purpose())) {
                 throw new IllegalStateException("starting-position history changed after role preflight");
@@ -281,6 +283,10 @@ public final class RoleFirstEntry {
             hold(server, runtime.service.state().operations().get(player.getUuid()));
             throw failure;
         }
+    }
+    static RoleEntryOperation sourceOperation(MinecraftServer server,UUID operation) {
+        Runtime runtime=WORLDS.get(server);if(runtime==null)throw new IllegalStateException("Role source authority unavailable");
+        return runtime.service.state().operations().values().stream().filter(value->value.operationId().equals(operation)).findFirst().orElse(null);
     }
 
     private static void recheck(MinecraftServer server, ServerPlayerEntity player, Plan plan) {

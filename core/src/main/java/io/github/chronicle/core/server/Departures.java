@@ -113,6 +113,10 @@ public final class Departures {
 
     public static DepartureService service(MinecraftServer server) { return runtime(server).service; }
     public static DepartureState state(MinecraftServer server) { return service(server).state(); }
+    static boolean sourceDefinitelyAbsent(MinecraftServer server,UUID id) {
+        Runtime r=WORLDS.get(server);if(r==null||r.failure!=null||r.pending!=null&&r.pending.operationId().equals(id)||r.offers.values().stream().anyMatch(offer->offer.review().operationId().equals(id)))return false;
+        try{r.store.verifyUnchanged();return !r.service.state().operations().containsKey(id);}catch(IOException failure){throw new IllegalStateException("Departure source refusal cannot be proved from its journal",failure);}
+    }
     public static boolean departed(MinecraftServer server, UUID player) { return state(server).isDeparted(player); }
     public static boolean concluded(MinecraftServer server) { return state(server).concluded().isPresent(); }
     public static List<String> references(MinecraftServer server, String areaId) {
@@ -340,13 +344,25 @@ public final class Departures {
                 review.actor(), review.roster(), review.concludeCampaign(), review.prepared(), review.createdAt());
         boolean committed = false;
         try {
+            var eventSource=new io.github.chronicle.core.play.EventSource("chronicle_core:departure_completed",review.definition().id(),"");
+            String authority="departure:"+review.operationId();
+            // validateReview has just pinned active eligibility, including this departure's own Area hold.
+            EventSources.prepare(server,EventSources.id(authority,eventSource.type(),eventSource.target(),""),eventSource,actor.getUuid(),true,authority);
+            if(review.prepared().isPresent()) {
+                var prepared=review.prepared().orElseThrow();var area=AreaChanges.catalog(server).areas().get(prepared.areaId());
+                EventSources.prepareRegion(server,prepared.operationId(),actor.getUuid(),area.bounds().regionId(),prepared.requestedState().name(),true,"area");
+            }
             DepartureOperation operation = runtime.service.begin(intent, review.departureStateRevision());
             committed = true;
             RuntimeHolds.hold(server, HOLD, "A committed departure is completing durable effects.");
             send(actor, offer, "Departure committed for the reviewed passengers. Durable effects are completing.", false, true, false);
             drive(server, runtime, operation);
         } catch (IOException | RuntimeException failure) {
-            if (!committed) releaseReview(server, review);
+            if (!committed) {
+                releaseReview(server, review);
+                try{if(sourceDefinitelyAbsent(server,review.operationId())){EventSources.cancelAuthority(server,"departure:"+review.operationId());if(review.prepared().isPresent())EventSources.cancelAuthority(server,"area:"+review.prepared().orElseThrow().operationId());}}
+                catch(RuntimeException uncertain){failure.addSuppressed(uncertain);if(!(uncertain instanceof EventSources.Unavailable))EventSources.fail(server,uncertain);}
+            }
             else ChronicleCore.LOGGER.error("Departure {} committed and remains held for recovery", review.operationId(), failure);
             if (!committed) throw failure;
         }

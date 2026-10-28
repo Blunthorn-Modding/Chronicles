@@ -42,6 +42,31 @@ public final class BookDeliveryRuntime {
         var t=tag(stack);if(t==null)return null;var ledger=service(s).state().bookDelivery();var d=ledger.deliveries().get(t.book);
         return ledger.campaignId().equals(t.campaign)&&d!=null&&d.deliveryToken().equals(t.token)&&(d.issued()||!d.pendingOperationIds().isEmpty())?t:null;
     }
+    /** Authentic managed identity only; labels and client-supplied book IDs are never accepted. */
+    public static String authenticBook(MinecraftServer server,ItemStack stack){var tag=authentic(server,stack);return tag==null?null:tag.book;}
+    public static String prepareDiscovery(MinecraftServer server,String book,String token,java.util.UUID actor,boolean activeOrigin){
+        return prepareDiscovery(server,book,token,actor,activeOrigin,"book:"+token);
+    }
+    static String prepareDiscovery(MinecraftServer server,String book,String token,java.util.UUID actor,boolean activeOrigin,String authority){
+        var delivery=service(server).state().bookDelivery().deliveries().get(book);if(delivery!=null&&delivery.firstDiscovery()!=null)return null;
+        if(authority.startsWith("book:")&&EventSources.pending(server).stream().anyMatch(receipt->receipt.target().equals(book)&&receipt.authority().equals(authority))) {
+            var failure=new IllegalStateException("An earlier discovery attempt for this book is uncertain; review its exact source receipt before retrying");EventSources.fail(server,failure);throw new EventSources.Unavailable(failure.getMessage(),failure);
+        }
+        var source=new io.github.chronicle.core.play.EventSource("chronicle_core:book_found",book,"");
+        String attempt=authority.startsWith("book:")?authority+"|attempt:"+java.util.UUID.randomUUID():authority;
+        return EventSources.prepare(server,EventSources.id(attempt,source.type(),book,""),source,actor,activeOrigin,authority);
+    }
+    static io.github.chronicle.core.progression.BookSourceRecovery.Decision inspectRecovery(MinecraftServer server,io.github.chronicle.core.progression.SourceLedger.Receipt receipt) {
+        var delivery=service(server).state().bookDelivery().deliveries().get(receipt.target());var player=receipt.actor()==null?null:server.getPlayerManager().getPlayer(receipt.actor());boolean authenticInventory=false;
+        if(player!=null)for(int slot=0;slot<player.getInventory().size();slot++){var tag=authentic(server,player.getInventory().getStack(slot));if(tag!=null&&tag.book.equals(receipt.target())&&receipt.authority().equals("book:"+tag.token)){authenticInventory=true;break;}}
+        return io.github.chronicle.core.progression.BookSourceRecovery.inspect(receipt,delivery,authenticInventory);
+    }
+    static void recoverDiscovery(MinecraftServer server,io.github.chronicle.core.progression.SourceLedger.Receipt receipt)throws IOException {
+        if(inspectRecovery(server,receipt)==io.github.chronicle.core.progression.BookSourceRecovery.Decision.RECORD_AUTHENTIC_INVENTORY) {
+            server.getPlayerManager().saveAllPlayerData();
+            service(server).recordDiscovery(receipt.target(),receipt.authority().substring(5),receipt.actor().toString(),now());
+        }
+    }
     static String stackJson(MinecraftServer s,BookDefinition b){
         JsonObject content=new JsonObject();content.addProperty("title",b.title());content.addProperty("author",b.author());content.addProperty("generation",0);content.addProperty("resolved",true);
         JsonArray pages=new JsonArray();for(String page:b.pages()){JsonObject text=new JsonObject();text.addProperty("text",page);pages.add(text);}content.add("pages",pages);
@@ -61,9 +86,11 @@ public final class BookDeliveryRuntime {
             for(int slot=0;slot<player.getInventory().size();slot++){
                 var t=authentic(server,player.getInventory().getStack(slot));if(t==null)continue;
                 var d=service(server).state().bookDelivery().deliveries().get(t.book);if(!d.issued()||d.firstDiscovery()!=null)continue;
+                String receipt=prepareDiscovery(server,t.book,t.token,player.getUuid(),EventSources.active(player));
                 service(server).recordDiscovery(t.book,t.token,player.getUuidAsString(),now());
+                EventSources.complete(server,receipt,true);
             }
-        }catch(IOException|RuntimeException e){RuntimeHolds.hold(server,"chronicle_core:book_delivery","Book discovery could not be saved; preserve inventories and inspect the server log.");io.github.chronicle.core.ChronicleCore.LOGGER.error("Book discovery held without discarding prior state",e);}
+        }catch(IOException|RuntimeException e){if(!(e instanceof EventSources.Unavailable))RuntimeHolds.hold(server,"chronicle_core:book_delivery","Book discovery could not be saved; preserve inventories and inspect the server log.");io.github.chronicle.core.ChronicleCore.LOGGER.error("Book discovery held without discarding prior state",e);}
     }
     private static boolean playing(MinecraftServer s){var c=ChronicleRuntime.available(s);return c!=null&&c.state().phase()==SessionPhase.ACTIVE&&s.getPlayerManager().getCurrentPlayerCount()>0;}
     private static boolean maintained(MinecraftServer s,String book){var r=service(s).state().bookDelivery().keepRequests().get(book);return r!=null&&r.status()!=BookKeepRequest.Status.CANCELLED&&r.status()!=BookKeepRequest.Status.COMPLETED_FOUND;}

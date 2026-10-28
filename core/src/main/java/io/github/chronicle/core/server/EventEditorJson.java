@@ -5,10 +5,15 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import io.github.chronicle.core.books.BookConfig;
 import io.github.chronicle.core.menu.EventEditorForm;
+import io.github.chronicle.core.play.EventJson;
+import io.github.chronicle.core.play.EventSource;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.List;
 
 /** Strict bounded network codec for the incomplete native Event editor draft. */
 public final class EventEditorJson {
@@ -17,6 +22,10 @@ public final class EventEditorJson {
             "id", "revision", "name", "description", "message", "sound", "audience", "audienceRegion",
             "audienceRegionRevision", "mode", "triggerRegion", "triggerRegionRevision", "seconds", "flag",
             "changes", "creating");
+    private static final Set<String> CURRENT_FIELDS = Set.of(
+            "id", "revision", "name", "description", "message", "sound", "audience", "audienceRegion",
+            "audienceRegionRevision", "mode", "triggerRegion", "triggerRegionRevision", "seconds", "requiredFlags",
+            "changes", "creating", "flagChanges", "source");
     private static final Set<String> CHANGE_FIELDS = Set.of(
             "regionId", "label", "state", "areaRevision", "snapshotHash", "dimension", "current", "problem");
 
@@ -38,7 +47,13 @@ public final class EventEditorJson {
         object.addProperty("triggerRegion", form.triggerRegion());
         object.addProperty("triggerRegionRevision", form.triggerRegionRevision());
         object.addProperty("seconds", form.seconds());
-        object.addProperty("flag", form.flag());
+        JsonArray requirements = new JsonArray();
+        form.requiredFlags().forEach(requirements::add);
+        object.add("requiredFlags", requirements);
+        JsonObject flags = new JsonObject();
+        form.flagChanges().forEach(flags::addProperty);
+        object.add("flagChanges", flags);
+        object.add("source", EventJson.encodeSource(form.source()));
         JsonArray changes = new JsonArray();
         for (EventEditorForm.Change change : form.changes()) {
             JsonObject value = new JsonObject();
@@ -62,7 +77,26 @@ public final class EventEditorJson {
     public static EventEditorForm decode(String encoded) {
         bounded(encoded);
         JsonObject object = BookConfig.strictObject(encoded);
-        exact(object, FIELDS, "event editor");
+        boolean legacy = object.has("flag");
+        exact(object, legacy ? FIELDS : CURRENT_FIELDS, "event editor");
+        List<String> requirements = new ArrayList<>();
+        Map<String, Boolean> flags = new TreeMap<>();
+        EventSource source = EventSource.empty();
+        if (legacy) {
+            String flag = string(object, "flag");
+            if (!flag.isEmpty()) requirements.add(flag);
+        } else {
+            JsonArray requiredFlags = array(required(object, "requiredFlags"), "event requirements");
+            if (requiredFlags.size() > EventEditorForm.MAX_FLAGS) throw new IllegalArgumentException("too many event requirements");
+            for (JsonElement value : requiredFlags) {
+                if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) throw new IllegalArgumentException("event requirement must be a string");
+                requirements.add(value.getAsString());
+            }
+            JsonObject patch = object(required(object, "flagChanges"), "event flag changes");
+            if (patch.size() > EventEditorForm.MAX_FLAGS) throw new IllegalArgumentException("too many event flag changes");
+            for (String flag : patch.keySet()) flags.put(flag, bool(patch, flag));
+            source = EventJson.decodeSource(object(required(object, "source"), "event source"));
+        }
         JsonArray values = array(required(object, "changes"), "event changes");
         if (values.size() > EventEditorForm.MAX_CHANGES) throw new IllegalArgumentException("too many event changes");
         ArrayList<EventEditorForm.Change> changes = new ArrayList<>(values.size());
@@ -79,7 +113,7 @@ public final class EventEditorJson {
                 string(object, "description"), string(object, "message"), string(object, "sound"),
                 string(object, "audience"), string(object, "audienceRegion"), number(object, "audienceRegionRevision"),
                 string(object, "mode"), string(object, "triggerRegion"), number(object, "triggerRegionRevision"),
-                number(object, "seconds"), string(object, "flag"), changes, bool(object, "creating"));
+                number(object, "seconds"), requirements, changes, bool(object, "creating"), flags, source);
     }
 
     private static void bounded(String encoded) {

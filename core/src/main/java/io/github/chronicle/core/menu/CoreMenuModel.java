@@ -24,10 +24,10 @@ public final class CoreMenuModel {
         SITE_SUBTYPES_OPEN, SITE_SUBTYPE_SET, REGION_BEGIN, AREA_CAPTURE_REVIEW, REGION_SAVE_REVIEW,
         BOOK_NEW, BOOK_EDIT_DETAILS, BOOK_EDIT_PAGES, BOOK_RULE, BOOK_CREATE, BOOK_SAVE, BOOK_RELOAD, BOOK_REF_ADD, BOOK_REF_REMOVE, BOOK_OPEN, CHEST_BOOK_SET, BOOK_KEEP, BOOK_KEEP_START, BOOK_KEEP_STOP, BOOK_KEEP_REVIEW, BOOK_GIVE_OPEN, BOOK_GIVE_REVIEW, BOOK_GIVE, LOOT_NEW,
         EVENT_NEW, EVENT_EDIT, EVENT_CREATE, EVENT_DEFINITION_SAVE, EVENT_DELETE, EVENT_DRAFT_PREVIEW, EVENT_SHOW_BOUNDS, EVENT_RECOVER, EVENT_ACK_MEDIA,
-        FLAG_CREATE
+        FLAG_CREATE, EVENT_SOURCE_REVIEW, EVENT_SOURCE_COMPLETE, EVENT_SOURCE_CANCEL, EVENT_SOURCE_RELOAD
     }
     public record Entry(String id, String label, String description, String kind, String reference, long revision) {
-        public Entry { text(id,160);text(label,160);text(description,2048);text(kind,32);text(reference,160);if(revision<0)throw new IllegalArgumentException("Invalid revision"); }
+        public Entry { text(id,320);text(label,160);text(description,2048);text(kind,32);text(reference,160);if(revision<0)throw new IllegalArgumentException("Invalid revision"); }
     }
     public record Fact(String label,String value) { public Fact {text(label,80);text(value,4096);} }
     /** input is an allowlisted picker/form kind, never a command string. */
@@ -79,7 +79,7 @@ public final class CoreMenuModel {
         public LoreForm{refs=List.copyOf(refs);tableUses=List.copyOf(tableUses);chestUses=List.copyOf(chestUses);if(refs.size()>27||tableUses.size()>12||chestUses.size()>12)throw new IllegalArgumentException("Lore form exceeds bounds");}
     }
     public record Picker(String kind,String query,int page,int pages,List<Entry> entries) {
-        public Picker {text(kind,32);text(query,80);entries=List.copyOf(entries);if(page<0||pages<1||page>=pages||entries.size()>12)throw new IllegalArgumentException("Invalid picker page");}
+        public Picker {text(kind,32);text(query,256);entries=List.copyOf(entries);if(page<0||pages<1||page>=pages||entries.size()>12)throw new IllegalArgumentException("Invalid picker page");}
     }
     /** Bounded typed policy data; the dialog never parses diagnostic prose for authority. */
     public record BlockLimitType(String typeId,String blockId,String label,String description,int count,int limit,boolean fixed) {

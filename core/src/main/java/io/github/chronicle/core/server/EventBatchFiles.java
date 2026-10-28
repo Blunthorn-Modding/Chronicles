@@ -92,7 +92,8 @@ final class EventBatchFiles {
 
     static final class Store{
         private final Path file;private Boolean observedPresent;private byte[] observedHash;private boolean loadedValid;
-        Store(MinecraftServer server){file=root(server).resolve("journal.bin");}
+        Store(MinecraftServer server){this(root(server).resolve("journal.bin"));}
+        Store(Path file){this.file=Objects.requireNonNull(file).toAbsolutePath().normalize();}
         synchronized Journal load()throws IOException{
             if(!Files.exists(file,LinkOption.NOFOLLOW_LINKS)){observedPresent=false;observedHash=null;loadedValid=true;return Journal.empty();}
             if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS)||Files.size(file)>MAX_JOURNAL_BYTES)throw new IOException("event batch journal type/size is invalid");
@@ -109,6 +110,11 @@ final class EventBatchFiles {
                 try{if(present)Files.move(temp,file,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);else Files.createLink(file,temp);}catch(AtomicMoveNotSupportedException failure){throw new IOException("atomic event batch journal replacement is unsupported",failure);}
                 observedPresent=true;observedHash=shaBytes(bytes);
             }finally{Files.deleteIfExists(temp);}
+        }
+        synchronized void verifyUnchanged()throws IOException{
+            if(!loadedValid||observedPresent==null)throw new IOException("load a valid Event batch authority before verifying");
+            boolean present=Files.exists(file,LinkOption.NOFOLLOW_LINKS);if(present!=observedPresent)throw new IOException("Event batch authority presence changed externally");
+            if(present&&(observedHash==null||!MessageDigest.isEqual(observedHash,shaBytes(readBounded(file,MAX_JOURNAL_BYTES)))))throw new IOException("Event batch authority changed externally");
         }
     }
 

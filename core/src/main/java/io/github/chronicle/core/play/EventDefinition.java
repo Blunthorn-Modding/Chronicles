@@ -14,15 +14,31 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Map;
+import java.util.Collections;
+import java.util.TreeMap;
 
 /** Immutable, revisioned authoring definition for a unified Chronicle Event. */
 public record EventDefinition(String id, long revision, String label, String description,
                               String text, String sound, ObservationCatalog.Audience audience,
                               Optional<EventRegionReference> audienceRegion,
-                              List<EventRegionChange> changes) {
+                              List<EventRegionChange> changes, Map<String, Boolean> flagChanges, int formatVersion) {
     public static final int MAX_CHANGES = 8;
     public static final int MAX_TOTAL_CELLS = 262_144;
     public static final int MAX_UNIQUE_CHUNKS = 64;
+    public static final int MAX_FLAGS = 32;
+
+    public EventDefinition(String id, long revision, String label, String description, String text, String sound,
+                           ObservationCatalog.Audience audience, Optional<EventRegionReference> audienceRegion,
+                           List<EventRegionChange> changes) {
+        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, Map.of(), 1);
+    }
+
+    public EventDefinition(String id, long revision, String label, String description, String text, String sound,
+                           ObservationCatalog.Audience audience, Optional<EventRegionReference> audienceRegion,
+                           List<EventRegionChange> changes, Map<String, Boolean> flagChanges) {
+        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, flagChanges, 2);
+    }
 
     public EventDefinition {
         ObservationCatalog.requireIdentifier(id, "event ID");
@@ -39,20 +55,34 @@ public record EventDefinition(String id, long revision, String label, String des
         }
         Objects.requireNonNull(changes, "event Region changes are required");
         changes = List.copyOf(changes);
+        if (formatVersion != 1 && formatVersion != 2) throw new IllegalArgumentException("unsupported event definition format");
+        Objects.requireNonNull(flagChanges, "event flag changes are required");
+        if (flagChanges.size() > MAX_FLAGS) throw new IllegalArgumentException("too many event flag changes");
+        TreeMap<String, Boolean> orderedFlags = new TreeMap<>();
+        for (var entry : flagChanges.entrySet()) {
+            ObservationCatalog.requireIdentifier(entry.getKey(), "event outcome flag");
+            orderedFlags.put(entry.getKey(), Objects.requireNonNull(entry.getValue(), "event flag value is required"));
+        }
+        flagChanges = Collections.unmodifiableMap(orderedFlags);
+        if (formatVersion == 1 && !flagChanges.isEmpty()) throw new IllegalArgumentException("legacy event definitions cannot change flags");
         if (changes.size() > MAX_CHANGES) {
             throw new IllegalArgumentException("an event may change at most " + MAX_CHANGES + " Regions");
         }
-        if (text.isBlank() && sound.isEmpty() && changes.isEmpty()) {
-            throw new IllegalArgumentException("an event requires text, sound or a Region change");
+        if (text.isBlank() && sound.isEmpty() && changes.isEmpty() && flagChanges.isEmpty()) {
+            throw new IllegalArgumentException("an event requires text, sound, a Region change or a flag change");
         }
         validateChanges(changes);
     }
+
+    public boolean hasMedia() { return !text.isBlank() || !sound.isEmpty(); }
+
+    public boolean progressOnly() { return !hasMedia() && changes.isEmpty() && !flagChanges.isEmpty(); }
 
     /** Stable digest of every field and every ordered target pin in this definition. */
     public String fingerprint() {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            update(digest, "chronicle:event-definition:v1");
+            update(digest, "chronicle:event-definition:v" + formatVersion);
             update(digest, id);
             update(digest, revision);
             update(digest, label);
@@ -64,6 +94,10 @@ public record EventDefinition(String id, long revision, String label, String des
             audienceRegion.ifPresent(reference -> update(digest, reference));
             update(digest, changes.size());
             for (EventRegionChange change : changes) update(digest, change);
+            if (formatVersion >= 2) {
+                update(digest, flagChanges.size());
+                flagChanges.forEach((flag, value) -> { update(digest, flag); update(digest, value); });
+            }
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 is unavailable", exception);

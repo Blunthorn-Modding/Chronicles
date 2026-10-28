@@ -78,8 +78,19 @@ public final class WorldAreaOperations {
     public static boolean complete(MinecraftServer server,UUID id){AreaOperation o=AreaChanges.operations(server).state().operations().get(id);return o!=null&&o.stage()==AreaOperation.Stage.COMPLETE;}
     public static UUID apply(ServerCommandSource source,String id,AreaState state,long expectedRevision,boolean delete){
         requireOperator(source);AreaChange area=requireArea(source.getServer(),id,expectedRevision);
+        idle(source.getServer());
         if(delete&&AreaChanges.catalog(source.getServer()).tombstones().size()>=AreaCatalog.MAX_TOMBSTONES)throw new IllegalStateException("Area deletion history is full.");
-        UUID op=UUID.randomUUID();prepare(source.getServer(),op,source.getPlayer().getUuid(),area,state,delete,Set.of(),Set.of(),p->{try{commitPrepared(source.getServer(),p.operation().operationId());}catch(Exception e){fail(source.getServer(),e);}},m->source.sendError(Text.literal(m)));return op;
+        UUID op=UUID.randomUUID();EventSources.prepareRegion(source.getServer(),op,source.getPlayer().getUuid(),area.bounds().regionId(),state.name(),EventSources.activeOperation(source.getServer())&&!AuthoringRuntime.isAuthor(source.getPlayer()),"area");
+        try{prepare(source.getServer(),op,source.getPlayer().getUuid(),area,state,delete,Set.of(),Set.of(),p->{try{commitPrepared(source.getServer(),p.operation().operationId());}catch(Exception e){fail(source.getServer(),e);}},m->{try{EventSources.cancelAuthority(source.getServer(),"area:"+op);}catch(EventSources.Unavailable held){/* Exact refusal preparation remains held for source repair. */}source.sendError(Text.literal(m));});return op;}
+        catch(RuntimeException failure){try{EventSources.cancelAuthority(source.getServer(),"area:"+op);}catch(EventSources.Unavailable cancellation){failure.addSuppressed(cancellation);}throw failure;}
+    }
+    /** Cancellation requires a valid unchanged full journal and no live or parent-owned preparation. */
+    static boolean sourceDefinitelyAbsent(MinecraftServer server,UUID id) {
+        Runtime r=WORLDS.get(server);if(r==null||!r.problem.isBlank()||!AreaChanges.ready(server)||!Departures.ready(server))return false;
+        if(r.preparation!=null&&r.preparation.id.equals(id)||r.prepared!=null&&r.prepared.operation().operationId().equals(id)||r.applying!=null&&r.applying.operation.operationId().equals(id))return false;
+        if(Departures.state(server).operations().values().stream().anyMatch(op->op.preparedAreaEffect().map(effect->effect.operationId().equals(id)).orElse(false)))return false;
+        try{AreaChanges.operations(server).verifyUnchanged();return !AreaChanges.operations(server).state().operations().containsKey(id);}
+        catch(IOException failure){throw new IllegalStateException("Area source refusal cannot be proved from its journal",failure);}
     }
     public static UUID deleteUnchanged(ServerCommandSource source,String id,long expectedRevision)throws IOException{
         requireOperator(source);MinecraftServer server=source.getServer();idle(server);if(AreaChanges.catalog(server).tombstones().size()>=AreaCatalog.MAX_TOMBSTONES)throw new IllegalStateException("Area deletion history is full.");AreaChange area=requireArea(server,id,expectedRevision);UUID op=UUID.randomUUID();

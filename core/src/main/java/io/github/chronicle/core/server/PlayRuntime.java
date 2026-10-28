@@ -125,7 +125,8 @@ public final class PlayRuntime {
         if (delivery == null) {
             var execution=service(source.getServer()).state().executions().get(id);
             if(execution==null)throw new IllegalStateException("Event delivery does not exist: "+id);
-            write(source.getServer(),()->service(source.getServer()).reset(id));return;
+            write(source.getServer(),()->service(source.getServer()).reset(id));
+            EventProgressRuntime.arm(source.getServer(),EventRuntime.configuration(source.getServer(),id));return;
         }
         // Retain the old receipt before clearing it. A crash/failure between stores records a
         // reset request, never a false claim that the reset completed or the cue was delivered.
@@ -142,6 +143,7 @@ public final class PlayRuntime {
             ChronicleRuntime.service(source.getServer()).recordOperation(new io.github.chronicle.core.campaign.Actor(source.getName(), source.getPlayer().getUuidAsString()), "observation.reset.requested", id, evidence);
             service(source.getServer()).reset(id);
         });
+        EventProgressRuntime.arm(source.getServer(),EventRuntime.configuration(source.getServer(),id));
     }
 
     public static void setParticipant(ServerCommandSource source, UUID player, boolean participating) throws IOException {
@@ -295,6 +297,7 @@ public final class PlayRuntime {
             case ENTRY -> PlayState.DeliverySource.ENTRY;
             case TIMER -> PlayState.DeliverySource.TIMER;
             case CONDITION -> PlayState.DeliverySource.CONDITION;
+            case SYSTEM -> PlayState.DeliverySource.SYSTEM;
             case MANUAL -> throw new IllegalStateException("Manual observations are never automatic.");
         };
     }

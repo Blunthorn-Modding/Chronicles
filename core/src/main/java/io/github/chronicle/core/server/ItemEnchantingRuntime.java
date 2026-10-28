@@ -44,6 +44,8 @@ public final class ItemEnchantingRuntime {
         default boolean stillPresent(ServerPlayerEntity player){return player.isAlive()&&!player.isSpectator();}
         /** Cosmetic feedback only, after a committed output exists. */
         default void completed(ServerPlayerEntity player){ }
+        /** Stable managed station identity for Event source selection. */
+        default String sourceTarget(ServerPlayerEntity player){return "*";}
     }
 
     public static void register(){
@@ -206,10 +208,26 @@ public final class ItemEnchantingRuntime {
         if(accepted==null)throw new IllegalStateException("Workshop selection lost its proposal");
 
         ItemStack firstRemainder=remainder(b.first,accepted.consumeFirst),secondRemainder=remainder(b.second,accepted.consumeSecond);
+        String progression=null;
+        var eventSource=new io.github.chronicle.core.play.EventSource("chronicle_core:forge_completed",b.gate.sourceTarget(actor),"");
+        if(!ItemStack.areEqual(accepted.output,selection==Selection.FIRST?b.first:b.second)&&EventSources.active(actor)&&EventSources.interested(server,eventSource)) {
+            try {
+                UUID operation=UUID.randomUUID();var stacks=ChestAuthoring.snapshot(server,new net.minecraft.inventory.SimpleInventory(b.first.copy(),b.second.copy(),accepted.output.copy())).stacks();
+                String hash=new io.github.chronicle.core.progression.ForgeResultEvidence(operation,actor.getUuid(),eventSource.target(),stacks.get(0),stacks.get(1),stacks.get(2))
+                        .save(server.getSavePath(net.minecraft.util.WorldSavePath.ROOT).resolve("chronicle/forge-results"));
+                String authority="forge:"+operation+":"+hash;
+                progression=EventSources.prepare(actor,EventSources.id(authority,eventSource.type(),eventSource.target(),""),eventSource,authority);
+            } catch(Exception failure) {
+                recoverAll(actor,b);b.phase=Phase.EMPTY;sync(actor,b,false,true);
+                EventSources.fail(server,failure);
+                ChronicleCore.LOGGER.error("Forge result preparation refused before item changes",failure);return;
+            }
+        }
         ItemStack result=accepted.output.copy();clearPrivate(b);
         b.handler.mutate(()->b.handler.output(result));
         returnStack(actor,firstRemainder);returnStack(actor,secondRemainder);b.phase=Phase.RESULT;sync(actor,b,true,true);
         actor.getInventory().markDirty();b.handler.syncState();actor.playerScreenHandler.syncState();
+        try{EventSources.complete(server,progression,true);}catch(RuntimeException failure){ChronicleCore.LOGGER.error("Forge result exists; its exact source preparation remains held for recovery",failure);}
         try{b.gate.completed(actor);}catch(Exception error){ChronicleCore.LOGGER.error("Workshop completed; cosmetic feedback failed",error);}
     }
 

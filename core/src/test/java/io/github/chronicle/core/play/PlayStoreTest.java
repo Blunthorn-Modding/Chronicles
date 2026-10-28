@@ -43,7 +43,7 @@ class PlayStoreTest {
         assertThrows(IOException.class, () -> store.save(PlayState.empty()));
         assertEquals(duplicate, Files.readString(file));
 
-        Files.writeString(file, "{\"schemaVersion\":3,\"revision\":0,\"elapsedTicks\":0,\"participants\":[],\"bindings\":[],\"deliveries\":[]}");
+        Files.writeString(file, "{\"schemaVersion\":4,\"revision\":0,\"elapsedTicks\":0,\"participants\":[],\"bindings\":[],\"deliveries\":[],\"events\":[],\"executions\":[]}");
         assertThrows(IOException.class, () -> new PlayStore(file).load());
         Files.writeString(file, "{\"schemaVersion\":2,\"revision\":0,\"elapsedTicks\":0,\"participants\":[],\"bindings\":[],\"deliveries\":[]}");
         assertThrows(IOException.class, () -> new PlayStore(file).load());

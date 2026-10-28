@@ -10,6 +10,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CampaignServiceTest {
     private static final Actor GM = new Actor("Game Master", "123e4567-e89b-12d3-a456-426614174000");
     private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-10-18T12:00:00Z"), ZoneOffset.UTC);
+    private static final String FINGERPRINT = "a".repeat(64);
 
     @TempDir
     Path temporaryDirectory;
@@ -209,6 +214,141 @@ class CampaignServiceTest {
         assertThrows(IOException.class, () -> service.start(GM, null));
         assertEquals(before, service.state());
         assertFalse(Files.exists(blockedParent.resolve("state.json")));
+    }
+
+    @Test
+    void eventOutcomeCommitsAtomicallyAndReplayNeverRevertsLaterGmChanges() throws IOException {
+        CampaignService service = service(new CampaignEvents());
+        service.start(GM, null);
+        UUID operation = UUID.randomUUID();
+        Map<String, Boolean> patch = Map.of("quiet:ready", true, "quiet:waiting", false);
+        assertTrue(service.applyEventFlags(GM, operation, "quiet:arrival", FINGERPRINT, patch));
+        assertTrue(service.state().flag("quiet:ready"));
+        assertEquals(patch, service.state().eventFlagOutcomes().get(operation).changes());
+        assertEquals("event.flags", service.state().history().getLast().action());
+        assertEquals("true", service.state().history().getLast().parameters().get("flag.quiet:ready"));
+        service.setFlag(GM, "quiet:ready", false);
+        CampaignState overridden = service.state();
+        assertFalse(service.applyEventFlags(GM, operation, "quiet:arrival", FINGERPRINT, patch));
+        assertEquals(overridden, service.state());
+        CampaignService reloaded = service(new CampaignEvents());
+        assertFalse(reloaded.applyEventFlags(GM, operation, "quiet:arrival", FINGERPRINT, patch));
+        assertEquals(overridden, reloaded.state());
+        assertThrows(IllegalStateException.class, () -> reloaded.applyEventFlags(GM, operation, "quiet:other", FINGERPRINT, patch));
+        assertThrows(IllegalStateException.class, () -> reloaded.applyEventFlags(GM, operation, "quiet:arrival", "b".repeat(64), patch));
+        assertThrows(IllegalStateException.class, () -> reloaded.applyEventFlags(GM, operation, "quiet:arrival", FINGERPRINT, Map.of("quiet:ready", false)));
+        assertEquals(overridden, reloaded.state());
+    }
+
+    @Test
+    void trustedOutcomeCanFinalizeAfterEndedWithoutRelaxingManualMutations() throws IOException {
+        CampaignService service = service(new CampaignEvents());
+        service.start(GM, null);
+        service.end(GM);
+        assertTrue(service.applyEventFlags(GM, UUID.randomUUID(), "quiet:departure", FINGERPRINT, Map.of("quiet:departed", true)));
+        assertEquals(SessionPhase.ENDED, service.state().phase());
+        assertTrue(service.state().flag("quiet:departed"));
+        assertThrows(IllegalStateException.class, () -> service.setFlag(GM, "quiet:departed", false));
+    }
+
+    @Test
+    void everyTrueToFalseTransitionRetainsItsVersionAcrossOnAndRestart() throws IOException {
+        CampaignEvents events = events(new CampaignEvent("quiet:clear", "Clear", false, Map.of(),
+                state -> new EventOutcome(Map.of("quiet:ready", false), "Cleared.")));
+        CampaignService service = service(events);
+        service.start(GM, null);
+        assertEquals(0, service.state().flagOffVersion("quiet:ready"));
+        service.setFlag(GM, "quiet:ready", true);
+        long firstOff = service.state().nextSequence();
+        service.setFlag(GM, "quiet:ready", false);
+        assertEquals(firstOff, service.state().flagOffVersion("quiet:ready"));
+        service.setFlag(GM, "quiet:ready", true);
+        assertEquals(firstOff, service.state().flagOffVersion("quiet:ready"));
+        long eventOff = service.state().nextSequence();
+        service.applyEventFlags(GM, UUID.randomUUID(), "quiet:reset", FINGERPRINT, Map.of("quiet:ready", false));
+        assertEquals(eventOff, service.state().flagOffVersion("quiet:ready"));
+        service.setFlag(GM, "quiet:ready", true);
+        long legacyOff = service.state().nextSequence();
+        service.trigger(GM, "quiet:clear");
+        assertEquals(legacyOff, service.state().flagOffVersion("quiet:ready"));
+        service.setFlag(GM, "quiet:ready", false);
+        assertEquals(legacyOff, service.state().flagOffVersion("quiet:ready"));
+        assertEquals(service.state(), service(events).state());
+    }
+
+    @Test
+    void invalidOrOverCapacityPatchPublishesNoPartialFlagsReceiptOrAudit() throws IOException {
+        Map<String, Boolean> flags = new LinkedHashMap<>();
+        for (int i = 0; i < CampaignValidation.MAX_FLAGS; i++) {
+            flags.put("quiet:flag_" + i, true);
+        }
+        new CampaignStore(temporaryDirectory.resolve("campaign.json")).save(new CampaignState(2, 1, SessionPhase.ACTIVE,
+                flags, Set.of(), List.of(), 0));
+        CampaignService service = service(new CampaignEvents());
+        CampaignState before = service.state();
+        assertThrows(IllegalArgumentException.class, () -> service.applyEventFlags(GM, UUID.randomUUID(), "quiet:event", FINGERPRINT,
+                Map.of("quiet:flag_0", false, "quiet:overflow", true)));
+        assertThrows(IllegalArgumentException.class, () -> service.applyEventFlags(GM, UUID.randomUUID(), "quiet:event", "bad", Map.of("quiet:flag_0", false)));
+        assertThrows(IllegalArgumentException.class, () -> service.applyEventFlags(GM, UUID.randomUUID(), "quiet:event", FINGERPRINT, Map.of()));
+        Map<String, Boolean> oversizedPatch = new LinkedHashMap<>();
+        for (int i = 0; i <= FlagOutcomeReceipt.MAX_FLAG_CHANGES; i++) {
+            oversizedPatch.put("quiet:flag_" + i, false);
+        }
+        assertThrows(IllegalArgumentException.class, () -> service.applyEventFlags(GM, UUID.randomUUID(), "quiet:event", FINGERPRINT, oversizedPatch));
+        assertEquals(before, service.state());
+        assertEquals(before, service(new CampaignEvents()).state());
+    }
+
+    @Test
+    void fullReceiptLedgerAllowsExactReplayButRefusesNewOperationBeforeAnyMutation() throws IOException {
+        Map<UUID, FlagOutcomeReceipt> receipts = new LinkedHashMap<>();
+        for (int i = 0; i < CampaignState.MAX_EVENT_FLAG_OUTCOMES; i++) {
+            UUID id = new UUID(0, i);
+            receipts.put(id, new FlagOutcomeReceipt(id, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true)));
+        }
+        CampaignState full = new CampaignState(2, 1, SessionPhase.ACTIVE, Map.of("quiet:ready", false), Set.of(), List.of(), 0, Map.of(), receipts);
+        new CampaignStore(temporaryDirectory.resolve("campaign.json")).save(full);
+        CampaignService service = service(new CampaignEvents());
+        UUID known = receipts.keySet().iterator().next();
+        service.requireEventFlagCapacity(known);
+        assertFalse(service.applyEventFlags(GM, known, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true)));
+        UUID unknown = UUID.randomUUID();
+        assertThrows(IllegalStateException.class, () -> service.requireEventFlagCapacity(unknown));
+        assertThrows(IllegalStateException.class, () -> service.applyEventFlags(GM, unknown, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true)));
+        assertEquals(full, service.state());
+    }
+
+    @Test
+    void trimmingAuditHistoryDoesNotForgetOutcomeReceipts() throws IOException {
+        UUID id = UUID.randomUUID();
+        FlagOutcomeReceipt receipt = new FlagOutcomeReceipt(id, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true));
+        List<AuditEntry> history = new java.util.ArrayList<>();
+        for (int i = 0; i < CampaignValidation.MAX_HISTORY; i++) {
+            history.add(new AuditEntry(i, CLOCK.instant().toString(), GM, "flag.set", 1, "quiet:ready", Map.of("value", "false")));
+        }
+        new CampaignStore(temporaryDirectory.resolve("campaign.json")).save(new CampaignState(2, 1, SessionPhase.ACTIVE,
+                Map.of("quiet:ready", false), Set.of(), history, CampaignValidation.MAX_HISTORY, Map.of(), Map.of(id, receipt)));
+        CampaignService service = service(new CampaignEvents());
+        service.recordOperation(GM, "example.audit", "quiet:ready", Map.of());
+        assertEquals(CampaignValidation.MAX_HISTORY, service.state().history().size());
+        assertEquals(1, service.state().history().getFirst().sequence());
+        assertFalse(service.applyEventFlags(GM, id, "quiet:event", FINGERPRINT, receipt.changes()));
+        assertFalse(service.state().flag("quiet:ready"));
+        assertEquals(service.state(), service(new CampaignEvents()).state());
+    }
+
+    @Test
+    void failedOutcomeSavePublishesNeitherOffVersionNorReceipt() throws IOException {
+        CampaignService service = service(new CampaignEvents());
+        service.start(GM, null);
+        service.setFlag(GM, "quiet:ready", true);
+        Path file = temporaryDirectory.resolve("campaign.json");
+        Files.writeString(file, "invalid evidence must not be overwritten");
+        CampaignState before = service.state();
+        assertThrows(IOException.class, () -> service.applyEventFlags(GM, UUID.randomUUID(), "quiet:event", FINGERPRINT,
+                Map.of("quiet:ready", false, "quiet:other", true)));
+        assertEquals(before, service.state());
+        assertEquals("invalid evidence must not be overwritten", Files.readString(file));
     }
 
     private CampaignService service(CampaignEvents events) throws IOException {

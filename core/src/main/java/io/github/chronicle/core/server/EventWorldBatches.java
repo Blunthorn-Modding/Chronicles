@@ -64,6 +64,7 @@ public final class EventWorldBatches {
         if(existing!=null){if(!existing.planSha256().equals(sha256))throw new IllegalStateException("Event batch plan hash changed.");resume(server,id,sha256,stillEligible);return;}
         if(runtime.applying!=null||runtime.journal.entries().values().stream().anyMatch(e->e.phase()!=EventBatchFiles.Phase.WORLD_COMMITTED))throw new IllegalStateException("Resolve the current Event Region batch first.");
         EventBatchFiles.Plan plan=EventBatchFiles.loadPlan(server,id,sha256);if(!stillEligible.getAsBoolean())throw new IllegalStateException("Event conditions changed before the Region batch was committed.");
+        for(var target:plan.targets())EventSources.prepareRegion(server,id,plan.actor(),target.bounds().regionId(),target.state().name(),EventSources.activeOperation(server),"batch");
         EventBatchFiles.Entry entry=new EventBatchFiles.Entry(id,sha256,EventBatchFiles.Phase.PREPARED,EventBatchFiles.Step.PREVERIFY,0,0,"",Instant.now().toString());
         publish(runtime,entry);RuntimeHolds.hold(server,HOLD,"A committed Event Region batch is awaiting exact world completion.");
         try{loadApplying(server,runtime,plan,entry,stillEligible,true);}catch(Exception failure){runtime.problem=message(failure);ChronicleCore.LOGGER.error("Committed Event Region batch {} could not start; evidence retained",id,failure);if(failure instanceof IOException io)throw io;throw new IllegalStateException(runtime.problem,failure);}
@@ -82,6 +83,17 @@ public final class EventWorldBatches {
     }
 
     public static Optional<Status> status(MinecraftServer server,UUID id){Runtime runtime=runtime(server);EventBatchFiles.Entry entry=runtime.journal.entries().get(id);return entry==null?Optional.empty():Optional.of(Status.valueOf(entry.phase().name()));}
+    static boolean sourceCommitted(MinecraftServer server,UUID id,UUID actor,String region,String state){
+        Runtime runtime=runtime(server);EventBatchFiles.Entry entry=runtime.journal.entries().get(id);if(entry==null||entry.phase()!=EventBatchFiles.Phase.WORLD_COMMITTED)return false;
+        try{var plan=EventBatchFiles.loadPlan(server,id,entry.planSha256());return plan.actor().equals(actor)&&plan.targets().stream().anyMatch(t->t.bounds().regionId().equals(region)&&t.state().name().equals(state));}
+        catch(IOException failure){throw new IllegalStateException("Event source aggregate world evidence is unavailable",failure);}
+    }
+    static boolean sourceDefinitelyAbsent(MinecraftServer server,UUID id) {
+        Runtime r=WORLDS.get(server);if(r==null||!r.ready||!r.problem.isBlank()||r.preparation!=null&&r.preparation.id.equals(id)||r.applying!=null&&r.applying.plan.id().equals(id)||r.recoveredPlan!=null&&r.recoveredPlan.id().equals(id))return false;
+        if(PlayRuntime.service(server).state().executions().values().stream().anyMatch(e->e.operationId().equals(id)))return false;
+        try{r.store.verifyUnchanged();return !r.journal.entries().containsKey(id);}
+        catch(IOException failure){throw new IllegalStateException("Aggregate source refusal cannot be proved from its journal",failure);}
+    }
     public static void cancelUncommitted(MinecraftServer server,UUID id){Runtime runtime=runtime(server);if(runtime.journal.entries().containsKey(id))throw new IllegalStateException("A committed Event batch cannot be cancelled.");if(runtime.preparation!=null&&runtime.preparation.id.equals(id)){runtime.preparation=null;runtime.problem="";RuntimeHolds.release(server,HOLD);}}
     public static boolean ready(MinecraftServer server){Runtime runtime=WORLDS.get(server);return runtime!=null&&runtime.ready;}
     public static String problem(MinecraftServer server){Runtime runtime=WORLDS.get(server);return runtime==null?"Event Region batches are unavailable.":runtime.problem;}

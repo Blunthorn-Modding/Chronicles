@@ -45,7 +45,7 @@ class EventPlayStoreTest {
         assertTrue(loaded.executions().isEmpty());
 
         store.save(loaded);
-        assertTrue(Files.readString(file).contains("\"schemaVersion\":2"));
+        assertTrue(Files.readString(file).contains("\"schemaVersion\":3"));
         assertEquals(loaded, new PlayStore(file).load());
         assertEquals(loaded, new PlayStore(file.resolveSibling("play-runtime.json.bak")).load());
     }

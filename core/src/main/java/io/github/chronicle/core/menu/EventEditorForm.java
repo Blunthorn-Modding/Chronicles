@@ -1,7 +1,13 @@
 package io.github.chronicle.core.menu;
 
+import io.github.chronicle.core.play.EventSource;
+
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.Collections;
+import java.util.HashSet;
 
 /**
  * Complete, bounded local draft for the Events editor.
@@ -14,18 +20,50 @@ import java.util.Objects;
 public record EventEditorForm(
         String id, long revision, String name, String description, String message, String sound,
         String audience, String audienceRegion, long audienceRegionRevision,
-        String mode, String triggerRegion, long triggerRegionRevision, long seconds, String flag,
-        List<Change> changes, boolean creating) {
+        String mode, String triggerRegion, long triggerRegionRevision, long seconds, List<String> requiredFlags,
+        List<Change> changes, boolean creating, Map<String, Boolean> flagChanges, EventSource source) {
     public static final long MAX_SECONDS = 604_800L;
     public static final int MAX_CHANGES = 8;
+    public static final int MAX_FLAGS = 32;
+
+    public EventEditorForm(String id, long revision, String name, String description, String message, String sound,
+                           String audience, String audienceRegion, long audienceRegionRevision,
+                           String mode, String triggerRegion, long triggerRegionRevision, long seconds, String flag,
+                           List<Change> changes, boolean creating) {
+        this(id, revision, name, description, message, sound, audience, audienceRegion, audienceRegionRevision,
+                mode, triggerRegion, triggerRegionRevision, seconds, legacyFlags(flag), changes, creating, Map.of(), EventSource.empty());
+    }
 
     public EventEditorForm {
         text(id, 128); text(name, 80); text(description, 512); text(message, 512); text(sound, 128);
-        text(audience, 32); text(audienceRegion, 128); text(mode, 32); text(triggerRegion, 128); text(flag, 128);
+        text(audience, 32); text(audienceRegion, 128); text(mode, 32); text(triggerRegion, 128);
+        requiredFlags = List.copyOf(Objects.requireNonNull(requiredFlags, "requiredFlags"));
+        if (requiredFlags.size() > MAX_FLAGS) throw new IllegalArgumentException("Too many event requirements");
+        HashSet<String> distinct = new HashSet<>();
+        for (String flag : requiredFlags) {
+            text(flag, 128);
+            if (!distinct.add(flag)) throw new IllegalArgumentException("Duplicate event requirement");
+        }
+        Objects.requireNonNull(flagChanges, "flagChanges");
+        if (flagChanges.size() > MAX_FLAGS) throw new IllegalArgumentException("Too many event flag changes");
+        TreeMap<String, Boolean> orderedFlags = new TreeMap<>();
+        for (var entry : flagChanges.entrySet()) {
+            text(entry.getKey(), 128);
+            orderedFlags.put(entry.getKey(), Objects.requireNonNull(entry.getValue(), "flag value"));
+        }
+        flagChanges = Collections.unmodifiableMap(orderedFlags);
+        Objects.requireNonNull(source, "source");
         if (revision < 0 || audienceRegionRevision < 0 || triggerRegionRevision < 0 || seconds < 0 || seconds > MAX_SECONDS)
             throw new IllegalArgumentException("Invalid event editor number");
         changes = List.copyOf(Objects.requireNonNull(changes, "changes"));
         if (changes.size() > MAX_CHANGES) throw new IllegalArgumentException("Too many event changes");
+    }
+
+    public String flag() { return requiredFlags.isEmpty() ? "" : requiredFlags.getFirst(); }
+
+    private static List<String> legacyFlags(String flag) {
+        text(flag, 128);
+        return flag.isEmpty() ? List.of() : List.of(flag);
     }
 
     /** A pinned Region Saved-state target, including stale/missing references for repair. */

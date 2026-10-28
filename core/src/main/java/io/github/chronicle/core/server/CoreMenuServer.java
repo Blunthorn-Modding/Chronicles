@@ -161,9 +161,29 @@ public final class CoreMenuServer {
     private static io.github.chronicle.core.areas.AreaChange area(MinecraftServer server,String id){return Optional.ofNullable(AreaChanges.catalog(server).areas().get(id)).orElseThrow(()->new IllegalStateException("Choose an existing Area change."));}
     private static void requireAreaOperator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2)||(!ChronicleRuntime.service(player.getEntityWorld().getServer()).state().phase().name().equals("ACTIVE")&&!AuthoringRuntime.isAuthor(player)))throw new IllegalStateException("Enable Editing, or apply during active play.");}
     private static boolean publicAction(Action action){return switch(action){case OPEN,REOPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->true;default->false;};}
-    private static void invalidate(Context c){c.token=0;c.observation=null;c.eventReview=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;clearGive(c);c.pendingRole="";c.roleReview=null;}
+    private static void invalidate(Context c){c.token=0;c.observation=null;c.eventReview=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;c.sourceReview=null;c.sourceReviewEvent="";clearGive(c);c.pendingRole="";c.roleReview=null;}
     private static void clearGive(Context c){c.giveBook="";c.giveTarget="";c.giveDefinition=null;c.giveAt=0;}
 
+    private static String sourceRecoveryDescription(MinecraftServer server,io.github.chronicle.core.progression.SourceLedger.Receipt receipt)throws IOException {
+        String actor=receipt.actor()==null?"Unknown actor":server.getApiServices().nameToIdCache().getByUuid(receipt.actor()).map(profile->profile.name()).orElse(receipt.actor().toString());
+        String evidence=receipt.type()+" at "+receipt.target()+" by "+actor;
+        if(receipt.authority().startsWith("forge:")){
+            var saved=EventSources.forgeEvidence(server,receipt);
+            var stacks=ChestAuthoring.decode(server,new io.github.chronicle.core.content.InventorySnapshot(3,List.of(saved.first(),saved.second(),saved.result())));
+            evidence="Forge by "+actor+": "+sourceStackSummary(stacks.get(0))+" + "+sourceStackSummary(stacks.get(1))+" -> expected "+sourceStackSummary(stacks.get(2));
+        }
+        if(receipt.authority().startsWith("book:")){
+            var book=BookRuntime.books(server).get(receipt.target());
+            evidence="Book "+(book==null?receipt.target():book.title())+" by "+actor+". Recording discovery requires the original player online with that authentic book in their inventory, or its exact saved discovery record. Cancellation leaves inventory unchanged";
+        }
+        return shortText("Review source "+receipt.id()+". "+evidence+". The server cannot prove completion. Compare this evidence with the player/world, then record happened or not happened. No gameplay or item grant is replayed.",2048);
+    }
+    private static String sourceStackSummary(net.minecraft.item.ItemStack stack){
+        if(stack.isEmpty())return "empty";
+        var enchantments=stack.getEnchantments();var names=new ArrayList<String>();
+        for(var entry:enchantments.getEnchantments())names.add(entry.getKey().map(key->key.getValue().toString()).orElse("enchantment")+" "+enchantments.getLevel(entry));
+        return shortText(stack.getName().getString()+" x"+stack.getCount()+(names.isEmpty()?"":" ["+String.join(", ",names)+"]"),512);
+    }
     private static String act(ServerPlayerEntity player,Request request,Context c) throws Exception {
         var source=player.getCommandSource();var server=source.getServer();String id=c.selected,arg=request.argument();
         switch(request.action()) {
@@ -313,7 +333,7 @@ public final class CoreMenuServer {
             case EVENT_RUN -> {
                 requireReview(player,c,id);c.reviewId="";
                 if(id.startsWith("world:"))return AreaWorldEvents.run(source,id);
-                if(id.startsWith("cue:")){var review=c.eventReview;c.eventReview=null;EventRuntime.run(player,raw(id),review);return "Event execution started. Saved Region changes complete before player media.";}
+                if(id.startsWith("cue:")){var review=c.eventReview;c.eventReview=null;EventRuntime.run(player,raw(id),review);return review.configuration().formatVersion()>1&&review.configuration().delayTicks()>0?"Event countdown armed. Required flags must remain On for the full active-play delay.":"Event execution started. Region changes and flag outcomes complete before player media.";}
                 return command(source,"chronicle debug events trigger "+Identifier.of(raw(id)).toString());
             }
             case EVENT_NEW -> {editor(player);if(c.page!=Page.EVENTS)throw new IllegalArgumentException("Create Events under Events.");c.eventSelection=id;c.expectedEvent=null;c.eventEditor=CoreEventMenu.emptyForm();return "";}
@@ -331,9 +351,28 @@ public final class CoreMenuServer {
             case EVENT_SAVE -> {throw new IllegalStateException("Open Edit event to change this Event's complete definition and trigger.");}
             case EVENT_DISABLE_AUTO -> {EventRuntime.disableAutomatic(player,raw(id));return "Automatic triggering disabled. Manual review remains available.";}
             case EVENT_REMOVE -> {EventRuntime.removeConfiguration(player,raw(id));return "Event configuration removed. Its definition and completion history remain.";}
-            case EVENT_RESET -> {PlayRuntime.reset(source,raw(id));return "Another run is now permitted; configured timer delay starts again. No event ran now.";}
+            case EVENT_RESET -> {
+                String eventId=raw(id);var play=PlayRuntime.service(server).state();var config=EventRuntime.configuration(server,eventId);
+                if(play.executions().containsKey(eventId)||play.deliveries().containsKey(eventId))PlayRuntime.reset(source,eventId);else {editor(player);EventProgressRuntime.arm(server,config);}
+                return "Another run is now permitted. Its next eligible trigger starts a fresh countdown; no Event ran now.";
+            }
             case EVENT_RECOVER -> {EventRuntime.recover(player,raw(id));return "Exact Event recovery requested. No new operation was created.";}
             case EVENT_ACK_MEDIA -> {EventRuntime.acknowledge(player,raw(id));return "Uncertain media acknowledged without replay. Terrain and outcome were not repeated.";}
+            case EVENT_SOURCE_REVIEW -> {
+                if(!id.startsWith("cue:")||ChronicleRuntime.service(server).state().phase()==io.github.chronicle.core.campaign.SessionPhase.ACTIVE)throw new IllegalStateException("Choose an Event and pause play before source recovery.");
+                var config=EventRuntime.configuration(server,raw(id));
+                c.sourceReview=EventSources.pending(server).stream().filter(EventSources::recoverable).filter(receipt->receipt.type().equals(config.source().type())
+                        &&(config.source().target().equals("*")||config.source().target().equals(receipt.target()))
+                        &&(config.source().activity().isEmpty()||config.source().activity().equals(receipt.activity()))).findFirst().orElseThrow(()->new IllegalStateException("No unresolved source matches this Event."));
+                c.sourceReviewEvent=id;c.sourceReviewAt=System.nanoTime();
+                return sourceRecoveryDescription(server,c.sourceReview);
+            }
+            case EVENT_SOURCE_COMPLETE,EVENT_SOURCE_CANCEL -> {
+                if(c.sourceReview==null||!id.equals(c.sourceReviewEvent)||System.nanoTime()-c.sourceReviewAt>30_000_000_000L)throw new IllegalStateException("Review the exact source again before confirming recovery.");
+                EventSources.recover(source,c.sourceReview,request.action()==Action.EVENT_SOURCE_COMPLETE);c.sourceReview=null;c.sourceReviewEvent="";
+                return "Source decision saved. The original gameplay operation was not replayed. Configured Events will respect their prerequisites and active-play rules.";
+            }
+            case EVENT_SOURCE_RELOAD -> {EventSources.reload(source);return "Source evidence reloaded. Any remaining uncertain activity still requires explicit review; gameplay was not replayed.";}
             case FLAG_CREATE -> {
                 if(c.page!=Page.FLAGS)throw new IllegalArgumentException("Create flags under Advanced → Flags.");
                 if(id.length()>128||!Identifier.of(id).toString().equals(id))throw new IllegalArgumentException("Enter a namespaced flag ID, for example chronicle_core:my_flag.");
@@ -640,7 +679,7 @@ public final class CoreMenuServer {
                 if(id.isBlank())return CoreMenuFilters.REGION_CHANGES.equals(c.filter)?new Detail("","Region Changes","Apply saved Start or End states. Create Regions and capture their states under Regions.",List.of(),List.of(),null,null,null):CoreEventMenu.detail(player,"",false);
                 if(id.startsWith("world:"))return AreaWorldEvents.detail(player,id,c.reviewId.equals(id));
                 if(id.startsWith("cue:")) {
-                    return CoreEventMenu.detail(player,id,c.reviewId.equals(id)&&c.eventReview!=null);
+                    return CoreEventMenu.detail(player,id,c.reviewId.equals(id)&&c.eventReview!=null,c.sourceReview!=null&&id.equals(c.sourceReviewEvent));
                 } else {
                     var d=gameEvent(id);title=eventLabel(d.id());description="Game action. "+d.description();
                     facts.add(new Fact("Required conditions",d.requiredFlags().toString()));facts.add(new Fact("Completion",ChronicleRuntime.service(server).state().completedEvents().contains(raw(id))?"Completed":"Not completed"));
@@ -782,9 +821,10 @@ public final class CoreMenuServer {
     }
 
     private static Picker picker(ServerPlayerEntity player,String kind,String query,int index) {
-        var server=player.getEntityWorld().getServer();String needle=query.toLowerCase(Locale.ROOT);var choices=new ArrayList<Entry>();
+        var server=player.getEntityWorld().getServer();String search=(kind.equals("EVENT_TARGET")||kind.equals("EVENT_ACTIVITY"))&&query.contains("|")?query.substring(query.indexOf('|')+1):query;String needle=search.toLowerCase(Locale.ROOT);var choices=new ArrayList<Entry>();
         switch(kind) {
             case "EVENT_SOUND","EVENT_REGION","EVENT_FLAG","EVENT_STATE" -> choices.addAll(CoreEventMenu.catalog(server,kind));
+            case "EVENT_TRIGGER","EVENT_TARGET","EVENT_ACTIVITY" -> choices.addAll(EventSources.catalog(server,kind,query));
             case "BOOKS" -> BookRuntime.books(server).values().forEach(b->choices.add(entry(b.id(),b.title(),b.author(),"BOOK",b.id(),0)));
             case "ITEMS" -> Registries.ITEM.getIds().stream().sorted().forEach(id->{var item=Registries.ITEM.get(id);String label=item.getName().getString();if((id+" "+label).toLowerCase(Locale.ROOT).contains(needle))choices.add(entry(id.toString(),shortText(label,160),id.toString(),"ITEM",Integer.toString(item.getMaxCount()),0));});
             case "LOOT_TYPE" -> TypedChestLoot.types(server).values().forEach(t->choices.add(entry(t.id(),t.label(),t.description(),"LOOT",t.id(),0)));
@@ -808,7 +848,7 @@ public final class CoreMenuServer {
     private static Frame frame(ServerPlayerEntity player) {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
-        var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries(),play.events(),play.executions());
+        var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries(),play.events(),play.executions(),EventProgressRuntime.revision(server));
         return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),PlayerRoles.revision(server),optional(()->WorldAreaOperations.revision(server)),optional(()->Departures.state(server)),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
@@ -947,7 +987,7 @@ public final class CoreMenuServer {
         var output=new CommandOutput(){@Override public void sendMessage(Text text){if(feedback.size()<8)feedback.add(shortText(text.getString(),512));}@Override public boolean shouldReceiveFeedback(){return true;}@Override public boolean shouldTrackOutput(){return true;}@Override public boolean shouldBroadcastConsoleToOps(){return false;}};
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
-    private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries,Map<String,EventConfiguration> events,Map<String,EventExecution> executions) { }
+    private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries,Map<String,EventConfiguration> events,Map<String,EventExecution> executions,long progressionRevision) { }
     private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object areas,Object departures,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private record Navigation(Page page,String selected,int index,String filter) { }
     private static final class Context {
@@ -955,6 +995,7 @@ public final class CoreMenuServer {
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
         PlayRuntime.Preview observation;EventRuntime.Review eventReview;EventConfiguration expectedEvent;EventEditorForm eventEditor;String eventSelection="";LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;
         String giveBook="",giveTarget="";long giveAt;
+        io.github.chronicle.core.progression.SourceLedger.Receipt sourceReview;String sourceReviewEvent="";long sourceReviewAt;
         boolean visible,roleCreating,departureCreating;io.github.chronicle.core.departures.DepartureDefinition departureDraft;io.github.chronicle.core.roles.PlayerRole roleDraft,expectedRole;String pendingRole="",roleTarget="";Frame roleReview;long roleReviewAt;
     }
 }

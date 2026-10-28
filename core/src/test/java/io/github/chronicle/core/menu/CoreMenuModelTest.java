@@ -44,7 +44,10 @@ class CoreMenuModelTest {
     }
 
     @Test void invalidAndOversizedIncomingViewsFailAtConstruction() {
-        assertThrows(IllegalArgumentException.class,()->new Entry("x".repeat(161),"x","","POINT","",0));
+        assertEquals(256,new Picker("EVENT_TARGET","x".repeat(256),0,1,List.of()).query().length());
+        assertThrows(IllegalArgumentException.class,()->new Picker("EVENT_TARGET","x".repeat(257),0,1,List.of()));
+        assertEquals(320,new Entry("x".repeat(320),"x","","POINT","",0).id().length());
+        assertThrows(IllegalArgumentException.class,()->new Entry("x".repeat(321),"x","","POINT","",0));
         var tooMany=IntStream.range(0,13).mapToObj(i->new Entry("p"+i,"p","","POINT","",0)).toList();
         assertThrows(IllegalArgumentException.class,()->view(true,"","","",tooMany,null));
         assertThrows(RuntimeException.class,()->gson.fromJson("{\"token\":0}",View.class));

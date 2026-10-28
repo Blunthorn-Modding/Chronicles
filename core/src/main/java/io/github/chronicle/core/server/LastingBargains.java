@@ -45,6 +45,11 @@ public final class LastingBargains {
         default void committed(ServerPlayerEntity player,OfferingDefinition definition,UUID transaction) { }
     }
     public static void registerGroup(String id,List<Choice> choices){registerGroup(id,choices,OfferingPayloads.Presentation.neutral());}
+    public static List<EventSources.Choice> eventSourceChoices(MinecraftServer server) {
+        List<EventSources.Choice> result=new ArrayList<>();result.add(new EventSources.Choice("*","Any completed prayer","Any registered lasting bargain"));
+        GROUPS.values().forEach(choices->choices.forEach(choice->result.add(new EventSources.Choice(choice.definition.id(),choice.label,choice.description))));
+        return List.copyOf(result);
+    }
     public static void registerGroup(String id,List<Choice> choices,OfferingPayloads.Presentation presentation) {
         Objects.requireNonNull(presentation);
         OfferingDefinition.validId(id);
@@ -148,8 +153,19 @@ public final class LastingBargains {
         }
         OfferingDefinition definition=GROUPS.get(offer.group).get(selected).definition;
         OfferingStats.PurchaseResult result;
-        try{result=OfferingStats.purchase(player,offer.source,definition,offer.token,expected);}
+        String sourceReceipt=null;
+        try{
+            var source=new io.github.chronicle.core.play.EventSource("chronicle_core:prayer_completed",definition.id(),"");
+            String authority="offering:"+offer.token;
+            sourceReceipt=EventSources.prepare(player,EventSources.id(authority,source.type(),source.target(),""),source,authority);
+            result=OfferingStats.purchase(player,offer.source,definition,offer.token,expected);
+            EventSources.complete(server,sourceReceipt,true);
+        }
         catch(Exception error){
+            // A fresh-preview refusal happened before purchase. IO or a failed authority stays uncertain.
+            if(!(error instanceof java.io.IOException)&&!(error instanceof EventSources.Unavailable))try {
+                if(OfferingStats.ledger(server).receipts().stream().noneMatch(receipt->receipt.transaction().equals(offer.token)))EventSources.cancelAuthority(server,"offering:"+offer.token);
+            }catch(RuntimeException uncertain){error.addSuppressed(uncertain);}
             ChronicleCore.LOGGER.warn("Offering commit did not finish for {}: {}",player.getUuid(),error.toString());
             terminal(player,offer);return;
         }

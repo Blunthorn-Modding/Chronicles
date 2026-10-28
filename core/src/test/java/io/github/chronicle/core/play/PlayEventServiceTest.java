@@ -21,6 +21,45 @@ class PlayEventServiceTest {
     private static final UUID OTHER=UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final String ID="test:event",HASH="a".repeat(64);
 
+    @Test void silentRunUsesExecutionReceiptAndResetPreservesAllCurrentFields() throws Exception {
+        Memory repository = new Memory();
+        PlayService service = new PlayService(repository);
+        EventSource source = new EventSource("chronicle:book_opened", "test:book", "read");
+        EventDefinition definition = new EventDefinition(ID, service.nextEventRevision(), "Silent", "", "", "",
+                ObservationCatalog.Audience.PARTICIPANTS, Optional.empty(), List.of(), Map.of("test:done", true));
+        EventConfiguration configuration = new EventConfiguration(definition, PlayState.Mode.SYSTEM, Optional.empty(),
+                service.elapsedTicks(), 40, List.of("test:b", "test:a"), true, source);
+        service.putEvent(configuration, null, true);
+        EventExecution run = new EventExecution(ID, UUID.randomUUID(), configuration, EventExecution.Phase.EVENT_OUTCOME,
+                PlayState.DeliverySource.SYSTEM, null, 1, service.elapsedTicks(), List.of(), "", "");
+        service.beginExecution(run);
+        repository.saveFails = true;
+        assertThrows(IOException.class, () -> service.advanceExecution(ID, run.operationId(), EventExecution.Phase.COMPLETE, ""));
+        assertEquals(EventExecution.Phase.EVENT_OUTCOME, service.state().executions().get(ID).phase());
+        repository.saveFails = false;
+        service.advanceExecution(ID, run.operationId(), EventExecution.Phase.COMPLETE, "Silent outcome saved.");
+        assertTrue(service.state().deliveries().isEmpty());
+        assertEquals(EventExecution.Phase.COMPLETE, service.state().executions().get(ID).phase());
+        service.reset(ID);
+        EventConfiguration reset = service.state().events().get(ID);
+        assertEquals(configuration.requiredFlags(), reset.requiredFlags());
+        assertEquals(source, reset.source());
+        assertEquals(40, reset.delayTicks());
+        assertEquals(2, reset.formatVersion());
+        assertEquals(2, reset.definition().formatVersion());
+        assertEquals(definition.flagChanges(), reset.definition().flagChanges());
+        assertEquals(List.of(run.with(EventExecution.Phase.COMPLETE, "Silent outcome saved.")), repository.archives);
+        assertTrue(service.state().executions().isEmpty());
+    }
+
+    @Test void mediaRunCannotSkipDurableMediaClaim() throws Exception {
+        Memory repository = new Memory(); PlayService service = new PlayService(repository); service.setParticipant(PLAYER, true);
+        EventConfiguration configuration = put(service, List.of(), PlayState.Mode.TIMER, 20);
+        EventExecution run = run(configuration, EventExecution.Phase.EVENT_OUTCOME, 0, PlayState.DeliverySource.TIMER, null);
+        service.beginExecution(run);
+        assertThrows(IllegalStateException.class, () -> service.advanceExecution(ID, run.operationId(), EventExecution.Phase.COMPLETE, ""));
+    }
+
     @Test void ordinaryClockAndMembershipWritesPreserveEventsAndResetArchivesBeforeRearming() throws Exception {
         Memory repository=new Memory();PlayService service=new PlayService(repository);service.setParticipant(PLAYER,true);
         EventConfiguration configuration=put(service,List.of(),PlayState.Mode.TIMER,20);

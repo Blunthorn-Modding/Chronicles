@@ -3,6 +3,7 @@ package io.github.chronicle.core.client;
 import io.github.chronicle.core.menu.CoreMenuModel;
 import io.github.chronicle.core.menu.CoreMenuModel.Entry;
 import io.github.chronicle.core.menu.EventEditorForm;
+import io.github.chronicle.core.play.EventSource;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -15,11 +16,13 @@ import net.minecraft.util.Identifier;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Set;
 
 /**
- * A local four-page Event draft.  This class intentionally has no event-domain authority:
+ * A local five-section Event draft. This class intentionally has no event-domain authority:
  * catalog pins and all state changes are checked again by the server when {@link Transport#save}
  * or {@link Transport#preview} is called.
  */
@@ -33,8 +36,9 @@ public final class EventEditorScreen extends Screen {
         void showBounds(EventEditorForm.Change change);
     }
 
-    private enum Page { BASICS, MEDIA, TRIGGER, CHANGES }
-    private enum PickerPurpose { SOUND, AUDIENCE_REGION, TRIGGER_REGION, FLAG, STATE }
+    private enum Page { BASICS, WHEN, REQUIREMENTS, DELAY, ACTIONS }
+    private enum Panel { SECTION, ADD_ACTION, EDIT_FLAG, EDIT_TEXT, EDIT_SOUND, EDIT_STATE }
+    private enum PickerPurpose { SOUND, AUDIENCE_REGION, TRIGGER_REGION, FLAG, STATE, TRIGGER, TARGET, ACTIVITY, ACTION_FLAG }
 
     private final CoreMenuScreen parent;
     private final Transport transport;
@@ -42,6 +46,16 @@ public final class EventEditorScreen extends Screen {
     private final boolean creating;
     private final long revision;
     private Page page = Page.BASICS;
+    private Panel panel = Panel.SECTION;
+    private final List<String> requiredFlags = new ArrayList<>();
+    private final Map<String, Boolean> flagChanges = new LinkedHashMap<>();
+    private String sourceType = "", sourceTarget = "", sourceActivity = "", editFlag = "";
+    private String sourceTypeLabel = "", sourceTargetLabel = "", sourceActivityLabel = "";
+    private boolean editFlagValue = true, delayEnabled;
+    private String savedMessage, savedSound, savedAudience, savedAudienceRegion;
+    private long savedAudienceRevision;
+    private Map<String, Boolean> savedFlagChanges;
+    private int requirementOffset, actionOffset, editStateIndex = -1;
     private PickerPurpose pickerPurpose;
     private CatalogAddPopup popup;
     private String pickerKind = "";
@@ -67,7 +81,9 @@ public final class EventEditorScreen extends Screen {
         messageDraft = value.message(); soundDraft = value.sound(); audienceDraft = value.audience();
         audienceRegionDraft = value.audienceRegion(); audienceRegionRevision = value.audienceRegionRevision();
         modeDraft = value.mode(); triggerRegionDraft = value.triggerRegion(); triggerRegionRevision = value.triggerRegionRevision();
-        secondsDraft = Long.toString(value.seconds()); flagDraft = value.flag(); changes.addAll(value.changes());
+        secondsDraft = Long.toString(value.seconds()); delayEnabled = value.seconds() > 0; flagDraft = value.flag(); changes.addAll(value.changes());
+        requiredFlags.addAll(value.requiredFlags()); flagChanges.putAll(value.flagChanges());
+        if (value.source() != null) { sourceType = value.source().type(); sourceTarget = value.source().target(); sourceActivity = value.source().activity(); }
     }
 
     public CoreMenuScreen parentMenu() { return parent; }
@@ -104,7 +120,12 @@ public final class EventEditorScreen extends Screen {
             if (client.currentScreen == this) clearAndInit();
             return;
         }
-        if (popup != null && view.picker() != null && view.picker().kind().equals(pickerKind)) popup.replacePage(view.picker());
+        if (popup != null && view.picker() != null && view.picker().kind().equals(pickerKind)) {
+            var picker = view.picker();
+            if ((pickerPurpose == PickerPurpose.TARGET || pickerPurpose == PickerPurpose.ACTIVITY) && picker.query().startsWith(sourceType + "|"))
+                picker = new CoreMenuModel.Picker(picker.kind(), picker.query().substring(sourceType.length() + 1), picker.page(), picker.pages(), picker.entries());
+            popup.replacePage(picker);
+        }
     }
 
     /** Preserve the authored draft for inspection but refuse further mutations after a stale reply. */
@@ -116,98 +137,140 @@ public final class EventEditorScreen extends Screen {
     }
 
     @Override protected void init() {
-        retainInputs(); clearChildren();
+        retainInputs(); idField = null; nameField = null; descriptionField = null; messageField = null; secondsField = null; clearChildren();
         int w = Math.min(440, Math.max(240, width - 24));
-        int x = (width - w) / 2; int y = Math.max(8, (height - 240) / 2);
-        int tab = Math.max(50, (w - 6) / 4);
-        for (int i = 0; i < Page.values().length; i++) {
-            Page candidate = Page.values()[i];
-            button((page == candidate ? "> " : "") + pageLabel(candidate), x + i * tab, y + 22,
-                    i == 3 ? w - 3 * tab : tab - 2, () -> { page = candidate; problem = ""; clearAndInit(); },
-                    pageHelp(candidate), usable());
-        }
-        switch (page) {
-            case BASICS -> basics(x, y, w);
-            case MEDIA -> media(x, y, w);
-            case TRIGGER -> trigger(x, y, w);
-            case CHANGES -> changes(x, y, w);
-        }
-        button("Cancel", x, y + 206, 92, this::returnToParent, "Discard this local draft", true);
-        button(creating ? "Create event" : "Save edits", x + 96, y + 206, w - 96, this::save,
+        int x = (width - w) / 2, y = Math.max(6, (height - 240) / 2 + 6);
+        if (panel == Panel.SECTION) {
+            button("<", x, y + 22, 26, () -> navigate(-1), "Previous section", usable() && page.ordinal() > 0);
+            button(pageLabel(page) + " " + (page.ordinal() + 1) + "/5", x + 30, y + 22, w - 60, () -> {}, pageHelp(page), false);
+            button(">", x + w - 26, y + 22, 26, () -> navigate(1), "Next section", usable() && page.ordinal() < Page.values().length - 1);
+            switch (page) {
+                case BASICS -> basics(x, y, w);
+                case WHEN -> when(x, y, w);
+                case REQUIREMENTS -> requirements(x, y, w);
+                case DELAY -> delay(x, y, w);
+                case ACTIONS -> actions(x, y, w);
+            }
+        } else actionPanel(x, y, w);
+        button("Cancel", x, y + 206, 92, () -> { if (panel == Panel.SECTION) returnToParent(); else { restoreAction(); panel = Panel.SECTION; clearAndInit(); } }, panel == Panel.SECTION ? "Discard this local draft" : "Return to actions", true);
+        if (panel == Panel.SECTION) button(creating ? "Create event" : "Save edits", x + 96, y + 206, w - 96, this::save,
                 creating ? "Create this configured event" : "Save all event changes", usable() && !hasUnresolvedChanges());
+        else button("Done", x + 96, y + 206, w - 96, () -> { retainInputs(); panel = Panel.SECTION; clearAndInit(); }, "Return to actions", usable());
     }
 
+    private void navigate(int direction) { retainInputs(); page = Page.values()[page.ordinal() + direction]; problem = ""; clearAndInit(); }
+    public void navigateForTest(int direction) { if (panel == Panel.SECTION && page.ordinal() + direction >= 0 && page.ordinal() + direction < Page.values().length) navigate(direction); }
     private void basics(int x, int y, int w) {
-        int row = y + 55;
+        int row = y + 60;
         if (creating) {
-            idField = field(x, row, w, "Event ID (generated, editable)", idDraft, 128, value -> { idDraft = value; if (!updatingGeneratedId) manuallyEditedId = true; });
-            row += 34;
+            idField = field(x, row, w, "Event ID (generated, editable)", idDraft, 128, value -> { idDraft = value; if (!updatingGeneratedId) manuallyEditedId = true; }); row += 34;
         }
         nameField = field(x, row, w, "Event name", nameDraft, 80, value -> {
             nameDraft = value;
-            if (creating && !manuallyEditedId) {
-                idDraft = generatedId(value);
-                if (idField != null) { updatingGeneratedId = true; idField.setText(idDraft); updatingGeneratedId = false; }
-            }
+            if (creating && !manuallyEditedId) { idDraft = generatedId(value); if (idField != null) { updatingGeneratedId = true; idField.setText(idDraft); updatingGeneratedId = false; } }
         });
         descriptionField = field(x, row + 34, w, "Organizer description (optional)", descriptionDraft, 512, value -> descriptionDraft = value);
     }
-
-    private void media(int x, int y, int w) {
-        messageField = field(x, y + 55, w, "Message (optional)", messageDraft, 512, value -> messageDraft = value);
-        button(soundDraft.isBlank() ? "Choose sound…" : "Sound: " + compact(soundDraft, 38), x, y + 89, w, () -> openPicker(PickerPurpose.SOUND),
-                "Choose an optional registered sound", usable());
-        button("Clear sound", x, y + 111, w, () -> { soundDraft = ""; problem = ""; clearAndInit(); }, "Use no sound", usable() && !soundDraft.isBlank());
-        button("Preview privately", x, y + 145, w, this::preview, "Play this unsaved message and sound only for you", usable());
+    private void when(int x, int y, int w) {
+        button("Trigger: " + triggerLabel(), x, y + 60, w, () -> openPicker(PickerPurpose.TRIGGER), "Choose when this event is eligible", usable());
+        if ("ENTRY".equals(modeDraft)) button(regionButton("Entry Region", triggerRegionDraft), x, y + 82, w, () -> openPicker(PickerPurpose.TRIGGER_REGION), "Choose an entry Region", usable());
+        if ("SYSTEM".equals(modeDraft)) {
+            button("Target: " + (sourceTarget.isBlank() ? "Choose…" : compact(sourceTargetLabel.isBlank() ? sourceTarget : sourceTargetLabel, 32)), x, y + 82, w, () -> openPicker(PickerPurpose.TARGET), "Choose a registered target", usable());
+            button("Activity: " + (sourceActivity.isBlank() ? "Any activity" : compact(sourceActivityLabel.isBlank() ? sourceName(sourceActivity) : sourceActivityLabel, 32)), x, y + 104, w, () -> openPicker(PickerPurpose.ACTIVITY), "Choose an optional activity filter", usable());
+        }
     }
-
-    private void trigger(int x, int y, int w) {
+    private void requirements(int x, int y, int w) {
+        button("Add prerequisite…", x, y + 60, w - 46, () -> openPicker(PickerPurpose.FLAG), "All required flags must be On", usable() && requiredFlags.size() < 32);
+        listArrows(x, y, w, requirementOffset, requiredFlags.size(), true);
+        requirementOffset = Math.clamp(requirementOffset, 0, Math.max(0, requiredFlags.size() - 4));
+        for (int i = 0; i < 4 && requirementOffset + i < requiredFlags.size(); i++) {
+            int index = requirementOffset + i, row = y + 84 + i * 22; String flag = requiredFlags.get(index);
+            button(compact(flag, 32), x, row, w - 64, () -> {}, flag, false);
+            button("Remove", x + w - 60, row, 60, () -> { requiredFlags.remove(index); clearAndInit(); }, "Remove prerequisite", usable());
+        }
+    }
+    private void delay(int x, int y, int w) {
         int half = (w - 4) / 2;
-        button(choice("Audience", audienceDraft, "PARTICIPANTS"), x, y + 55, half, () -> { audienceDraft = "PARTICIPANTS"; audienceRegionDraft = ""; audienceRegionRevision = 0; clearAndInit(); }, "Send to active participants", usable());
-        button(choice("Audience", audienceDraft, "REGION"), x + half + 4, y + 55, w - half - 4, () -> { audienceDraft = "REGION"; clearAndInit(); }, "Send to a selected Region", usable());
-        if ("REGION".equals(audienceDraft)) button(regionButton("Audience Region", audienceRegionDraft), x, y + 77, w, () -> openPicker(PickerPurpose.AUDIENCE_REGION), "Choose who receives this event", usable());
-
-        int row = y + ("REGION".equals(audienceDraft) ? 111 : 89);
-        int quarter = Math.max(48, (w - 9) / 4);
-        for (int i = 0; i < 4; i++) {
-            String mode = new String[] {"MANUAL", "ENTRY", "TIMER", "CONDITION"}[i];
-            button(choice("", modeDraft, mode), x + i * (quarter + 3), row, i == 3 ? w - i * (quarter + 3) : quarter,
-                    () -> { modeDraft = mode; problem = ""; clearAndInit(); }, triggerHelp(mode), usable());
-        }
-        row += 22;
-        if ("ENTRY".equals(modeDraft)) { button(regionButton("Entry Region", triggerRegionDraft), x, row, w, () -> openPicker(PickerPurpose.TRIGGER_REGION), "Start when a participant enters this Region", usable()); row += 22; }
-        if ("TIMER".equals(modeDraft)) { row+=12;secondsField = field(x, row, w, "Active seconds", secondsDraft, 9, value -> secondsDraft = value); row += 22; }
-        String flagLabel = flagDraft.isBlank() ? ("CONDITION".equals(modeDraft) ? "Choose required flag…" : "Optional flag…") : "Flag: " + compact(flagDraft, 36);
-        button(flagLabel, x, row, w - 44, () -> openPicker(PickerPurpose.FLAG),
-                "Choose a flag that must be On. Create flags under Advanced → Flags.", usable());
-        button("Clear", x + w - 40, row, 40, () -> { flagDraft = ""; clearAndInit(); }, "Remove this flag prerequisite", usable() && !flagDraft.isBlank());
+        button((!delayEnabled ? "● " : "○ ") + "No delay", x, y + 60, half, () -> { delayEnabled = false; clearAndInit(); }, "Run without a countdown", usable() && !"TIMER".equals(modeDraft));
+        button((delayEnabled ? "● " : "○ ") + "Active-play delay", x + half + 4, y + 60, w - half - 4, () -> { delayEnabled = true; clearAndInit(); }, "Countdown uses eligible active play", usable());
+        if (delayEnabled) secondsField = field(x, y + 100, w, "Active seconds", secondsDraft, 9, value -> secondsDraft = value);
     }
-
-    private void changes(int x, int y, int w) {
-        button("Add Saved state…", x, y + 55, w - 46, () -> openPicker(PickerPurpose.STATE), "Add an existing Region Saved state", usable() && changes.size() < EventEditorForm.MAX_CHANGES);
-        int rows = Math.min(4, Math.max(1, changes.size() - changeOffset));
-        changeOffset = Math.clamp(changeOffset, 0, Math.max(0, changes.size() - rows));
-        for (int i = 0; i < rows && changeOffset + i < changes.size(); i++) {
-            int index = changeOffset + i; EventEditorForm.Change change = changes.get(index); int row = y + 78 + i * 25;
-            int showWidth = 75;
-            button(compact(change.label().isBlank() ? change.regionId() + " - " + change.state() : change.label(), 32), x, row, w - showWidth - 4,
-                    () -> transport.showBounds(change), change.current() ? "Show this target's bounds" : "This saved state is unavailable", usable() && change.current());
-            button("Remove", x + w - showWidth, row, showWidth, () -> { changes.remove(index); problem = ""; clearAndInit(); }, "Remove this target only", usable());
-        }
-        if (changes.size() > rows) {
-            button("↑", x + w - 44, y + 55, 20, () -> { changeOffset--; clearAndInit(); }, "Earlier changes", usable() && changeOffset > 0);
-            button("↓", x + w - 20, y + 55, 20, () -> { changeOffset++; clearAndInit(); }, "Later changes", usable() && changeOffset + rows < changes.size());
+    private List<String> actionKeys() {
+        List<String> keys = new ArrayList<>();
+        flagChanges.keySet().forEach(k -> keys.add("F:" + k));
+        if (!messageDraft.isBlank()) keys.add("M:"); if (!soundDraft.isBlank()) keys.add("S:");
+        for (int i = 0; i < changes.size(); i++) keys.add("R:" + i);
+        return keys;
+    }
+    private void actions(int x, int y, int w) {
+        List<String> keys = actionKeys(); actionOffset = Math.clamp(actionOffset, 0, Math.max(0, keys.size() - 4));
+        button("Add action…", x, y + 60, w - 46, () -> { snapshotAction(); panel = Panel.ADD_ACTION; clearAndInit(); }, "Add an event outcome", usable());
+        listArrows(x, y, w, actionOffset, keys.size(), false);
+        for (int i = 0; i < 4 && actionOffset + i < keys.size(); i++) {
+            String key = keys.get(actionOffset + i); int row = y + 84 + i * 22;
+            String label = key.startsWith("F:") ? "Flag " + key.substring(2) + " → " + (flagChanges.get(key.substring(2)) ? "On" : "Off") : key.equals("M:") ? "Send text" : key.equals("S:") ? "Play sound: " + soundDraft : "Region: " + changes.get(Integer.parseInt(key.substring(2))).label();
+            button(compact(label, 28), x, row, w - 100, () -> {}, label, false);
+            button("Edit", x + w - 96, row, 46, () -> editAction(key), "Edit this action", usable());
+            button("Remove", x + w - 48, row, 48, () -> { removeAction(key); clearAndInit(); }, "Remove this action", usable());
         }
     }
+    private void listArrows(int x, int y, int w, int offset, int size, boolean flags) {
+        button("↑", x + w - 44, y + 60, 20, () -> { if (flags) requirementOffset--; else actionOffset--; clearAndInit(); }, "Earlier entries", usable() && offset > 0);
+        button("↓", x + w - 20, y + 60, 20, () -> { if (flags) requirementOffset++; else actionOffset++; clearAndInit(); }, "Later entries", usable() && offset + 4 < size);
+    }
+    private void editAction(String key) {
+        snapshotAction();
+        if (key.startsWith("F:")) { editFlag = key.substring(2); editFlagValue = flagChanges.get(editFlag); panel = Panel.EDIT_FLAG; }
+        else if (key.equals("M:")) panel = Panel.EDIT_TEXT;
+        else if (key.equals("S:")) panel = Panel.EDIT_SOUND;
+        else { editStateIndex = Integer.parseInt(key.substring(2)); panel = Panel.EDIT_STATE; }
+        clearAndInit();
+    }
+    private void snapshotAction() { retainInputs(); savedMessage = messageDraft; savedSound = soundDraft; savedAudience = audienceDraft; savedAudienceRegion = audienceRegionDraft; savedAudienceRevision = audienceRegionRevision; savedFlagChanges = new LinkedHashMap<>(flagChanges); }
+    private void restoreAction() { if (savedFlagChanges == null) return; messageDraft = savedMessage; soundDraft = savedSound; audienceDraft = savedAudience; audienceRegionDraft = savedAudienceRegion; audienceRegionRevision = savedAudienceRevision; flagChanges.clear(); flagChanges.putAll(savedFlagChanges); messageField = null; savedFlagChanges = null; }
+    private void removeAction(String key) { if (key.startsWith("F:")) flagChanges.remove(key.substring(2)); else if (key.equals("M:")) messageDraft = ""; else if (key.equals("S:")) soundDraft = ""; else changes.remove(Integer.parseInt(key.substring(2))); }
+    private void actionPanel(int x, int y, int w) {
+        switch (panel) {
+            case ADD_ACTION -> {
+                button("Update flag…", x, y + 60, w, () -> { editFlag = ""; editFlagValue = true; panel = Panel.EDIT_FLAG; clearAndInit(); }, "Set a saved flag On or Off", usable() && flagChanges.size() < 32);
+                button("Send text…", x, y + 82, w, () -> { panel = Panel.EDIT_TEXT; clearAndInit(); }, "One message per Event", usable() && messageDraft.isBlank());
+                button("Play sound…", x, y + 104, w, () -> { panel = Panel.EDIT_SOUND; clearAndInit(); }, "One sound per Event", usable() && soundDraft.isBlank());
+                button("Apply Region Saved state…", x, y + 126, w, () -> openPicker(PickerPurpose.STATE), "Choose an existing saved state", usable() && changes.size() < EventEditorForm.MAX_CHANGES);
+            }
+            case EDIT_FLAG -> {
+                button("Flag: " + (editFlag.isBlank() ? "Choose…" : compact(editFlag, 32)), x, y + 60, w, () -> openPicker(PickerPurpose.ACTION_FLAG), "Choose a registered flag", usable());
+                int half = (w - 4) / 2;
+                button((editFlagValue ? "● " : "○ ") + "On", x, y + 82, half, () -> { editFlagValue = true; if (!editFlag.isBlank()) flagChanges.put(editFlag, true); clearAndInit(); }, "Set this flag On", usable());
+                button((!editFlagValue ? "● " : "○ ") + "Off", x + half + 4, y + 82, w - half - 4, () -> { editFlagValue = false; if (!editFlag.isBlank()) flagChanges.put(editFlag, false); clearAndInit(); }, "Set this flag Off", usable());
+            }
+            case EDIT_STATE -> {
+                EventEditorForm.Change change = changes.get(editStateIndex);
+                button("Replace saved state…", x, y + 60, w, () -> openPicker(PickerPurpose.STATE), "Choose another saved state", usable());
+                button("Show bounds", x, y + 82, w, () -> transport.showBounds(change), change.current() ? "Show target bounds" : "This saved state is unavailable", usable() && change.current());
+            }
+            case EDIT_TEXT -> { messageField = field(x, y + 60, w, "Message", messageDraft, 512, value -> messageDraft = value); mediaControls(x, y, w); }
+            case EDIT_SOUND -> { button(soundDraft.isBlank() ? "Choose sound…" : "Sound: " + compact(soundDraft, 32), x, y + 60, w, () -> openPicker(PickerPurpose.SOUND), "Choose sound", usable()); mediaControls(x, y, w); }
+            default -> { }
+        }
+    }
+    private void mediaControls(int x, int y, int w) {
+        int half = (w - 4) / 2;
+        button(choice("", audienceDraft, "PARTICIPANTS"), x, y + 94, half, () -> { audienceDraft = "PARTICIPANTS"; clearAndInit(); }, "Send to participants", usable());
+        button(choice("", audienceDraft, "REGION"), x + half + 4, y + 94, w - half - 4, () -> { audienceDraft = "REGION"; clearAndInit(); }, "Send to a Region", usable());
+        if ("REGION".equals(audienceDraft)) button(regionButton("Audience Region", audienceRegionDraft), x, y + 116, w, () -> openPicker(PickerPurpose.AUDIENCE_REGION), "Choose audience Region", usable());
+        button("Preview privately", x, y + 150, w, this::preview, "Preview only your unsaved text and sound", usable() && (!messageDraft.isBlank() || !soundDraft.isBlank()));
+    }
+    private String triggerLabel() { return switch (modeDraft) { case "MANUAL" -> "Manual"; case "ENTRY" -> "Region entry"; case "TIMER" -> "Active play timer"; case "CONDITION" -> "When flags are On"; case "SYSTEM" -> sourceTypeLabel.isBlank() ? sourceName(sourceType) : sourceTypeLabel; default -> "Choose…"; }; }
 
     private void openPicker(PickerPurpose purpose) {
         if (!usable()) return;
         retainInputs(); pickerPurpose = purpose; pickerKind = switch (purpose) {
             case SOUND -> "EVENT_SOUND"; case AUDIENCE_REGION, TRIGGER_REGION -> "EVENT_REGION";
-            case FLAG -> "EVENT_FLAG"; case STATE -> "EVENT_STATE";
+            case FLAG, ACTION_FLAG -> "EVENT_FLAG"; case STATE -> "EVENT_STATE";
+            case TRIGGER -> "EVENT_TRIGGER"; case TARGET -> "EVENT_TARGET"; case ACTIVITY -> "EVENT_ACTIVITY";
         };
         popup = new CatalogAddPopup(this, Text.literal(pickerTitle(purpose)), false, new CatalogAddPopup.Owner() {
-            @Override public void requestPage(CatalogAddPopup source, String query, int page) { transport.requestCatalog(source, pickerKind, query, page); }
+            @Override public void requestPage(CatalogAddPopup source, String query, int page) { transport.requestCatalog(source, pickerKind, (pickerPurpose == PickerPurpose.TARGET || pickerPurpose == PickerPurpose.ACTIVITY) ? sourceType + "|" + query.substring(0, Math.min(query.length(), 80)) : query, page); }
             @Override public String validate(Entry entry, String ignored) { return validatePicker(entry); }
             @Override public void add(Entry entry, String ignored) { applyPicker(entry); }
             @Override public void cancel() { popup = null; }
@@ -217,10 +280,13 @@ public final class EventEditorScreen extends Screen {
     }
 
     private String validatePicker(Entry entry) {
+        if (pickerPurpose == PickerPurpose.FLAG && requiredFlags.contains(entry.id())) return "Already required.";
+        if (pickerPurpose == PickerPurpose.ACTION_FLAG && flagChanges.containsKey(entry.id()) && !entry.id().equals(editFlag)) return "This flag already has an action.";
+        if ((pickerPurpose == PickerPurpose.TARGET || pickerPurpose == PickerPurpose.ACTIVITY) && !entry.id().startsWith(sourceType + "|")) return "This option belongs to a different source.";
         if (!"EVENT_STATE".equals(pickerKind)) return "";
         String[] pin = splitState(entry.id());
         if (pin == null) return "This saved state is no longer available.";
-        boolean duplicate = changes.stream().anyMatch(change -> change.regionId().equals(pin[0]));
+        boolean duplicate = java.util.stream.IntStream.range(0, changes.size()).anyMatch(i -> (panel != Panel.EDIT_STATE || i != editStateIndex) && changes.get(i).regionId().equals(pin[0]));
         return duplicate ? "That Region already has an event Saved state target." : "";
     }
 
@@ -230,10 +296,14 @@ public final class EventEditorScreen extends Screen {
             case SOUND -> soundDraft = entry.id();
             case AUDIENCE_REGION -> { audienceDraft = "REGION"; audienceRegionDraft = entry.id(); audienceRegionRevision = entry.revision(); }
             case TRIGGER_REGION -> { triggerRegionDraft = entry.id(); triggerRegionRevision = entry.revision(); }
-            case FLAG -> flagDraft = "none".equals(entry.id()) ? "" : entry.id();
+            case FLAG -> { if (!"none".equals(entry.id())) requiredFlags.add(entry.id()); }
+            case ACTION_FLAG -> { if (!editFlag.isBlank()) flagChanges.remove(editFlag); editFlag = entry.id(); flagChanges.put(editFlag, editFlagValue); }
+            case TRIGGER -> { String id = entry.id(); if (Set.of("MANUAL", "ENTRY", "TIMER", "CONDITION").contains(id)) { modeDraft = id; sourceType = ""; sourceTarget = ""; sourceActivity = ""; sourceTypeLabel = ""; sourceTargetLabel = ""; sourceActivityLabel = ""; if ("TIMER".equals(id)) delayEnabled = true; } else { if (!id.equals(sourceType)) { sourceTarget = ""; sourceActivity = ""; sourceTargetLabel = ""; sourceActivityLabel = ""; } sourceType = id; sourceTypeLabel = entry.label(); modeDraft = "SYSTEM"; } }
+            case TARGET -> { sourceTarget = entry.id().substring(sourceType.length() + 1); sourceTargetLabel = entry.label(); }
+            case ACTIVITY -> { sourceActivity = entry.id().substring(sourceType.length() + 1); sourceActivityLabel = entry.label(); }
             case STATE -> {
                 String[] pin = splitState(entry.id());
-                if (pin != null) changes.add(new EventEditorForm.Change(pin[0], entry.label(), pin[1], entry.revision(), entry.reference(), "", true, ""));
+                if (pin != null) { EventEditorForm.Change change = new EventEditorForm.Change(pin[0], entry.label(), pin[1], entry.revision(), entry.reference(), "", true, ""); if (panel == Panel.EDIT_STATE) changes.set(editStateIndex, change); else changes.add(change); } panel = Panel.SECTION;
             }
         }
         popup = null; problem = ""; clearAndInit();
@@ -247,27 +317,28 @@ public final class EventEditorScreen extends Screen {
     private void preview() {
         retainInputs(); String error = mediaValidation();
         if (!error.isBlank()) { problem = error; clearAndInit(); return; }
-        transport.preview(form());
+        transport.preview(form(true));
     }
-    private EventEditorForm form() {
+    private EventEditorForm form() { return form(false); }
+    private EventEditorForm form(boolean preview) {
         // A media preview may be requested while a different page has an unfinished timer.
         // Keep the text draft untouched; the full Save validator reports it before persistence.
-        long seconds = Math.max(0, Math.min(EventEditorForm.MAX_SECONDS, parseSeconds()));
+        long seconds = preview || !delayEnabled ? 0 : Math.max(0, Math.min(EventEditorForm.MAX_SECONDS, parseSeconds()));
         return new EventEditorForm(idDraft.trim(), revision, nameDraft.trim(), descriptionDraft, messageDraft, soundDraft,
                 audienceDraft, audienceRegionDraft, audienceRegionRevision, modeDraft, triggerRegionDraft, triggerRegionRevision,
-                seconds, flagDraft, List.copyOf(changes), creating);
+                seconds, List.copyOf(requiredFlags), List.copyOf(changes), creating, Map.copyOf(flagChanges), new EventSource(sourceType, sourceTarget, sourceActivity));
     }
     private String validation() {
         if (stale) return "Chronicle changed. This draft is preserved; reopen the event before saving.";
         if (idDraft.trim().isBlank()) return "An event ID is required.";
         if (nameDraft.trim().isBlank()) return "An event name is required.";
-        if (!"PARTICIPANTS".equals(audienceDraft) && !"REGION".equals(audienceDraft)) return "Choose an audience.";
-        if ("REGION".equals(audienceDraft) && audienceRegionDraft.isBlank()) return "Choose an audience Region.";
-        if (!Set.of("MANUAL", "ENTRY", "TIMER", "CONDITION").contains(modeDraft)) return "Choose a trigger.";
+        if ((!messageDraft.isBlank() || !soundDraft.isBlank()) && !"PARTICIPANTS".equals(audienceDraft) && !"REGION".equals(audienceDraft)) return "Choose an audience.";
+        if ((!messageDraft.isBlank() || !soundDraft.isBlank()) && "REGION".equals(audienceDraft) && audienceRegionDraft.isBlank()) return "Choose an audience Region.";
+        if (!Set.of("MANUAL", "ENTRY", "TIMER", "CONDITION", "SYSTEM").contains(modeDraft)) return "Choose a trigger.";
         if ("ENTRY".equals(modeDraft) && triggerRegionDraft.isBlank()) return "Choose an entry Region.";
-        if ("TIMER".equals(modeDraft) && (parseSeconds() <= 0 || parseSeconds() > EventEditorForm.MAX_SECONDS)) return "Active seconds must be between 1 and " + EventEditorForm.MAX_SECONDS + ".";
-        if ("CONDITION".equals(modeDraft) && flagDraft.isBlank()) return "Choose a flag. Create flags under Advanced → Flags.";
-        if (messageDraft.isBlank() && soundDraft.isBlank() && changes.isEmpty()) return "Add a message, sound, or Region Saved state.";
+        if (delayEnabled && (parseSeconds() <= 0 || parseSeconds() > EventEditorForm.MAX_SECONDS)) return "Active seconds must be between 1 and " + EventEditorForm.MAX_SECONDS + ".";
+        if ("CONDITION".equals(modeDraft) && requiredFlags.isEmpty()) return "Choose a flag. Create flags under Advanced → Flags.";
+        if (messageDraft.isBlank() && soundDraft.isBlank() && changes.isEmpty() && flagChanges.isEmpty()) return "Add at least one action.";
         Set<String> pins = new HashSet<>();
         for (EventEditorForm.Change change : changes) {
             if (change.regionId().isBlank() || change.state().isBlank() || !change.current() || !change.problem().isBlank()) return "Repair unavailable Region Saved states before saving.";
@@ -293,19 +364,19 @@ public final class EventEditorScreen extends Screen {
         field.setMaxLength(max); field.setText(value); field.setPlaceholder(Text.literal(hint));field.setTooltip(Tooltip.of(Text.literal(hint))); field.setChangedListener(changed); field.active = usable(); return field;
     }
     private void button(String label, int x, int y, int width, Runnable action, String tooltip, boolean enabled) {
-        ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(label), ignored -> action.run()).dimensions(x, y, Math.max(1, width), 18).build());
+        ButtonWidget button = addDrawableChild(ButtonWidget.builder(Text.literal(textRenderer.trimToWidth(label, Math.max(1, width - 8))), ignored -> action.run()).dimensions(x, y, Math.max(1, width), 18).build());
         button.active = enabled; button.setTooltip(Tooltip.of(Text.literal(tooltip)));
     }
     private boolean usable() { return !stale; }
     private void returnToParent() { client.setScreen(parent); }
 
     @Override public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        int w = Math.min(440, Math.max(240, width - 24)); int x = (width - w) / 2; int y = Math.max(8, (height - 240) / 2);
+        int w = Math.min(440, Math.max(240, width - 24)); int x = (width - w) / 2; int y = Math.max(6, (height - 240) / 2 + 6);
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, x - 6, y - 6, w + 12, 240);
         context.drawTextWithShadow(textRenderer, title, x, y, 0xFFFFFFFF);
         context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth(pageDescription(),w)), x, y + 12, 0xFFA0A0A0);
         for(var child:children())if(child instanceof TextFieldWidget field)context.drawTextWithShadow(textRenderer,Text.literal(textRenderer.trimToWidth(field.getMessage().getString(),field.getWidth())),field.getX(),field.getY()-10,0xFFCCCCCC);
-        if (page == Page.BASICS && !creating) context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth("Event ID: " + idDraft,w)), x, y + 145, 0xFFCCCCCC);
+        if (panel == Panel.SECTION && page == Page.BASICS && !creating) context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth("Event ID: " + idDraft,w)), x, y + 145, 0xFFCCCCCC);
         String feedback = stale ? "Chronicle changed. Reopen before saving." : problem;
         if (!feedback.isBlank()) context.drawTextWithShadow(textRenderer, Text.literal(textRenderer.trimToWidth(feedback, w)), x, y + 190, stale ? 0xFFFFCC66 : 0xFFFF9966);
         super.render(context, mouseX, mouseY, delta);
@@ -319,6 +390,11 @@ public final class EventEditorScreen extends Screen {
         String state = id.substring(split + 1).toUpperCase(Locale.ROOT);
         return (state.equals("START") || state.equals("END")) ? new String[] { id.substring(0, split), state } : null;
     }
+    private static String sourceName(String id) {
+        int colon = id.lastIndexOf(':');
+        String path = id.substring(colon + 1).replace('_', ' ').replace('/', ' ').trim();
+        return path.isEmpty() ? id : Character.toUpperCase(path.charAt(0)) + path.substring(1);
+    }
     private static String generatedId(String name) {
         String slug = name.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
         return "chronicle_core:event_" + (slug.isBlank() ? "event" : slug);
@@ -327,9 +403,8 @@ public final class EventEditorScreen extends Screen {
     private static String choice(String prefix, String actual, String expected) { return (actual.equals(expected) ? "● " : "○ ") + (prefix.isBlank() ? pretty(expected) : prefix + ": " + pretty(expected)); }
     private static String regionButton(String prefix, String id) { return prefix + ": " + (id.isBlank() ? "Choose…" : compact(id, 38)); }
     private static String pretty(String value) { return switch (value) { case "PARTICIPANTS" -> "Participants"; case "REGION" -> "Selected Region"; case "TIMER" -> "Active time"; default -> value.substring(0, 1) + value.substring(1).toLowerCase(Locale.ROOT); }; }
-    private static String pageLabel(Page value) { return switch (value) { case BASICS -> "Basics"; case MEDIA -> "Message & sound"; case TRIGGER -> "Trigger"; case CHANGES -> "Region changes"; }; }
-    private static String pageHelp(Page value) { return switch (value) { case BASICS -> "Name and describe this event"; case MEDIA -> "Choose optional private-preview media"; case TRIGGER -> "Choose audience and automatic trigger"; case CHANGES -> "Apply existing Region Saved states"; }; }
-    private static String triggerHelp(String value) { return switch (value) { case "MANUAL" -> "Run only when the organizer asks"; case "ENTRY" -> "Run when a participant enters a Region"; case "TIMER" -> "Run after active play time"; default -> "Run when the required flag is On"; }; }
-    private static String pickerTitle(PickerPurpose purpose) { return switch (purpose) { case SOUND -> "Choose sound"; case AUDIENCE_REGION -> "Choose audience Region"; case TRIGGER_REGION -> "Choose entry Region"; case FLAG -> "Choose registered flag"; case STATE -> "Add Region Saved state"; }; }
-    private String pageDescription() { return switch (page) { case BASICS -> "Name this event; the server validates its ID."; case MEDIA -> "Message and sound are optional, but an event needs an effect."; case TRIGGER -> "Audience and trigger references are separate from changed Regions."; case CHANGES -> "Saved states are applied only after server review."; }; }
+    private static String pageLabel(Page value) { return switch (value) { case BASICS -> "Basics"; case WHEN -> "When"; case REQUIREMENTS -> "Requirements"; case DELAY -> "Delay"; case ACTIONS -> "What happens"; }; }
+    private static String pageHelp(Page value) { return switch (value) { case BASICS -> "Name and describe this event"; case WHEN -> "Choose a trigger and its target"; case REQUIREMENTS -> "All required flags must be On"; case DELAY -> "Active-play countdown"; case ACTIONS -> "Choose event outcomes"; }; }
+    private static String pickerTitle(PickerPurpose purpose) { return switch (purpose) { case SOUND -> "Choose sound"; case AUDIENCE_REGION -> "Choose audience Region"; case TRIGGER_REGION -> "Choose entry Region"; case FLAG, ACTION_FLAG -> "Choose registered flag"; case STATE -> "Add Region Saved state"; case TRIGGER -> "Choose trigger"; case TARGET -> "Choose target"; case ACTIVITY -> "Choose activity"; }; }
+    private String pageDescription() { if (panel != Panel.SECTION) return "Edit actions in this local draft."; return switch (page) { case BASICS -> "Name this event; the server validates its ID."; case WHEN -> "Choose when this event becomes eligible."; case REQUIREMENTS -> "All required flags must be On."; case DELAY -> "Any required flag turning Off resets the full delay."; case ACTIONS -> "Actions take effect only when the event runs."; }; }
 }

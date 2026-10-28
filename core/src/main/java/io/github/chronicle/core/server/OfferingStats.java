@@ -109,6 +109,10 @@ public final class OfferingStats {
     }
 
     public static OfferingLedger ledger(MinecraftServer server) { return ready(server).service.ledger(); }
+    static boolean sourceDefinitelyAbsent(MinecraftServer server,UUID transaction) {
+        State state=ready(server);try{state.store.verifyUnchanged();return state.service.ledger().receipts().stream().noneMatch(receipt->receipt.transaction().equals(transaction));}
+        catch(IOException failure){throw new IllegalStateException("Offering source refusal cannot be proved from its observed authority",failure);}
+    }
 
     public static Preview preview(ServerPlayerEntity player, String source, OfferingDefinition definition) {
         State state = ready(player.getEntityWorld().getServer());

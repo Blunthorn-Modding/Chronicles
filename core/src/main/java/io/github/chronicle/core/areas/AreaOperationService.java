@@ -6,6 +6,7 @@ public final class AreaOperationService{
     private final AreaOperationRepository repository;private AreaOperationJournal state;
     public AreaOperationService(AreaOperationRepository repository)throws IOException{this.repository=java.util.Objects.requireNonNull(repository);state=repository.load();}
     public synchronized AreaOperationJournal state(){return state;}
+    public synchronized void verifyUnchanged()throws IOException{repository.verifyUnchanged();}
     public synchronized AreaOperation prepare(AreaOperation operation)throws IOException{
         if(operation.stage()!=AreaOperation.Stage.PREPARED||operation.cursor()!=0)throw new IllegalArgumentException("new operation must be prepared at cursor zero");AreaOperation existing=state.operations().get(operation.operationId());if(existing!=null){if(existing.equals(operation))return existing;throw new IllegalStateException("operation UUID already identifies different evidence");}
         if(state.operations().size()>=AreaOperationJournal.MAX_OPERATIONS)throw new IllegalStateException("operation journal limit reached");for(AreaOperation candidate:state.operations().values())if(candidate.unresolved()&&candidate.areaId().equals(operation.areaId()))throw new IllegalStateException("area already has an unresolved operation");return publish(operation);

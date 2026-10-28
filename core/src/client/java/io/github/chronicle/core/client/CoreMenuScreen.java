@@ -247,9 +247,9 @@ public final class CoreMenuScreen extends Screen {
                 && !(updated.success() && (requestedAction == Action.LOOT_SAVE || requestedAction == Action.EVENT_SAVE))) preserveDrafts = true;
         boolean close = updated.close();
         if (requestedAction == Action.EVENT_PREVIEW && updated.success()) eventPreview = updated.message();
-        boolean retainReview = (requestedAction == Action.EVENT_REVIEW || requestedAction == Action.PLAYER_MOVE_REVIEW) && updated.success();
+        boolean retainReview = (requestedAction == Action.EVENT_REVIEW || requestedAction == Action.EVENT_SOURCE_REVIEW || requestedAction == Action.PLAYER_MOVE_REVIEW) && updated.success();
         if (retainReview) eventPreview = updated.message();
-        if (requestedAction == Action.EVENT_RUN || requestedAction == Action.PLAYER_MOVE || !updated.success()) eventPreview = "";
+        if (requestedAction == Action.EVENT_RUN || requestedAction == Action.EVENT_SOURCE_COMPLETE || requestedAction == Action.EVENT_SOURCE_CANCEL || requestedAction == Action.PLAYER_MOVE || !updated.success()) eventPreview = "";
         state = updated;
         rememberEventNavigation();
         pending = false; refreshPending = false; pendingTicks = idleTicks = 0; requestedAction = null;
@@ -592,8 +592,8 @@ public final class CoreMenuScreen extends Screen {
         }
         if (detail.area() != null) cursor = areaDetails(detail.area(), detail.controls(), x, cursor, w);
         if ((state.page() == Page.EVENTS || state.page() == Page.PLAYERS) && !eventPreview.isBlank()) {
-            drawLine(state.page() == Page.EVENTS ? "Event preview" : "Movement review", x, cursor, w, 0xFF77CCFF);
-            cursor = wrapped(eventPreview, x, cursor + 10, w, 0xFFCCCCCC, 3);
+            drawLine(state.page() == Page.EVENTS ? eventPreview.startsWith("Review source ")?"Source recovery review":"Event preview" : "Movement review", x, cursor, w, 0xFF77CCFF);
+            cursor = wrapped(eventPreview, x, cursor + 10, w, 0xFFCCCCCC, eventPreview.startsWith("Review source ")?6:3);
         }
         cursor = wrapped(detail.description(), x, cursor, w, 0xFFFFFFFF, 3);
         if (detail.book() != null) {
@@ -1409,6 +1409,9 @@ public final class CoreMenuScreen extends Screen {
             case EVENT_DELETE -> "Delete this custom event definition and its setup. Completed execution history remains; no blocks change and no media plays.";
             case EVENT_RECOVER -> "Recheck the original world evidence and continue this exact operation. Foreign cells remain preserved; no new operation is started.";
             case EVENT_ACK_MEDIA -> "Acknowledge uncertain delivery without claiming it was received. No media or Region changes are replayed. You may deliberately allow another run afterward.";
+            case EVENT_SOURCE_COMPLETE -> "Record the reviewed activity as having happened. Its original flag snapshot is retained; configured Events may become eligible. No block, trade, prayer or item operation is replayed.";
+            case EVENT_SOURCE_CANCEL -> "Record the reviewed activity as not having happened. It will not trigger an Event. No original gameplay operation is replayed.";
+            case EVENT_SOURCE_RELOAD -> "Reload the server's repaired source journal. This does not confirm uncertain activities or replay gameplay; unresolved evidence still requires review.";
             case CONDITION_SET -> "Turn this flag " + ("true".equals(argument)?"On":"Off") + ". Turning it On can trigger Events that require it.";
             case SESSION_START -> "Start a play window and unfreeze world simulation. Bound loot chests receive their configured session fill, replacing contents.";
             case SESSION_END -> "Finish the current play window and freeze world simulation. Campaign progress remains saved.";

@@ -70,11 +70,14 @@ final class CoreEventMenu {
                 configuration.mode().name(),
                 trigger.map(io.github.chronicle.core.play.EventRegionReference::id).orElse(""),
                 trigger.map(io.github.chronicle.core.play.EventRegionReference::revision).orElse(0L),
-                configuration.mode() == PlayState.Mode.TIMER ? configuration.delayTicks() / 20 : 0,
-                configuration.requiredFlag(), changes, false);
+                configuration.delayTicks() / 20,
+                configuration.requiredFlags(), changes, false,definition.flagChanges(),configuration.source());
     }
 
     static Detail detail(ServerPlayerEntity player, String selected, boolean reviewed) {
+        return detail(player,selected,reviewed,false);
+    }
+    static Detail detail(ServerPlayerEntity player, String selected, boolean reviewed, boolean sourceReviewed) {
         MinecraftServer server = player.getEntityWorld().getServer();
         boolean editing = AuthoringRuntime.isAuthor(player);
         boolean canEdit = player.getCommandSource().hasPermissionLevel(2) && editing && AuthoringRuntime.editable(server) && !held(server);
@@ -87,7 +90,7 @@ final class CoreEventMenu {
                 !room ? "The Event limit has been reached." : held(server) ? "Finish pending operations first." : editReason,
                 false, ""));
         if (selected == null || selected.isBlank()) {
-            return new Detail("", "Events", "Create messages, sounds and saved Region changes, then choose how they trigger.",
+            return new Detail("", "Events", "Choose when Events run, their required flags, and their text, sound, Region or flag outcomes.",
                     facts, controls, null, null, null);
         }
         String id = raw(selected);
@@ -99,6 +102,9 @@ final class CoreEventMenu {
         boolean custom = EventRuntime.stored(server, id) != null && ChronicleCore.observations().get(id).isEmpty();
         boolean unresolved = execution != null && execution.phase() != EventExecution.Phase.COMPLETE;
         boolean available = execution == null && delivery == null;
+        var pendingSource=EventSources.pending(server).stream().filter(EventSources::recoverable).filter(receipt->receipt.type().equals(configuration.source().type())
+                &&(configuration.source().target().equals("*")||configuration.source().target().equals(receipt.target()))
+                &&(configuration.source().activity().isEmpty()||configuration.source().activity().equals(receipt.activity()))).findFirst();
 
         facts.add(new Fact("Event ID", id));
         facts.add(new Fact("Message", definition.text().isBlank() ? "None" : definition.text()));
@@ -107,11 +113,25 @@ final class CoreEventMenu {
                 ? "Participants inside " + definition.audienceRegion().map(r -> r.id() + " @ " + r.revision()).orElse("missing Region")
                 : "All eligible participants"));
         facts.add(new Fact("Trigger", configuration.mode() + triggerSummary(configuration)));
+        facts.add(new Fact("Required flags", configuration.requiredFlags().isEmpty()?"None":String.join(", ",configuration.requiredFlags())));
+        facts.add(new Fact("Flag updates", definition.flagChanges().toString()));
+        facts.add(new Fact("Progression", EventProgressRuntime.status(server,configuration)));
+        if(configuration.mode()==PlayState.Mode.SYSTEM)facts.add(new Fact("Activity source", configuration.source().toString()));
         facts.add(new Fact("Region changes", definition.changes().isEmpty() ? "None" : definition.changes().stream()
                 .map(change -> change.region().id() + " -> " + change.state()).reduce((left, right) -> left + "; " + right).orElse("None")));
         facts.add(new Fact("Completion", execution != null ? execution.phase() + " - " + execution.detail()
                 : delivery != null ? delivery.status() + " - " + delivery.recipients().size() + " recipients" : "Not run"));
         facts.add(new Fact("Configuration", configuration.enabled() ? "Enabled" : "Not configured for live execution"));
+        if(pendingSource.isPresent()){
+            var receipt=pendingSource.get();facts.add(new Fact("Uncertain source",receipt.id()+" / "+receipt.authority()));
+            controls.add(control(Action.EVENT_SOURCE_REVIEW,"Review source recovery",!active,"Pause play before reviewing source recovery.",false,""));
+            if(sourceReviewed){
+                controls.add(control(Action.EVENT_SOURCE_COMPLETE,"Record activity as happened",!active,"Pause play before recovery.",true,""));
+                controls.add(control(Action.EVENT_SOURCE_CANCEL,"Record activity as not happened",!active,"Pause play before recovery.",true,""));
+            }
+        }
+        if(RuntimeHolds.reason(server)!=null&&!RuntimeHolds.heldByOther(server,EventSources.HOLD))
+            controls.add(control(Action.EVENT_SOURCE_RELOAD,"Reload source evidence",!active,"Pause play before reloading repaired evidence.",true,""));
 
         controls.add(control(Action.EVENT_EDIT, "Edit event", canEdit && !unresolved,
                 unresolved ? "Resolve the current Event execution before editing it." : editReason, false, ""));
@@ -136,8 +156,9 @@ final class CoreEventMenu {
         } else if (execution != null && !execution.terminal()) {
             controls.add(control(Action.EVENT_RECOVER, "Recover event", active, "Restore active play before recovery.", true, ""));
         }
-        if (delivery != null || execution != null && execution.phase() == EventExecution.Phase.COMPLETE) {
-            controls.add(control(Action.EVENT_RESET, "Allow event again", canEdit, editReason, true, ""));
+        var progress=EventProgressRuntime.entry(server,configuration);
+        if (delivery != null || execution != null && execution.phase() == EventExecution.Phase.COMPLETE || progress!=null&&(progress.skipped()||progress.triggered()&&execution==null)) {
+            controls.add(control(Action.EVENT_RESET, execution==null&&delivery==null?"Reset pending trigger":"Allow event again", canEdit, editReason, true, ""));
         }
         if (custom) controls.add(control(Action.EVENT_DELETE, "Delete event", canEdit && !unresolved,
                 unresolved ? "Resolve the current Event execution before deleting it." : editReason, true, ""));
@@ -145,6 +166,7 @@ final class CoreEventMenu {
         String description = definition.description().isBlank()
                 ? "A player-facing Event with optional media and saved Region changes."
                 : definition.description();
+        if(EventProgressRuntime.legacyReviewRequired(configuration))description+=" Review and save this timer to enable its flag-based countdown.";
         return new Detail(selected, definition.label(), description, facts, controls, null, null, null);
     }
 
@@ -204,8 +226,8 @@ final class CoreEventMenu {
     private static String triggerSummary(EventConfiguration configuration) {
         StringBuilder result = new StringBuilder();
         configuration.triggerRegion().ifPresent(region -> result.append(" - Region ").append(region.id()).append(" @ ").append(region.revision()));
-        if (configuration.mode() == PlayState.Mode.TIMER) result.append(" - ").append(configuration.delayTicks() / 20).append(" active seconds");
-        if (!configuration.requiredFlag().isBlank()) result.append(" - flag ").append(configuration.requiredFlag());
+        if (configuration.delayTicks()>0) result.append(" - ").append(configuration.delayTicks() / 20).append(" active seconds");
+        if (!configuration.requiredFlags().isEmpty()) result.append(" - all flags ").append(String.join(", ",configuration.requiredFlags()));
         return result.toString();
     }
 

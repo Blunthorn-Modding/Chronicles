@@ -45,9 +45,9 @@ public record PlayState(long revision, long elapsedTicks, Set<UUID> participants
         return new PlayState(0, 0, Set.of(), Map.of(), Map.of(), Map.of(), Map.of());
     }
 
-    public enum Mode { MANUAL, ENTRY, TIMER, CONDITION }
+    public enum Mode { MANUAL, ENTRY, TIMER, CONDITION, SYSTEM }
     public enum Status { CLAIMED, DELIVERED }
-    public enum DeliverySource { MANUAL, ENTRY, TIMER, CONDITION }
+    public enum DeliverySource { MANUAL, ENTRY, TIMER, CONDITION, SYSTEM }
 
     /** A definition and region-revision-pinned optional trigger armed at shared active time. */
     public record Binding(String id, long revision, String definitionFingerprint, Mode mode,
@@ -60,6 +60,7 @@ public record PlayState(long revision, long elapsedTicks, Set<UUID> participants
                 throw new IllegalArgumentException("observation definition fingerprint must be a lowercase SHA-256 digest");
             }
             if (mode == null) throw new IllegalArgumentException("observation binding mode is required");
+            if (mode == Mode.SYSTEM) throw new IllegalArgumentException("system sources require a configured Event");
             if (regionId == null) throw new IllegalArgumentException("observation region ID is required; use an empty string for no region");
             if (regionId.isEmpty()) {
                 if (regionRevision != 0) throw new IllegalArgumentException("an unbound observation region must have revision zero");

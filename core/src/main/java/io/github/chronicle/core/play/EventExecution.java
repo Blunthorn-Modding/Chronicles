@@ -1,11 +1,6 @@
 package io.github.chronicle.core.play;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -47,8 +42,9 @@ public record EventExecution(String eventId, UUID operationId, EventConfiguratio
         }
         if (session < 1) throw new IllegalArgumentException("event execution session must be positive");
         if (elapsedTicks < 0) throw new IllegalArgumentException("event execution time must not be negative");
-        if (recipients == null || recipients.isEmpty() || recipients.size() > PlayState.MAX_PARTICIPANTS) {
-            throw new IllegalArgumentException("event execution must contain 1-" + PlayState.MAX_PARTICIPANTS + " recipients");
+        if (recipients == null || (recipients.isEmpty() && !configuration.definition().progressOnly())
+                || recipients.size() > PlayState.MAX_PARTICIPANTS) {
+            throw new IllegalArgumentException("event execution requires recipients unless it only changes flags");
         }
         Set<UUID> distinct = new HashSet<>();
         for (UUID recipient : recipients) {
@@ -85,37 +81,6 @@ public record EventExecution(String eventId, UUID operationId, EventConfiguratio
 
     /** Stable digest of the complete trigger/configuration pin used by this execution. */
     public String configurationFingerprint() {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            update(digest, "chronicle:event-configuration:v1");
-            update(digest, configuration.definition().fingerprint());
-            update(digest, configuration.mode().name());
-            update(digest, configuration.triggerRegion().isPresent());
-            configuration.triggerRegion().ifPresent(reference -> {
-                update(digest, reference.id());
-                update(digest, reference.revision());
-            });
-            update(digest, configuration.armedAtTicks());
-            update(digest, configuration.delayTicks());
-            update(digest, configuration.requiredFlag());
-            update(digest, configuration.enabled());
-            return HexFormat.of().formatHex(digest.digest());
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
-    }
-
-    private static void update(MessageDigest digest, String value) {
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(bytes.length).array());
-        digest.update(bytes);
-    }
-
-    private static void update(MessageDigest digest, boolean value) {
-        digest.update((byte) (value ? 1 : 0));
-    }
-
-    private static void update(MessageDigest digest, long value) {
-        digest.update(ByteBuffer.allocate(Long.BYTES).putLong(value).array());
+        return configuration.fingerprint();
     }
 }

@@ -164,6 +164,7 @@ public final class QuietBelow implements ModInitializer {
         io.github.chronicle.quietbelow.content.AncientForges.register();
         io.github.chronicle.quietbelow.content.AncientAltars.register();
         io.github.chronicle.quietbelow.ecology.AncientForgeTrial.register();
+        io.github.chronicle.quietbelow.ecology.SourceStationsTrial.register();
         io.github.chronicle.quietbelow.ecology.EcologySpreadTrial.register();
         io.github.chronicle.quietbelow.ecology.AncientAltarTrial.register();
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ECHO_LENS));

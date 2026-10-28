@@ -29,7 +29,7 @@ import java.util.UUID;
 
 /** Strict, bounded, atomic storage for the independent play and unified Event runtime. */
 public final class PlayStore implements PlayRepository {
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
     public static final long MAX_FILE_BYTES = 16L * 1024 * 1024;
     private static final Set<String> ROOT_FIELDS_V1 = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries");
     private static final Set<String> ROOT_FIELDS_V2 = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries", "events", "executions");
@@ -139,7 +139,7 @@ public final class PlayStore implements PlayRepository {
         JsonObject root = PlayJson.object(json, "play runtime JSON");
         int schema = PlayJson.integer(PlayJson.required(root, "schemaVersion"), "schemaVersion");
         if (schema == 1) PlayJson.fields(root, ROOT_FIELDS_V1, "play runtime root");
-        else if (schema == SCHEMA_VERSION) PlayJson.fields(root, ROOT_FIELDS_V2, "play runtime root");
+        else if (schema == 2 || schema == SCHEMA_VERSION) PlayJson.fields(root, ROOT_FIELDS_V2, "play runtime root");
         else throw new IllegalArgumentException("unsupported play runtime schema version");
         long revision = PlayJson.number(PlayJson.required(root, "revision"), "play revision");
         long elapsedTicks = PlayJson.number(PlayJson.required(root, "elapsedTicks"), "elapsed play ticks");
@@ -195,7 +195,7 @@ public final class PlayStore implements PlayRepository {
         }
         Map<String, EventConfiguration> events = new LinkedHashMap<>();
         Map<String, EventExecution> executions = new LinkedHashMap<>();
-        if (schema == SCHEMA_VERSION) {
+        if (schema >= 2) {
             JsonArray eventValues = PlayJson.array(PlayJson.required(root, "events"), "events");
             if (eventValues.size() > PlayState.MAX_EVENTS) throw new IllegalArgumentException("too many events");
             for (JsonElement value : eventValues) {

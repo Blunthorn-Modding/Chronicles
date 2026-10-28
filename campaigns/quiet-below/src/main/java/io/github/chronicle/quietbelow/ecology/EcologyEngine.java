@@ -7,6 +7,12 @@ import static io.github.chronicle.quietbelow.ecology.EcologyTerrain.*;
 
 /** Bounded, durable campaign ecology. No clocks, players, chunk loads or Minecraft classes. */
 public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery.Network,EcologyCosts.Network {
+    @FunctionalInterface public interface ExtentObserver {
+        /** Prepare before the exact durable VITALITY entry; returned callback runs only after that entry commits. */
+        Runnable prepare(String previous,String next,EcologyJournal.Entry entry)throws IOException;
+    }
+    private ExtentObserver extentObserver=(previous,next,entry)->()->{};
+    public void observeExtents(ExtentObserver observer){extentObserver=Objects.requireNonNull(observer);}
     public static final int MAX_CELLS=131072, MAX_AIR=524288, INDEX_READS=256, GRAPH_WORK=128, MAX_WRITES=4;
     static final int HEART_BURST_RADIUS=2,HEART_BURST_VERTICAL=3,HEART_BURST_TICKS=40,HEART_BURST_CHECKS=32;
     public static final long MAX_SOURCE_VOLUME=16_777_216;
@@ -533,7 +539,10 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             vitalitySummary=new EcologyVitality.Summary(vRooted,vReady,vDetached,vFeeding,vSealed,vUnknown,vRootedHealth,vDetachedHealth);summaryLosses=0;
             vitalityPending=vUnknown>0;vitalityAssessed=!vitalityPending;vitalityScan=null;
             if(!vitalityPending&&!EcologyVitality.nextExtent(vitality.extent(),vReady,vitality.rules()).equals(vitality.extent())){
-                record("VITALITY",EcologyVitality.payload(vitalityTicks,new JsonArray(),vReady));vitalityTicks=0;
+                JsonObject payload=EcologyVitality.payload(vitalityTicks,new JsonArray(),vReady);
+                String previous=vitality.extent(),next=EcologyVitality.nextExtent(previous,vReady,vitality.rules());
+                Runnable committed=Objects.requireNonNull(extentObserver.prepare(previous,next,new EcologyJournal.Entry(journal.revision()+1,"VITALITY",payload)),"extent observer completion");
+                record("VITALITY",payload);vitalityTicks=0;committed.run();
             }
         }
     }

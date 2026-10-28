@@ -54,12 +54,14 @@ public final class BookGifts {
         // Intent and conservative issuance precede inventory mutation. No automatic retry or offline queue.
         ChronicleRuntime.service(server).recordOperation(new Actor(source.getName(),actor.getUuidAsString()),"book.give.requested",expected.id(),Map.of("player",target.getUuidAsString(),"operation",UUID.randomUUID().toString()));
         var service=ChestAuthoring.service(server);service.claimOperatorIssuance(expected.id());
+        String discovery=BookDeliveryRuntime.prepareDiscovery(server,expected.id(),service.deliveryToken(expected.id()),target.getUuid(),EventSources.active(target));
         try {
             target.getInventory().setStack(slot,stack);target.getInventory().markDirty();target.currentScreenHandler.sendContentUpdates();
             server.getPlayerManager().saveAllPlayerData();
             service.recordDiscovery(expected.id(),service.deliveryToken(expected.id()),target.getUuidAsString(),Instant.now().toString());
+            EventSources.complete(server,discovery,true);
         } catch(IOException|RuntimeException e){
-            RuntimeHolds.hold(server,"chronicle_core:book_delivery","A GM book delivery outcome is uncertain. Inspect the recipient inventory and server log before issuing another copy.");throw e;
+            if(!(e instanceof EventSources.Unavailable))RuntimeHolds.hold(server,"chronicle_core:book_delivery","A GM book delivery outcome is uncertain. Inspect the recipient inventory and server log before issuing another copy.");throw e;
         }
         return "Gave one copy of "+expected.title()+" to "+target.getName().getString()+". Original discovery history retained.";
     }

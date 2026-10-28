@@ -69,6 +69,20 @@ public final class QuietBelowEcology {
                                 io.github.chronicle.core.authoring.BlockPosition position) { }
 
     public static void register() {
+        io.github.chronicle.core.server.EventSources.registerProvider("quiet_below:heart_destroyed","Relic Heart destroyed",
+                "The vulnerable bound Heart was durably destroyed with a pickaxe. Complete sculk cleanup is a separate outcome.",
+                server->List.of(new io.github.chronicle.core.server.EventSources.Choice("network","Campaign sculk network","The registered Relic Heart")),List.of());
+        io.github.chronicle.core.server.EventSources.registerAuthority("heart:",(server,receipt)->{
+            Runtime runtime=WORLDS.get(server);return runtime!=null&&runtime.engine.ending()!=null&&receipt.authority().equals("heart:"+runtime.engine.ending());
+        });
+        EventSources.registerProvider("quiet_below:ecology_milestone","Ecology milestone reached",
+                "The campaign network durably crossed an extent threshold during eligible active play. Later weakening does not erase the historical fact.",
+                server->List.of(new EventSources.Choice("network","Campaign sculk network","The registered campaign ecology")),
+                List.of(new EventSources.Choice("Established","Established","First or later transition reaching Established"),new EventSources.Choice("Extensive","Extensive","First or later transition reaching Extensive")));
+        EventSources.registerAuthority("extent:",(server,receipt)->{
+            Runtime runtime=WORLDS.get(server);if(runtime==null)return false;String[] parts=receipt.authority().split(":",3);if(parts.length!=3)return false;
+            long sequence=Long.parseLong(parts[1]);return runtime.journal.entries().stream().anyMatch(entry->entry.sequence()==sequence&&entry.type().equals("VITALITY")&&sourceEntryHash(entry).equals(parts[2]));
+        });
         EcologyEradication.register();
         PlayerBlockBreakEvents.BEFORE.register((world,player,p,state,be)->{
             if(!(world instanceof ServerWorld w)||!protectsRoot(w,p))return true;
@@ -224,6 +238,10 @@ public final class QuietBelowEcology {
             return new GameSetupTools.Status(original.controlRevision(),facts,disabled);
         },tool.executor()));
     }
+    private static String sourceEntryHash(EcologyJournal.Entry entry) {
+        try{return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(entry.payload().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8)));}
+        catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
+    }
     private static void start(MinecraftServer server) {
         EcologyJournal journal=null;
         try {
@@ -231,6 +249,16 @@ public final class QuietBelowEcology {
             EcologyEngine engine=new EcologyEngine(journal);
             HeartDefianceStore defianceStore=new HeartDefianceStore(server.getSavePath(WorldSavePath.ROOT).resolve("quiet-below/heart-defiance.json"));
             Runtime runtime=new Runtime(engine,journal,defianceStore);WORLDS.put(server,runtime);
+            engine.observeExtents((previous,next,entry)->{
+                if(!playing(server))return ()->{};
+                List<String> milestones=new ArrayList<>();
+                if(previous.equals("Rooted")&&!next.equals("Rooted"))milestones.add("Established");
+                if(!previous.equals("Extensive")&&next.equals("Extensive"))milestones.add("Extensive");
+                List<String> receipts=new ArrayList<>();String authority="extent:"+entry.sequence()+":"+sourceEntryHash(entry);
+                for(String milestone:milestones){var source=new io.github.chronicle.core.play.EventSource("quiet_below:ecology_milestone","network",milestone);
+                    String receipt=EventSources.prepare(server,EventSources.id(authority,source.type(),source.target(),milestone),source,null,true,authority);if(receipt!=null)receipts.add(receipt);}
+                return ()->{for(String receipt:receipts)EventSources.complete(server,receipt,true);};
+            });
             try{runtime.defiance=defianceStore.load();}
             catch(Exception failure){defianceFailure(runtime,"Saved Heart last-stand state is unavailable; last stands are suppressed but normal weakness remains active",failure);}
             if(engine.setup()!=null) attach(server,runtime);
@@ -316,7 +344,7 @@ public final class QuietBelowEcology {
                     &&ChronicleRuntime.service(server).state().phase()==SessionPhase.ACTIVE&&RuntimeHolds.reason(server)==null),r.engine,r.rootProblem==null&&playing(server));}
             catch(Exception e){EcologyCostEffects.clear(server);r.costs.fail("Local costs held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below local costs held; ecology retained",e);}
             if(r.engine.cleanup())r.cleanup.tick(world,r.engine,playing(server));
-        } catch(Exception e) { EcologyCostEffects.clear(server);hold(r,e); }
+        } catch(Exception e) { EcologyCostEffects.clear(server);if(!(e instanceof EventSources.Unavailable))hold(r,e); }
         finally {r.lastTickNanos=System.nanoTime()-started;}
     }
     /** Preserve station models while an ecology checkpoint owns the write barrier. */
@@ -901,7 +929,12 @@ public final class QuietBelowEcology {
             if(r.rootProblem!=null||!pos(position).equals(pins.heart)||!pos(position).equals(e.rootPosition())||!e.heartVulnerable(true))return;
             var chunk=EcologyLoadedBlocks.chunk(world,position);if(chunk==null)return;BlockState actual=chunk.getBlockState(position);
             if(!Registries.BLOCK.getId(actual.getBlock()).toString().equals(pins.heartBlock))return;
-            e.eradicate(UUID.randomUUID(),pos(position),encode(actual),true);
+            UUID endingOperation=UUID.randomUUID();String endingAuthority="heart:"+endingOperation;
+            var endingSource=new io.github.chronicle.core.play.EventSource("quiet_below:heart_destroyed","network","");
+            String sourceReceipt=io.github.chronicle.core.server.EventSources.prepare(actor,
+                    io.github.chronicle.core.server.EventSources.id(endingAuthority,endingSource.type(),endingSource.target(),""),endingSource,endingAuthority);
+            e.eradicate(endingOperation,pos(position),encode(actual),true);
+            io.github.chronicle.core.server.EventSources.complete(world.getServer(),sourceReceipt,true);
             try{OfferingStats.closeSource(world.getServer(),AncientAltars.SOURCE);r.sourceClosed=true;}
             catch(IOException|RuntimeException failure){QuietBelow.LOGGER.error("Heart ended durably; Altar source closure will retry during cleanup",failure);}
             EcologyCostEffects.clear(world.getServer());
@@ -909,7 +942,7 @@ public final class QuietBelowEcology {
                 witness.sendMessage(Text.literal("The Heart gives way. Something vast falls silent."),false);
             // The durable END_SERVER_TICK receipt removes the root without vanilla drops.
         }catch(Exception failure){
-            if(r.engine.ending()==null)hold(r,failure);
+            if(r.engine.ending()==null){if(!(failure instanceof EventSources.Unavailable))hold(r,failure);}
             else QuietBelow.LOGGER.error("Heart ended durably; follow-up feedback failed and cleanup will continue",failure);
         }
     }

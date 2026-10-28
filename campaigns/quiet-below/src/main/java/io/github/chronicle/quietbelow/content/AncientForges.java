@@ -26,6 +26,7 @@ public final class AncientForges {
     private static final Map<MinecraftServer,LinkedHashSet<AncientForgeBlockEntity>> LOADED=new IdentityHashMap<>();
     private AncientForges() { }
     public static void register() {
+        io.github.chronicle.core.server.EventSources.registerWorkshopType("quiet_below:ancient_forge");
         var recipes=ItemEnchantingRuntime.catalog();
         for(var hint:ForgeRecipeDefaults.HINTS) recipes.register(hint.recipe());
         ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.register((block,world)->{if(block instanceof AncientForgeBlockEntity forge)admit(world.getServer(),forge);});
@@ -78,6 +79,7 @@ public final class AncientForges {
                 net.minecraft.util.Identifier.of("quiet_below","workshop/forge_idle"),
                 net.minecraft.util.Identifier.of("quiet_below","workshop/forge_working"));
         ItemEnchantingRuntime.open(player,GROUP,"Ancient Forge",artwork,new ItemEnchantingRuntime.Gate(){
+            @Override public String sourceTarget(ServerPlayerEntity actor){return io.github.chronicle.core.server.EventSources.managedTarget(world,pos);}
             @Override public boolean stillPresent(ServerPlayerEntity actor){
                 return actor.getEntityWorld()==world&&actor.isAlive()&&!actor.isSpectator()&&physical(world,pos)==forge&&!forge.isRemoved();
             }

@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Strict JSON codec for bounded unified Event definitions, configurations and executions. */
 public final class EventJson {
@@ -22,6 +24,8 @@ public final class EventJson {
 
     private static final Set<String> DEFINITION_FIELDS = Set.of(
             "id", "revision", "label", "description", "text", "sound", "audience", "audienceRegion", "changes");
+    private static final Set<String> DEFINITION_FIELDS_V2 = Set.of(
+            "id", "revision", "label", "description", "text", "sound", "audience", "audienceRegion", "changes", "flagChanges", "formatVersion");
     private static final Set<String> REFERENCE_FIELDS = Set.of("id", "revision");
     private static final Set<String> CHANGE_FIELDS = Set.of("region", "areaId", "areaRevision", "state", "snapshot");
     private static final Set<String> SNAPSHOT_FIELDS = Set.of("sha256", "bounds", "cells", "encodedBytes");
@@ -29,6 +33,9 @@ public final class EventJson {
     private static final Set<String> POSITION_FIELDS = Set.of("x", "y", "z");
     private static final Set<String> CONFIGURATION_FIELDS = Set.of(
             "definition", "mode", "triggerRegion", "armedAtTicks", "delayTicks", "requiredFlag", "enabled");
+    private static final Set<String> CONFIGURATION_FIELDS_V2 = Set.of(
+            "definition", "mode", "triggerRegion", "armedAtTicks", "delayTicks", "requiredFlags", "enabled", "source", "formatVersion");
+    private static final Set<String> SOURCE_FIELDS = Set.of("type", "target", "activity");
     private static final Set<String> EXECUTION_FIELDS = Set.of(
             "eventId", "operationId", "configuration", "phase", "source", "actor", "session", "elapsedTicks",
             "recipients", "worldPlanHash", "detail");
@@ -49,12 +56,19 @@ public final class EventJson {
         JsonArray changes = new JsonArray();
         definition.changes().forEach(change -> changes.add(encodeChange(change)));
         object.add("changes", changes);
+        if (definition.formatVersion() >= 2) {
+            object.addProperty("formatVersion", definition.formatVersion());
+            JsonObject flags = new JsonObject();
+            definition.flagChanges().forEach(flags::addProperty);
+            object.add("flagChanges", flags);
+        }
         return bounded(object, "event definition");
     }
 
     public static EventDefinition decodeDefinition(JsonObject object) {
         bounded(object, "event definition");
-        PlayJson.fields(object, DEFINITION_FIELDS, "event definition");
+        int version = formatVersion(object);
+        PlayJson.fields(object, version == 1 ? DEFINITION_FIELDS : DEFINITION_FIELDS_V2, "event definition");
         JsonArray values = PlayJson.array(PlayJson.required(object, "changes"), "event Region changes");
         if (values.size() > EventDefinition.MAX_CHANGES) throw new IllegalArgumentException("too many event Region changes");
         List<EventRegionChange> changes = new ArrayList<>(values.size());
@@ -68,7 +82,7 @@ public final class EventJson {
                 PlayJson.string(PlayJson.required(object, "sound"), "event sound"),
                 PlayJson.enumeration(PlayJson.required(object, "audience"), ObservationCatalog.Audience.class, "event audience"),
                 decodeOptionalReference(object, "audienceRegion", "event audience Region"),
-                changes);
+                changes, version == 1 ? Map.of() : decodeFlags(PlayJson.object(PlayJson.required(object, "flagChanges"), "event flag changes")), version);
     }
 
     public static JsonObject encodeConfiguration(EventConfiguration configuration) {
@@ -79,22 +93,70 @@ public final class EventJson {
         object.add("triggerRegion", encodeOptionalReference(configuration.triggerRegion()));
         object.addProperty("armedAtTicks", configuration.armedAtTicks());
         object.addProperty("delayTicks", configuration.delayTicks());
-        object.addProperty("requiredFlag", configuration.requiredFlag());
+        if (configuration.formatVersion() == 1) object.addProperty("requiredFlag", configuration.requiredFlag());
+        else {
+            object.addProperty("formatVersion", configuration.formatVersion());
+            JsonArray flags = new JsonArray();
+            configuration.requiredFlags().forEach(flags::add);
+            object.add("requiredFlags", flags);
+            object.add("source", encodeSource(configuration.source()));
+        }
         object.addProperty("enabled", configuration.enabled());
         return bounded(object, "event configuration");
     }
 
     public static EventConfiguration decodeConfiguration(JsonObject object) {
         bounded(object, "event configuration");
-        PlayJson.fields(object, CONFIGURATION_FIELDS, "event configuration");
+        int version = formatVersion(object);
+        PlayJson.fields(object, version == 1 ? CONFIGURATION_FIELDS : CONFIGURATION_FIELDS_V2, "event configuration");
+        List<String> flags;
+        if (version == 1) {
+            String flag = PlayJson.string(PlayJson.required(object, "requiredFlag"), "required flag");
+            flags = flag.isEmpty() ? List.of() : List.of(flag);
+        } else {
+            JsonArray values = PlayJson.array(PlayJson.required(object, "requiredFlags"), "required flags");
+            if (values.size() > EventConfiguration.MAX_FLAGS) throw new IllegalArgumentException("too many required flags");
+            flags = new ArrayList<>();
+            for (JsonElement value : values) flags.add(PlayJson.string(value, "required flag"));
+        }
         return new EventConfiguration(
                 decodeDefinition(PlayJson.object(PlayJson.required(object, "definition"), "event definition")),
                 PlayJson.enumeration(PlayJson.required(object, "mode"), PlayState.Mode.class, "event trigger mode"),
                 decodeOptionalReference(object, "triggerRegion", "event trigger Region"),
                 PlayJson.number(PlayJson.required(object, "armedAtTicks"), "event armed time"),
                 PlayJson.number(PlayJson.required(object, "delayTicks"), "event delay"),
-                PlayJson.string(PlayJson.required(object, "requiredFlag"), "required flag"),
-                bool(PlayJson.required(object, "enabled"), "event enabled state"));
+                flags,
+                bool(PlayJson.required(object, "enabled"), "event enabled state"),
+                version == 1 ? EventSource.empty() : decodeSource(PlayJson.object(PlayJson.required(object, "source"), "event source")), version);
+    }
+
+    public static JsonObject encodeSource(EventSource source) {
+        JsonObject object = new JsonObject();
+        object.addProperty("type", source.type());
+        object.addProperty("target", source.target());
+        object.addProperty("activity", source.activity());
+        return object;
+    }
+
+    public static EventSource decodeSource(JsonObject object) {
+        PlayJson.fields(object, SOURCE_FIELDS, "event source");
+        return new EventSource(PlayJson.string(PlayJson.required(object, "type"), "event source type"),
+                PlayJson.string(PlayJson.required(object, "target"), "event source target"),
+                PlayJson.string(PlayJson.required(object, "activity"), "event source activity"));
+    }
+
+    private static Map<String, Boolean> decodeFlags(JsonObject object) {
+        if (object.size() > EventDefinition.MAX_FLAGS) throw new IllegalArgumentException("too many event flag changes");
+        Map<String, Boolean> flags = new TreeMap<>();
+        object.entrySet().forEach(entry -> flags.put(entry.getKey(), bool(entry.getValue(), "event flag value")));
+        return flags;
+    }
+
+    private static int formatVersion(JsonObject object) {
+        if (!object.has("formatVersion")) return 1;
+        int version = PlayJson.integer(PlayJson.required(object, "formatVersion"), "event format version");
+        if (version != 2) throw new IllegalArgumentException("unsupported event format version");
+        return version;
     }
 
     public static JsonObject encodeExecution(EventExecution execution) {

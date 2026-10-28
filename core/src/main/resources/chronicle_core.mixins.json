@@ -25,7 +25,9 @@
     "PausedHazardsMixin",
     "PausedPeacefulHungerMixin",
     "BookClickDiscoveryMixin",
-    "BookPickupDiscoveryMixin"
+    "BookPickupDiscoveryMixin",
+    "ServerPlayerInteractionManagerEventSourceMixin",
+    "WrittenBookItemEventSourceMixin"
   ],
   "injectors": {
     "defaultRequire": 1

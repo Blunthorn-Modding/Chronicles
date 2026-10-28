@@ -80,6 +80,8 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.testing.AreaChangesTrial.register();
         io.github.chronicle.core.server.testing.EventActionsTrial.register();
         io.github.chronicle.core.server.testing.EventRecoveryTrial.register();
+        io.github.chronicle.core.server.testing.EventProgressionTrial.register();
+        io.github.chronicle.core.server.testing.EventSourcesTrial.register();
         io.github.chronicle.core.server.testing.DeparturesTrial.register();
         io.github.chronicle.core.server.testing.SubtypesTrial.register();
         AuthoringPreviewPayload.register();
@@ -106,7 +108,9 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.AreaChanges.register();
         io.github.chronicle.core.server.WorldAreaOperations.register();
         io.github.chronicle.core.server.EventWorldBatches.register();
+        io.github.chronicle.core.server.EventProgressRuntime.register();
         io.github.chronicle.core.server.EventRuntime.register();
+        io.github.chronicle.core.server.EventSources.register();
         io.github.chronicle.core.server.Departures.register();
         io.github.chronicle.core.server.SiteSubtypes.registerBuiltins();
         io.github.chronicle.core.server.RegionAuthoringWorkflow.register();

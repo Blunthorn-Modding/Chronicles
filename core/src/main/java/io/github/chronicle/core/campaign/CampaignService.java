@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /** Coordinates validated lifecycle and event mutations with durable persistence. */
 public final class CampaignService {
@@ -98,6 +99,46 @@ public final class CampaignService {
                 Map.of("value", Boolean.toString(value)));
     }
 
+    /** Preflight for callers before starting external effects; receipts are never pruned automatically. */
+    public synchronized void requireEventFlagCapacity(UUID operationId) {
+        if (operationId == null) {
+            throw new IllegalArgumentException("operation ID is required");
+        }
+        if (!current.eventFlagOutcomes().containsKey(operationId)
+                && current.eventFlagOutcomes().size() >= CampaignState.MAX_EVENT_FLAG_OUTCOMES) {
+            throw new IllegalStateException("campaign Event flag outcome receipt capacity is full; operator recovery is required");
+        }
+    }
+
+    /**
+     * Finalize an already-authorized Event outcome. The caller owns eligibility and origin evidence,
+     * including outcomes whose original action ended play. An exact retry never reapplies flag values.
+     */
+    public synchronized boolean applyEventFlags(Actor actor, UUID operationId, String eventId,
+                                                 String definitionFingerprint, Map<String, Boolean> changes) throws IOException {
+        requireActor(actor);
+        FlagOutcomeReceipt receipt = new FlagOutcomeReceipt(operationId, eventId, definitionFingerprint, changes);
+        FlagOutcomeReceipt previous = current.eventFlagOutcomes().get(operationId);
+        if (previous != null) {
+            if (!previous.equals(receipt)) {
+                throw new IllegalStateException("Event flag outcome operation ID conflicts with its durable receipt: " + operationId);
+            }
+            return false;
+        }
+        requireEventFlagCapacity(operationId);
+        Map<String, Boolean> flags = new LinkedHashMap<>(current.flags());
+        flags.putAll(receipt.changes());
+        Map<UUID, FlagOutcomeReceipt> receipts = new LinkedHashMap<>(current.eventFlagOutcomes());
+        receipts.put(operationId, receipt);
+        Map<String, String> parameters = new LinkedHashMap<>();
+        parameters.put("operationId", operationId.toString());
+        parameters.put("definitionFingerprint", definitionFingerprint);
+        receipt.changes().forEach((id, value) -> parameters.put("flag." + id, value.toString()));
+        commit(current.phase(), current.sessionNumber(), flags, current.completedEvents(), receipts,
+                actor, "event.flags", eventId, parameters);
+        return true;
+    }
+
     public synchronized String preview(String eventId) {
         CampaignEvent event = event(eventId);
         return eligibility(event);
@@ -174,6 +215,12 @@ public final class CampaignService {
 
     private void commit(SessionPhase phase, int sessionNumber, Map<String, Boolean> flags, Set<String> completedEvents,
                         Actor actor, String action, String target, Map<String, String> parameters) throws IOException {
+        commit(phase, sessionNumber, flags, completedEvents, current.eventFlagOutcomes(), actor, action, target, parameters);
+    }
+
+    private void commit(SessionPhase phase, int sessionNumber, Map<String, Boolean> flags, Set<String> completedEvents,
+                        Map<UUID, FlagOutcomeReceipt> eventFlagOutcomes, Actor actor, String action, String target,
+                        Map<String, String> parameters) throws IOException {
         if (current.nextSequence() == Long.MAX_VALUE) {
             throw new IllegalStateException("audit sequence cannot exceed " + Long.MAX_VALUE);
         }
@@ -184,7 +231,14 @@ public final class CampaignService {
         if (history.size() > CampaignValidation.MAX_HISTORY) {
             history.removeFirst();
         }
-        CampaignState candidate = new CampaignState(CampaignState.SCHEMA_VERSION, sessionNumber, phase, flags, completedEvents, history, next);
+        Map<String, Long> offVersions = new LinkedHashMap<>(current.flagOffVersions());
+        flags.forEach((id, value) -> {
+            if (current.flag(id) && !value) {
+                offVersions.put(id, current.nextSequence());
+            }
+        });
+        CampaignState candidate = new CampaignState(CampaignState.SCHEMA_VERSION, sessionNumber, phase, flags, completedEvents,
+                history, next, offVersions, eventFlagOutcomes);
         store.save(candidate);
         current = candidate;
     }

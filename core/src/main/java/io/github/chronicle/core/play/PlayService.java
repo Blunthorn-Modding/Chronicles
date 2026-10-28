@@ -152,7 +152,7 @@ public final class PlayService {
         requireFlags(flags);
         if (!flagSatisfied(binding, flags)) return false;
         return switch (binding.mode()) {
-            case MANUAL -> false;
+            case MANUAL, SYSTEM -> false;
             case ENTRY -> present;
             case TIMER -> liveTicks >= binding.armedAtTicks()
                     && liveTicks - binding.armedAtTicks() >= binding.delayTicks();
@@ -267,7 +267,7 @@ public final class PlayService {
         if (execution.source() != PlayState.DeliverySource.MANUAL
                 && !execution.source().name().equals(execution.configuration().mode().name()))
             throw new IllegalArgumentException("Automatic Event source does not match its trigger.");
-        if (execution.source() == PlayState.DeliverySource.ENTRY && !current.participants().contains(execution.actor()))
+        if (execution.source() == PlayState.DeliverySource.ENTRY && execution.configuration().formatVersion()==1 && !current.participants().contains(execution.actor()))
             throw new IllegalStateException("The entering Event participant left during preparation.");
         for (UUID recipient : execution.recipients()) if (!current.participants().contains(recipient))
             throw new IllegalStateException("An Event recipient left during preparation; review the audience again.");
@@ -282,12 +282,14 @@ public final class PlayService {
         EventExecution old = current.executions().get(id);
         if (old == null || !old.operationId().equals(operationId)) throw new IllegalStateException("The Event execution changed.");
         if (phase == old.phase()) return old;
+        if (old.phase() == EventExecution.Phase.EVENT_OUTCOME && phase == EventExecution.Phase.COMPLETE
+                && old.configuration().definition().hasMedia()) throw new IllegalStateException("Event media must be claimed before completion.");
         if (!transitionAllowed(old.phase(), phase)) throw new IllegalStateException("Invalid Event execution transition: " + old.phase() + " to " + phase);
         EventExecution next = old.with(phase, detail);
         Map<String, EventExecution> executions = new LinkedHashMap<>(current.executions());
         executions.put(id, next);
         Map<String, PlayState.Delivery> deliveries = new LinkedHashMap<>(current.deliveries());
-        if (phase == EventExecution.Phase.COMPLETE) {
+        if (phase == EventExecution.Phase.COMPLETE && !old.recipients().isEmpty()) {
             PlayState.Status status = old.phase() == EventExecution.Phase.MEDIA_UNCERTAIN
                     ? PlayState.Status.CLAIMED : PlayState.Status.DELIVERED;
             deliveries.put(id, new PlayState.Delivery(id, status, old.source(), old.actor(), old.session(), old.elapsedTicks(), old.recipients()));
@@ -322,8 +324,8 @@ public final class PlayService {
 
     private static EventConfiguration revised(EventConfiguration event, long revision, long armedAt, PlayState.Mode mode, boolean enabled) {
         EventDefinition d = event.definition();
-        EventDefinition next = new EventDefinition(d.id(), revision, d.label(), d.description(), d.text(), d.sound(), d.audience(), d.audienceRegion(), d.changes());
-        return new EventConfiguration(next, mode, event.triggerRegion(), armedAt, event.delayTicks(), event.requiredFlag(), enabled);
+        EventDefinition next = new EventDefinition(d.id(), revision, d.label(), d.description(), d.text(), d.sound(), d.audience(), d.audienceRegion(), d.changes(), d.flagChanges(), d.formatVersion());
+        return new EventConfiguration(next, mode, event.triggerRegion(), armedAt, event.delayTicks(), event.requiredFlags(), enabled, event.source(), event.formatVersion());
     }
 
     private static boolean transitionAllowed(EventExecution.Phase from, EventExecution.Phase to) {
@@ -333,7 +335,7 @@ public final class PlayService {
             case APPLYING -> to == EventExecution.Phase.TERRAIN_SAVED || to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
             case TERRAIN_SAVED -> to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
             case WORLD_COMMITTED -> to == EventExecution.Phase.EVENT_OUTCOME || to == EventExecution.Phase.CONFLICT;
-            case EVENT_OUTCOME -> to == EventExecution.Phase.MEDIA_CLAIMED;
+            case EVENT_OUTCOME -> to == EventExecution.Phase.MEDIA_CLAIMED || to == EventExecution.Phase.COMPLETE;
             case MEDIA_CLAIMED -> to == EventExecution.Phase.COMPLETE || to == EventExecution.Phase.MEDIA_UNCERTAIN;
             case MEDIA_UNCERTAIN -> to == EventExecution.Phase.COMPLETE;
             case CONFLICT -> to == EventExecution.Phase.PREPARED || to == EventExecution.Phase.APPLYING

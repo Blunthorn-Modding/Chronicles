@@ -23,6 +23,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.io.StringReader;
 
 /** Versioned JSON persistence for campaign state. */
@@ -140,9 +141,12 @@ public final class CampaignStore {
         }
         JsonObject root = object(parsed, "root");
         int schemaVersion = integer(required(root, "schemaVersion"), "schemaVersion");
-        if (schemaVersion > CampaignState.SCHEMA_VERSION) {
-            throw new IllegalArgumentException("campaign schema " + schemaVersion + " is newer than supported version " + CampaignState.SCHEMA_VERSION);
+        if (schemaVersion != 1 && schemaVersion != CampaignState.SCHEMA_VERSION) {
+            throw new IllegalArgumentException("unsupported campaign schema: " + schemaVersion);
         }
+        fields(root, schemaVersion == 1
+                ? Set.of("schemaVersion", "sessionNumber", "phase", "flags", "completedEvents", "history", "nextSequence")
+                : Set.of("schemaVersion", "sessionNumber", "phase", "flags", "completedEvents", "history", "nextSequence", "flagOffVersions", "eventFlagOutcomes"), "campaign");
         SessionPhase phase;
         try {
             phase = SessionPhase.valueOf(string(required(root, "phase"), "phase"));
@@ -153,7 +157,9 @@ public final class CampaignStore {
         Set<String> completedEvents = strings(array(required(root, "completedEvents"), "completedEvents"), "completedEvents");
         List<AuditEntry> history = history(array(required(root, "history"), "history"));
         return new CampaignState(schemaVersion, integer(required(root, "sessionNumber"), "sessionNumber"), phase,
-                flags, completedEvents, history, longNumber(required(root, "nextSequence"), "nextSequence"));
+                flags, completedEvents, history, longNumber(required(root, "nextSequence"), "nextSequence"),
+                schemaVersion == 1 ? Map.of() : offVersions(object(required(root, "flagOffVersions"), "flagOffVersions")),
+                schemaVersion == 1 ? Map.of() : outcomes(array(required(root, "eventFlagOutcomes"), "eventFlagOutcomes")));
     }
 
     private static String encode(CampaignState state) {
@@ -186,14 +192,59 @@ public final class CampaignStore {
         }
         root.add("history", history);
         root.addProperty("nextSequence", state.nextSequence());
+        if (state.schemaVersion() >= 2) {
+            JsonObject offVersions = new JsonObject();
+            state.flagOffVersions().entrySet().stream().sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> offVersions.addProperty(entry.getKey(), entry.getValue()));
+            root.add("flagOffVersions", offVersions);
+            JsonArray outcomes = new JsonArray();
+            state.eventFlagOutcomes().values().stream().sorted(java.util.Comparator.comparing(value -> value.operationId().toString()))
+                    .forEach(receipt -> {
+                        JsonObject encoded = new JsonObject();
+                        encoded.addProperty("operationId", receipt.operationId().toString());
+                        encoded.addProperty("eventId", receipt.eventId());
+                        encoded.addProperty("definitionFingerprint", receipt.definitionFingerprint());
+                        encoded.add("changes", booleans(receipt.changes()));
+                        outcomes.add(encoded);
+                    });
+            root.add("eventFlagOutcomes", outcomes);
+        }
         return root.toString();
+    }
+
+    private static Map<String, Long> offVersions(JsonObject values) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        values.entrySet().forEach(entry -> result.put(entry.getKey(), longNumber(entry.getValue(), "flag Off version")));
+        return result;
+    }
+
+    private static Map<UUID, FlagOutcomeReceipt> outcomes(JsonArray values) {
+        Map<UUID, FlagOutcomeReceipt> result = new LinkedHashMap<>();
+        for (JsonElement value : values) {
+            JsonObject entry = object(value, "Event flag outcome");
+            fields(entry, Set.of("operationId", "eventId", "definitionFingerprint", "changes"), "Event flag outcome");
+            String operation = string(required(entry, "operationId"), "operationId");
+            UUID operationId = UUID.fromString(operation);
+            if (!operationId.toString().equals(operation)) {
+                throw new IllegalArgumentException("Event flag outcome operation ID must be a canonical UUID");
+            }
+            FlagOutcomeReceipt receipt = new FlagOutcomeReceipt(operationId, string(required(entry, "eventId"), "eventId"),
+                    string(required(entry, "definitionFingerprint"), "definitionFingerprint"),
+                    booleans(object(required(entry, "changes"), "changes"), "changes"));
+            if (result.put(operationId, receipt) != null) {
+                throw new IllegalArgumentException("Event flag outcomes may not contain duplicate operation IDs");
+            }
+        }
+        return result;
     }
 
     private static List<AuditEntry> history(JsonArray values) {
         List<AuditEntry> result = new ArrayList<>();
         for (JsonElement value : values) {
             JsonObject entry = object(value, "history entry");
+            fields(entry, Set.of("sequence", "timestamp", "actor", "action", "sessionNumber", "target", "parameters"), "history entry");
             JsonObject actor = object(required(entry, "actor"), "audit actor");
+            fields(actor, Set.of("name", "uuid"), "audit actor");
             String uuid = actor.has("uuid") && !actor.get("uuid").isJsonNull() ? string(actor.get("uuid"), "actor uuid") : null;
             result.add(new AuditEntry(longNumber(required(entry, "sequence"), "sequence"),
                     string(required(entry, "timestamp"), "timestamp"),
@@ -245,6 +296,14 @@ public final class CampaignStore {
             throw new IllegalArgumentException("missing " + field);
         }
         return object.get(field);
+    }
+
+    private static void fields(JsonObject object, Set<String> allowed, String field) {
+        for (String key : object.keySet()) {
+            if (!allowed.contains(key)) {
+                throw new IllegalArgumentException("unsupported " + field + " field: " + key);
+            }
+        }
     }
 
     private static JsonObject object(JsonElement value, String field) {
