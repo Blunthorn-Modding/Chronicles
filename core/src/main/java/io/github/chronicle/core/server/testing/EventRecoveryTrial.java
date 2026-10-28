@@ -14,6 +14,7 @@ import io.github.chronicle.core.server.AreaChanges;
 import io.github.chronicle.core.server.EventRuntime;
 import io.github.chronicle.core.server.EventWorldBatches;
 import io.github.chronicle.core.server.PlayRuntime;
+import io.github.chronicle.core.server.RuntimeHolds;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.Block;
@@ -69,6 +70,7 @@ public final class EventRecoveryTrial {
     private static Job job;
     private static UUID conflictOperation;
     private static UUID conflictActor;
+    private static AreaCell[] playerConflictBefore;
 
     private EventRecoveryTrial() {}
 
@@ -78,6 +80,8 @@ public final class EventRecoveryTrial {
                 literal("chronicle_event_recovery_trial")
                         .then(literal("run_conflict").executes(c -> command(c.getSource(), Action.RUN_CONFLICT)))
                         .then(literal("recover_conflict").executes(c -> command(c.getSource(), Action.RECOVER_CONFLICT)))
+                        .then(literal("run_player").executes(c -> command(c.getSource(), Action.RUN_PLAYER)))
+                        .then(literal("recover_player").executes(c -> command(c.getSource(), Action.RECOVER_PLAYER)))
                         .then(literal("max_clear").executes(c -> command(c.getSource(), Action.MAX_CLEAR)))
                         .then(literal("max_fill_configure").executes(c -> command(c.getSource(), Action.MAX_FILL_CONFIGURE)))
                         .then(literal("max_position").executes(c -> command(c.getSource(), Action.MAX_POSITION)))
@@ -94,6 +98,8 @@ public final class EventRecoveryTrial {
             switch (action) {
                 case RUN_CONFLICT -> runConflict(source, player);
                 case RECOVER_CONFLICT -> recoverConflict(source, player);
+                case RUN_PLAYER -> runPlayerConflict(source, player);
+                case RECOVER_PLAYER -> recoverPlayerConflict(source, player);
                 case MAX_CLEAR -> beginMaximumClear(source, player);
                 case MAX_FILL_CONFIGURE -> beginMaximumFill(source, player);
                 case MAX_POSITION -> positionMaximum(source, player);
@@ -139,6 +145,50 @@ public final class EventRecoveryTrial {
         require(recovering.operationId().equals(operation), "recovery replaced the committed operation UUID");
         require(recovering.actor().equals(conflictActor), "recovery replaced the original Event actor");
         job = new Job(player.getUuid(), Stage.WAIT_CONFLICT_RECOVERY);
+        job.operation = operation;
+    }
+
+    private static void runPlayerConflict(ServerCommandSource source, ServerPlayerEntity player) throws Exception {
+        require(player.getUuid().equals(OPERATOR_A), "player-ingress proof must use the pinned first fixture operator");
+        require(EventRuntime.stored(source.getServer(), EventActionsTrial.WORLD_EVENT) != null,
+                "configure the Event actions fixture first");
+        require(source.getWorld().getBlockState(B_COLOR).isOf(Blocks.STONE),
+                "target world is not ready for the player-ingress proof");
+        require(!PlayRuntime.service(source.getServer()).state().deliveries().containsKey(EventActionsTrial.WORLD_EVENT),
+                "the player-ingress Event already has a delivery receipt");
+        EventRuntime.Review review = EventRuntime.review(source.getServer(), EventActionsTrial.WORLD_EVENT);
+        require(review.recipients().contains(player.getUuid()), "the initiating operator is not a pinned recipient");
+        EventRuntime.run(player, EventActionsTrial.WORLD_EVENT, review);
+        job = new Job(player.getUuid(), Stage.WAIT_PLAYER_WINDOW);
+    }
+
+    private static void recoverPlayerConflict(ServerCommandSource source, ServerPlayerEntity player) throws Exception {
+        require(player.getUuid().equals(OPERATOR_B), "player-ingress recovery must use the pinned second fixture operator");
+        EventExecution execution = execution(source.getServer(), EventActionsTrial.WORLD_EVENT);
+        UUID operation = requirePlayerIdentity(execution);
+        require(!player.getUuid().equals(conflictActor), "player-ingress recovery must use a second operator");
+        require(source.getServer().getPlayerManager().getPlayer(conflictActor) == null,
+                "the initiating player must disconnect to clear the target Region");
+        require(source.getWorld().getBlockState(B_COLOR).isOf(Blocks.STONE),
+                "player ingress unexpectedly changed target-1 terrain");
+        requirePlayerTargetUnchanged(source);
+        require(!PlayRuntime.service(source.getServer()).state().deliveries().containsKey(EventActionsTrial.WORLD_EVENT),
+                "Event media completed before player-ingress recovery");
+        require(EventWorldBatches.status(source.getServer(), operation).orElseThrow() == EventWorldBatches.Status.APPLYING,
+                "player-ingress recovery lost its durable unresolved batch phase");
+        require(!EventWorldBatches.problem(source.getServer()).isBlank(),
+                "player-ingress recovery lost its retained occupancy problem");
+        require(EventRuntime.hasPending(source.getServer()), "player-ingress recovery lost pending Event authority");
+        require(RuntimeHolds.reason(source.getServer()) != null, "player-ingress recovery lost its world hold");
+
+        PlayRuntime.setSelfParticipant(player, true);
+        player.changeGameMode(GameMode.CREATIVE);
+        home(player, source.getWorld());
+        EventRuntime.recover(player, EventActionsTrial.WORLD_EVENT);
+        EventExecution recovering = execution(source.getServer(), EventActionsTrial.WORLD_EVENT);
+        require(recovering.operationId().equals(operation), "player-ingress recovery replaced the committed operation UUID");
+        require(recovering.actor().equals(conflictActor), "player-ingress recovery replaced the original Event actor");
+        job = new Job(player.getUuid(), Stage.WAIT_PLAYER_RECOVERY);
         job.operation = operation;
     }
 
@@ -195,6 +245,9 @@ public final class EventRecoveryTrial {
                 case WAIT_CONFLICT_WINDOW -> conflictWindow(source);
                 case WAIT_CONFLICT -> waitConflict(source);
                 case WAIT_CONFLICT_RECOVERY -> waitConflictRecovery(source);
+                case WAIT_PLAYER_WINDOW -> playerWindow(source, player);
+                case WAIT_PLAYER_HELD -> waitPlayerHeld(source, player);
+                case WAIT_PLAYER_RECOVERY -> waitPlayerRecovery(source);
                 case WAIT_MAX_CLEAR_LOAD -> {
                     if (!loaded(source.getWorld())) return;
                     job.stage = Stage.CLEAR_MAX;
@@ -266,6 +319,70 @@ public final class EventRecoveryTrial {
                 "recovered Event delivery receipt is missing");
         verifyPairedEnd(source.getWorld());
         pass(source, "recover_conflict", job.operation.toString());
+        job = null;
+    }
+
+    /** Enter the second target only after target 0's durable save and before target 1's first write slice. */
+    private static void playerWindow(ServerCommandSource source, ServerPlayerEntity player) throws Exception {
+        EventExecution execution = PlayRuntime.service(source.getServer()).state().executions().get(EventActionsTrial.WORLD_EVENT);
+        if (execution == null) return;
+        conflictOperation = execution.operationId();
+        conflictActor = execution.actor();
+        JournalEntry entry = journal(source.getServer(), conflictOperation);
+        if (entry == null || !entry.phase.equals("APPLYING") || !entry.step.equals("WRITE")
+                || entry.target != 1 || entry.cursor != 0) return;
+        require(source.getWorld().getBlockState(B_COLOR).isOf(Blocks.STONE),
+                "second Region changed before player ingress");
+        playerConflictBefore = capture(source, area(source.getServer(), EventActionsTrial.REGION_B).bounds());
+        player.changeGameMode(GameMode.CREATIVE);
+        player.teleport(source.getWorld(), 48.5, 70, 16.5, Set.of(), 0, 0, false);
+        player.setVelocity(0, 0, 0);
+        player.onLanding();
+        require(inside(player.getBlockPos(), area(source.getServer(), EventActionsTrial.REGION_B).bounds()),
+                "initiating player did not physically enter target 1");
+        job.operation = conflictOperation;
+        job.stage = Stage.WAIT_PLAYER_HELD;
+    }
+
+    private static void waitPlayerHeld(ServerCommandSource source, ServerPlayerEntity player) {
+        EventExecution execution = execution(source.getServer(), EventActionsTrial.WORLD_EVENT);
+        EventWorldBatches.Status status = EventWorldBatches.status(source.getServer(), job.operation).orElseThrow();
+        String problem = EventWorldBatches.problem(source.getServer());
+        if (status != EventWorldBatches.Status.APPLYING || problem.isBlank()) return;
+        require(execution.operationId().equals(job.operation), "player ingress replaced the committed operation UUID");
+        require(execution.phase() != EventExecution.Phase.WORLD_COMMITTED
+                        && execution.phase() != EventExecution.Phase.EVENT_OUTCOME
+                        && execution.phase() != EventExecution.Phase.MEDIA_CLAIMED
+                        && execution.phase() != EventExecution.Phase.COMPLETE,
+                "player ingress advanced beyond unresolved world authority");
+        require(EventRuntime.hasPending(source.getServer()), "player ingress did not retain a pending Event");
+        require(RuntimeHolds.reason(source.getServer()) != null, "player ingress did not retain a real world hold");
+        require(problem.toLowerCase(Locale.ROOT).contains("move non-spectator player"),
+                "player-ingress hold did not retain the occupancy refusal");
+        require(inside(player.getBlockPos(), area(source.getServer(), EventActionsTrial.REGION_B).bounds()),
+                "initiating player left target 1 before the committed batch held");
+        require(source.getWorld().getBlockState(B_COLOR).isOf(Blocks.STONE),
+                "player ingress wrote target-1 terrain");
+        requirePlayerTargetUnchanged(source);
+        require(source.getWorld().getBlockState(A_COLOR).isOf(Blocks.BLUE_WOOL),
+                "durably saved first Region did not retain its applied state");
+        require(!PlayRuntime.service(source.getServer()).state().deliveries().containsKey(EventActionsTrial.WORLD_EVENT),
+                "Event media completed before player-ingress recovery");
+        pass(source, "player", "HELD phase=" + execution.phase().name() + " operation=" + job.operation);
+        job = null;
+    }
+
+    private static void waitPlayerRecovery(ServerCommandSource source) {
+        EventExecution execution = execution(source.getServer(), EventActionsTrial.WORLD_EVENT);
+        if (execution.phase() != EventExecution.Phase.COMPLETE) return;
+        require(execution.operationId().equals(job.operation), "completed player recovery replaced the operation UUID");
+        require(execution.actor().equals(conflictActor), "completed player recovery replaced the original actor");
+        require(EventWorldBatches.status(source.getServer(), job.operation).orElseThrow() == EventWorldBatches.Status.WORLD_COMMITTED,
+                "player-ingress recovery did not commit the world batch");
+        require(PlayRuntime.service(source.getServer()).state().deliveries().containsKey(EventActionsTrial.WORLD_EVENT),
+                "player-ingress recovery delivery receipt is missing");
+        verifyPairedEnd(source.getWorld());
+        pass(source, "player_recovery", job.operation.toString());
         job = null;
     }
 
@@ -367,12 +484,43 @@ public final class EventRecoveryTrial {
         return execution;
     }
 
+    private static AreaCell[] capture(ServerCommandSource source, AreaBounds bounds) {
+        AreaCell[] cells = new AreaCell[bounds.cells()];
+        for (int index = 0; index < cells.length; index++)
+            cells[index] = AreaChanges.captureCell(source.getServer(), source.getWorld(), position(bounds, index), bounds, false);
+        return cells;
+    }
+
+    private static void requirePlayerTargetUnchanged(ServerCommandSource source) {
+        require(playerConflictBefore != null, "player-ingress before evidence is missing");
+        AreaBounds bounds = area(source.getServer(), EventActionsTrial.REGION_B).bounds();
+        require(playerConflictBefore.length == bounds.cells(), "player-ingress before evidence size changed");
+        for (int index = 0; index < playerConflictBefore.length; index++) {
+            AreaCell live = AreaChanges.captureCell(source.getServer(), source.getWorld(), position(bounds, index), bounds, false);
+            require(live.equals(playerConflictBefore[index]),
+                    "player ingress changed target-1 cell " + index + " at " + position(bounds, index).toShortString());
+        }
+    }
+
     private static UUID requireConflictIdentity(EventExecution execution) {
         require(execution.phase() == EventExecution.Phase.CONFLICT, "Event execution is not in conflict");
         if (conflictOperation == null) conflictOperation = execution.operationId();
         if (conflictActor == null) conflictActor = execution.actor();
         require(execution.operationId().equals(conflictOperation), "conflict operation UUID changed");
         require(execution.actor().equals(conflictActor), "conflict actor changed");
+        return conflictOperation;
+    }
+
+    private static UUID requirePlayerIdentity(EventExecution execution) {
+        require(execution.phase() != EventExecution.Phase.WORLD_COMMITTED
+                        && execution.phase() != EventExecution.Phase.EVENT_OUTCOME
+                        && execution.phase() != EventExecution.Phase.MEDIA_CLAIMED
+                        && execution.phase() != EventExecution.Phase.COMPLETE,
+                "player-ingress Event is not recoverably unresolved");
+        if (conflictOperation == null) conflictOperation = execution.operationId();
+        if (conflictActor == null) conflictActor = execution.actor();
+        require(execution.operationId().equals(conflictOperation), "player-ingress operation UUID changed");
+        require(execution.actor().equals(conflictActor), "player-ingress actor changed");
         return conflictOperation;
     }
 
@@ -553,7 +701,8 @@ public final class EventRecoveryTrial {
     }
 
     private enum Action {
-        RUN_CONFLICT("run_conflict"), RECOVER_CONFLICT("recover_conflict"), MAX_CLEAR("max_clear"),
+        RUN_CONFLICT("run_conflict"), RECOVER_CONFLICT("recover_conflict"),
+        RUN_PLAYER("run_player"), RECOVER_PLAYER("recover_player"), MAX_CLEAR("max_clear"),
         MAX_FILL_CONFIGURE("max_fill_configure"), MAX_POSITION("max_position"), MAX_RUN("max_run");
         final String wire;
         Action(String wire) { this.wire = wire; }
@@ -562,6 +711,8 @@ public final class EventRecoveryTrial {
     private enum Stage {
         WAIT_CONFLICT_WINDOW("run_conflict"), WAIT_CONFLICT("run_conflict"),
         WAIT_CONFLICT_RECOVERY("recover_conflict"), WAIT_MAX_CLEAR_LOAD("max_clear"),
+        WAIT_PLAYER_WINDOW("run_player"), WAIT_PLAYER_HELD("run_player"),
+        WAIT_PLAYER_RECOVERY("recover_player"),
         CLEAR_MAX("max_clear"), VERIFY_MAX_CLEAR("max_clear"), MAX_CLEAR_DONE("max_clear"),
         VERIFY_MAX_SNAPSHOTS("max_fill_configure"), FILL_MAX("max_fill_configure"),
         VERIFY_MAX_FILL("max_fill_configure"), SAVE_MAX_EVENT("max_fill_configure"),

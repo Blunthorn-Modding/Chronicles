@@ -1356,7 +1356,7 @@ public final class CoreMenuScreen extends Screen {
             case POINT_ASSIGN -> "Use this saved point for " + argument + ". This pins its current revision; position and facing are not copied.";
             case POINT_UNASSIGN -> "Clear this use from the selected saved point. The point stays available.";
             case BLOCK_LIMIT_SET -> "Set this managed block limit to " + argument + ". Existing blocks stay in place; a lower limit can make future placement unavailable.";
-            case EVENT_RUN -> "Deliver this event to the reviewed live audience.\n" + eventPreview;
+            case EVENT_RUN -> "Run this event for the reviewed audience. Listed Region states replace blocks and containers before media.\n" + eventPreview;
             case EVENT_RESET -> "Allow this event to run again. Its configured timer delay starts again; nothing is delivered now.";
             case STARTING_RESET -> "Permit another automatic starting-position attempt for this player. This may move them on the next eligible join.";
             case STARTING_OFF -> "Disable this player's automatic starting position. Their previous placement history is retained.";
@@ -1365,7 +1365,10 @@ public final class CoreMenuScreen extends Screen {
             case LEAVE -> "Remove your participation and automatic destinations. Your character card and previous placement history are retained.";
             case PARTICIPANT_REMOVE -> "Stop counting this player as an active participant. Their card and destination settings stay saved.";
             case EVENT_DISABLE_AUTO -> "Disable automatic triggering while preserving manual control, audience and completion history.";
-            case EVENT_REMOVE -> "Remove the trigger configuration. The registered event and its completion history stay saved.";
+            case EVENT_REMOVE -> "Discard this registered event's customized message, sound, trigger and Region changes, restoring campaign defaults. Completion history remains; nothing runs now.";
+            case EVENT_DELETE -> "Delete this custom event definition and its setup. Completed execution history remains; no blocks change and no media plays.";
+            case EVENT_RECOVER -> "Recheck the original world evidence and continue this exact operation. Foreign cells remain preserved; no new operation is started.";
+            case EVENT_ACK_MEDIA -> "Acknowledge uncertain delivery without claiming it was received. No media or Region changes are replayed. You may deliberately allow another run afterward.";
             case CONDITION_SET -> "Set this live game condition to " + argument + ". This can satisfy automatic event prerequisites.";
             case SESSION_START -> "Start a play window and unfreeze world simulation. Bound loot chests receive their configured session fill, replacing contents.";
             case SESSION_END -> "Finish the current play window and freeze world simulation. Campaign progress remains saved.";

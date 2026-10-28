@@ -10,7 +10,7 @@ Only `/chronicle` is registered. `/chronicles`, `/quiet_below`, `/chronicle auth
 | --- | --- | --- |
 | `/chronicle session` | Play controls and activity | Public status; operator level 2 for administration/history |
 | `/chronicle players` | Participation, character cards, destinations and role assignment | Own participation/card public; administration requires operator level 2 |
-| `/chronicle events` | Preview, check, configure and deliberately run registered events | Operator level 2 |
+| `/chronicle events` | Create/edit Events, preview media, configure triggers and saved Region changes, and deliberately run events | Operator level 2 |
 | `/chronicle chests` | Physical bound containers and their table/direct-book settings | Operator level 2 |
 | `/chronicle loot-tables` | Item and lore distributions | Operator level 2 |
 | `/chronicle books` | Books & Lore, discovery records and deliberate delivery | Operator level 2 |
@@ -113,6 +113,8 @@ In **Loot Tables**, choose **Create new loot table** above the list. Enter a nam
 Bind/rebind uses the looked-at supported container. `chests inspect <binding-id>` opens the named entry; bare inspect reports the looked-at container. Edit distributions, direct-chest lore and role supplies in their screens. Every **Add item** / **Add lore book** opens the same searchable popup: choose an entry, then Add or Cancel. Role items include quantity. Direct-chest lore continues to the existing chance popup; table entries retain whole-table Save/Discard. Existing rich item components, percentages, count ranges and delivery rules are preserved.
 
 ## Events and game tools
+
+The Events menu provides Create/Edit with Basics, Message & sound, Trigger and Region changes. Shared selectors list registered sounds, current Regions, conditions and saved states. Private media previews need no complete trigger configuration and never apply Region changes. Manual and automatic runs share completion history. Recovery, uncertainty acknowledgement, configuration removal and deliberate rearming are available on the selected Event; see [execution and upgrade notes](CF22_IMPLEMENTATION.md). Command completion includes custom Event IDs as well as campaign defaults.
 
 ```
 /chronicle events preview cue "quiet_below:city_presence"

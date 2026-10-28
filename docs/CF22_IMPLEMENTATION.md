@@ -1,6 +1,6 @@
 # CF22: editable Events and Region Saved-state actions
 
-28 October 2026. Implementation and native verification are in progress on `feat/core-event-region-actions`. This document is not a release receipt; the accepted dev60 installation remains unchanged until verification and a backed-up deployment complete.
+28 October 2026. Dev61 is implemented, verified and deployed for organizer review on `feat/core-event-region-actions`. No main merge. The matching review server is `127.0.0.1:25589`; use the updated `../client/Chronicle-M9-1.21.10.mrpack`.
 
 ## Organizer workflow
 
@@ -19,7 +19,7 @@ During play, **Review run** pins the Event and current audience; confirmation st
 
 All changed Regions must be disjoint, in one dimension and already loaded. The combined limits are 262,144 cells, 64 unique chunks and 64 MiB of decoded before-plus-after evidence. Preflight checks every target, player occupancy, current pins and aggregate managed-block/chest/lore effects before any terrain write. An invalid later target leaves earlier targets unchanged.
 
-One immutable batch plan and one Event execution own the run. Terrain work is bounded and checkpointed. All terrain must verify and save before aggregate metadata commits; messages and sound follow the completed outcome. Players entering a target, unloaded chunks, foreign blocks or policy/authority changes suspend or conflict the exact operation. Recovery preserves its UUID and before/after evidence and never pastes over an unrelated block to make a retry succeed. It does not force-load chunks.
+One immutable batch plan and one Event execution own the run. Terrain work is bounded and checkpointed. All terrain must verify and save before aggregate metadata commits; messages and sound follow the completed outcome. Players entering a target, unloaded chunks, foreign blocks or policy/authority changes suspend or conflict the exact operation. Recovery preserves its UUID and before/after evidence and never pastes over an unrelated block to make a retry succeed. It does not force-load chunks. The journal retains up to 256 world-changing runs; at capacity, new batches are refused during preflight before execution authority or world changes. Evidence is never automatically pruned; stopped-world maintenance is required. Media-only runs do not consume that batch journal.
 
 Original manual authority is checked through preparation and application. Another live operator can deliberately **Recover event**; a durable audit records that request while retaining the original actor in execution history. The supervisor must remain online and authorized. After the world outcome is committed, finalization no longer depends on the original GM or an online audience: only original recipients who are still eligible and online receive media. There is no offline catch-up.
 
@@ -31,6 +31,14 @@ Core owns definitions, editor/protocol, clock/trigger dispatch, Region batches, 
 
 Source version is dev61 and the menu protocol is v8; server and client must match. PlayStore writes schema 2 and reads the prior schema 1, retaining clock, membership, bindings and receipts. Immutable completed executions live under `world/chronicle/event-history`; aggregate terrain evidence lives under `world/chronicle/event-batches`. Restoring the old release requires the verified stopped-world backup, not an old jar over newer persistence.
 
-## Verification status
+## Verification and review
 
-The first resumed full build passed 565 Java tests with no failures/errors and 93 Python tests. Integrated review corrected two recovery authority cases. Initial native compact editor proof passes 14 checks. Expanded three-size editor coverage, aggregate action/interruption/conflict/maximum-volume checks and existing workflow regressions are being completed. See `TEST_PLAN.md` for final evidence before treating this work as delivered.
+Final build: 566 discovered Java tests, 564 passed and two Windows symlink privilege tests skipped; 93 Python tests pass. Independent source review found no remaining material issue. Python syntax, changed-document links and diff checks pass.
+
+Native editor coverage passes 16 checks at each logical size 320x240, 640x360 and 480x480, including real Create/Cancel/save, shared sound/Region/flag/state selectors, incomplete-trigger private preview, duplicate removal, stale Editing and geometry. Representative captures were inspected.
+
+Actual Minecraft execution proves paired terrain/NBT/chest/managed/lore effects, invalid later-target refusal without earlier writes, manual/automatic shared history, real abrupt termination after the first saved child and exact restart without duplicate media. Separate tests prove a foreign cell is preserved, a different operator recovers the same UUID, all 262144 cells apply across exactly 64 player-loaded chunks, and physical player ingress holds all 8192 later cells unchanged until exact supervisor recovery. Media-claim uncertainty and an absent original GM/zero-recipient outcome both complete safely. Existing menu, Area, departure and legacy cue initial/restart suites pass; the latter explicitly tests a stopped schema-1 legacy fixture returning to schema 2.
+
+The authenticated review copy is `../reviews/events/20261028T102730212325Z`, with voice24469, OP4 retained, no forced chunks or test commands. The original concluded review world remains preserved; its verified backup is `../backups/server-20261028T102032128055Z.zip`. Only the separate copy has departure completion flags cleared and Creative login forced, reopening test participation. Its map/configuration and saved Region states are retained. The session is ended; enable Editing for setup and start play for real event runs. Stay outside replacement Regions when running them.
+
+Final evidence is in `../reports/dev61-validation.json` and `../reports/combined-dev61-deployment.json`; exact native paths and commands are in `TEST_PLAN.md`. Human audibility, the final handcrafted map/content and realistic group/voice soak remain for organizer review. Arbitrary disk/power failure is not certified by the controlled kill/restart tests.

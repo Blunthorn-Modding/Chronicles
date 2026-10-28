@@ -45,6 +45,7 @@ public final class EventWorldBatches {
         Runtime runtime=runtime(server);Objects.requireNonNull(batchId,"event batch ID is required");Objects.requireNonNull(actor,"event batch actor is required");
         Objects.requireNonNull(stillEligible,"event batch eligibility callback is required");Objects.requireNonNull(ready,"event batch ready callback is required");Objects.requireNonNull(refused,"event batch refusal callback is required");
         if(!runtime.ready)throw new IllegalStateException("Event Region batches are unavailable: "+runtime.problem);
+        runtime.journal.requireNewBatchCapacity();
         if(runtime.preparation!=null||runtime.applying!=null||runtime.journal.entries().values().stream().anyMatch(e->e.phase()!=EventBatchFiles.Phase.WORLD_COMMITTED))throw new IllegalStateException("Resolve the current Event Region batch first.");
         if(runtime.journal.entries().containsKey(batchId))throw new IllegalStateException("Event batch UUID is already committed.");
         if(WorldAreaOperations.hasReservation(server)||AreaChanges.busy(server))throw new IllegalStateException("Resolve the current Area operation before reviewing this Event.");

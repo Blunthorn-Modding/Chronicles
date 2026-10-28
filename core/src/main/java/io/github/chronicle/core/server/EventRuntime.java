@@ -103,7 +103,9 @@ public final class EventRuntime {
         var c=configuration(server,id);validate(server,c);var campaign=active(server);requireFlag(c,campaign);unclaimed(server,id);
         var recipients=audience(server,c);if(recipients.isEmpty())throw new IllegalStateException("No participating players are in this Event's audience.");
         String names=recipients.stream().limit(8).map(p->p.getName().getString()).reduce((a,b)->a+", "+b).orElse("");
-        return new Review(c,campaign.sessionNumber(),ids(recipients),System.nanoTime(),c.definition().label()+": "+recipients.size()+" recipients ("+names+"). "+c.definition().changes().size()+" saved Region changes. All targets are checked before any change.");
+        String targets=c.definition().changes().stream().map(change->change.region().id()+" -> "+change.state()).reduce((a,b)->a+"; "+b).orElse("none");
+        String world=c.definition().changes().isEmpty()?"":" Saved states replace blocks and container contents; replaced contents are discarded.";
+        return new Review(c,campaign.sessionNumber(),ids(recipients),System.nanoTime(),c.definition().label()+": "+recipients.size()+" recipients ("+names+"). Region changes: "+targets+"."+world+" All targets are checked before any change.");
     }
     public static void run(ServerPlayerEntity player,String id,Review review)throws IOException{
         requireOperator(player);var server=server(player);if(review==null||!review.configuration().definition().id().equals(id))throw new IllegalStateException("Review this Event before running it.");
@@ -158,7 +160,7 @@ public final class EventRuntime {
                     notifyActor(server,actor,"Event could not start: "+PlayRuntime.message(failure));
                 }
             },reason->{r.preparing=null;r.retryAt=PlayRuntime.elapsedTicks(server)+200;RuntimeHolds.release(server,HOLD);notifyActor(server,actor,"Event made no changes: "+reason);});
-        }catch(RuntimeException failure){r.preparing=null;RuntimeHolds.release(server,HOLD);throw failure;}
+        }catch(RuntimeException failure){r.preparing=null;r.retryAt=PlayRuntime.elapsedTicks(server)+200;RuntimeHolds.release(server,HOLD);throw failure;}
     }
 
     private static void start(MinecraftServer server){

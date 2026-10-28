@@ -98,10 +98,11 @@ def run(only: str = "all") -> None:
            ":campaigns:quiet-below:remapJar", ":campaigns:quiet-below:writeSmokeClientLaunch"])
     launch = json.loads(
         (w.REPO / "campaigns/quiet-below/build/smoke/client-launch.json").read_text(encoding="utf-8"))
-    root = _stage(w) if only in {"all", "conflict"} else None
+    root = _stage(w) if only in {"all", "conflict", "player"} else None
     maximum_root = _stage(w, maximum=True) if only == "maximum" else None
     report_key = root.name if root is not None else maximum_root.name
-    reports = w.REPORTS / ("event-recovery-" + report_key)
+    report_prefix = "event-player-recovery-" if only == "player" else "event-recovery-"
+    reports = w.REPORTS / (report_prefix + report_key)
     reports.mkdir(parents=True)
     report = {
         "result": "FAIL",
@@ -109,7 +110,9 @@ def run(only: str = "all") -> None:
         "reports": str(reports),
         "checks": [],
         "limitations": [
-            "This suite injects a live foreign-cell conflict; abrupt-process recovery remains covered by the separate Event actions suite.",
+            ("This mode uses physical player ingress to hold a committed batch; foreign-cell conflict and abrupt-process recovery are separate proofs."
+             if only == "player" else
+             "This suite injects a live foreign-cell conflict; abrupt-process recovery remains covered by the separate Event actions suite."),
             "Registered sound dispatch is exercised, but automated evidence does not establish human audibility.",
             "The two worlds are disposable generated fixtures, not the organizer's handcrafted campaign map.",
         ],
@@ -143,6 +146,29 @@ def run(only: str = "all") -> None:
             log = None
             report["checks"].append("conflict/recovery world stopped cleanly after exact completion")
 
+        if only == "player":
+            server, log = _start(w, root, reports, "player-ingress-recovery", env)
+            player, player_result = _client(
+                w, launch, root, reports, "player", "ChronicleRecA")
+            clients = [player]
+            fabric_smoke._await_clients(clients, [player_result], timeout=600)
+            report["checks"].extend(_proof(player_result).get("checks", []))
+            _close_client(player)
+            clients = []
+
+            recovery, recovery_result = _client(
+                w, launch, root, reports, "player_recovery", "ChronicleRecB")
+            clients = [recovery]
+            fabric_smoke._await_clients(clients, [recovery_result], timeout=600)
+            report["checks"].extend(_proof(recovery_result).get("checks", []))
+            _close_client(recovery)
+            clients = []
+            fabric_smoke._stop(server)
+            server = None
+            log.close()
+            log = None
+            report["checks"].append("player-ingress recovery world stopped cleanly after exact completion")
+
         if only in {"all", "maximum"}:
             if maximum_root is None:
                 maximum_root = _stage(w, maximum=True)
@@ -163,6 +189,8 @@ def run(only: str = "all") -> None:
         required = []
         if only in {"all", "conflict"}:
             required.extend(("target 0 durably saved", "distinct live OP", "same UUID"))
+        if only == "player":
+            required.extend(("physically entered target 1", "no target-1 writes", "without terrain repair"))
         if only in {"all", "maximum"}:
             required.extend(("262144 cells", "64 player-loaded chunks", "no forced chunks"))
         missing = [needle for needle in required
@@ -184,11 +212,12 @@ def run(only: str = "all") -> None:
                 log.close()
             content = json.dumps(report, indent=2) + "\n"
             (reports / "report.json").write_text(content, encoding="utf-8")
-            (w.REPORTS / "event-recovery-latest.json").write_text(content, encoding="utf-8")
+            latest = "event-player-recovery-latest.json" if only == "player" else "event-recovery-latest.json"
+            (w.REPORTS / latest).write_text(content, encoding="utf-8")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--only", choices=("all", "conflict", "maximum"), default="all",
-                        help="run both proofs, only committed conflict/recovery, or only full maximum APPLY")
+    parser.add_argument("--only", choices=("all", "conflict", "player", "maximum"), default="all",
+                        help="run existing proofs, foreign-cell recovery, player-ingress recovery, or full maximum APPLY")
     run(parser.parse_args().only)

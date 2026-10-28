@@ -45,7 +45,7 @@ public final class EventRecoverySmoke {
                 || output.startsWith(root)) {
             throw new IllegalArgumentException("refusing Event recovery smoke outside disposable fixture");
         }
-        if (!List.of("conflict", "recovery", "maximum").contains(PHASE))
+        if (!List.of("conflict", "recovery", "player", "player_recovery", "maximum").contains(PHASE))
             throw new IllegalArgumentException("unknown Event recovery smoke phase");
     }
 
@@ -83,6 +83,8 @@ public final class EventRecoverySmoke {
             switch (PHASE) {
                 case "conflict" -> conflict(client);
                 case "recovery" -> recovery(client);
+                case "player" -> playerConflict(client);
+                case "player_recovery" -> playerRecovery(client);
                 case "maximum" -> maximum(client);
                 default -> throw new IllegalStateException();
             }
@@ -137,6 +139,56 @@ public final class EventRecoverySmoke {
                 finish(client, true, "explicit second-operator recovery completed without UUID replacement");
             }
             default -> throw new IllegalStateException("invalid recovery step");
+        }
+    }
+
+    private void playerConflict(MinecraftClient client) {
+        switch (step) {
+            case 0 -> { command(client, "chronicle_events_trial prepare_ui"); step++; }
+            case 1 -> {
+                if (!passed("Events trial", "prepare_ui")) return;
+                command(client, "chronicle_events_trial configure"); step++;
+            }
+            case 2 -> {
+                if (!passed("Events trial", "configure")) return;
+                command(client, "chronicle_events_trial activate"); step++;
+            }
+            case 3 -> {
+                if (!passed("Events trial", "activate")) return;
+                command(client, "chronicle_events_trial enable_flag"); step++;
+            }
+            case 4 -> {
+                if (!passed("Events trial", "enable_flag")) return;
+                command(client, "chronicle_events_trial target_world"); step++;
+            }
+            case 5 -> {
+                if (!passed("Events trial", "target_world")) return;
+                command(client, "chronicle_event_recovery_trial run_player"); step++;
+            }
+            case 6 -> {
+                if (!passed("Event recovery trial", "player")) return;
+                require(count(EventActionsTrial.WORLD_MESSAGE) == 0,
+                        "player-ingress conflict emitted media before exact recovery");
+                checks.add("initiating player physically entered target 1 only after target 0's durable save and left the committed batch HELD");
+                checks.add("player ingress performed no target-1 writes and emitted no early media");
+                finish(client, true, "committed player-ingress hold retained exact recovery authority");
+            }
+            default -> throw new IllegalStateException("invalid player-ingress step");
+        }
+    }
+
+    private void playerRecovery(MinecraftClient client) {
+        switch (step) {
+            case 0 -> { command(client, "chronicle_event_recovery_trial recover_player"); step++; }
+            case 1 -> {
+                if (!passed("Event recovery trial", "player_recovery")) return;
+                require(count(EventActionsTrial.WORLD_MESSAGE) == 0,
+                        "player-ingress recovery media was sent to a supervisor outside the pinned audience");
+                checks.add("after the initiating player disconnected, a distinct live OP recovered the same UUID without terrain repair");
+                checks.add("the absent pinned recipient received no catch-up media after player-ingress recovery");
+                finish(client, true, "explicit second-operator player-ingress recovery completed");
+            }
+            default -> throw new IllegalStateException("invalid player-ingress recovery step");
         }
     }
 

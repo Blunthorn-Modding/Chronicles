@@ -566,7 +566,7 @@ public final class CoreMenuServer {
                         facts.add(new Fact("Recent activity",a.timestamp()+" - "+a.actor().name()+": "+eventLabel(a.action())));
                         facts.add(new Fact("Audit detail",shortText(a.target()+" - "+a.parameters(),4096)));
                     });
-                    var play=PlayRuntime.available(server);if(play!=null)play.deliveries().values().stream().limit(8).forEach(d->facts.add(new Fact("Cue delivery",eventLabel(d.id())+" - "+d.status()+" - "+d.recipients().size()+" players")));
+                    var play=PlayRuntime.available(server);if(play!=null)play.deliveries().values().stream().limit(8).forEach(d->facts.add(new Fact("Event receipt",eventLabel(d.id())+" - "+d.status()+" - original audience: "+d.recipients().size())));
                     var autos=AutomaticPlayerSpawns.available(server);if(autos!=null)autos.arrivals().entrySet().stream().limit(8).forEach(a->facts.add(new Fact("Starting-position history",a.getKey()+" - "+a.getValue().status()+" - "+a.getValue().detail())));
                     facts.add(new Fact("Loot","Scheduled fills and interrupted-operation evidence remain in the chest journal. Inspection never refills a chest."));
                 } else {

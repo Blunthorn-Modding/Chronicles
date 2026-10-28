@@ -249,7 +249,7 @@ def run(include_content=True, regression=True):
                 if len(automatic['arrivals']) != 1 or automatic['arrivals'][0]['status'] != expected_arrival:
                     raise RuntimeError('M7 once/uncertain automatic arrival history mismatch')
                 play = json.loads((root / 'world/chronicle/play-runtime.json').read_text(encoding='utf-8'))
-                if play.get('schemaVersion') != 1 or len(play.get('participants', [])) != 2 or len(play.get('bindings', [])) != 2:
+                if play.get('schemaVersion') != 2 or len(play.get('participants', [])) != 2 or len(play.get('bindings', [])) != 2:
                     raise RuntimeError('M8 explicit participation/binding persistence mismatch')
                 deliveries = {delivery['id']: delivery for delivery in play.get('deliveries', [])}
                 expected_city = 'DELIVERED' if phase == 'initial' else 'CLAIMED'
@@ -315,12 +315,20 @@ def run(include_content=True, regression=True):
                 automatic_file.write_text(json.dumps(automatic), encoding='utf-8')
                 play_file = root / 'world/chronicle/play-runtime.json'
                 play = json.loads(play_file.read_text(encoding='utf-8'))
+                # Retain the actual v2 outcome, then explicitly construct the old
+                # v1 receipt-only fixture to exercise backwards reading on restart.
+                # This occurs only after the disposable server has saved/stopped.
+                (reports / 'play-v2-before-legacy-fixture.json').write_text(json.dumps(play, indent=2), encoding='utf-8')
                 city = next(delivery for delivery in play['deliveries'] if delivery['id'] == 'quiet_below:city_presence')
                 city['status'] = 'CLAIMED'
                 play['revision'] += 1
+                play['schemaVersion'] = 1
+                play.pop('events', None)
+                play.pop('executions', None)
                 play_file.write_text(json.dumps(play), encoding='utf-8')
                 report['checks'].append('stopped disposable fixture: pending intent after flushed mutation before receipt')
                 report['checks'].append('stopped disposable fixture: observation claim after durable claim before delivery completion')
+                report['checks'].append('stopped disposable fixture: retained v2 evidence, then seeded v1 legacy receipts for real restart migration')
 
             for _, logfile in clients:
                 logfile.close()

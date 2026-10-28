@@ -1,5 +1,7 @@
 # CF22: unified Events and saved Region changes
 
+**28 October status:** dev61 implemented, natively verified and deployed for organizer review. See [current implementation and evidence](CF22_IMPLEMENTATION.md). The contract below remains the architectural specification.
+
 27 October 2026. Scope authorized by the organizer: accept dev59 loot-table configuration and dev60 menu feedback/pause/Building Mode; focus on finishing Quiet Below. An Event can combine editable text, an optional sound and one or more saved Region changes. The organizer explicitly wants creation/editing of events, including their text and sound. This document is an implementation contract, not a claim of installed functionality. The live review stays on accepted dev60 until a verified replacement is ready.
 
 ## Ownership and scope

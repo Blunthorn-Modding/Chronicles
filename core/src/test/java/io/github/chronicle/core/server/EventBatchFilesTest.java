@@ -12,6 +12,15 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EventBatchFilesTest {
+    @Test void fullHistoryRefusesBeforePublishingAnotherRunAndExistingEntriesRemainUsable(){
+        var entries=new java.util.LinkedHashMap<UUID,EventBatchFiles.Entry>();
+        for(int i=0;i<256;i++){UUID id=new UUID(0,i);entries.put(id,new EventBatchFiles.Entry(id,"a".repeat(64),EventBatchFiles.Phase.WORLD_COMMITTED,EventBatchFiles.Step.COMMIT,1,0,"",Instant.EPOCH.toString()));}
+        var full=new EventBatchFiles.Journal(256,entries);
+        assertThrows(IllegalStateException.class,full::requireNewBatchCapacity);
+        assertEquals(256,full.entries().size());assertEquals(256,full.put(entries.values().iterator().next()).entries().size());
+        entries.remove(entries.keySet().iterator().next());
+        assertDoesNotThrow(new EventBatchFiles.Journal(257,entries)::requireNewBatchCapacity);
+    }
     @Test void exactPlanAndJournalRoundTrip()throws Exception{
         UUID id=UUID.randomUUID();AreaBounds bounds=new AreaBounds("region","minecraft:overworld",3,new BlockPosition(0,0,0),new BlockPosition(1,0,0));
         AreaSnapshot snapshot=new AreaSnapshot(bounds,List.of("{\"Name\":\"minecraft:stone\"}"),new int[]{0,0},Map.of());SnapshotRef ref=AreaSnapshotCodec.encode(snapshot).ref();

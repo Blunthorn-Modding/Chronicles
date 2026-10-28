@@ -1,4 +1,6 @@
-# CF22 paused implementation checkpoint
+# CF22 historical paused implementation checkpoint
+
+**Resumed 28 October; dev61 is now delivered for review. See [current implementation](CF22_IMPLEMENTATION.md) and TEST_PLAN. The pause below records the 27 October checkpoint.**
 
 27 October 2026. The organizer explicitly paused implementation for today. Resume only when asked.
 

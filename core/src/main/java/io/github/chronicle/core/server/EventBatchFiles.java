@@ -80,6 +80,7 @@ final class EventBatchFiles {
             for(var item:entries.entrySet())if(!item.getKey().equals(item.getValue().id()))throw new IllegalArgumentException("event batch journal key mismatch");
         }
         static Journal empty(){return new Journal(0,Map.of());}
+        void requireNewBatchCapacity(){if(entries.size()>=MAX_BATCHES)throw new IllegalStateException("World-change history is full (256 runs); preserve the stopped world for maintenance before starting another batch.");}
         Journal put(Entry entry){LinkedHashMap<UUID,Entry> next=new LinkedHashMap<>(entries);Entry old=next.put(entry.id(),entry);if(old==null&&next.size()>MAX_BATCHES)throw new IllegalStateException("event batch journal is full");return new Journal(Math.addExact(revision,1),next);}
     }
 

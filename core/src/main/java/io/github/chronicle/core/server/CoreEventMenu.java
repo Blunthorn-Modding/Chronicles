@@ -197,7 +197,7 @@ final class CoreEventMenu {
                 problem = unavailable.getMessage() == null ? "The selected state is unavailable." : unavailable.getMessage();
             }
         }
-        return new EventEditorForm.Change(change.region().id(), label, change.state().name(), change.areaRevision(),
+        return new EventEditorForm.Change(change.region().id(), shortText(label,160), change.state().name(), change.areaRevision(),
                 change.snapshot().sha256(), change.snapshot().bounds().dimension(), current, shortText(problem, 512));
     }
 

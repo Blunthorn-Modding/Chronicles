@@ -1,5 +1,7 @@
 # CF22 — Unified Events UI design
 
+**28 October status:** organizer-approved workflow implemented and natively verified in dev61. See [implementation](CF22_IMPLEMENTATION.md) and TEST_PLAN for actual evidence; this mockup remains the historical design artifact.
+
 This is a design contract and an interactive local mockup, not a runtime change. Open [design/events.html](design/events.html), served locally at http://127.0.0.1:8925/events.html. Its **320×240 proof** is a bounded schematic: vertical navigation stays visible and List/Details switches the main pane. Form footers and popups stay inside that frame. It is not a tall mobile web layout or a rendered Minecraft screen.
 
 ## One Event form
