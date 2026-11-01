@@ -12,7 +12,7 @@ An ordinary player sees only their own account and public selectable-role descri
 
 ## Configuration and defaults
 
-`config/chronicle/player-roles.yaml` is the authoritative complete catalog. Quiet Below supplies `data/quiet_below/chronicle/player-roles.yaml` defaults only on first initialization. The two starting backgrounds are editable setup defaults, not final named characters or frozen story prose. Their Points/books initially remain unbound; final cast/content is still deferred.
+`world/chronicle/player-roles.yaml` is the authoritative complete catalog for that map, including role Point bindings. On only the first bootstrap of a world without this file or its marker, `config/chronicle/player-roles.yaml` is a strict read-only migration input when present; otherwise registered scenario defaults seed the world file. Later legacy changes are ignored. The two starting backgrounds are editable setup defaults, not final named characters or frozen story prose. Their Points/books initially remain unbound; final cast/content is still deferred.
 
 The adjacent `.initialized` marker prevents a missing previously-created file from silently resurrecting deleted defaults. Successful edits retain exact prior bytes in `.bak` and use atomic replacement with external-edit detection. Failed initial creation leaves no initialization marker. YAML is conventional block YAML, parsed with pinned SnakeYAML Engine 3.1.1: explicit tags, anchors/aliases, merge keys, duplicate keys, multiple documents, unexpected fields/types and excessive size/nesting/nodes are rejected before construction. The full Apache-2.0 license is in Core's artifact, and the library is nested only in Core; the scenario development runtime uses the same pin.
 
@@ -28,7 +28,7 @@ Respawn uses the existing spawn scheduler, with manual policy over role default 
 
 ## Recovery and limits
 
-World state lives in `world/chronicle/player-roles.json` and `role-first-entry.json`. The former holds seats/start markers/explicit policy-Off sets; the latter holds immutable planned effects and conservative receipt stages. Existing files are not rewritten on malformed input. Started-history/capacity and journal byte/account bounds reject before publishing; no truncation or guessed account lookup.
+World state lives in `world/chronicle/player-roles.yaml`, `player-roles.json` and `role-first-entry.json`. The YAML holds the complete editable definition catalog and map Point bindings; the JSON holds seats/start markers/explicit policy-Off sets; the latter holds immutable planned effects and conservative receipt stages. Existing files are not rewritten on malformed input. Started-history/capacity and journal byte/account bounds reject before publishing; no truncation or guessed account lookup.
 
 On restart, unresolved entry operations install holds. PREPARED plus exact before-state may abort safely; APPLYING requires exact saved post-state, another player-data save and recheck before ledger completion. Other outcomes remain held. `/chronicle roles entry recover <online-player>` only rechecks evidence; it cannot force success or clear history. `/chronicle roles reload` reloads corrected YAML without grants and can recover the role-config startup hold in non-active operator Editing. Unknown/conflicting operation evidence is retained.
 

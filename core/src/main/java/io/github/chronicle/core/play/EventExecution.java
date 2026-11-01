@@ -19,6 +19,7 @@ public record EventExecution(String eventId, UUID operationId, EventConfiguratio
         APPLYING,
         TERRAIN_SAVED,
         WORLD_COMMITTED,
+        ENCOUNTER_EFFECTS,
         EVENT_OUTCOME,
         MEDIA_CLAIMED,
         MEDIA_UNCERTAIN,

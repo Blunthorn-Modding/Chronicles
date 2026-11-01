@@ -20,42 +20,52 @@ import java.util.*;
 public final class LastingBargains {
     private static final Map<String,List<Choice>> GROUPS=new TreeMap<>();
     private static final Map<String,OfferingPayloads.Presentation> PRESENTATIONS=new TreeMap<>();
+    private static final Map<String,OfferingPayloads.Layout> LAYOUTS=new TreeMap<>();
     private static final Map<MinecraftServer,Map<UUID,Offer>> OFFERS=new IdentityHashMap<>();
     private static final Map<MinecraftServer,Integer> CURSORS=new IdentityHashMap<>();
     private static final long MAX_AGE=60_000_000_000L;
     private static boolean frozen;
     private LastingBargains() { }
-    public record Choice(OfferingDefinition definition,String label,String description,String cost,String bonus) {
+    public record Choice(OfferingDefinition definition,TemporaryOfferings.Definition temporary,String label,String description,String cost,String bonus) {
         public Choice {
-            if(definition==null||label==null||label.isBlank()||label.length()>64||description==null||description.isBlank()
+            if((definition==null)==(temporary==null)||label==null||label.isBlank()||label.length()>64||description==null||description.isBlank()
                     ||description.length()>512)
                 throw new IllegalArgumentException("Invalid bargain choice");
             OfferingPayloads.term(cost);OfferingPayloads.term(bonus);
         }
         public Choice(OfferingDefinition definition,String label,String description) {
-            this(definition,label,description,"See complete trade details","See complete trade details");
+            this(definition,null,label,description,"See complete trade details","See complete trade details");
         }
+        public Choice(OfferingDefinition definition,String label,String description,String cost,String bonus) {
+            this(definition,null,label,description,cost,bonus);
+        }
+        public Choice(TemporaryOfferings.Definition definition,String label,String description) { this(null,definition,label,description,"Hidden temporary terms","Hidden temporary terms"); }
+        String id(){return definition!=null?definition.id():temporary.id();}
     }
     @FunctionalInterface public interface Gate {
         String unavailable(ServerPlayerEntity player);
         /** Temporary lack of power/eligibility leaves a readable workstation open. */
         default boolean stillPresent(ServerPlayerEntity player) { return player.isAlive()&&!player.isSpectator(); }
+        default TemporaryOfferings.Station station(ServerPlayerEntity player) { throw new IllegalStateException("This station has no temporary-offering context"); }
         /** Called only for a NEW durable receipt, after projection. Never retried on refresh/replay/login.
          * Implement gameplay aftermath before private flavor; a hard crash can omit this transient callback. */
         default void committed(ServerPlayerEntity player,OfferingDefinition definition,UUID transaction) { }
     }
     public static void registerGroup(String id,List<Choice> choices){registerGroup(id,choices,OfferingPayloads.Presentation.neutral());}
     public static List<EventSources.Choice> eventSourceChoices(MinecraftServer server) {
-        List<EventSources.Choice> result=new ArrayList<>();result.add(new EventSources.Choice("*","Any completed prayer","Any registered lasting bargain"));
-        GROUPS.values().forEach(choices->choices.forEach(choice->result.add(new EventSources.Choice(choice.definition.id(),choice.label,choice.description))));
+        List<EventSources.Choice> result=new ArrayList<>();result.add(new EventSources.Choice("*","Any completed prayer","Any registered prayer"));
+        GROUPS.values().forEach(choices->choices.forEach(choice->result.add(new EventSources.Choice(choice.id(),choice.label,choice.description))));
         return List.copyOf(result);
     }
-    public static void registerGroup(String id,List<Choice> choices,OfferingPayloads.Presentation presentation) {
+    public static void registerGroup(String id,List<Choice> choices,OfferingPayloads.Presentation presentation) { registerGroup(id,choices,presentation,OfferingPayloads.Layout.GENERIC); }
+    public static void registerGroup(String id,List<Choice> choices,OfferingPayloads.Presentation presentation,OfferingPayloads.Layout layout) {
         Objects.requireNonNull(presentation);
+        Objects.requireNonNull(layout);
         OfferingDefinition.validId(id);
         if(frozen||GROUPS.size()>=32||GROUPS.containsKey(id)||choices==null||choices.isEmpty()||choices.size()>16)throw new IllegalStateException("Invalid or frozen bargain group");
-        Set<String> ids=new HashSet<>();for(Choice choice:choices)if(!ids.add(choice.definition.id()))throw new IllegalArgumentException("Duplicate offering choice");
-        GROUPS.put(id,List.copyOf(choices));PRESENTATIONS.put(id,presentation);
+        Set<String> ids=new HashSet<>();for(Choice choice:choices)if(!ids.add(choice.id()))throw new IllegalArgumentException("Duplicate offering choice");
+        if(layout==OfferingPayloads.Layout.ALTAR_TWO_SHEET&&choices.size()!=6)throw new IllegalArgumentException("Two-sheet Altar layout requires six choices");
+        GROUPS.put(id,List.copyOf(choices));PRESENTATIONS.put(id,presentation);LAYOUTS.put(id,layout);
     }
     public static void register() {
         OfferingPayloads.register();OfferingScreenHandler.register();
@@ -106,16 +116,18 @@ public final class LastingBargains {
     }
     private static Offer make(ServerPlayerEntity p,String source,String group,String title,Gate gate,int selected,int syncId,
                               UUID parent,OfferingScreenHandler handler,boolean answered,boolean opening) {
-        String station=gate.unavailable(p);long revision=-1;
+        String station=gate.unavailable(p);long revision=-1,temporaryRevision=-1;
         io.github.chronicle.core.offering.OfferingLedger ledger=null;
         try{ledger=OfferingStats.ledger(p.getEntityWorld().getServer());revision=ledger.revision();
             if(ledger.closedSources().contains(source))station="Campaign source ended";
         }catch(RuntimeException error){station="Bargain authority unavailable";}
-        var observed=current(p);List<OfferingPayloads.Choice> views=new ArrayList<>();List<OfferingStats.Preview> previews=new ArrayList<>();
+        try{var temporary=TemporaryOfferings.ledger(p.getEntityWorld().getServer());temporaryRevision=temporary.revision();if(temporary.closedSources().contains(source))station="Campaign source ended";}catch(RuntimeException ignored){ }
+        var observed=current(p);List<OfferingPayloads.Choice> views=new ArrayList<>();List<Object> previews=new ArrayList<>();
         for(Choice choice:GROUPS.get(group)){
-            OfferingStats.Preview preview=null;int count=ledger==null?0:ledger.count(p.getUuid(),source,choice.definition.id());
-            try{preview=OfferingStats.preview(p,source,choice.definition);}catch(RuntimeException ignored){ }
-            previews.add(preview);boolean complete=count>=choice.definition.maxPurchases();
+            Object preview=null;boolean complete=false;
+            try{if(choice.definition!=null){int count=ledger==null?0:ledger.count(p.getUuid(),source,choice.definition.id());complete=count>=choice.definition.maxPurchases();if(!complete)preview=OfferingStats.preview(p,source,choice.definition);}
+                else preview=TemporaryOfferings.preview(p,source,choice.temporary,gate.station(p));}catch(RuntimeException ignored){ }
+            previews.add(preview);
             views.add(new OfferingPayloads.Choice(choice.label,station==null&&preview!=null&&!complete,complete));
         }
         var state=station!=null?OfferingPayloads.State.UNAVAILABLE:
@@ -123,9 +135,9 @@ public final class LastingBargains {
                 views.stream().anyMatch(OfferingPayloads.Choice::available)?OfferingPayloads.State.READY:OfferingPayloads.State.UNAVAILABLE;
         if(answered)state=OfferingPayloads.State.ANSWERED;
         UUID token=UUID.randomUUID();
-        var view=new OfferingPayloads.View(syncId,token,parent,title,state,views,opening,PRESENTATIONS.get(group));
+        var view=new OfferingPayloads.View(syncId,token,parent,title,state,views,opening,PRESENTATIONS.get(group),LAYOUTS.get(group));
         return new Offer(token,System.nanoTime(),p.networkHandler,parent,source,group,title,gate,selected,
-                Collections.unmodifiableList(previews),handler,view,revision,observed,station);
+                Collections.unmodifiableList(previews),handler,view,revision,temporaryRevision,observed,station);
     }
     private static void replace(ServerPlayerEntity player,Offer previous,int selected,boolean answered) {
         var offer=make(player,previous.source,previous.group,previous.title,previous.gate,selected,previous.handler.syncId,
@@ -147,18 +159,23 @@ public final class LastingBargains {
         if(action.action()==0){replace(player,offer,offer.selected,false);return;}
         int selected=action.selected();
         if(selected>=GROUPS.get(offer.group).size()){replace(player,offer,offer.selected,false);return;}
-        String problem=offer.gate.unavailable(player);OfferingStats.Preview expected=offer.previews.get(selected);
+        String problem=offer.gate.unavailable(player);Object expected=offer.previews.get(selected);
         if(problem!=null||expected==null||!offer.view.choices().get(selected).available()){
             replace(player,offer,selected,false);return;
         }
-        OfferingDefinition definition=GROUPS.get(offer.group).get(selected).definition;
+        Choice choice=GROUPS.get(offer.group).get(selected);OfferingDefinition definition=choice.definition;
+        if(choice.temporary!=null){
+            try{TemporaryOfferings.purchase(player,offer.source,choice.temporary,offer.gate.station(player),offer.token,(TemporaryOfferings.Prepared)expected);replace(player,offer,selected,true);}
+            catch(Exception error){ChronicleCore.LOGGER.warn("Temporary offering commit did not finish for {}: {}",player.getUuid(),error.toString());terminal(player,offer);}
+            return;
+        }
         OfferingStats.PurchaseResult result;
         String sourceReceipt=null;
         try{
             var source=new io.github.chronicle.core.play.EventSource("chronicle_core:prayer_completed",definition.id(),"");
             String authority="offering:"+offer.token;
             sourceReceipt=EventSources.prepare(player,EventSources.id(authority,source.type(),source.target(),""),source,authority);
-            result=OfferingStats.purchase(player,offer.source,definition,offer.token,expected);
+            result=OfferingStats.purchase(player,offer.source,definition,offer.token,(OfferingStats.Preview)expected);
             EventSources.complete(server,sourceReceipt,true);
         }
         catch(Exception error){
@@ -175,7 +192,7 @@ public final class LastingBargains {
     }
     private static void terminal(ServerPlayerEntity player,Offer offer) {
         var old=offer.view;
-        var view=new OfferingPayloads.View(old.syncId(),old.token(),old.parent(),old.title(),OfferingPayloads.State.EXPIRED,old.choices(),false,old.presentation());
+        var view=new OfferingPayloads.View(old.syncId(),old.token(),old.parent(),old.title(),OfferingPayloads.State.EXPIRED,old.choices(),false,old.presentation(),old.layout());
         Offer next=offer.withView(view);OFFERS.get(player.getEntityWorld().getServer()).put(player.getUuid(),next);
         next.handler.view(view);ServerPlayNetworking.send(player,view);
     }
@@ -189,10 +206,10 @@ public final class LastingBargains {
             if(!offer.gate.stillPresent(player)){player.closeHandledScreen();continue;}
             if(System.nanoTime()-offer.created>=MAX_AGE){if(offer.view.state()!=OfferingPayloads.State.EXPIRED)terminal(player,offer);continue;}
             try{
-                String station=offer.gate.unavailable(player);var ledger=OfferingStats.ledger(server);
+                String station=offer.gate.unavailable(player);var ledger=OfferingStats.ledger(server);var temporary=TemporaryOfferings.ledger(server);
                 if(ledger.closedSources().contains(offer.source))station="Campaign source ended";
                 String oldProblem=offer.gateProblem;
-                if(ledger.revision()!=offer.revision||!current(player).equals(offer.observed)||!Objects.equals(station,oldProblem))
+                if(ledger.revision()!=offer.revision||temporary.revision()!=offer.temporaryRevision||!current(player).equals(offer.observed)||!Objects.equals(station,oldProblem))
                     replace(player,offer,offer.selected,false);
             }catch(RuntimeException error){if(offer.view.state()!=OfferingPayloads.State.EXPIRED)terminal(player,offer);}
         }
@@ -200,9 +217,9 @@ public final class LastingBargains {
     }
     private static void thread(MinecraftServer server){if(!server.isOnThread())throw new IllegalStateException("Bargains require the server thread");}
     private record Offer(UUID token,long created,net.minecraft.server.network.ServerPlayNetworkHandler connection,UUID parent,
-                         String source,String group,String title,Gate gate,int selected,List<OfferingStats.Preview> previews,
-                         OfferingScreenHandler handler,OfferingPayloads.View view,long revision,OfferingStats.Totals observed,String gateProblem) {
-        Offer bound(OfferingScreenHandler value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,value,view,revision,observed,gateProblem);}
-        Offer withView(OfferingPayloads.View value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,handler,value,revision,observed,gateProblem);}
+                         String source,String group,String title,Gate gate,int selected,List<Object> previews,
+                         OfferingScreenHandler handler,OfferingPayloads.View view,long revision,long temporaryRevision,OfferingStats.Totals observed,String gateProblem) {
+        Offer bound(OfferingScreenHandler value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,value,view,revision,temporaryRevision,observed,gateProblem);}
+        Offer withView(OfferingPayloads.View value){return new Offer(token,created,connection,parent,source,group,title,gate,selected,previews,handler,value,revision,temporaryRevision,observed,gateProblem);}
     }
 }

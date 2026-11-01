@@ -154,6 +154,7 @@ public final class RoleFirstEntry {
                         }
                         finishLedgers(server, operation);
                         runtime.service.complete(operation.playerId(), operation.operationId());
+                        RoleEventSources.completedEntry(server, operation);
                         RuntimeHolds.release(server, owner(operation.playerId()));
                     }
                     case CONFLICT -> {
@@ -264,6 +265,7 @@ public final class RoleFirstEntry {
         hold(server, operation);
         try {
             recheck(server, player, plan);
+            RoleEventSources.preparingEntry(server, operation, sourceOrigin);
             for(RoleBookGrant book:operation.books())BookDeliveryRuntime.prepareDiscovery(server,book.bookId(),book.deliveryToken(),player.getUuid(),sourceOrigin,"rolebook:"+operation.operationId()+":"+book.deliveryToken());
             runtime.service.begin(player.getUuid(), operation.operationId()); // Claims precede every external side effect.
             if (plan.movement != null && !AutomaticPlayerSpawns.service(server).claim(player.getUuid(), plan.movement.purpose())) {
@@ -275,6 +277,7 @@ public final class RoleFirstEntry {
             server.getPlayerManager().saveAllPlayerData();
             finishLedgers(server, operation);
             runtime.service.complete(player.getUuid(), operation.operationId());
+            RoleEventSources.completedEntry(server, operation);
             RuntimeHolds.release(server, owner(player.getUuid()));
             player.sendMessage(Text.literal("Your Chronicle role is ready."), false);
             ChronicleCore.LOGGER.info("Role first entry completed: player={} role={} operation={}", player.getUuid(), operation.roleId(), operation.operationId());

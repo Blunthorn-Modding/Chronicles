@@ -713,6 +713,23 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
             }
         }
     }
+    /** One additional loaded-only opportunity constrained to a temporary Altar aura. It retains
+     * the normal physical-root, substrate, exclusion, read and shared write budgets. */
+    public boolean harvestOpportunity(EcologyTerrain w,Pos center,int radius)throws IOException{
+        if(center==null||radius<1||radius>32||!enabled()||!indexed||unresolved||graph!=null||connected.isEmpty()||writes>=MAX_WRITES||air.isEmpty())return false;
+        SplittableRandom random=new SplittableRandom(setup.hashCode()*0x632BE59BD9B4E019L^journal.revision()^++growthTurn*0xC6BC279692B5C323L);
+        int[] steps={-1,0,1,2,3,4,5},faces={0,1,2,3,4,5};int reads=0;long limit=(long)radius*radius;
+        for(int tries=0;tries<8;tries++){Pos from=air.get(random.nextInt(air.size()));if(distanceSquared(from,center)>limit||!passable(w,from)||!rootedExposure(from))continue;shuffle(random,steps);
+            for(int step:steps){Pos a=step<0?from:from.offset(step);if(distanceSquared(a,center)>limit||!passable(w,a))continue;State airState=w.get(a);shuffle(random,faces);
+                for(int face:faces){if(++reads>256)return false;Pos backing=a.offset(face);if(distanceSquared(backing,center)>limit||!w.loaded(backing)||cells.containsKey(backing)||w.growthExcluded(backing)||!w.solidFace(backing,face^1))continue;State original=w.get(backing);if(original.network())continue;
+                    if(w.substrate(backing)){if(touchesLiving(backing,SCULK)){change(w,backing,original,SCULK,List.of(a));return true;}}
+                    else if(airState.air()||(owns(a)&&airState.vein())){State next=airState.vein()?airState.with(FACES[face],"true"):EcologyTerrain.vein(face);if(!next.equals(airState)&&touchesLiving(a,next)){change(w,a,airState,next,List.of(a));return true;}}
+                }
+            }
+        }
+        return false;
+    }
+    private static long distanceSquared(Pos a,Pos b){long x=(long)a.x()-b.x(),y=(long)a.y()-b.y(),z=(long)a.z()-b.z();return x*x+y*y+z*z;}
     /** Fixed 5x7x5 loaded-only air flood. Surfaces are ordered from the Heart outwards, then
      * revalidated in small batches. This lets a supported vein bootstrap a substrate path without
      * cutting through a sealed shell or treating foreign sculk as campaign ownership. */

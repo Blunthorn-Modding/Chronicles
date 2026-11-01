@@ -31,11 +31,12 @@ public final class AncientAltarBlock extends HorizontalFacingBlock implements Bl
     @Override protected VoxelShape getCollisionShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) { return COLLISION; }
     @Override protected VoxelShape getOutlineShape(BlockState state, BlockView world, BlockPos pos, ShapeContext context) { return OUTLINE; }
     @Override protected ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-        if (player instanceof ServerPlayerEntity actor) AncientAltars.open(actor, pos);
+        if (player instanceof ServerPlayerEntity actor) AncientAltars.open(actor, pos,Hand.MAIN_HAND);
         return ActionResult.SUCCESS;
     }
     @Override protected ActionResult onUseWithItem(ItemStack stack, BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        return onUse(state, world, pos, player, hit);
+        if (player instanceof ServerPlayerEntity actor) AncientAltars.open(actor,pos,hand);
+        return ActionResult.SUCCESS;
     }
     @Override protected void onBlockAdded(BlockState state, World world, BlockPos pos, BlockState oldState, boolean notify) {
         super.onBlockAdded(state, world, pos, oldState, notify);

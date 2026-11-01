@@ -11,6 +11,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.Hand;
 import java.util.List;
 
 /** Campaign defaults and physical power only. Core owns consent, durable receipts and native stats. */
@@ -20,10 +21,16 @@ public final class AncientAltars {
     public static final OfferingDefinition MOVEMENT = new OfferingDefinition("quiet_below:movement", new OfferingTerms(-2, 0, 10), 3);
     private AncientAltars() { }
     public static void register() {
+        TemporaryAltarOfferings.register();
         LastingBargains.registerGroup(GROUP,List.of(
                 new LastingBargains.Choice(EXTRA_HEART,"Pray for more life","The altar listens."),
-                new LastingBargains.Choice(MOVEMENT,"Pray for quicker feet","The altar listens.")),
-                new io.github.chronicle.core.network.OfferingPayloads.Presentation("The altar listens...","The altar is quiet.","The altar listens.","One answer has faded.","No answer comes.","The altar falls silent.","The altar remembers."));
+                new LastingBargains.Choice(MOVEMENT,"Pray for quicker feet","The altar listens."),
+                new LastingBargains.Choice(TemporaryAltarOfferings.REPAIR,"Pray for swift mending","The altar listens."),
+                new LastingBargains.Choice(TemporaryAltarOfferings.SIGHT,"Pray for clear sight","The altar listens."),
+                new LastingBargains.Choice(TemporaryAltarOfferings.HARVEST,"Pray for a quiet harvest","The altar listens."),
+                new LastingBargains.Choice(TemporaryAltarOfferings.EMERGENCY,"Pray for sheltering grace","The altar listens.")),
+                new io.github.chronicle.core.network.OfferingPayloads.Presentation("The altar listens...","The altar is quiet.","The altar listens.","One answer has faded.","No answer comes.","The altar falls silent.","The altar remembers."),
+                io.github.chronicle.core.network.OfferingPayloads.Layout.ALTAR_TWO_SHEET);
     }
     private static AncientAltarBlockEntity physical(ServerWorld world, BlockPos pos) {
         if (!world.isInBuildLimit(pos) || !world.getWorldBorder().contains(pos)) return null;
@@ -31,7 +38,8 @@ public final class AncientAltars {
         if (chunk == null || !chunk.getBlockState(pos).isOf(QuietBelow.ANCIENT_ALTAR_BLOCK)) return null;
         return chunk.getBlockEntities().get(pos) instanceof AncientAltarBlockEntity altar ? altar : null;
     }
-    public static void open(ServerPlayerEntity player, BlockPos position) {
+    public static void open(ServerPlayerEntity player, BlockPos position) { open(player,position,Hand.MAIN_HAND); }
+    public static void open(ServerPlayerEntity player, BlockPos position,Hand activationHand) {
         ServerWorld world = player.getEntityWorld(); BlockPos pos = position.toImmutable();
         AncientAltarBlockEntity altar = physical(world, pos); if (altar == null) return;
         LastingBargains.open(player, SOURCE, GROUP, "Ancient Altar", new LastingBargains.Gate() {
@@ -39,6 +47,7 @@ public final class AncientAltars {
                 return actor.getEntityWorld()==world&&actor.isAlive()&&!actor.isSpectator()
                         &&physical(world,pos)==altar&&!altar.isRemoved();
             }
+            @Override public io.github.chronicle.core.server.TemporaryOfferings.Station station(ServerPlayerEntity actor) { return TemporaryAltarOfferings.station(world,pos,activationHand); }
             @Override public String unavailable(ServerPlayerEntity actor) {
                 if (actor.getEntityWorld() != world || !actor.isAlive() || actor.isSpectator() || actor.squaredDistanceTo(pos.toCenterPos()) > 36) return "The Altar is out of reach.";
                 if (physical(world, pos) != altar || altar.isRemoved()) return "The original Altar is no longer here.";
@@ -60,4 +69,5 @@ public final class AncientAltars {
             }
         });
     }
+    static boolean isStation(ServerWorld world,BlockPos position,String stationId){AncientAltarBlockEntity altar=physical(world,position);return altar!=null&&altar.stationId().toString().equals(stationId);}
 }

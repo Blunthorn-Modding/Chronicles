@@ -1,5 +1,9 @@
 # Chronicle work tracking
 
+**1 November dev65 delivered for combined review:** Event/source archival, role Event sources, encounter groups and Event spawning, scenario-content export/build inputs and four temporary Altar prayers. See [results](DEFERRED_TOOLS_RESULTS.md), [review guide](DEFERRED_TOOLS_REVIEW.md) and [remaining work](OUTSTANDING_WORK.md). Automatic quiet-period Event-history scheduling remains a follow-up; production map, final content and group/balance review remain separate gates.
+
+**1 November queued:** [M18 / CF24 bundled custom event sounds](CF24_BUNDLED_EVENT_SOUNDS.md) records the organizer's choice to ship custom audio inside the mod and matching client pack. Future implementation; no uploader or server resource pack. This is separate from the delivered deferred tools.
+
 **28 October current rollup:** the organizer confirms dev63 Event/flag functionality and requests the dev64 shared-picker correction. Read [Outstanding work](OUTSTANDING_WORK.md) for the remaining map, content, balance/group gates and explicitly deferred code. Older dated checkpoints and superseded table labels below are historical; they do not mean accepted features must be implemented again.
 
 **28 October current:** dev61 delivers [CF22 unified Events](CF22_IMPLEMENTATION.md) for organizer review: native create/edit, text/sound, independent audience/trigger pins and optional multiple Region saved-state changes through one durable batch. Native interruption, foreign/player recovery and full-volume proofs pass. Core owns reusable mechanics; Quiet Below supplies defaults. Handcrafted map, final writing and realistic group/voice soak remain pending; unrelated format engines stay outside this pass.
@@ -131,8 +135,8 @@ The QB items stay specific to Quiet Below. The [format guide](CAMPAIGN_FORMATS.m
 | CF20 | Group departure points and campaign conclusion | Mechanics and UI accepted; map/group validation pending | Departure subtype under Locations, bound block + existing aboard Region; two stacked roster-pinned confirmations; exact online group becomes durably departed Spectators; optional saved area state, no ordinary rejoin and true all-departed campaign ending. |
 | CF21 | Paired area states and recoverable world changes | Unified Region saved states implemented and accepted | Saved states under Regions; one Core Region, Start/End-first shovel/pos selection + explicit save, repeated capture/application and delete choosing Start/End/unchanged. Loaded-only bounded block/container replacement with cross-service receipts/recovery; ship/sinkhole content stays campaign-owned. |
 | CF22 | Unified editable Events and multi-Region state actions | Event functionality accepted; dev64 picker correction | [Contract](CF22_EVENT_ACTIONS_PLAN.md): Core event definitions/media/triggers, aggregate world preflight/receipts/recovery and current UI controls; Quiet Below defaults. Native editor/runtime deployed in dev61; [implementation and evidence](CF22_IMPLEMENTATION.md). |
-
 | CF23 | Event-driven flag progression | Functionality accepted; dev64 picker correction | [Implementation](CF23_IMPLEMENTATION.md): multiple prerequisites, atomic flag outcomes, active countdowns and gameplay sources. Role assignment/entry sources and history maintenance remain explicit follow-ups. |
+| CF24 | Bundled custom event sounds | Requested; queued for implementation (M18) | [Plan and acceptance](CF24_BUNDLED_EVENT_SOUNDS.md): campaign-owned Ogg Vorbis assets and registered stable sound IDs, existing Event picker/private preview, matching client packaging and audible verification. New audio ships through mod updates; no runtime uploader or server resource pack. |
 
 ## Review decisions
 

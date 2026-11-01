@@ -21,17 +21,27 @@ public record EventEditorForm(
         String id, long revision, String name, String description, String message, String sound,
         String audience, String audienceRegion, long audienceRegionRevision,
         String mode, String triggerRegion, long triggerRegionRevision, long seconds, List<String> requiredFlags,
-        List<Change> changes, boolean creating, Map<String, Boolean> flagChanges, EventSource source) {
+        List<Change> changes, boolean creating, Map<String, Boolean> flagChanges, EventSource source,
+        List<EncounterAction> encounterActions) {
     public static final long MAX_SECONDS = 604_800L;
     public static final int MAX_CHANGES = 8;
     public static final int MAX_FLAGS = 32;
+    public static final int MAX_ENCOUNTER_ACTIONS = 4;
 
     public EventEditorForm(String id, long revision, String name, String description, String message, String sound,
                            String audience, String audienceRegion, long audienceRegionRevision,
                            String mode, String triggerRegion, long triggerRegionRevision, long seconds, String flag,
                            List<Change> changes, boolean creating) {
         this(id, revision, name, description, message, sound, audience, audienceRegion, audienceRegionRevision,
-                mode, triggerRegion, triggerRegionRevision, seconds, legacyFlags(flag), changes, creating, Map.of(), EventSource.empty());
+                mode, triggerRegion, triggerRegionRevision, seconds, legacyFlags(flag), changes, creating, Map.of(), EventSource.empty(), List.of());
+    }
+
+    public EventEditorForm(String id, long revision, String name, String description, String message, String sound,
+                           String audience, String audienceRegion, long audienceRegionRevision,
+                           String mode, String triggerRegion, long triggerRegionRevision, long seconds, List<String> requiredFlags,
+                           List<Change> changes, boolean creating, Map<String, Boolean> flagChanges, EventSource source) {
+        this(id,revision,name,description,message,sound,audience,audienceRegion,audienceRegionRevision,mode,triggerRegion,
+                triggerRegionRevision,seconds,requiredFlags,changes,creating,flagChanges,source,List.of());
     }
 
     public EventEditorForm {
@@ -57,6 +67,8 @@ public record EventEditorForm(
             throw new IllegalArgumentException("Invalid event editor number");
         changes = List.copyOf(Objects.requireNonNull(changes, "changes"));
         if (changes.size() > MAX_CHANGES) throw new IllegalArgumentException("Too many event changes");
+        encounterActions = List.copyOf(Objects.requireNonNull(encounterActions, "encounterActions"));
+        if(encounterActions.size()>MAX_ENCOUNTER_ACTIONS)throw new IllegalArgumentException("Too many encounter actions");
     }
 
     public String flag() { return requiredFlags.isEmpty() ? "" : requiredFlags.getFirst(); }
@@ -76,6 +88,12 @@ public record EventEditorForm(
             if (!snapshotHash.isEmpty() && !snapshotHash.matches("[0-9a-fA-F]{64}"))
                 throw new IllegalArgumentException("Invalid saved-state snapshot hash");
         }
+    }
+
+    /** A local spawn-action draft. GROUP uses the group's binding; POINT/REGION pin an override. */
+    public record EncounterAction(String groupId,String groupLabel,String targetKind,String siteId,String siteLabel,
+                                  long siteRevision,boolean current,String problem) {
+        public EncounterAction {text(groupId,128);text(groupLabel,160);text(targetKind,16);text(siteId,128);text(siteLabel,160);text(problem,512);if(siteRevision<0)throw new IllegalArgumentException("Invalid encounter target revision");if(!targetKind.equals("GROUP")&&!targetKind.equals("POINT")&&!targetKind.equals("REGION"))throw new IllegalArgumentException("Invalid encounter target kind");if(targetKind.equals("GROUP")&&(!siteId.isEmpty()||siteRevision!=0))throw new IllegalArgumentException("Group-target action cannot pin a site");}
     }
 
     private static void text(String value, int maximum) {

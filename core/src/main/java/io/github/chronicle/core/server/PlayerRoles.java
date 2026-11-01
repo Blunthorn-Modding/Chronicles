@@ -27,8 +27,8 @@ public final class PlayerRoles {
     public static void register() {
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             try {
-                var config = new PlayerRoleConfig(FabricLoader.getInstance().getConfigDir().resolve("chronicle/player-roles.yaml"));
-                var roles = config.loadOrCreate(ChronicleCore.playerRoles().roles());
+                var loaded = PlayerRoleWorldConfig.load(server.getSavePath(WorldSavePath.ROOT), FabricLoader.getInstance().getConfigDir().resolve("chronicle/player-roles.yaml"), ChronicleCore.playerRoles().roles());
+                var config = loaded.config(); var roles = loaded.roles();
                 var assignments = new PlayerRoleAssignmentService(new PlayerRoleAssignmentStore(server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/player-roles.json")));
                 validateSeats(roles, assignments.state());
                 var legacy = new HashSet<UUID>();
@@ -58,8 +58,8 @@ public final class PlayerRoles {
         var server=source.getServer();
         if(!source.hasPermissionLevel(2)||!AuthoringRuntime.editable(server)||source.getPlayer()!=null&&!AuthoringRuntime.isAuthor(source.getPlayer())||RuntimeHolds.heldByOther(server,HOLD))
             throw new IllegalStateException("Reload roles in non-active operator Editing, without another operation hold.");
-        var config=new PlayerRoleConfig(FabricLoader.getInstance().getConfigDir().resolve("chronicle/player-roles.yaml"));
-        var roles=config.loadOrCreate(ChronicleCore.playerRoles().roles());
+        var loaded=PlayerRoleWorldConfig.load(server.getSavePath(WorldSavePath.ROOT),FabricLoader.getInstance().getConfigDir().resolve("chronicle/player-roles.yaml"),ChronicleCore.playerRoles().roles());
+        var config=loaded.config();var roles=loaded.roles();
         var prior=WORLDS.get(server);
         var service=prior==null?new PlayerRoleAssignmentService(new PlayerRoleAssignmentStore(server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/player-roles.json"))):prior.assignments;
         validateSeats(roles,service.state());
@@ -88,7 +88,7 @@ public final class PlayerRoles {
         if (assignments(server).started().contains(player.getUuid())) throw new IllegalStateException("You have already entered play; ask the GM to reassign your role.");
         var role = definitions(server).get(id);
         if (role == null || !role.selectable()) throw new IllegalArgumentException("Choose an available player role.");
-        state(server).assignments.assign(player.getUuid(),id,definitions(server));
+        assignWithSource(server,player.getUuid(),id);
     }
     public static void assign(ServerCommandSource source, UUID player, String id) throws IOException {
         if (!source.hasPermissionLevel(2) || source.getPlayer() == null) throw new IllegalStateException("An operator must assign roles.");
@@ -96,7 +96,22 @@ public final class PlayerRoles {
         if (!known(source.getServer(),player)) throw new IllegalArgumentException("Choose a known player in this campaign.");
         if (assignmentRequiresParticipation(id)) Departures.requireParticipation(source.getServer(),player);
         if (id.isBlank()||id.equals("-")) state(source.getServer()).assignments.unassign(player);
-        else state(source.getServer()).assignments.assign(player,id,definitions(source.getServer()));
+        else assignWithSource(source.getServer(),player,id);
+    }
+    private static void assignWithSource(MinecraftServer server, UUID player, String id) throws IOException {
+        var role=definitions(server).get(id);
+        if(role==null)throw new IllegalArgumentException("Choose a registered Player Role");
+        String previous=assignments(server).assigned().get(player);
+        if(id.equals(previous))return;
+        if(assigned(server,id)>=role.capacity())throw new IllegalStateException("Player Role capacity is full");
+        String receipt=RoleEventSources.preparingAssignment(server,player,id);
+        try {
+            state(server).assignments.assign(player,id,definitions(server));
+            EventSources.complete(server,receipt,true);
+        } catch(IOException|RuntimeException failure) {
+            if(receipt!=null)EventSources.fail(server,failure);
+            throw failure;
+        }
     }
     public static RoleAssignmentForm form(ServerPlayerEntity viewer, UUID target, String pending) {
         var server=viewer.getEntityWorld().getServer();var st=assignments(server);

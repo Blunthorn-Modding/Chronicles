@@ -17,6 +17,7 @@ import io.github.chronicle.core.menu.CoreMenuModel.Detail;
 import io.github.chronicle.core.menu.CoreMenuModel.Entry;
 import io.github.chronicle.core.menu.CoreMenuModel.EventForm;
 import io.github.chronicle.core.menu.EventEditorForm;
+import io.github.chronicle.core.menu.EncounterEditorForm;
 import io.github.chronicle.core.menu.CoreMenuModel.Page;
 import io.github.chronicle.core.menu.CoreMenuModel.RegionForm;
 import io.github.chronicle.core.menu.CoreMenuModel.RoleAssignmentForm;
@@ -54,9 +55,9 @@ public final class CoreMenuScreen extends Screen {
     private static final int REFRESH_TICKS = 20 * 2;
     private static final Page[] NAVIGATION = {Page.SESSION, Page.PLAYERS, Page.EVENTS, Page.CHESTS,
             Page.LOOT_TABLES, Page.BOOKS_LORE, Page.REGIONS, Page.LOCATIONS, Page.PLAYER_ROLES,
-            Page.FLAGS, Page.SETUP};
+            Page.ENCOUNTER_GROUPS,Page.FLAGS, Page.SETUP};
     private static final String[] NAVIGATION_LABELS = {"Session", "Players", "Events", "Chests",
-            "Loot Tables", "Books & Lore", "Regions", "Locations", "Player Roles", "Flags", "Game setup"};
+            "Loot Tables", "Books & Lore", "Regions", "Locations", "Player Roles", "Encounter groups", "Flags", "Game setup"};
 
     private View state;
     private boolean pending;
@@ -132,6 +133,8 @@ public final class CoreMenuScreen extends Screen {
     private DepartureEditorScreen failedDepartureEditor;
     /** Kept only while this exact child has an in-flight editor request. */
     private EventEditorScreen pendingEventEditor;
+    private EncounterEditorScreen pendingEncounterEditor;
+    private ScenarioContentScreen pendingScenarioScreen;
     private String areaReviewState = "";
 
     public CoreMenuScreen(View initial) {
@@ -256,6 +259,10 @@ public final class CoreMenuScreen extends Screen {
         if (!updated.selected().isBlank()) selected = updated.selected();
         if (!updated.message().isBlank()) notice = updated.message();
         if (receivedFor == Action.LOOT_SAVE && !updated.success()) notice = notice + " Draft retained; reload before choosing to replace it.";
+        if (receivedFor == Action.SCENARIO_CONTENT_OPEN && pendingScenarioScreen != null && updated.success() && updated.scenarioPreview() != null) {
+            client.setScreen(new ScenarioContentScreen(this, updated.token(), updated.scenarioProviders(), updated.scenarioPreview(), updated.message()));
+            return;
+        }
         if (updated.detail() != null && updated.detail().region() != null && updated.page() == Page.REGIONS) detailOnCompact = true;
         if (updated.success() && (receivedFor == Action.POINT_CREATE || receivedFor == Action.BLOCK_CREATE || receivedFor == Action.BLOCK_LIMITS || receivedFor == Action.MANUAL_REFERENCES)) detailOnCompact = true;
         if (receivedFor == Action.FLAG_CREATE) {
@@ -278,10 +285,11 @@ public final class CoreMenuScreen extends Screen {
             failedLootCreator = null;
             if (updated.success()) detailOnCompact = true;
         }
-        if ((receivedFor == Action.EVENT_NEW || receivedFor == Action.EVENT_EDIT) && updated.success() && updated.eventEditor() != null) {
+        if ((receivedFor == Action.EVENT_NEW || receivedFor == Action.EVENT_EDIT || receivedFor == Action.EVENT_TEMPLATE_NEW) && updated.success() && updated.eventEditor() != null) {
             openEventEditor(updated.eventEditor());
             return;
         }
+        if((receivedFor==Action.ENCOUNTER_NEW||receivedFor==Action.ENCOUNTER_EDIT)&&updated.success()&&updated.encounterEditor()!=null){openEncounterEditor(updated.encounterEditor());return;}
         if (receivedFor == Action.BOOK_CREATE && updated.success() && updated.detail() != null && updated.detail().book() != null) {
             failedBookEditor = null;
             openBookEditor(updated.detail().book(), BookEditorScreen.Mode.PAGES, false);
@@ -398,6 +406,26 @@ public final class CoreMenuScreen extends Screen {
         if (!updated.message().isBlank()) notice = updated.message();
     }
 
+    void acceptWhileScenarioOpen(ScenarioContentScreen popup, View updated) {
+        Action receivedFor=requestedAction;
+        long priorToken=state.token();
+        acceptWhileEditorOpen(updated);
+        if(pendingScenarioScreen!=popup)return;
+        if(receivedFor==Action.SCENARIO_CONTENT_OPEN||receivedFor==Action.SCENARIO_CONTENT_EXPORT) popup.serverUpdated(updated,receivedFor==Action.SCENARIO_CONTENT_EXPORT&&priorToken!=updated.token());
+    }
+
+    void openScenarioContent(String providerId, ScenarioContentScreen popup) {
+        if(providerId==null||providerId.isBlank()||popup.openingToken()!=state.token()){popup.markStale("The menu changed. Close and reopen Scenario content.");return;}
+        pendingScenarioScreen=popup;
+        request(Action.SCENARIO_CONTENT_OPEN,state.page(),providerId,"",state.index(),state.filter(),"",false);
+    }
+    void exportScenarioContent(ScenarioContentScreen popup) {
+        if(popup.openingToken()!=state.token()){popup.markStale("The menu changed. Review Scenario content again.");return;}
+        pendingScenarioScreen=popup;
+        request(Action.SCENARIO_CONTENT_EXPORT,state.page(),"","",state.index(),state.filter(),"",false);
+    }
+    void dismissScenario(ScenarioContentScreen popup) { if(pendingScenarioScreen==popup)pendingScenarioScreen=null; }
+
     /**
      * Receives a reply for the dedicated event editor without treating a successful save as a
      * stale child merely because its authoritative save advanced the menu token.
@@ -427,6 +455,8 @@ public final class CoreMenuScreen extends Screen {
         if (receivedFor == Action.EVENT_DRAFT_PREVIEW || receivedFor == Action.EVENT_SHOW_BOUNDS) pendingEventEditor = null;
         editor.serverUpdated(updated);
     }
+
+    void acceptWhileEncounterEditorOpen(EncounterEditorScreen editor,View updated){Action received=requestedAction;long prior=state.token();boolean owned=pendingEncounterEditor==editor;acceptWhileEditorOpen(updated);if(!owned){editor.serverUpdated(updated);return;}if(received==Action.ENCOUNTER_CREATE||received==Action.ENCOUNTER_SAVE){pendingEncounterEditor=null;if(updated.success()){detailOnCompact=true;client.setScreen(this);clearAndInit();}else editor.rejected(blank(updated.message(),"The server rejected this encounter draft."),prior!=updated.token());return;}editor.serverUpdated(updated);}
 
     /** Used by child popups to keep their parent current while a background refresh arrives. */
     long token() { return state.token(); }
@@ -496,7 +526,15 @@ public final class CoreMenuScreen extends Screen {
         if (state.operator()) {
             int debugX = refreshX - 2 - 60;
             button(debugLabel(), debugX, layout.headerY(), 60, 18, () -> setDebug(!debug), "Show or hide editor details on this client", true);
-            button(state.editing() ? "Stop editing" : "Enable editing", debugX - 2 - 87, layout.headerY(), 87, 18,
+            int editingX=debugX-2-87;
+            if(!state.scenarioProviders().isEmpty()) {
+                int scenarioWidth=compact?18:112;
+                int scenarioX=editingX-2-scenarioWidth;
+                if(scenarioX>=layout.content().x()+54) button(compact?"...":"Scenario content...",scenarioX,layout.headerY(),scenarioWidth,18,
+                        () -> { var popup=new ScenarioContentScreen(this,state.token(),state.scenarioProviders(),null,""); client.setScreen(popup); if(state.scenarioProviders().size()==1&&state.scenarioProviders().getFirst().available())openScenarioContent(state.scenarioProviders().getFirst().providerId(),popup); },
+                        "Scenario content",true);
+            }
+            button(state.editing() ? "Stop editing" : "Enable editing", editingX, layout.headerY(), 87, 18,
                 () -> request(state.editing() ? Action.EDIT_OFF : Action.EDIT_ON, state.page(), detailId(), "", state.index(), state.filter(), "", false),
                 state.editing() ? "Leave authoring edit mode" : "Ask the server to enable authoring edit mode", state.editable() || state.editing());
         }
@@ -531,7 +569,7 @@ public final class CoreMenuScreen extends Screen {
         }
         if (state.picker() == null && state.detail() != null) {
             for (Control creator : state.detail().controls()) {
-                if (creator.action() == Action.FLAG_CREATE || creator.action() == Action.LOOT_NEW || creator.action() == Action.EVENT_NEW || creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
+                if (creator.action() == Action.ENCOUNTER_NEW || creator.action() == Action.EVENT_TEMPLATE_NEW || creator.action() == Action.FLAG_CREATE || creator.action() == Action.LOOT_NEW || creator.action() == Action.EVENT_NEW || creator.action() == Action.REGION_NEW || creator.action() == Action.CHEST_BIND || creator.action() == Action.POINT_CREATE || creator.action() == Action.BLOCK_CREATE || creator.action() == Action.BOOK_NEW || creator.action() == Action.ROLE_NEW || creator.action() == Action.AREA_NEW || creator.action() == Action.DEPARTURE_NEW) {
                     control(creator, x, y, w); y += 21; h -= 21;
                 }
             }
@@ -644,7 +682,7 @@ public final class CoreMenuScreen extends Screen {
             cursor = wrapped("Unavailable: " + unavailable.reason(), x, cursor, w, 0xFFFFCC66, 2); break;
         }
         for (Control control : detail.controls()) {
-            if (control.action()==Action.FLAG_CREATE || control.action()==Action.LOOT_NEW || control.action()==Action.EVENT_NEW || control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
+            if (control.action()==Action.ENCOUNTER_NEW || control.action()==Action.EVENT_TEMPLATE_NEW || control.action()==Action.FLAG_CREATE || control.action()==Action.LOOT_NEW || control.action()==Action.EVENT_NEW || control.action()==Action.REGION_NEW || control.action()==Action.POINT_CREATE || control.action()==Action.BLOCK_CREATE || control.action()==Action.BOOK_NEW || control.action() == Action.ROLE_NEW || control.action() == Action.AREA_NEW || control.action() == Action.DEPARTURE_NEW || detail.region() != null && control.action() == Action.REGION_CONTINUE) continue;
             control(control, x, cursor, w); cursor += 20;
         }
         detailContentHeight = cursor + detailScroll - y;
@@ -813,6 +851,7 @@ public final class CoreMenuScreen extends Screen {
             request(control.action(), Page.EVENTS, detailId(), "", state.index(), state.filter(), "", false);
             return;
         }
+        if(control.action()==Action.ENCOUNTER_NEW||control.action()==Action.ENCOUNTER_EDIT){request(control.action(),Page.ENCOUNTER_GROUPS,detailId(),"",state.index(),state.filter(),"",false);return;}
         if (control.action() == Action.REGION_NEW) {
             long editorToken = state.token(); int index = state.index(); String filter = state.filter();
             client.setScreen(new RegionCreateScreen(this, draft -> {
@@ -899,7 +938,7 @@ public final class CoreMenuScreen extends Screen {
         if (input.equals("BLOCK_LIMIT_TYPE") && control.action() == Action.BLOCK_LIMITS) {
             openLimitChooser(); return;
         }
-        if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS") || input.equals("REGION_PURPOSE") || input.equals("REGION_BOUND") || input.equals("POINT_PURPOSE") || input.equals("POINT_BOUND") || input.equals("BLOCK_LIMIT_TYPE") || input.equals("MANUAL_REFERENCE")) {
+        if (input.equals("LOOT_TYPE") || input.equals("DESTINATION") || input.equals("REGION") || input.equals("POINT") || input.equals("BLOCK") || input.equals("FLAG") || input.equals("ITEMS") || input.equals("REGION_PURPOSE") || input.equals("REGION_BOUND") || input.equals("POINT_PURPOSE") || input.equals("POINT_BOUND") || input.equals("BLOCK_LIMIT_TYPE") || input.equals("MANUAL_REFERENCE") || input.equals("EVENT_TEMPLATE")) {
             beginPicker(new PendingPicker(control.action(), detailId(), input)); return;
         }
         prompt(control.action(), detailId(), "");
@@ -1081,7 +1120,7 @@ public final class CoreMenuScreen extends Screen {
             else context.drawItem(new net.minecraft.item.ItemStack(net.minecraft.item.Items.WRITTEN_BOOK),x,y);
         }
     }
-    private static View withoutPicker(View value,int page){return new View(value.token(),value.page(),Math.min(page,value.pages()-1),value.pages(),value.filter(),value.selected(),value.phase(),value.session(),value.editing(),value.editable(),value.operator(),value.hold(),value.clock(),value.message(),value.success(),value.entries(),value.detail(),null,value.close(),value.blockLimits(),value.eventEditor());}
+    private static View withoutPicker(View value,int page){return new View(value.token(),value.page(),Math.min(page,value.pages()-1),value.pages(),value.filter(),value.selected(),value.phase(),value.session(),value.editing(),value.editable(),value.operator(),value.hold(),value.clock(),value.message(),value.success(),value.entries(),value.detail(),null,value.close(),value.blockLimits(),value.eventEditor(),value.scenarioProviders(),value.scenarioPreview(),value.encounterEditor());}
     private void refreshCatalogOwner(CatalogSession session){
         state=withoutPicker(state,session.listPage);pickerAction=null;
         request(Action.REFRESH,session.page,session.id,"",session.listPage,session.filter,"",false);
@@ -1480,6 +1519,8 @@ public final class CoreMenuScreen extends Screen {
         });
         client.setScreen(editor[0]);
     }
+
+    private void openEncounterEditor(EncounterEditorForm form){EncounterEditorScreen[] editor=new EncounterEditorScreen[1];editor[0]=new EncounterEditorScreen(this,form,new EncounterEditorScreen.Transport(){@Override public void catalog(CatalogAddPopup popup,String kind,String query,int page){if(editor[0].openingToken()!=state.token()){popup.markStale();return;}if(pending)return;pendingEncounterEditor=editor[0];request(Action.OPTIONS,Page.ENCOUNTER_GROUPS,state.selected(),kind,editor[0].openingToken(),page,state.filter(),query,false);}@Override public void save(EncounterEditorForm value){if(editor[0].openingToken()!=state.token()){editor[0].rejected("Chronicle changed. Reopen the encounter group before saving.",true);return;}if(pending)return;pendingEncounterEditor=editor[0];request(value.creating()?Action.ENCOUNTER_CREATE:Action.ENCOUNTER_SAVE,Page.ENCOUNTER_GROUPS,value.id(),new Gson().toJson(value),editor[0].openingToken(),state.index(),state.filter(),"",false);}});client.setScreen(editor[0]);}
 
     private void requestEventCatalog(EventEditorScreen editor, CatalogAddPopup popup, String kind, String query, int page) {
         if (editor.openingToken() != state.token()) { popup.markStale(); return; }

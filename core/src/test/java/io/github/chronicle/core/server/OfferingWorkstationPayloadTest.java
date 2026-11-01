@@ -22,7 +22,7 @@ class OfferingWorkstationPayloadTest {
         assertEquals(Set.of("label","available","complete"),fields(OfferingPayloads.Choice.class));
     }
     @Test void playerViewWireShapeHasNoStatsTermsOrRawGateDiagnostics(){
-        assertEquals(Set.of("syncId","token","parent","title","state","choices","opening","presentation"),fields(OfferingPayloads.View.class));
+        assertEquals(Set.of("syncId","token","parent","title","state","choices","opening","presentation","layout"),fields(OfferingPayloads.View.class));
     }
     @Test void campaignPresentationContainsOnlyBoundedDisplayStrings(){
         assertEquals(Set.of("pending","unavailable","ready","partial","exhausted","expired","answered"),fields(OfferingPayloads.Presentation.class));

@@ -160,6 +160,7 @@ public final class AncientAltarSmoke {
         command("verify reconnect receipts and attributes", "chronicle_bargain_trial restart", "restart");
         requireFood(client, 20, "reconnect must synchronize normal20 food capacity");
         optionalHudEditor(client);
+        command("resume paused play before opening a workstation","chronicle_bargain_trial resume","resume");
         command("open prayer popup with all approved optional HUD mods","chronicle_bargain_trial open","open");
         step("optional HUD mods preserve native slot-free prayer screen",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.getScreenHandler().slots.isEmpty(),15_000);
         screenshot("capture popup with optional HUD dependencies",client,"altar-prayers-optional-hud.png");
@@ -182,11 +183,15 @@ public final class AncientAltarSmoke {
             if(!(client.currentScreen instanceof OfferingScreen screen))return false;
             require(screen.getScreenHandler()==client.player.currentScreenHandler,"native prayer handler mismatch");
             require(screen.getScreenHandler().slots.isEmpty(),"prayer contains inventory slots");
-            require(screen.state().choices().get(0).label().equals("Pray for more life")&&screen.state().choices().get(1).label().equals("Pray for quicker feet"),"prayer labels wrong");
+            require(screen.state().layout()==io.github.chronicle.core.network.OfferingPayloads.Layout.ALTAR_TWO_SHEET&&screen.state().choices().size()==6,"Altar two-sheet layout missing");
+            require(screen.state().choices().get(0).label().equals("Pray for more life")&&screen.state().choices().get(1).label().equals("Pray for quicker feet"),"existing prayer labels changed");
             String data=new Gson().toJson(screen.state());
             for(String forbidden:List.of("cost","bonus","count","health","food","speed","problem","revision"))require(!data.contains("\""+forbidden+"\""),"mechanics leaked in player view: "+forbidden);
             return true;
         },15_000);
+        step("second Altar sheet exposes four cryptic temporary prayers",()->require(((OfferingScreen)client.currentScreen).triggerForTest("next"),"More prayers footer unavailable"),()->client.currentScreen.children().stream().filter(v->v instanceof net.minecraft.client.gui.widget.ButtonWidget b&&List.of("Pray for swift mending","Pray for clear sight","Pray for a quiet harvest","Pray for sheltering grace").contains(b.getMessage().getString())).count()==4,10_000);
+        screenshot("capture native temporary prayer sheet",client,"altar-prayers-temporary.png");
+        step("Back restores unchanged lasting prayer sheet",()->require(((OfferingScreen)client.currentScreen).triggerForTest("previous"),"Back footer unavailable"),()->client.currentScreen.children().stream().anyMatch(v->v instanceof net.minecraft.client.gui.widget.ButtonWidget b&&b.getMessage().getString().equals("Pray for more life")),5_000);
         step("native popup640x480 GUI2",()->{client.options.getGuiScale().setValue(2);client.getWindow().setWindowedSize(640,480);},()->client.getWindow().getFramebufferWidth()==640&&client.getWindow().getFramebufferHeight()==480&&client.currentScreen.width==320,10_000);
         screenshot("capture native popup640",client,"altar-prayers-640x480.png");
         step("native popup1280x720 GUI2",()->client.getWindow().setWindowedSize(1280,720),()->client.getWindow().getFramebufferWidth()==1280&&client.getWindow().getFramebufferHeight()==720&&client.currentScreen.width==640,10_000);
@@ -248,7 +253,7 @@ public final class AncientAltarSmoke {
         delay("vanilla Slowness timer advances",20);
         command("Slowness was not constantly refreshed","chronicle_bargain_trial slow_timer","slow_timer");
         command("reopen exhausted Altar","chronicle_bargain_trial open","open");
-        step("both exhausted prayers stay disabled without counts",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().state()==io.github.chronicle.core.network.OfferingPayloads.State.EXHAUSTED&&!screen.triggerForTest("choice0")&&!screen.triggerForTest("choice1"),10_000);
+        step("both lasting prayers stay disabled while six prayer identities remain",()->{},()->client.currentScreen instanceof OfferingScreen screen&&screen.state().choices().size()==6&&screen.state().choices().get(0).complete()&&screen.state().choices().get(1).complete()&&!screen.triggerForTest("choice0")&&!screen.triggerForTest("choice1"),10_000);
         screenshot("capture exhausted prayer popup",client,"altar-prayers-complete.png");
         command("cut power after both prayer caps","chronicle_bargain_trial cut_power","cut_power");
         step("maxed/unavailable state explicitly quiet",()->{},()->quiet(client),15_000);

@@ -5,8 +5,12 @@ import com.google.gson.JsonObject;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.Map;
+import io.github.chronicle.core.encounters.EncounterTarget;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class EventJsonTest {
@@ -59,5 +63,24 @@ class EventJsonTest {
         JsonObject oversized = new JsonObject();
         oversized.addProperty("padding", "x".repeat(EventJson.MAX_ENCODED_BYTES));
         assertThrows(IllegalArgumentException.class, () -> EventJson.decodeDefinition(oversized));
+    }
+
+    @Test
+    void formatThreePinsEncounterActionsWithoutChangingLegacyShapes() {
+        EventEncounterAction group=EventEncounterAction.groupTarget("test:patrol");
+        EventEncounterAction point=new EventEncounterAction("test:guards",Optional.of(new EncounterTarget(EncounterTarget.Kind.POINT,"gate",7)));
+        EventDefinition definition=new EventDefinition("test:arrival",3,"Arrival","","","",ObservationCatalog.Audience.PARTICIPANTS,
+                Optional.empty(),List.of(),Map.of(),List.of(group,point));
+        EventConfiguration configuration=new EventConfiguration(definition,PlayState.Mode.MANUAL,Optional.empty(),0,0,List.of(),true,EventSource.empty());
+        JsonObject encoded=EventJson.encodeDefinition(definition);
+        assertEquals(3,encoded.get("formatVersion").getAsInt());
+        assertEquals(2,encoded.getAsJsonArray("encounterActions").size());
+        assertEquals(definition,EventJson.decodeDefinition(encoded));
+        assertEquals(configuration,EventJson.decodeConfiguration(EventJson.encodeConfiguration(configuration)));
+        EventDefinition changed=new EventDefinition("test:arrival",3,"Arrival","","","",ObservationCatalog.Audience.PARTICIPANTS,
+                Optional.empty(),List.of(),Map.of(),List.of(point,group));
+        assertNotEquals(definition.fingerprint(),changed.fingerprint());
+        JsonObject mixed=encoded.deepCopy();mixed.addProperty("formatVersion",2);
+        assertThrows(IllegalArgumentException.class,()->EventJson.decodeDefinition(mixed));
     }
 }

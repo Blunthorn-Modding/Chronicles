@@ -88,4 +88,15 @@ class EventEditorJsonTest {
         assertThrows(IllegalArgumentException.class, () -> EventEditorJson.decode("{\"padding\":\""
                 + "x".repeat(EventEditorJson.MAX_ENCODED_BYTES) + "\"}"));
     }
+
+
+    @Test void roundTripsEncounterDraftPinsAndRejectsMixedLegacyFields(){
+        var action=new EventEditorForm.EncounterAction("test:patrol","Patrol","POINT","gate","Gate",4,true,"");
+        var form=new EventEditorForm("test:event",0,"Event","","","","PARTICIPANTS","",0,"MANUAL","",0,0,
+                List.of(),List.of(),true,Map.of(),EventSource.empty(),List.of(action));
+        assertEquals(form,EventEditorJson.decode(EventEditorJson.encode(form)));
+        JsonObject mixed=BookConfig.strictObject(EventEditorJson.encode(form));mixed.remove("requiredFlags");mixed.remove("flagChanges");mixed.remove("source");mixed.addProperty("flag","");
+        mixed.add("flagChanges",new JsonObject());
+        assertThrows(IllegalArgumentException.class,()->EventEditorJson.decode(mixed.toString()));
+    }
 }

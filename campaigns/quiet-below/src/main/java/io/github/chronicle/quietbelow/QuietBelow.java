@@ -95,10 +95,15 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        io.github.chronicle.core.server.ScenarioContentRuntime.registerScenario("quiet_below:scenario", "The Quiet Below");
+        var scenarioDefaults = io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults.loadOptional();
+        scenarioDefaults.ifPresent(io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults::register);
+        if (scenarioDefaults.isEmpty()) {
         try (var input=QuietBelow.class.getResourceAsStream("/data/quiet_below/chronicle/player-roles.yaml")) {
             if(input==null)throw new IllegalStateException("Missing bundled player-role defaults");
             ChronicleCore.playerRoles().registerYaml("quiet_below:player-roles",new String(input.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8));
         } catch(java.io.IOException exception){throw new IllegalStateException("Cannot read bundled player-role defaults",exception);}
+        }
 
         ChronicleCore.managedBlocks().register(new ManagedBlockDefinition("quiet_below:ancient_altar", "quiet_below:ancient_altar",
                 "Ancient Altar", "A placed ritual station supplied by The Quiet Below.", 1, ManagedBlockDefinition.LimitMode.EDITABLE));
@@ -116,10 +121,12 @@ public final class QuietBelow implements ModInitializer {
                 new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));
         io.github.chronicle.quietbelow.content.SculkAppearanceHandshake.register();
         // Optional public cues. Registering definitions arms no triggers or story timetable.
+        if (scenarioDefaults.isEmpty()) {
         ChronicleCore.observations().register(new ObservationCatalog.Definition("quiet_below:city_presence", "City vibration",
                 "The ancient stone carries a low vibration.", "minecraft:ambient.cave", ObservationCatalog.Audience.REGION));
         ChronicleCore.observations().register(new ObservationCatalog.Definition("quiet_below:distant_stir", "Distant stirring",
                 "A low, unfamiliar rumble breaks the quiet.", "minecraft:ambient.cave", ObservationCatalog.Audience.PARTICIPANTS));
+        }
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:source_city", "Source city",
                 "The source ancient city region; registers geometry without enabling growth.", AuthoringCatalog.Kind.REGION));
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:sculk_takeover", "Sculk takeover region",
@@ -131,6 +138,7 @@ public final class QuietBelow implements ModInitializer {
         ChronicleCore.authoring().register(new AuthoringCatalog.Role("quiet_below:ancient_forge", "Ancient Forge",
                 "Optional contextual Forge site. Placed Ancient Forge blocks work without this registration.", AuthoringCatalog.Kind.BLOCK));
         // Map-authoring defaults, adjustable in the server's Core loot configuration.
+        if (scenarioDefaults.isEmpty()) {
         io.github.chronicle.quietbelow.content.ForgeRecipeDefaults.HINTS.forEach(hint -> ChronicleCore.books().register(
                 new io.github.chronicle.core.books.BookDefinition("quiet_below:field_journal_" + switch(hint.ingredient()) {
                     case "echo_shard" -> "i"; case "amethyst_shard" -> "ii"; case "prismarine_shard" -> "iii"; case "flint" -> "iv"; default -> "v";
@@ -151,6 +159,7 @@ public final class QuietBelow implements ModInitializer {
                 new LootEntry("minecraft:amethyst_shard", 60, 1, 4, "{}"),
                 new LootEntry("minecraft:book", 35, 1, 2, "{}"),
                 new LootEntry("minecraft:echo_shard", 10, 1, 1, "{}"))));
+        }
         QuietBelowStages.register();
         io.github.chronicle.quietbelow.ecology.QuietBelowEcology.register();
         io.github.chronicle.quietbelow.ecology.EcologySoakTrial.register();
@@ -169,6 +178,7 @@ public final class QuietBelow implements ModInitializer {
         io.github.chronicle.quietbelow.ecology.SourceStationsTrial.register();
         io.github.chronicle.quietbelow.ecology.EcologySpreadTrial.register();
         io.github.chronicle.quietbelow.ecology.AncientAltarTrial.register();
+        io.github.chronicle.quietbelow.content.TemporaryAltarTrial.register();
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.TOOLS).register(entries -> entries.add(ECHO_LENS));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RESONANCE_MARKER));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_FORGE));

@@ -10,6 +10,7 @@ import io.github.chronicle.core.loot.*;
 import io.github.chronicle.core.books.*;
 import io.github.chronicle.core.menu.CoreMenuModel.*;
 import io.github.chronicle.core.menu.EventEditorForm;
+import io.github.chronicle.core.menu.EncounterEditorForm;
 import io.github.chronicle.core.menu.CoreMenuFilters;
 import io.github.chronicle.core.managed.*;
 import io.github.chronicle.core.network.CoreMenuPayloads.*;
@@ -120,16 +121,18 @@ public final class CoreMenuServer {
             if(!read&&(request.token()!=context.token||!Objects.equals(current,context.frame))){invalidate(context);send(player,context,"Server state changed. Review the refreshed selection before retrying.",false,false,false);return;}
             if(!Objects.equals(current,context.frame))invalidate(context);
             if(request.action()==Action.OPEN){invalidate(context);context.roleReview=null;context.roleReviewAt=0;context.roleTarget="";context.token=0;context.visible=true;context.keepBook="";context.keepTable="";clearGive(context);}
+            String priorSelection=context.selected;
             context.page=gm?request.page():Page.PLAYERS;
             context.filter=CoreMenuFilters.normalize(context.page,gm?request.filter():"");
             context.index=request.index();
             context.selected=gm?request.id():player.getUuidAsString();
+            if(request.action()==Action.SCENARIO_CONTENT_OPEN||request.action()==Action.SCENARIO_CONTENT_EXPORT)context.selected=priorSelection;
             if(gm&&request.action()==Action.OPEN&&context.page==Page.AREA_CHANGES){var legacy=AreaChanges.catalog(server).areas().get(context.selected);context.page=Page.REGIONS;context.selected=legacy==null?"":legacy.bounds().regionId();}
             if(gm&&request.action()==Action.OPEN&&context.page==Page.DEPARTURES){var legacy=Departures.state(server).definitions().get(context.selected);context.page=Page.LOCATIONS;context.filter="BLOCK";context.selected=legacy==null?"":legacy.exactBlockAnchor().filter(r->sites(server).get(r.id()) instanceof AuthoringSite.Anchor).map(io.github.chronicle.core.departures.SiteRef::id).orElse(CoreDepartureMenu.pendingKey(legacy.id()));}
 
             if(request.action()==Action.OPEN&&context.page==Page.LOOT_TABLES)context.expectedLoot=null;
             if(request.action()==Action.OPEN&&context.page==Page.BOOKS_LORE)context.expectedBook=null;
-            if(request.action()==Action.OPEN){context.departureDraft=null;context.departureCreating=false;context.roleDraft=null;context.roleCreating=false;context.pendingRole="";context.eventEditor=null;context.expectedEvent=null;context.eventSelection="";context.eventReview=null;}
+            if(request.action()==Action.OPEN){context.departureDraft=null;context.departureCreating=false;context.roleDraft=null;context.roleCreating=false;context.pendingRole="";context.eventEditor=null;context.encounterEditor=null;context.expectedEvent=null;context.eventSelection="";context.eventReview=null;}
             context.picker=null;
             String message="";boolean close=false;
             if(request.action()==Action.OPTIONS){
@@ -161,7 +164,7 @@ public final class CoreMenuServer {
     private static io.github.chronicle.core.areas.AreaChange area(MinecraftServer server,String id){return Optional.ofNullable(AreaChanges.catalog(server).areas().get(id)).orElseThrow(()->new IllegalStateException("Choose an existing Area change."));}
     private static void requireAreaOperator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2)||(!ChronicleRuntime.service(player.getEntityWorld().getServer()).state().phase().name().equals("ACTIVE")&&!AuthoringRuntime.isAuthor(player)))throw new IllegalStateException("Enable Editing, or apply during active play.");}
     private static boolean publicAction(Action action){return switch(action){case OPEN,REOPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->true;default->false;};}
-    private static void invalidate(Context c){c.token=0;c.observation=null;c.eventReview=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;c.sourceReview=null;c.sourceReviewEvent="";clearGive(c);c.pendingRole="";c.roleReview=null;}
+    private static void invalidate(Context c){c.token=0;c.observation=null;c.eventReview=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;c.sourceReview=null;c.sourceReviewEvent="";c.encounterReview=null;c.encounterReviewEvent="";c.encounterReviewAt=0;c.scenarioPinned=null;clearGive(c);c.pendingRole="";c.roleReview=null;}
     private static void clearGive(Context c){c.giveBook="";c.giveTarget="";c.giveDefinition=null;c.giveAt=0;}
 
     private static String sourceRecoveryDescription(MinecraftServer server,io.github.chronicle.core.progression.SourceLedger.Receipt receipt)throws IOException {
@@ -187,6 +190,17 @@ public final class CoreMenuServer {
     private static String act(ServerPlayerEntity player,Request request,Context c) throws Exception {
         var source=player.getCommandSource();var server=source.getServer();String id=c.selected,arg=request.argument();
         switch(request.action()) {
+            case SCENARIO_CONTENT_OPEN -> {
+                editor(player);
+                c.scenarioPinned=ScenarioContentRuntime.open(server,request.id());
+                return "";
+            }
+            case SCENARIO_CONTENT_EXPORT -> {
+                editor(player);
+                String exported=ScenarioContentRuntime.export(server,c.scenarioPinned);
+                player.sendMessage(Text.literal("Scenario content export: "+exported),false);
+                return "Exported. The full server path is in your chat.";
+            }
             case SITE_SUBTYPES_OPEN -> {
                 if(c.page!=Page.REGIONS&&c.page!=Page.LOCATIONS)throw new IllegalArgumentException("Choose a Region or Location first.");
                 var site=sites(server).get(manualSiteId(server,id));if(site==null)throw new IllegalStateException("Choose an existing geometry item first.");
@@ -337,6 +351,7 @@ public final class CoreMenuServer {
                 return command(source,"chronicle debug events trigger "+Identifier.of(raw(id)).toString());
             }
             case EVENT_NEW -> {editor(player);if(c.page!=Page.EVENTS)throw new IllegalArgumentException("Create Events under Events.");c.eventSelection=id;c.expectedEvent=null;c.eventEditor=CoreEventMenu.emptyForm();return "";}
+            case EVENT_TEMPLATE_NEW -> {editor(player);if(c.page!=Page.EVENTS)throw new IllegalArgumentException("Create scenario Events under Events.");c.eventSelection="cue:"+arg;c.expectedEvent=null;c.eventEditor=CoreEventMenu.templateForm(server,arg);return "";}
             case EVENT_EDIT -> {editor(player);if(!id.startsWith("cue:"))throw new IllegalArgumentException("Choose an Event to edit.");String eventId=raw(id);c.eventSelection=id;c.expectedEvent=EventRuntime.stored(server,eventId);c.eventEditor=CoreEventMenu.form(server,eventId);return "";}
             case EVENT_CREATE,EVENT_DEFINITION_SAVE -> {
                 var form=EventEditorJson.decode(arg);boolean creating=request.action()==Action.EVENT_CREATE;
@@ -373,6 +388,25 @@ public final class CoreMenuServer {
                 return "Source decision saved. The original gameplay operation was not replayed. Configured Events will respect their prerequisites and active-play rules.";
             }
             case EVENT_SOURCE_RELOAD -> {EventSources.reload(source);return "Source evidence reloaded. Any remaining uncertain activity still requires explicit review; gameplay was not replayed.";}
+            case EVENT_ENCOUNTER_REVIEW -> {
+                if(!id.startsWith("cue:"))throw new IllegalArgumentException("Choose the Event with uncertain encounter evidence.");
+                String eventId=raw(id);c.encounterReview=Encounters.review(server,eventId).orElseThrow(()->new IllegalStateException("This Event has no uncertain encounter child to review."));c.encounterReviewEvent=id;c.encounterReviewAt=System.nanoTime();
+                return "Pinned uncertain child "+c.encounterReview.child().operationId()+" with plan "+c.encounterReview.child().planHash()+". Inspect every retained entity UUID and stage, then accept only the current partial result. No entity will be spawned, removed, refunded or replanned.";
+            }
+            case EVENT_ENCOUNTER_ACCEPT -> {
+                if(c.encounterReview==null||!id.equals(c.encounterReviewEvent)||System.nanoTime()-c.encounterReviewAt>30_000_000_000L)throw new IllegalStateException("Review the exact uncertain encounter result again before accepting it.");
+                Encounters.Review current=Encounters.review(server,raw(id)).orElseThrow(()->new IllegalStateException("The uncertain encounter result changed; review it again."));if(!current.equals(c.encounterReview))throw new IllegalStateException("The uncertain encounter identity or stages changed; review it again.");
+                Encounters.acceptReview(player,current);c.encounterReview=null;c.encounterReviewEvent="";return "Current partial encounter result accepted without replay. Remaining planned or claimed members will never spawn automatically; the parent Event may continue only when its normal session and prerequisites are valid.";
+            }
+            case ENCOUNTER_NEW,ENCOUNTER_EDIT -> {
+                editor(player);if(c.page!=Page.ENCOUNTER_GROUPS)throw new IllegalArgumentException("Manage encounter groups under Advanced → Encounter groups.");boolean creating=request.action()==Action.ENCOUNTER_NEW;c.encounterEditor=CoreEncounterMenu.form(server,id,creating);return "";
+            }
+            case ENCOUNTER_CREATE,ENCOUNTER_SAVE -> {
+                editor(player);if(c.page!=Page.ENCOUNTER_GROUPS||c.encounterEditor==null)throw new IllegalStateException("Open the encounter editor first.");var form=EncounterEditorJson.decode(arg);boolean creating=request.action()==Action.ENCOUNTER_CREATE;if(form.creating()!=creating||!creating&&!form.id().equals(c.selected))throw new IllegalStateException("Encounter editor identity changed; reopen it.");var saved=CoreEncounterMenu.save(player,form);c.selected=saved.id();c.encounterEditor=null;return creating?"Encounter group created and bound. No entity was spawned.":"Encounter group and map binding saved. No entity was spawned.";
+            }
+            case ENCOUNTER_DELETE -> {
+                editor(player);if(c.page!=Page.ENCOUNTER_GROUPS)throw new IllegalArgumentException("Delete encounter groups under Advanced → Encounter groups.");var snapshot=Encounters.snapshot(server);CoreEncounterMenu.delete(player,id,snapshot.groupRevision(),snapshot.bindingRevision());c.selected="";c.encounterEditor=null;return "Unused encounter group deleted. Spawn operation history is retained.";
+            }
             case FLAG_CREATE -> {
                 if(c.page!=Page.FLAGS)throw new IllegalArgumentException("Create flags under Advanced → Flags.");
                 if(id.length()>128||!Identifier.of(id).toString().equals(id))throw new IllegalArgumentException("Enter a namespaced flag ID, for example chronicle_core:my_flag.");
@@ -515,13 +549,13 @@ public final class CoreMenuServer {
         if(c.page==Page.REGIONS&&c.selected.isBlank()&&gm&&AuthoringRuntime.isAuthor(player))AuthoringRuntime.get(server).regionDraft(player.getUuid()).ifPresent(d->c.selected=d.id());
         boolean selectedManualAlias=c.page==Page.LOCATIONS&&"BLOCK".equals(c.filter)&&c.selected.startsWith("manual:")&&sites(server).get(c.selected.substring("manual:".length())) instanceof AuthoringSite.Anchor;
 
-        if((c.page==Page.LOCATIONS||c.page==Page.EVENTS||c.page==Page.FLAGS)&&!c.selected.isBlank()&&!selectedManualAlias&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
+        if((c.page==Page.LOCATIONS||c.page==Page.EVENTS||c.page==Page.FLAGS||c.page==Page.ENCOUNTER_GROUPS)&&!c.selected.isBlank()&&!selectedManualAlias&&all.stream().noneMatch(e->e.id().equals(c.selected)))c.selected="";
         if(c.selected.isBlank()&&!all.isEmpty())c.selected=all.get(c.index*12).id();
         Detail detail;
         try{detail=detail(player,c);if(gm&&c.page==Page.EVENTS&&CoreMenuFilters.GAME_EVENTS.equals(c.filter))detail=CoreEventMenu.withCreator(player,detail);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
         var campaign=ChronicleRuntime.service(server).state();
         String clock=gm?"Active play: "+PlayRuntime.elapsedTicks(server)/20+"s":"";
-        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c),gm?c.eventEditor:null);
+        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c),gm?c.eventEditor:null,gm?ScenarioContentRuntime.previews(server):List.of(),gm&&c.scenarioPinned!=null?c.scenarioPinned.preview():null,gm?c.encounterEditor:null);
         if(c.picker==null&&(c.visible||close))c.navigation=new Navigation(c.page,c.selected,c.index,c.filter);
         ServerPlayNetworking.send(player,new Response(view,open));
     }
@@ -567,6 +601,7 @@ public final class CoreMenuServer {
                 yield result.stream().filter(entry->CoreMenuFilters.acceptsEvent(filter,entry)).toList();
             }
             case FLAGS -> CoreFlagMenu.entries(server);
+            case ENCOUNTER_GROUPS -> CoreEncounterMenu.entries(server);
             case CHESTS -> ChestAuthoring.service(server).state().bindings().values().stream().filter(ChestBinding::typed).map(b->{var t=b.directTarget();var table=TypedChestLoot.types(server).get(b.lootType());return entry(b.id(),(table==null?b.lootType():table.label())+" @ "+t.x()+" "+t.y()+" "+t.z(),"Bound container · "+t.dimension(),"CHEST",b.lootType(),b.revision());}).toList();
             case PLAYER_ROLES -> !PlayerRoles.ready(server)?List.of():PlayerRoles.definitions(server).values().stream().map(r->entry(r.id(),r.name(),r.description(),"PLAYER_ROLE",r.id(),0)).toList();
             case AREA_CHANGES -> CoreAreaMenu.entries(server);
@@ -675,11 +710,12 @@ public final class CoreMenuServer {
                 }
             }
             case FLAGS -> {return CoreFlagMenu.detail(player,id);}
+            case ENCOUNTER_GROUPS -> {return CoreEncounterMenu.detail(player,id);}
             case EVENTS -> {
                 if(id.isBlank())return CoreMenuFilters.REGION_CHANGES.equals(c.filter)?new Detail("","Region Changes","Apply saved Start or End states. Create Regions and capture their states under Regions.",List.of(),List.of(),null,null,null):CoreEventMenu.detail(player,"",false);
                 if(id.startsWith("world:"))return AreaWorldEvents.detail(player,id,c.reviewId.equals(id));
                 if(id.startsWith("cue:")) {
-                    return CoreEventMenu.detail(player,id,c.reviewId.equals(id)&&c.eventReview!=null,c.sourceReview!=null&&id.equals(c.sourceReviewEvent));
+                    return CoreEventMenu.detail(player,id,c.reviewId.equals(id)&&c.eventReview!=null,c.sourceReview!=null&&id.equals(c.sourceReviewEvent),c.encounterReview!=null&&id.equals(c.encounterReviewEvent));
                 } else {
                     var d=gameEvent(id);title=eventLabel(d.id());description="Game action. "+d.description();
                     facts.add(new Fact("Required conditions",d.requiredFlags().toString()));facts.add(new Fact("Completion",ChronicleRuntime.service(server).state().completedEvents().contains(raw(id))?"Completed":"Not completed"));
@@ -823,7 +859,8 @@ public final class CoreMenuServer {
     private static Picker picker(ServerPlayerEntity player,String kind,String query,int index) {
         var server=player.getEntityWorld().getServer();String search=(kind.equals("EVENT_TARGET")||kind.equals("EVENT_ACTIVITY"))&&query.contains("|")?query.substring(query.indexOf('|')+1):query;String needle=search.toLowerCase(Locale.ROOT);var choices=new ArrayList<Entry>();
         switch(kind) {
-            case "EVENT_SOUND","EVENT_REGION","EVENT_FLAG","EVENT_STATE" -> choices.addAll(CoreEventMenu.catalog(server,kind));
+            case "EVENT_SOUND","EVENT_REGION","EVENT_FLAG","EVENT_STATE","EVENT_ENCOUNTER_GROUP","EVENT_POINT","EVENT_TEMPLATE" -> choices.addAll(CoreEventMenu.catalog(server,kind));
+            case "ENCOUNTER_ENTITY","ENCOUNTER_POINT","ENCOUNTER_REGION" -> choices.addAll(CoreEncounterMenu.catalog(server,kind));
             case "EVENT_TRIGGER","EVENT_TARGET","EVENT_ACTIVITY" -> choices.addAll(EventSources.catalog(server,kind,query));
             case "BOOKS" -> BookRuntime.books(server).values().forEach(b->choices.add(entry(b.id(),b.title(),b.author(),"BOOK",b.id(),0)));
             case "ITEMS" -> Registries.ITEM.getIds().stream().sorted().forEach(id->{var item=Registries.ITEM.get(id);String label=item.getName().getString();if((id+" "+label).toLowerCase(Locale.ROOT).contains(needle))choices.add(entry(id.toString(),shortText(label,160),id.toString(),"ITEM",Integer.toString(item.getMaxCount()),0));});
@@ -849,7 +886,7 @@ public final class CoreMenuServer {
         var server=player.getEntityWorld().getServer();var campaign=ChronicleRuntime.service(server).state();
         boolean gm=player.getCommandSource().hasPermissionLevel(2);boolean author=gm&&AuthoringRuntime.isAuthor(player);
         var play=PlayRuntime.available(server);Object controls=play==null?null:new PlayControls(play.participants(),play.bindings(),play.deliveries(),play.events(),play.executions(),EventProgressRuntime.revision(server));
-        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),PlayerRoles.revision(server),optional(()->WorldAreaOperations.revision(server)),optional(()->Departures.state(server)),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
+        return new Frame(gm,campaign,optional(()->AuthoringRuntime.get(server).service().state()),optional(()->Encounters.snapshot(server)),optional(()->ChestAuthoring.service(server).state().bindings()),optional(()->SpawnAuthoring.service(server).state()),optional(()->TypedChestLoot.types(server)),optional(()->BookRuntime.books(server)),optional(()->ChestAuthoring.service(server).state().bookDelivery()),AutomaticPlayerSpawns.available(server),PlayerRoles.revision(server),optional(()->WorldAreaOperations.revision(server)),optional(()->Departures.state(server)),controls,optional(()->MapSiteAssignments.revision(server)),optional(()->ManagedBlocks.revision(server)),toolRevisions(player),player.getEntityWorld().getRegistryKey().getValue().toString(),author,SessionBuilding.enabled(server),Objects.requireNonNullElse(RuntimeHolds.reason(server),""),server.getPlayerManager().getPlayerList().stream().map(ServerPlayerEntity::getUuid).toList(),PlayRuntime.eligibleIds(server),author?AuthoringRuntime.get(server).selection(player.getUuid()):null,author?AuthoringRuntime.get(server).regionDraft(player.getUuid()).orElse(null):null,targetKey(player));
     }
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
     private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
@@ -988,14 +1025,15 @@ public final class CoreMenuServer {
         int result=source.getServer().getCommandManager().getDispatcher().execute(command,source.withOutput(output));String message=String.join("\n",feedback);if(result<=0)throw new IllegalStateException(message.isBlank()?"The action was refused; check its requirements.":message);return message.isBlank()?"Action completed.":message;
     }
     private record PlayControls(Set<UUID> participants,Map<String,PlayState.Binding> bindings,Map<String,PlayState.Delivery> deliveries,Map<String,EventConfiguration> events,Map<String,EventExecution> executions,long progressionRevision) { }
-    private record Frame(boolean gm,Object campaign,Object sites,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object areas,Object departures,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
+    private record Frame(boolean gm,Object campaign,Object sites,Object encounters,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object areas,Object departures,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private record Navigation(Page page,String selected,int index,String filter) { }
     private static final class Context {
         Navigation navigation=new Navigation(Page.SESSION,"",0,"POINT");
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
-        PlayRuntime.Preview observation;EventRuntime.Review eventReview;EventConfiguration expectedEvent;EventEditorForm eventEditor;String eventSelection="";LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;
+        PlayRuntime.Preview observation;EventRuntime.Review eventReview;EventConfiguration expectedEvent;EventEditorForm eventEditor;EncounterEditorForm encounterEditor;String eventSelection="";LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;ScenarioContentRuntime.Pinned scenarioPinned;
         String giveBook="",giveTarget="";long giveAt;
         io.github.chronicle.core.progression.SourceLedger.Receipt sourceReview;String sourceReviewEvent="";long sourceReviewAt;
+        Encounters.Review encounterReview;String encounterReviewEvent="";long encounterReviewAt;
         boolean visible,roleCreating,departureCreating;io.github.chronicle.core.departures.DepartureDefinition departureDraft;io.github.chronicle.core.roles.PlayerRole roleDraft,expectedRole;String pendingRole="",roleTarget="";Frame roleReview;long roleReviewAt;
     }
 }

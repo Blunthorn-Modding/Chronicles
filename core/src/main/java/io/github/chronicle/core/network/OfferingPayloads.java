@@ -17,6 +17,7 @@ public final class OfferingPayloads {
         PayloadTypeRegistry.playC2S().register(Action.ID,Action.CODEC);
     }
     public enum State { READY,UNAVAILABLE,EXHAUSTED,EXPIRED,ANSWERED }
+    public enum Layout { GENERIC, ALTAR_TWO_SHEET }
     public record Choice(String label,boolean available,boolean complete) {
         public Choice {
             bounded(label,64);
@@ -33,28 +34,29 @@ public final class OfferingPayloads {
         public Presentation {for(String text:new String[]{pending,unavailable,ready,partial,exhausted,expired,answered}){bounded(text,80);if(text.isBlank())throw new IllegalArgumentException("Offering presentation text is required");}}
         public static Presentation neutral(){return new Presentation("Waiting...","Unavailable.","Choose an offering.","Some offerings are complete.","No offerings remain.","Reopen this workstation.","Offering accepted.");}
     }
-    public record View(int syncId,UUID token,UUID parent,String title,State state,List<Choice> choices,boolean opening,Presentation presentation) implements CustomPayload {
-        public View(int syncId,UUID token,UUID parent,String title,State state,List<Choice> choices,boolean opening){this(syncId,token,parent,title,state,choices,opening,Presentation.neutral());}
+    public record View(int syncId,UUID token,UUID parent,String title,State state,List<Choice> choices,boolean opening,Presentation presentation,Layout layout) implements CustomPayload {
+        public View(int syncId,UUID token,UUID parent,String title,State state,List<Choice> choices,boolean opening){this(syncId,token,parent,title,state,choices,opening,Presentation.neutral(),Layout.GENERIC);}
+        public View(int syncId,UUID token,UUID parent,String title,State state,List<Choice> choices,boolean opening,Presentation presentation){this(syncId,token,parent,title,state,choices,opening,presentation,Layout.GENERIC);}
         public View {
-            if(syncId<0||token==null||state==null||choices==null||choices.isEmpty()||choices.size()>16||presentation==null)throw new IllegalArgumentException("Invalid offering view");
+            if(syncId<0||token==null||state==null||choices==null||choices.isEmpty()||choices.size()>16||presentation==null||layout==null||layout==Layout.ALTAR_TWO_SHEET&&choices.size()!=6)throw new IllegalArgumentException("Invalid offering view");
             bounded(title,80);choices=List.copyOf(choices);
         }
-        public static final Id<View> ID=new Id<>(Identifier.of("chronicle_core","offering_view_v2"));
+        public static final Id<View> ID=new Id<>(Identifier.of("chronicle_core","offering_view_v3"));
         public static final PacketCodec<RegistryByteBuf,View> CODEC=PacketCodec.ofStatic((buffer,view)->{
             buffer.writeVarInt(view.syncId);buffer.writeUuid(view.token);buffer.writeBoolean(view.parent!=null);
             if(view.parent!=null)buffer.writeUuid(view.parent);
             buffer.writeString(view.title,80);buffer.writeByte(view.state.ordinal());buffer.writeByte(view.choices.size());
             for(Choice choice:view.choices){buffer.writeString(choice.label,64);buffer.writeBoolean(choice.available);buffer.writeBoolean(choice.complete);}
             buffer.writeBoolean(view.opening);
-            var copy=view.presentation;for(String text:List.of(copy.pending(),copy.unavailable(),copy.ready(),copy.partial(),copy.exhausted(),copy.expired(),copy.answered()))buffer.writeString(text,80);
+            var copy=view.presentation;for(String text:List.of(copy.pending(),copy.unavailable(),copy.ready(),copy.partial(),copy.exhausted(),copy.expired(),copy.answered()))buffer.writeString(text,80);buffer.writeByte(view.layout.ordinal());
         },buffer->{
             int syncId=buffer.readVarInt();UUID token=buffer.readUuid(),parent=buffer.readBoolean()?buffer.readUuid():null;
             String title=buffer.readString(80);int state=buffer.readUnsignedByte(),size=buffer.readUnsignedByte();
             if(state>=State.values().length||size<1||size>16)throw new IllegalArgumentException("Invalid offering bounds");
             List<Choice> choices=new ArrayList<>(size);
             for(int i=0;i<size;i++)choices.add(new Choice(buffer.readString(64),buffer.readBoolean(),buffer.readBoolean()));
-            boolean opening=buffer.readBoolean();var copy=new Presentation(buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80));
-            return new View(syncId,token,parent,title,State.values()[state],choices,opening,copy);
+            boolean opening=buffer.readBoolean();var copy=new Presentation(buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80),buffer.readString(80));int layout=buffer.readUnsignedByte();if(layout>=Layout.values().length)throw new IllegalArgumentException("Invalid offering layout");
+            return new View(syncId,token,parent,title,State.values()[state],choices,opening,copy,Layout.values()[layout]);
         });
         @Override public Id<? extends CustomPayload> getId(){return ID;}
     }

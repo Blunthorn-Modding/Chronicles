@@ -113,4 +113,9 @@ class EcologyCropsTest {
         var f=new Field(){@Override public boolean loaded(Pos p){return p.x()>=1&&p.x()<=3;}};f.plant(CROP);
         var c=new EcologyCrops(EcologyCrops.DEFAULT);ticks(c,f,n,450,true);assertTrue(f.age(CROP)>0);
     }
+    @Test void localHarvestMultiplierAcceleratesOnlyInsideAuraAndKeepsWriteBounds(){
+        var n=new Network();n.owned.add(new Pos(16,0,0));var f=new Field();Pos boosted=CROP,ordinary=new Pos(18,1,0);f.plant(boosted);f.plant(ordinary);var c=new EcologyCrops(new EcologyCrops.Rules(true,10));c.source(SOURCE);c.source(new Pos(16,0,0));c.notice(boosted);c.notice(ordinary);
+        for(int i=0;i<130;i++){f.reads=f.writes=0;c.tick(f,n,true,p->p.equals(boosted)?200:100);assertTrue(c.writes()<=2);assertTrue(f.writes<=2);}
+        assertTrue(f.age(boosted)>0,"local 2x crop opportunity did not mature sooner");assertEquals(0,f.age(ordinary),"harvest aura accelerated a remote crop");
+    }
 }

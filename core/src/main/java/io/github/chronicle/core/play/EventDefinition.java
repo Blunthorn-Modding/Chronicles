@@ -22,22 +22,38 @@ import java.util.TreeMap;
 public record EventDefinition(String id, long revision, String label, String description,
                               String text, String sound, ObservationCatalog.Audience audience,
                               Optional<EventRegionReference> audienceRegion,
-                              List<EventRegionChange> changes, Map<String, Boolean> flagChanges, int formatVersion) {
+                              List<EventRegionChange> changes, Map<String, Boolean> flagChanges,
+                              List<EventEncounterAction> encounterActions, int formatVersion) {
     public static final int MAX_CHANGES = 8;
     public static final int MAX_TOTAL_CELLS = 262_144;
     public static final int MAX_UNIQUE_CHUNKS = 64;
     public static final int MAX_FLAGS = 32;
+    public static final int MAX_ENCOUNTER_ACTIONS = 4;
 
     public EventDefinition(String id, long revision, String label, String description, String text, String sound,
                            ObservationCatalog.Audience audience, Optional<EventRegionReference> audienceRegion,
                            List<EventRegionChange> changes) {
-        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, Map.of(), 1);
+        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, Map.of(), List.of(), 1);
     }
 
     public EventDefinition(String id, long revision, String label, String description, String text, String sound,
                            ObservationCatalog.Audience audience, Optional<EventRegionReference> audienceRegion,
                            List<EventRegionChange> changes, Map<String, Boolean> flagChanges) {
-        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, flagChanges, 2);
+        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, flagChanges, List.of(), 2);
+    }
+
+    public EventDefinition(String id, long revision, String label, String description, String text, String sound,
+                           ObservationCatalog.Audience audience, Optional<EventRegionReference> audienceRegion,
+                           List<EventRegionChange> changes, Map<String, Boolean> flagChanges,
+                           List<EventEncounterAction> encounterActions) {
+        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, flagChanges, encounterActions, 3);
+    }
+
+    /** Compatibility constructor used by exact v1/v2 revisions. */
+    public EventDefinition(String id, long revision, String label, String description, String text, String sound,
+                           ObservationCatalog.Audience audience, Optional<EventRegionReference> audienceRegion,
+                           List<EventRegionChange> changes, Map<String, Boolean> flagChanges, int formatVersion) {
+        this(id, revision, label, description, text, sound, audience, audienceRegion, changes, flagChanges, List.of(), formatVersion);
     }
 
     public EventDefinition {
@@ -55,7 +71,7 @@ public record EventDefinition(String id, long revision, String label, String des
         }
         Objects.requireNonNull(changes, "event Region changes are required");
         changes = List.copyOf(changes);
-        if (formatVersion != 1 && formatVersion != 2) throw new IllegalArgumentException("unsupported event definition format");
+        if (formatVersion < 1 || formatVersion > 3) throw new IllegalArgumentException("unsupported event definition format");
         Objects.requireNonNull(flagChanges, "event flag changes are required");
         if (flagChanges.size() > MAX_FLAGS) throw new IllegalArgumentException("too many event flag changes");
         TreeMap<String, Boolean> orderedFlags = new TreeMap<>();
@@ -65,10 +81,13 @@ public record EventDefinition(String id, long revision, String label, String des
         }
         flagChanges = Collections.unmodifiableMap(orderedFlags);
         if (formatVersion == 1 && !flagChanges.isEmpty()) throw new IllegalArgumentException("legacy event definitions cannot change flags");
+        encounterActions = List.copyOf(Objects.requireNonNull(encounterActions, "event encounter actions are required"));
+        if (encounterActions.size() > MAX_ENCOUNTER_ACTIONS) throw new IllegalArgumentException("an event may spawn at most 4 encounter groups");
+        if (formatVersion < 3 && !encounterActions.isEmpty()) throw new IllegalArgumentException("legacy event definitions cannot spawn encounter groups");
         if (changes.size() > MAX_CHANGES) {
             throw new IllegalArgumentException("an event may change at most " + MAX_CHANGES + " Regions");
         }
-        if (text.isBlank() && sound.isEmpty() && changes.isEmpty() && flagChanges.isEmpty()) {
+        if (text.isBlank() && sound.isEmpty() && changes.isEmpty() && flagChanges.isEmpty() && encounterActions.isEmpty()) {
             throw new IllegalArgumentException("an event requires text, sound, a Region change or a flag change");
         }
         validateChanges(changes);
@@ -97,6 +116,16 @@ public record EventDefinition(String id, long revision, String label, String des
             if (formatVersion >= 2) {
                 update(digest, flagChanges.size());
                 flagChanges.forEach((flag, value) -> { update(digest, flag); update(digest, value); });
+            }
+            if (formatVersion >= 3) {
+                update(digest, encounterActions.size());
+                for (EventEncounterAction action : encounterActions) {
+                    update(digest, action.groupId());
+                    update(digest, action.targetOverride().isPresent());
+                    action.targetOverride().ifPresent(target -> {
+                        update(digest, target.kind().name()); update(digest, target.siteId()); update(digest, target.siteRevision());
+                    });
+                }
             }
             return HexFormat.of().formatHex(digest.digest());
         } catch (NoSuchAlgorithmException exception) {

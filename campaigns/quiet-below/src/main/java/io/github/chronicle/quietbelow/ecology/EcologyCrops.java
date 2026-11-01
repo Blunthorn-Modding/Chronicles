@@ -37,6 +37,7 @@ public final class EcologyCrops {
         boolean living(Pos p);
         boolean cropsAvailable();
     }
+    @FunctionalInterface public interface Bonus { int percent(Pos position); }
     private static final class Entry { long next;Entry(long next){this.next=next;} }
     private Rules rules;
     private long ticks,bonuses,nextSources;
@@ -73,7 +74,9 @@ public final class EcologyCrops {
                     sections.add(section);if(rebuilding!=null)rebuilding.add(section);
                 }
     }
-    public void tick(Terrain world,Network network,boolean playing){
+    public void tick(Terrain world,Network network,boolean playing){tick(world,network,playing,ignored->100);}
+    public void tick(Terrain world,Network network,boolean playing,Bonus bonus){
+        Objects.requireNonNull(bonus);
         reads=writes=checks=0;
         if(failure!=null||!rules.enabled||!playing||!network.cropsAvailable())return;
         ticks=Math.addExact(ticks,1);
@@ -114,10 +117,12 @@ public final class EcologyCrops {
             if(!living&&!near(network,p,false)){crops.remove(p);continue;}
             rotation.addLast(p);
             if(!crop.eligible||!living){entry.next=ticks+interval();continue;}
+            int localPercent=bonus.percent(p);if(localPercent<100||localPercent>400)throw new IllegalArgumentException("Crop bonus must be 100..400 percent");
+            int localInterval=Math.max(1,rules.seconds*20*100/localPercent);entry.next=Math.min(entry.next,ticks+localInterval);
             if(ticks>=entry.next&&writes<WRITES){
                 // Native adapter compares the sampled state and its growth conditions again.
                 writes++;if(world.grow(p,crop))bonuses++;
-                entry.next=ticks+interval();
+                entry.next=ticks+localInterval;
             }
         }
     }

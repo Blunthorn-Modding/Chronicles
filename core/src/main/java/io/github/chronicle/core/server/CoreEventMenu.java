@@ -4,6 +4,7 @@ import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.areas.AreaChange;
 import io.github.chronicle.core.areas.AreaState;
 import io.github.chronicle.core.authoring.AuthoringSite;
+import io.github.chronicle.core.encounters.EncounterTarget;
 import io.github.chronicle.core.menu.CoreMenuModel.Action;
 import io.github.chronicle.core.menu.CoreMenuModel.Control;
 import io.github.chronicle.core.menu.CoreMenuModel.Detail;
@@ -13,8 +14,11 @@ import io.github.chronicle.core.menu.EventEditorForm;
 import io.github.chronicle.core.play.EventConfiguration;
 import io.github.chronicle.core.play.EventExecution;
 import io.github.chronicle.core.play.EventRegionChange;
+import io.github.chronicle.core.play.EventEncounterAction;
 import io.github.chronicle.core.play.ObservationCatalog;
 import io.github.chronicle.core.play.PlayState;
+import io.github.chronicle.core.scenario.EventTemplate;
+import io.github.chronicle.core.scenario.ScenarioEventTemplates;
 import net.minecraft.registry.Registries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -63,6 +67,8 @@ final class CoreEventMenu {
         Optional<io.github.chronicle.core.play.EventRegionReference> trigger = configuration.triggerRegion();
         List<EventEditorForm.Change> changes = definition.changes().stream()
                 .map(change -> change(server, change)).toList();
+        List<EventEditorForm.EncounterAction> encounterActions=definition.encounterActions().stream()
+                .map(action->encounterAction(server,action)).toList();
         return new EventEditorForm(definition.id(), definition.revision(), definition.label(),
                 definition.description(), definition.text(), definition.sound(), definition.audience().name(),
                 audience.map(io.github.chronicle.core.play.EventRegionReference::id).orElse(""),
@@ -71,13 +77,32 @@ final class CoreEventMenu {
                 trigger.map(io.github.chronicle.core.play.EventRegionReference::id).orElse(""),
                 trigger.map(io.github.chronicle.core.play.EventRegionReference::revision).orElse(0L),
                 configuration.delayTicks() / 20,
-                configuration.requiredFlags(), changes, false,definition.flagChanges(),configuration.source());
+                configuration.requiredFlags(), changes, false,definition.flagChanges(),configuration.source(),encounterActions);
+    }
+
+    static EventEditorForm templateForm(MinecraftServer server,String id){
+        EventTemplate template=ScenarioEventTemplates.get(id).orElseThrow(()->new IllegalArgumentException("Choose an available scenario Event template."));
+        if(EventRuntime.configurations(server).containsKey(id))throw new IllegalStateException("An Event already uses this template ID.");
+        var sites=AuthoringRuntime.get(server).service().state().sites();
+        String audience=template.audienceReference();long audienceRevision=0;
+        if(!audience.isEmpty()){AuthoringSite site=sites.get(audience);if(site instanceof AuthoringSite.Region region)audienceRevision=region.revision();else audience="";}
+        String trigger=template.triggerReference();long triggerRevision=0;
+        if(!trigger.isEmpty()){AuthoringSite site=sites.get(trigger);if(site instanceof AuthoringSite.Region region)triggerRevision=region.revision();else trigger="";}
+        List<EventEditorForm.Change> changes=new ArrayList<>();
+        for(EventTemplate.RegionOutcome outcome:template.regionOutcomes())changes.add(templateChange(server,outcome));
+        List<EventEditorForm.EncounterAction> encounters=template.encounterOutcomes().stream().map(outcome->templateEncounter(server,outcome)).toList();
+        return new EventEditorForm(template.id(),0,template.label(),template.description(),template.text(),template.sound(),template.audience().name(),
+                audience,audienceRevision,template.mode().name(),trigger,triggerRevision,template.delayTicks()/20,template.requiredFlags(),changes,true,
+                template.flagOutcomes(),template.source(),encounters);
     }
 
     static Detail detail(ServerPlayerEntity player, String selected, boolean reviewed) {
-        return detail(player,selected,reviewed,false);
+        return detail(player,selected,reviewed,false,false);
     }
     static Detail detail(ServerPlayerEntity player, String selected, boolean reviewed, boolean sourceReviewed) {
+        return detail(player,selected,reviewed,sourceReviewed,false);
+    }
+    static Detail detail(ServerPlayerEntity player, String selected, boolean reviewed, boolean sourceReviewed,boolean encounterReviewed) {
         MinecraftServer server = player.getEntityWorld().getServer();
         boolean editing = AuthoringRuntime.isAuthor(player);
         boolean canEdit = player.getCommandSource().hasPermissionLevel(2) && editing && AuthoringRuntime.editable(server) && !held(server);
@@ -89,8 +114,11 @@ final class CoreEventMenu {
         controls.add(control(Action.EVENT_NEW, "Create new event", canEdit && !held(server) && room,
                 !room ? "The Event limit has been reached." : held(server) ? "Finish pending operations first." : editReason,
                 false, ""));
+        boolean templates=ScenarioEventTemplates.templates().keySet().stream().anyMatch(id->!EventRuntime.configurations(server).containsKey(id));
+        controls.add(control(Action.EVENT_TEMPLATE_NEW,"Create from scenario…",canEdit&&room&&templates,
+                !templates?"No unadopted scenario Event templates are available.":!room?"The Event limit has been reached.":editReason,false,"EVENT_TEMPLATE"));
         if (selected == null || selected.isBlank()) {
-            return new Detail("", "Events", "Choose when Events run, their required flags, and their text, sound, Region or flag outcomes.",
+            return new Detail("", "Events", "Choose when Events run, their required flags, and their text, sound, saved Region, encounter-spawn, or flag outcomes.",
                     facts, controls, null, null, null);
         }
         String id = raw(selected);
@@ -98,6 +126,7 @@ final class CoreEventMenu {
         var definition = configuration.definition();
         PlayState play = PlayRuntime.service(server).state();
         EventExecution execution = play.executions().get(id);
+        Optional<Encounters.Review> encounterReview=Encounters.review(server,id);
         PlayState.Delivery delivery = play.deliveries().get(id);
         boolean custom = EventRuntime.stored(server, id) != null && ChronicleCore.observations().get(id).isEmpty();
         boolean unresolved = execution != null && execution.phase() != EventExecution.Phase.COMPLETE;
@@ -119,6 +148,17 @@ final class CoreEventMenu {
         if(configuration.mode()==PlayState.Mode.SYSTEM)facts.add(new Fact("Activity source", configuration.source().toString()));
         facts.add(new Fact("Region changes", definition.changes().isEmpty() ? "None" : definition.changes().stream()
                 .map(change -> change.region().id() + " -> " + change.state()).reduce((left, right) -> left + "; " + right).orElse("None")));
+        facts.add(new Fact("Encounter spawns",definition.encounterActions().isEmpty()?"None":definition.encounterActions().stream()
+                .map(action->action.groupId()+action.targetOverride().map(target->" @ "+target.kind()+" "+target.siteId()+" / "+target.siteRevision()).orElse(" @ group target"))
+                .reduce((left,right)->left+"; "+right).orElse("None")));
+        if(encounterReview.isPresent()){
+            var child=encounterReview.orElseThrow().child();long planned=child.entries().stream().filter(entry->entry.stage()==io.github.chronicle.core.encounters.EncounterSpawnEntry.Stage.PLANNED).count(),claimed=child.entries().stream().filter(entry->entry.stage()==io.github.chronicle.core.encounters.EncounterSpawnEntry.Stage.CLAIMED).count(),spawned=child.entries().stream().filter(entry->entry.stage()==io.github.chronicle.core.encounters.EncounterSpawnEntry.Stage.SPAWNED).count();
+            facts.add(new Fact("Parent Event operation",encounterReview.orElseThrow().eventOperation().toString()));facts.add(new Fact("Uncertain encounter child",child.operationId()+" / "+child.groupId()));facts.add(new Fact("Composition digest",child.groupFingerprint()));facts.add(new Fact("Exact plan hash",child.planHash()));facts.add(new Fact("Retained stages","Planned "+planned+", claimed "+claimed+", spawned "+spawned));
+            for(var entry:child.entries())facts.add(new Fact("Entity UUID",entry.entityId()+" / "+entry.entityType()+" / "+entry.stage()));
+            boolean reviewable=player.getCommandSource().hasPermissionLevel(2)&&RuntimeHolds.reason(server)!=null&&!RuntimeHolds.heldByOther(server,EventRuntime.HOLD);
+            controls.add(control(Action.EVENT_ENCOUNTER_REVIEW,"Review uncertain encounter result",reviewable,"Requires this Event's hold and no unrelated Chronicle hold.",false,""));
+            if(encounterReviewed)controls.add(control(Action.EVENT_ENCOUNTER_ACCEPT,"Accept current encounter result",reviewable,"Requires this Event's hold and no unrelated Chronicle hold.",true,""));
+        }
         facts.add(new Fact("Completion", execution != null ? execution.phase() + " - " + execution.detail()
                 : delivery != null ? delivery.status() + " - " + delivery.recipients().size() + " recipients" : "Not run"));
         facts.add(new Fact("Configuration", configuration.enabled() ? "Enabled" : "Not configured for live execution"));
@@ -164,7 +204,7 @@ final class CoreEventMenu {
                 unresolved ? "Resolve the current Event execution before deleting it." : editReason, true, ""));
 
         String description = definition.description().isBlank()
-                ? "A player-facing Event with optional media and saved Region changes."
+                ? "A player-facing Event with optional media, saved Region changes, encounter spawns, and flag outcomes."
                 : definition.description();
         if(EventProgressRuntime.legacyReviewRequired(configuration))description+=" Review and save this timer to enable its flag-based countdown.";
         return new Detail(selected, definition.label(), description, facts, controls, null, null, null);
@@ -179,6 +219,17 @@ final class CoreEventMenu {
                     .filter(AuthoringSite.Region.class::isInstance).map(AuthoringSite.Region.class::cast)
                     .sorted(Comparator.comparing(AuthoringSite.Region::id))
                     .forEach(region -> entries.add(entry(region.id(), region.id(), describe(region), "REGION", region.id(), region.revision())));
+            case "EVENT_POINT" -> AuthoringRuntime.get(server).service().state().sites().values().stream()
+                    .filter(AuthoringSite.Location.class::isInstance).map(AuthoringSite.Location.class::cast)
+                    .sorted(Comparator.comparing(AuthoringSite.Location::id))
+                    .forEach(point->entries.add(entry(point.id(),point.id(),point.dimension()+" - "+point.x()+" "+point.y()+" "+point.z(),"POINT",point.id(),point.revision())));
+            case "EVENT_ENCOUNTER_GROUP" -> Encounters.snapshot(server).groups().values().stream()
+                    .sorted(Comparator.comparing(io.github.chronicle.core.encounters.EncounterGroup::label).thenComparing(io.github.chronicle.core.encounters.EncounterGroup::id))
+                    .forEach(group->{var binding=Encounters.snapshot(server).bindings().get(group.id());boolean current=binding!=null&&current(server,binding.target());entries.add(entry(group.id(),group.label(),group.description()+" ("+group.entityCount()+" entities; "+(current?"group target ready":"choose an Event target override")+")","ENCOUNTER_GROUP",group.id(),current?binding.siteRevision():0));});
+            case "EVENT_TEMPLATE" -> ScenarioEventTemplates.templates().values().stream()
+                    .filter(template->!EventRuntime.configurations(server).containsKey(template.id()))
+                    .sorted(Comparator.comparing(EventTemplate::label).thenComparing(EventTemplate::id))
+                    .forEach(template->entries.add(entry(template.id(),template.label(),template.description(),"EVENT_TEMPLATE",template.id(),0)));
             case "EVENT_FLAG" -> {
                 entries.add(entry("none", "No prerequisite", "Create flags under Advanced → Flags. A required flag must be On.", "FLAG", "", 0));
                 ChronicleRuntime.service(server).state().flags().entrySet().stream().sorted(Map.Entry.comparingByKey())
@@ -222,6 +273,38 @@ final class CoreEventMenu {
         return new EventEditorForm.Change(change.region().id(), shortText(label,160), change.state().name(), change.areaRevision(),
                 change.snapshot().sha256(), change.snapshot().bounds().dimension(), current, shortText(problem, 512));
     }
+
+    private static EventEditorForm.Change templateChange(MinecraftServer server,EventTemplate.RegionOutcome outcome){
+        AreaChange area=AreaChanges.catalog(server).areas().get(outcome.areaId());
+        if(area==null)return new EventEditorForm.Change(outcome.regionId(),outcome.regionId()+" - "+outcome.state(),outcome.state(),0,"","",false,"Saved states are missing for this scenario Region.");
+        try{
+            AreaState state=AreaState.valueOf(outcome.state());var snapshot=area.requireSnapshot(state);
+            boolean current=area.bounds().regionId().equals(outcome.regionId())&&area.bounds().matches(AreaChanges.currentRegion(server,area));
+            return new EventEditorForm.Change(outcome.regionId(),area.name()+" - "+outcome.state(),outcome.state(),area.revision(),snapshot.sha256(),area.bounds().dimension(),current,current?"":"The scenario Region or saved state is not current on this map.");
+        }catch(RuntimeException unavailable){return new EventEditorForm.Change(outcome.regionId(),area.name()+" - "+outcome.state(),outcome.state(),area.revision(),"",area.bounds().dimension(),false,shortText(unavailable.getMessage(),512));}
+    }
+
+    private static EventEditorForm.EncounterAction templateEncounter(MinecraftServer server,EventTemplate.EncounterOutcome outcome){
+        if(outcome.targetKind().equals("GROUP"))return encounterAction(server,new EventEncounterAction(outcome.groupId(),Optional.empty()));
+        AuthoringSite site=AuthoringRuntime.get(server).service().state().sites().get(outcome.targetReference());
+        boolean right=outcome.targetKind().equals("POINT")?site instanceof AuthoringSite.Location:site instanceof AuthoringSite.Region;
+        long revision=right?site.revision():0;
+        return new EventEditorForm.EncounterAction(outcome.groupId(),groupLabel(server,outcome.groupId()),outcome.targetKind(),outcome.targetReference(),outcome.targetReference(),revision,
+                right&&Encounters.snapshot(server).groups().containsKey(outcome.groupId()),right?"":"The scenario map target is missing or has the wrong kind.");
+    }
+
+    private static EventEditorForm.EncounterAction encounterAction(MinecraftServer server,EventEncounterAction action){
+        var snapshot=Encounters.snapshot(server);boolean group=snapshot.groups().containsKey(action.groupId());
+        if(action.targetOverride().isPresent()){
+            EncounterTarget target=action.targetOverride().orElseThrow();AuthoringSite site=AuthoringRuntime.get(server).service().state().sites().get(target.siteId());
+            boolean current=group&&site!=null&&site.revision()==target.siteRevision()&&(target.kind()==EncounterTarget.Kind.POINT?site instanceof AuthoringSite.Location:site instanceof AuthoringSite.Region);
+            return new EventEditorForm.EncounterAction(action.groupId(),groupLabel(server,action.groupId()),target.kind().name(),target.siteId(),target.siteId(),target.siteRevision(),current,current?"":"The encounter group or exact map target changed.");
+        }
+        var binding=snapshot.bindings().get(action.groupId());boolean current=group&&binding!=null&&current(server,binding.target());
+        return new EventEditorForm.EncounterAction(action.groupId(),groupLabel(server,action.groupId()),"GROUP","","",0,current,current?"":"The encounter group binding is missing or changed.");
+    }
+    private static boolean current(MinecraftServer server,EncounterTarget target){AuthoringSite site=AuthoringRuntime.get(server).service().state().sites().get(target.siteId());return site!=null&&site.revision()==target.siteRevision()&&(target.kind()==EncounterTarget.Kind.POINT?site instanceof AuthoringSite.Location:site instanceof AuthoringSite.Region);}
+    private static String groupLabel(MinecraftServer server,String id){var group=Encounters.snapshot(server).groups().get(id);return group==null?id:group.label();}
 
     private static String triggerSummary(EventConfiguration configuration) {
         StringBuilder result = new StringBuilder();

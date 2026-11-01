@@ -1,4 +1,4 @@
-# Chronicle commands (dev60)
+# Chronicle commands (dev65)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored.
 
@@ -17,7 +17,10 @@ Only `/chronicle` is registered. `/chronicles`, `/quiet_below`, `/chronicle auth
 | `/chronicle regions` | Cuboids and optional Saved states | Operator level 2 |
 | `/chronicle locations` | Points and Block sites, including Departure setup | Operator level 2 |
 | `/chronicle roles` | Player Role definitions and starting supplies | Operator level 2 |
+| `/chronicle encounters` | Encounter-group definitions and their map targets; saving never spawns entities | Operator level 2 |
+| `/chronicle flags` | Progress flags and their current values | Operator level 2 |
 | `/chronicle setup` | Registered game configuration tools | Operator level 2 |
+| `/chronicle maintenance events` | Archive completed Event/source, encounter and temporary-offering records while retaining progress and exact retry evidence | Operator level 2; non-active play, no unresolved operations |
 | `/chronicle editing on` or `off` | Server-owned per-connection Editing | Operator level 2, non-active play |
 | `/chronicle debug ?` | Retained legacy operations and low-level inspection | Operator level 2 |
 | `/chronicle game quiet-below ?` | Scenario-specific stage operations | Operator level 2 |

@@ -8,6 +8,7 @@ import io.github.chronicle.core.areas.AreaBounds;
 import io.github.chronicle.core.areas.AreaState;
 import io.github.chronicle.core.areas.SnapshotRef;
 import io.github.chronicle.core.authoring.BlockPosition;
+import io.github.chronicle.core.encounters.EncounterTarget;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -26,6 +27,10 @@ public final class EventJson {
             "id", "revision", "label", "description", "text", "sound", "audience", "audienceRegion", "changes");
     private static final Set<String> DEFINITION_FIELDS_V2 = Set.of(
             "id", "revision", "label", "description", "text", "sound", "audience", "audienceRegion", "changes", "flagChanges", "formatVersion");
+    private static final Set<String> DEFINITION_FIELDS_V3 = Set.of(
+            "id", "revision", "label", "description", "text", "sound", "audience", "audienceRegion", "changes", "flagChanges", "encounterActions", "formatVersion");
+    private static final Set<String> ENCOUNTER_ACTION_FIELDS = Set.of("groupId", "targetOverride");
+    private static final Set<String> ENCOUNTER_TARGET_FIELDS = Set.of("kind", "siteId", "siteRevision");
     private static final Set<String> REFERENCE_FIELDS = Set.of("id", "revision");
     private static final Set<String> CHANGE_FIELDS = Set.of("region", "areaId", "areaRevision", "state", "snapshot");
     private static final Set<String> SNAPSHOT_FIELDS = Set.of("sha256", "bounds", "cells", "encodedBytes");
@@ -62,13 +67,23 @@ public final class EventJson {
             definition.flagChanges().forEach(flags::addProperty);
             object.add("flagChanges", flags);
         }
+        if (definition.formatVersion() >= 3) {
+            JsonArray actions = new JsonArray();
+            for (EventEncounterAction action : definition.encounterActions()) {
+                JsonObject value = new JsonObject(); value.addProperty("groupId", action.groupId());
+                if (action.targetOverride().isEmpty()) value.add("targetOverride", JsonNull.INSTANCE);
+                else { EncounterTarget target=action.targetOverride().orElseThrow();JsonObject pin=new JsonObject();pin.addProperty("kind",target.kind().name());pin.addProperty("siteId",target.siteId());pin.addProperty("siteRevision",target.siteRevision());value.add("targetOverride",pin); }
+                actions.add(value);
+            }
+            object.add("encounterActions", actions);
+        }
         return bounded(object, "event definition");
     }
 
     public static EventDefinition decodeDefinition(JsonObject object) {
         bounded(object, "event definition");
         int version = formatVersion(object);
-        PlayJson.fields(object, version == 1 ? DEFINITION_FIELDS : DEFINITION_FIELDS_V2, "event definition");
+        PlayJson.fields(object, version == 1 ? DEFINITION_FIELDS : version == 2 ? DEFINITION_FIELDS_V2 : DEFINITION_FIELDS_V3, "event definition");
         JsonArray values = PlayJson.array(PlayJson.required(object, "changes"), "event Region changes");
         if (values.size() > EventDefinition.MAX_CHANGES) throw new IllegalArgumentException("too many event Region changes");
         List<EventRegionChange> changes = new ArrayList<>(values.size());
@@ -82,7 +97,8 @@ public final class EventJson {
                 PlayJson.string(PlayJson.required(object, "sound"), "event sound"),
                 PlayJson.enumeration(PlayJson.required(object, "audience"), ObservationCatalog.Audience.class, "event audience"),
                 decodeOptionalReference(object, "audienceRegion", "event audience Region"),
-                changes, version == 1 ? Map.of() : decodeFlags(PlayJson.object(PlayJson.required(object, "flagChanges"), "event flag changes")), version);
+                changes, version == 1 ? Map.of() : decodeFlags(PlayJson.object(PlayJson.required(object, "flagChanges"), "event flag changes")),
+                version < 3 ? List.of() : decodeEncounterActions(PlayJson.array(PlayJson.required(object,"encounterActions"),"event encounter actions")), version);
     }
 
     public static JsonObject encodeConfiguration(EventConfiguration configuration) {
@@ -155,8 +171,20 @@ public final class EventJson {
     private static int formatVersion(JsonObject object) {
         if (!object.has("formatVersion")) return 1;
         int version = PlayJson.integer(PlayJson.required(object, "formatVersion"), "event format version");
-        if (version != 2) throw new IllegalArgumentException("unsupported event format version");
+        if (version != 2 && version != 3) throw new IllegalArgumentException("unsupported event format version");
         return version;
+    }
+
+    private static List<EventEncounterAction> decodeEncounterActions(JsonArray values) {
+        if (values.size() > EventDefinition.MAX_ENCOUNTER_ACTIONS) throw new IllegalArgumentException("too many event encounter actions");
+        List<EventEncounterAction> actions = new ArrayList<>();
+        for (JsonElement element : values) {
+            JsonObject value=PlayJson.object(element,"event encounter action");PlayJson.fields(value,ENCOUNTER_ACTION_FIELDS,"event encounter action");
+            JsonElement targetValue=member(value,"targetOverride");Optional<EncounterTarget> target;
+            if(targetValue.isJsonNull())target=Optional.empty();else{JsonObject pin=PlayJson.object(targetValue,"event encounter target");PlayJson.fields(pin,ENCOUNTER_TARGET_FIELDS,"event encounter target");target=Optional.of(new EncounterTarget(PlayJson.enumeration(PlayJson.required(pin,"kind"),EncounterTarget.Kind.class,"encounter target kind"),PlayJson.string(PlayJson.required(pin,"siteId"),"encounter target site ID"),PlayJson.number(PlayJson.required(pin,"siteRevision"),"encounter target site revision")));}
+            actions.add(new EventEncounterAction(PlayJson.string(PlayJson.required(value,"groupId"),"encounter group ID"),target));
+        }
+        return List.copyOf(actions);
     }
 
     public static JsonObject encodeExecution(EventExecution execution) {

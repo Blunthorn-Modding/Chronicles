@@ -140,7 +140,7 @@ def _run(w, fabric_smoke, hud_dependencies, launch, root: Path, reports: Path) -
             server_log.close()
 
 
-def run() -> None:
+def run(build: bool = True) -> None:
     import fabric_smoke
     import hud_dependencies
     import workspace as w
@@ -148,8 +148,9 @@ def run() -> None:
     w.require_eula()
     w.validate_server_runtime()
     w.validate_managed_mod_names()
-    w.run([w.REPO / "gradlew.bat", "--no-daemon", ":core:remapJar",
-           ":campaigns:quiet-below:remapJar", ":campaigns:quiet-below:writeSmokeClientLaunch"])
+    if build:
+        w.run([w.REPO / "gradlew.bat", "--no-daemon", ":core:remapJar",
+               ":campaigns:quiet-below:remapJar", ":campaigns:quiet-below:writeSmokeClientLaunch"])
     launch = json.loads((w.REPO / "campaigns/quiet-below/build/smoke/client-launch.json").read_text(encoding="utf-8"))
     root = fabric_smoke._stage(w)
     # Only the isolated helper requires the passive account to invoke identity.

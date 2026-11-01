@@ -30,6 +30,7 @@ public final class PlayerRolesSmoke {
     private static final boolean RESTART="true".equals(System.getenv("CHRONICLE_ROLES_RESTART"));
     private static PlayerRolesSmoke instance;
     private final Path output, root; private final List<String> checks = new ArrayList<>(), messages = new ArrayList<>();
+    private CoreMenuScreen scenarioParent;
     private boolean connecting, done; private long began = System.nanoTime(); private int step, wait;
     private PlayerRolesSmoke() {
         output=Path.of(OUTPUT).toAbsolutePath().normalize();root=Path.of(ROOT).toAbsolutePath().normalize();
@@ -108,7 +109,15 @@ public final class PlayerRolesSmoke {
         if(step==46){if(!passed("verify_manual"))return;checks.add("manual spawn policy took priority over role respawn Point");client.player.networkHandler.sendChatCommand("chronicle_roles_trial off_respawn");step++;return;}
         if(step==47){if(!passed("off_respawn"))return;wait=30;step++;return;}
         if(step==48){if(wait-->0)return;client.player.networkHandler.sendChatCommand("chronicle_roles_trial verify_off");step++;return;}
-        if(step==49){if(!passed("verify_off"))return;checks.add("explicit Off retained vanilla spawn instead of falling back to the role");finish(client,true,"completed roles and real death/override checks");}
+        if(step==49){if(!passed("verify_off"))return;checks.add("explicit Off retained vanilla spawn instead of falling back to the role");client.player.networkHandler.sendChatCommand("chronicle_roles_trial maintain");step=50;return;}
+        if(step==50){if(!passed("maintain"))return;checks.add("actual active role assignment and completed entry fired silent Events; maintenance archived source/flag receipts without replay");client.player.networkHandler.sendChatCommand("chronicle");step=51;return;}
+        if(step==51){if(menu==null||menu.pending())return;require(menu.triggerForTest("Enable editing"),"cannot enable editing for content export");step=52;return;}
+        if(step==52){if(menu==null||menu.pending()||!menu.state().editing())return;scenarioParent=menu;require(menu.triggerForTest("Scenario content...")||menu.triggerForTest("..."),"scenario content header entry missing");step=53;return;}
+        if(step==53){if(client.currentScreen==null||!client.currentScreen.getClass().getSimpleName().equals("ScenarioContentScreen"))return;wait=5;step=153;return;}
+        if(step==153){if(wait-->0)return;capture(client,"scenario-export");client.getWindow().setWindowedSize(640,480);wait=5;step=154;return;}
+        if(step==154){if(client.getWindow().getFramebufferWidth()!=640||client.getWindow().getFramebufferHeight()!=480)return;if(wait-->0)return;capture(client,"scenario-export-compact");press(client,"Export content...");checks.add("scenario content preview and export remain usable at compact GUI scale 2");step=54;return;}
+        if(step==54){if(scenarioParent.pending())return;client.player.networkHandler.sendChatCommand("chronicle_roles_trial verify_export");step=55;return;}
+        if(step==55){if(!passed("verify_export"))return;checks.add("native header/popup exported effective definitions; live map bindings and progress unchanged; imported Events disabled");finish(client,true,"completed roles, source/history, content export and real death/override checks");}
         if(step==200){require(menu.triggerForTest("Player Roles"),"restart roles navigation missing");step++;return;}
         if(step==201){if(menu.state().page()!=Page.PLAYER_ROLES)return;wait=4;step=203;return;}
         if(step==203){if(wait-->0)return;capture(client,"menu");client.player.networkHandler.sendChatCommand("chronicle_roles_trial restart");step=202;return;}

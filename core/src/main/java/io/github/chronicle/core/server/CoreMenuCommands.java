@@ -46,6 +46,7 @@ public final class CoreMenuCommands {
                         .executes(context -> execute(context.getSource(), Action.SHOW, Page.CHESTS, string(context, "chest"), ""))))
                 .build());
         canonical.addChild(literal("roles").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(),Page.PLAYER_ROLES)).then(literal("reload").requires(source->source.hasPermissionLevel(2)).executes(context->{try{PlayerRoles.reload(context.getSource());context.getSource().sendFeedback(()->Text.literal("Player roles reloaded."),false);return 1;}catch(Exception failure){context.getSource().sendError(Text.literal(failure.getMessage()));return 0;}})).build());
+        canonical.addChild(literal("encounters").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.ENCOUNTER_GROUPS)).build());
         canonical.addChild(lootTables().build());
         canonical.addChild(literal("books").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.BOOKS_LORE)).build());
         canonical.addChild(literal("regions").requires(CoreMenuCommands::isGm).executes(context -> CoreMenuServer.open(context.getSource(), Page.REGIONS)).build());

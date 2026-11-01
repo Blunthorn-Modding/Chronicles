@@ -79,6 +79,7 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.testing.PlayerRolesTrial.register();
         io.github.chronicle.core.server.testing.AreaChangesTrial.register();
         io.github.chronicle.core.server.testing.EventActionsTrial.register();
+        io.github.chronicle.core.server.testing.EncounterActionsTrial.register();
         io.github.chronicle.core.server.testing.EventRecoveryTrial.register();
         io.github.chronicle.core.server.testing.EventProgressionTrial.register();
         io.github.chronicle.core.server.testing.EventSourcesTrial.register();
@@ -91,6 +92,7 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTING.register(server -> CHEST_TYPES.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> BOOKS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> PLAYER_ROLES.freeze());
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> io.github.chronicle.core.scenario.ScenarioEventTemplates.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> OBSERVATIONS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> MANAGED_BLOCKS.freeze());
         ServerLifecycleEvents.SERVER_STARTING.register(server -> GameSetupTools.freeze());
@@ -109,8 +111,12 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.WorldAreaOperations.register();
         io.github.chronicle.core.server.EventWorldBatches.register();
         io.github.chronicle.core.server.EventProgressRuntime.register();
+        io.github.chronicle.core.server.Encounters.register();
         io.github.chronicle.core.server.EventRuntime.register();
         io.github.chronicle.core.server.EventSources.register();
+        io.github.chronicle.core.server.RoleEventSources.register();
+        io.github.chronicle.core.server.ScenarioContentRuntime.register();
+        io.github.chronicle.core.server.EventHistoryTools.register();
         io.github.chronicle.core.server.Departures.register();
         io.github.chronicle.core.server.SiteSubtypes.registerBuiltins();
         io.github.chronicle.core.server.RegionAuthoringWorkflow.register();
@@ -120,6 +126,7 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.RoleFirstEntry.register();
         io.github.chronicle.core.server.OfferingStats.register();
         io.github.chronicle.core.server.LastingBargains.register();
+        io.github.chronicle.core.server.TemporaryOfferings.register();
         io.github.chronicle.core.server.ActionConfirmations.register();
         io.github.chronicle.core.server.ItemEnchantingRuntime.register();
         ServerLifecycleEvents.SERVER_STARTED.register(SessionPresentation::changed);

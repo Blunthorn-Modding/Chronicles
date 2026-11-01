@@ -1,6 +1,8 @@
-# Outstanding work after the picker correction
+# Outstanding work
 
-28 October 2026. This rollup supersedes old "planned" and "review pending" wording in the historical backlog. The organizer confirms Event/flag functionality works; practical map setup and group testing are still to come. The dev64 correction removes duplicate picker navigation and centers text-only choices.
+1 November 2026. The deferred-tools implementation now provides encounter groups and Event spawning, role-assignment/entry Event sources, explicit Event-history archival, four additional Altar prayers, and reusable scenario-content export/build input. Role definitions and map destinations travel in the world. See [combined review](DEFERRED_TOOLS_REVIEW.md) and the latest [test evidence](TEST_PLAN.md). Human UI/balance review and the delivery gates below remain; this does not declare the scenario production-ready.
+
+This rollup supersedes old "planned" and "review pending" wording in the historical backlog. The organizer confirmed the Event/flag functionality and dev64 picker correction; practical map setup and group testing are still to come.
 
 ## Quiet Below delivery gates
 
@@ -13,10 +15,8 @@ The corrected 1 November three-hour measurement passed all original runtime limi
 
 ## Deferred implementation, separate from those gates
 
-- Generic entity/encounter-group authoring and event-driven spawning (the remaining CF-07 extension).
-- Additional Event sources for role assignment and completed first entry. Player Roles themselves and role-issued book discovery already work.
-- Maintenance for the new Event/source histories. They currently preserve evidence within fixed limits and refuse further work when full; automatic archival/compaction for repeated rearming is not implemented. The sculk journal's existing automatic maintenance is a separate, completed feature.
-- Additional Altar concepts: emergency healing, equipment repair, cave sight and a harvest offering. Only the two lasting prayers are implemented; temporary/item sacrifices need separate transaction rules before coding.
+- **M18 / CF24 bundled custom event sounds (added 1 November).** [Queued plan](CF24_BUNDLED_EVENT_SOUNDS.md): ship organizer-supplied audio inside the campaign mod and matching client pack, register sound IDs and use the existing Event picker/private preview. New audio requires a mod/pack update; no runtime uploader or server resource pack. Implementation and audible review remain open; this is separate from the delivered deferred tools.
+- Automatic quiet-period scheduling for Event/source history archival remains a follow-up. The confirmed non-active Game setup action and `/chronicle maintenance events` now reclaim bounded live capacity while retaining immutable exact-retry evidence. They refuse unresolved operations. Temporary offerings also archive terminal claims automatically at capacity; the sculk journal's existing automatic maintenance remains separate.
 - Dedicated Survival, Journey and hidden-faction engines. These are future Chronicle formats, outside the current Quiet Below completion focus. Voting is optional for hidden-faction games.
 
 Polluted-water purification, recoverable sound traces and a Relic Shard use remain optional design candidates, not promised missing mechanics.

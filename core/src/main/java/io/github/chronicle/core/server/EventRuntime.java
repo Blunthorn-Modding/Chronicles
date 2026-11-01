@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 public final class EventRuntime {
     public static final String HOLD="chronicle_core:events";
     private static final UUID AUTOMATIC_ACTOR=new UUID(0,0);
-    private static final Set<String> OWN_HOLDS=Set.of(HOLD,EventWorldBatches.HOLD,"chronicle_core:chests");
+    private static final Set<String> OWN_HOLDS=Set.of(HOLD,EventWorldBatches.HOLD,Encounters.HOLD,"chronicle_core:chests");
     private static final Map<MinecraftServer,Runtime> WORLDS=new IdentityHashMap<>();
     private EventRuntime(){}
 
@@ -55,7 +55,7 @@ public final class EventRuntime {
         if(creating&&(configurations(server).containsKey(id)||configurations(server).size()>=ObservationCatalog.MAX_DEFINITIONS))throw new IllegalStateException("That Event already exists, or the Event limit has been reached.");
         if(!creating){var current=configuration(server,id);if(current.definition().revision()!=form.revision())throw new IllegalStateException("The Event changed; reopen it.");}
         var mode=PlayState.Mode.valueOf(form.mode());
-        boolean progressOnly=form.message().isBlank()&&form.sound().isEmpty()&&form.changes().isEmpty()&&!form.flagChanges().isEmpty();
+        boolean progressOnly=form.message().isBlank()&&form.sound().isEmpty()&&form.changes().isEmpty()&&form.encounterActions().isEmpty()&&!form.flagChanges().isEmpty();
         var audienceType=progressOnly?ObservationCatalog.Audience.PARTICIPANTS:ObservationCatalog.Audience.valueOf(form.audience());
         Optional<EventRegionReference> audience=audienceType==ObservationCatalog.Audience.PARTICIPANTS?Optional.empty():pin(server,form.audienceRegion(),form.audienceRegionRevision());
         Optional<EventRegionReference> trigger=mode==PlayState.Mode.ENTRY?pin(server,form.triggerRegion(),form.triggerRegionRevision()):Optional.empty();
@@ -66,11 +66,17 @@ public final class EventRuntime {
             if(!area.bounds().matches(AreaChanges.currentRegion(server,area))||area.revision()!=choice.areaRevision()||!snapshot.sha256().equals(choice.snapshotHash()))throw new IllegalStateException("A saved Region state changed; select it again.");
             changes.add(new EventRegionChange(new EventRegionReference(area.bounds().regionId(),area.bounds().regionRevision()),area.id(),area.revision(),state,snapshot));
         }
-        var definition=new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges());
+        List<EventEncounterAction> encounterActions=new ArrayList<>();
+        for(var action:form.encounterActions()){
+            Optional<io.github.chronicle.core.encounters.EncounterTarget> target=action.targetKind().equals("GROUP")?Optional.empty():Optional.of(new io.github.chronicle.core.encounters.EncounterTarget(io.github.chronicle.core.encounters.EncounterTarget.Kind.valueOf(action.targetKind()),action.siteId(),action.siteRevision()));
+            if(!action.current())throw new IllegalStateException("An encounter group or map target is missing or changed; choose it again.");encounterActions.add(new EventEncounterAction(action.groupId(),target));
+        }
+        var definition=encounterActions.isEmpty()?new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges()):new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges(),encounterActions);
         sound(definition.sound());for(String flag:form.requiredFlags())validateFlag(server,flag);
         for(String flag:form.flagChanges().keySet())validateFlag(server,flag);
         long delay=Math.multiplyExact(form.seconds(),20);
         if(mode==PlayState.Mode.SYSTEM)EventSources.validate(server,form.source());
+        Encounters.validate(server,definition.encounterActions());
         var configuration=new EventConfiguration(definition,mode,trigger,service.elapsedTicks(),delay,form.requiredFlags(),true,mode==PlayState.Mode.SYSTEM?form.source():EventSource.empty());
         write(server,()->service.putEvent(configuration,expected,creating));
         write(server,()->EventProgressRuntime.arm(server,configuration));
@@ -90,7 +96,7 @@ public final class EventRuntime {
     }
     private static void changeEnabled(ServerPlayerEntity player,String id,boolean enabled)throws IOException{
         requireEditing(player);var server=server(player);var old=configuration(server,id);var service=PlayRuntime.service(server);var d=old.definition();
-        var next=new EventDefinition(d.id(),service.nextEventRevision(),d.label(),d.description(),d.text(),d.sound(),d.audience(),d.audienceRegion(),d.changes(),d.flagChanges(),d.formatVersion());
+        var next=new EventDefinition(d.id(),service.nextEventRevision(),d.label(),d.description(),d.text(),d.sound(),d.audience(),d.audienceRegion(),d.changes(),d.flagChanges(),d.encounterActions(),d.formatVersion());
         var configuration=new EventConfiguration(next,PlayState.Mode.MANUAL,old.triggerRegion(),service.elapsedTicks(),0,old.requiredFlags(),enabled,old.source(),old.formatVersion());
         var expected=stored(server,id);write(server,()->service.putEvent(configuration,expected,false));
         write(server,()->EventProgressRuntime.arm(server,configuration));
@@ -112,7 +118,7 @@ public final class EventRuntime {
         String names=recipients.stream().limit(8).map(p->p.getName().getString()).reduce((a,b)->a+", "+b).orElse("");
         String targets=c.definition().changes().stream().map(change->change.region().id()+" -> "+change.state()).reduce((a,b)->a+"; "+b).orElse("none");
         String world=c.definition().changes().isEmpty()?"":" Saved states replace blocks and container contents; replaced contents are discarded.";
-        return new Review(c,campaign.sessionNumber(),ids(recipients),System.nanoTime(),c.definition().label()+": "+recipients.size()+" recipients ("+names+"). Region changes: "+targets+". Flag updates: "+c.definition().flagChanges()+". Delay: "+c.delayTicks()/20+" active seconds."+world+" All targets are checked before any change.");
+        return new Review(c,campaign.sessionNumber(),ids(recipients),System.nanoTime(),c.definition().label()+": "+recipients.size()+" recipients ("+names+"). Region changes: "+targets+". Encounter spawns: "+c.definition().encounterActions().size()+". Flag updates: "+c.definition().flagChanges()+". Delay: "+c.delayTicks()/20+" active seconds."+world+" Current pins and deterministic encounter geometry are checked now. When run, saved Region changes commit first; encounter loaded-space checks and spawning follow against that resulting world; flags and media follow afterward. These durable stages are not one terrain-and-entity atomic transaction.");
     }
     public static void run(ServerPlayerEntity player,String id,Review review)throws IOException{
         requireOperator(player);var server=server(player);if(review==null||!review.configuration().definition().id().equals(id))throw new IllegalStateException("Review this Event before running it.");
@@ -154,9 +160,11 @@ public final class EventRuntime {
         Runtime r=runtime(server);requireNoPending(server);unclaimed(server,c.definition().id());var campaign=active(server);validate(server,c);requireFlag(c,campaign);
         UUID operation=UUID.randomUUID();int session=campaign.sessionNumber();
         if(!c.definition().flagChanges().isEmpty())ChronicleRuntime.service(server).requireEventFlagCapacity(operation);
+        if(!c.definition().encounterActions().isEmpty())Encounters.requireCapacity(server,c.definition().encounterActions().size());
         if(c.definition().changes().isEmpty()){
-            EventExecution execution=new EventExecution(c.definition().id(),operation,c,EventExecution.Phase.EVENT_OUTCOME,source,actor,session,PlayRuntime.elapsedTicks(server),recipients,"","");
-            write(server,()->PlayRuntime.service(server).beginExecution(execution));RuntimeHolds.hold(server,HOLD,"An Event is completing its outcome.");finishMedia(server,execution);return;
+            EventExecution.Phase phase=c.definition().encounterActions().isEmpty()?EventExecution.Phase.EVENT_OUTCOME:EventExecution.Phase.ENCOUNTER_EFFECTS;
+            EventExecution execution=new EventExecution(c.definition().id(),operation,c,phase,source,actor,session,PlayRuntime.elapsedTicks(server),recipients,"","");
+            write(server,()->PlayRuntime.service(server).beginExecution(execution));RuntimeHolds.hold(server,HOLD,phase==EventExecution.Phase.EVENT_OUTCOME?"An Event is completing its outcome.":"An Event is spawning its exact encounter plan.");if(phase==EventExecution.Phase.EVENT_OUTCOME)finishMedia(server,execution);return;
         }
         r.preparing=operation;RuntimeHolds.hold(server,HOLD,"An Event is checking its saved Region changes.");
         var eligible=(java.util.function.BooleanSupplier)()->eligible(server,c,session,source,actor,true)&&ids(audience(server,c)).equals(recipients);
@@ -197,7 +205,7 @@ public final class EventRuntime {
             if(c.formatVersion()==1||!c.enabled()||play.executions().containsKey(id)||play.deliveries().containsKey(id))continue;
             try{
                 var progress=EventProgressRuntime.observe(server,c,null,false);
-                if(campaign.phase()==SessionPhase.ENDED&&c.delayTicks()==0&&EventProgressRuntime.trustedCompletion(server,c)
+                if(campaign.phase()==SessionPhase.ENDED&&c.definition().encounterActions().isEmpty()&&c.delayTicks()==0&&EventProgressRuntime.trustedCompletion(server,c)
                         &&flagSatisfied(c,campaign)&&!hasPending(server)&&RuntimeHolds.reason(server)==null){
                     validate(server,c);UUID operation=UUID.randomUUID();ChronicleRuntime.service(server).requireEventFlagCapacity(operation);
                     var execution=new EventExecution(id,operation,c,EventExecution.Phase.EVENT_OUTCOME,PlayState.DeliverySource.SYSTEM,
@@ -218,13 +226,20 @@ public final class EventRuntime {
             var pending=pending(server);if(pending.isEmpty())return;EventExecution e=pending.getFirst();
             if(e.phase()==EventExecution.Phase.MEDIA_CLAIMED){advance(server,e,EventExecution.Phase.MEDIA_UNCERTAIN,"Media was claimed but final delivery is uncertain; no automatic replay.");RuntimeHolds.release(server,HOLD);return;}
             if(e.phase()==EventExecution.Phase.EVENT_OUTCOME){if(outcomeEligible(server,e))finishMedia(server,e);return;}
+            if(e.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS){
+                EventExecution pinned=e;
+                var eligible=(java.util.function.BooleanSupplier)()->eligible(server,pinned.configuration(),pinned.session(),pinned.source(),authority(server,pinned),false);
+                if(!eligible.getAsBoolean())return;
+                if(Encounters.progress(server,pinned,eligible)==Encounters.Progress.COMPLETE)advance(server,pinned,EventExecution.Phase.EVENT_OUTCOME,"All encounter entities were durably spawned before Event outcomes.");
+                return;
+            }
             if(e.phase()==EventExecution.Phase.CONFLICT)return;
             if(!EventWorldBatches.ready(server))return;
             var status=EventWorldBatches.status(server,e.operationId());
             if(status.isPresent()&&status.get()==EventWorldBatches.Status.CONFLICT){advance(server,e,EventExecution.Phase.CONFLICT,EventWorldBatches.problem(server));return;}
             if(status.isPresent()&&status.get()==EventWorldBatches.Status.WORLD_COMMITTED){
                 if(e.phase()!=EventExecution.Phase.WORLD_COMMITTED)e=advance(server,e,EventExecution.Phase.WORLD_COMMITTED,"All Region terrain and aggregate metadata committed.");
-                advance(server,e,EventExecution.Phase.EVENT_OUTCOME,"");return;
+                advance(server,e,e.configuration().definition().encounterActions().isEmpty()?EventExecution.Phase.EVENT_OUTCOME:EventExecution.Phase.ENCOUNTER_EFFECTS,"");return;
             }
             if(!eligible(server,e.configuration(),e.session(),e.source(),authority(server,e),false))return;
             if(!e.operationId().equals(r.attached))attach(server,e);
@@ -242,7 +257,7 @@ public final class EventRuntime {
         requireOperator(player);var server=server(player);Runtime r=runtime(server);var e=PlayRuntime.service(server).state().executions().get(id);
         if(e==null||e.terminal()||e.phase()==EventExecution.Phase.MEDIA_CLAIMED)throw new IllegalStateException("That Event has no recoverable world operation.");
         // Explicit recovery grants this live operator authority; the original run actor remains immutable.
-        boolean outcome=e.phase()==EventExecution.Phase.EVENT_OUTCOME||e.phase()==EventExecution.Phase.WORLD_COMMITTED;
+        boolean outcome=e.phase()==EventExecution.Phase.EVENT_OUTCOME||e.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS||e.phase()==EventExecution.Phase.WORLD_COMMITTED;
         UUID supervisor=e.source()==PlayState.DeliverySource.MANUAL?player.getUuid():e.actor();
         if(!(outcome?outcomeEligible(server,e):eligible(server,e.configuration(),e.session(),e.source(),supervisor,false)))throw new IllegalStateException("Restore active play, participation and the operation's prerequisites before recovery.");
         if(!outcome&&e.source()==PlayState.DeliverySource.MANUAL){
@@ -250,11 +265,19 @@ public final class EventRuntime {
             r.recoveryOperation=e.operationId();r.recoveryActor=player.getUuid();
         }
         if(e.phase()==EventExecution.Phase.CONFLICT){attach(server,e);advance(server,e,EventExecution.Phase.PREPARED,"Exact recovery requested by "+player.getUuidAsString());}
-        else if(e.phase()!=EventExecution.Phase.EVENT_OUTCOME&&e.phase()!=EventExecution.Phase.WORLD_COMMITTED)attach(server,e);
+        else if(e.phase()!=EventExecution.Phase.EVENT_OUTCOME&&e.phase()!=EventExecution.Phase.ENCOUNTER_EFFECTS&&e.phase()!=EventExecution.Phase.WORLD_COMMITTED)attach(server,e);
         r.attached=e.operationId();
     }
     public static void acknowledge(ServerPlayerEntity player,String id)throws IOException{
         requireOperator(player);var server=server(player);write(server,()->PlayRuntime.service(server).acknowledgeEventMedia(id));
+    }
+
+    /** Re-enables only the exact parent after its uncertain child was durably accepted by an operator. */
+    static void encounterReviewAccepted(MinecraftServer server,String eventId,UUID operation){
+        Runtime runtime=WORLDS.get(server);if(runtime==null)throw new IllegalStateException("Events are unavailable");
+        EventExecution execution=PlayRuntime.service(server).state().executions().get(eventId);
+        if(execution==null||!execution.operationId().equals(operation)||execution.phase()!=EventExecution.Phase.ENCOUNTER_EFFECTS)throw new IllegalStateException("The parent Event changed before encounter review was accepted");
+        runtime.failure=null;runtime.attached=operation;RuntimeHolds.hold(server,HOLD,"A reviewed encounter result is waiting for normal Event prerequisites before outcomes.");
     }
 
     private static void finishMedia(MinecraftServer server,EventExecution e)throws IOException{
@@ -302,6 +325,7 @@ public final class EventRuntime {
         if(stored(server,c.definition().id())==null){var old=ChronicleCore.observations().get(c.definition().id()).orElseThrow();PlayRuntime.service(server).validate(old,AuthoringRuntime.get(server).service().state(),c.definition().id());}
         c.definition().audienceRegion().ifPresent(p->region(server,p));c.triggerRegion().ifPresent(p->region(server,p));sound(c.definition().sound());for(String flag:c.requiredFlags())validateFlag(server,flag);
         for(String flag:c.definition().flagChanges().keySet())validateFlag(server,flag);
+        Encounters.validate(server,c.definition().encounterActions());
         if(c.mode()==PlayState.Mode.SYSTEM){
             try{EventSources.validate(server,c.source());}
             catch(IllegalArgumentException unavailable){

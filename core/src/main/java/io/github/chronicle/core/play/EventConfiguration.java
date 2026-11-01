@@ -25,7 +25,8 @@ public record EventConfiguration(EventDefinition definition, PlayState.Mode mode
 
     public EventConfiguration(EventDefinition definition, PlayState.Mode mode, Optional<EventRegionReference> triggerRegion,
                               long armedAtTicks, long delayTicks, List<String> requiredFlags, boolean enabled, EventSource source) {
-        this(definition, mode, triggerRegion, armedAtTicks, delayTicks, requiredFlags, enabled, source, 2);
+        this(definition, mode, triggerRegion, armedAtTicks, delayTicks, requiredFlags, enabled, source,
+                definition != null && definition.formatVersion() >= 3 ? 3 : 2);
     }
 
     public EventConfiguration {
@@ -34,7 +35,8 @@ public record EventConfiguration(EventDefinition definition, PlayState.Mode mode
         Objects.requireNonNull(triggerRegion, "event trigger Region reference is required");
         Objects.requireNonNull(source, "event source is required");
         Objects.requireNonNull(requiredFlags, "required flags are required");
-        if (formatVersion != 1 && formatVersion != 2) throw new IllegalArgumentException("unsupported event configuration format");
+        if (formatVersion < 1 || formatVersion > 3) throw new IllegalArgumentException("unsupported event configuration format");
+        if (definition.formatVersion() != formatVersion) throw new IllegalArgumentException("event definition and configuration formats must match");
         if (requiredFlags.size() > MAX_FLAGS) throw new IllegalArgumentException("too many required flags");
         TreeSet<String> flags = new TreeSet<>();
         for (String flag : requiredFlags) {

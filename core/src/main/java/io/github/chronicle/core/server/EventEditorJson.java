@@ -22,12 +22,22 @@ public final class EventEditorJson {
             "id", "revision", "name", "description", "message", "sound", "audience", "audienceRegion",
             "audienceRegionRevision", "mode", "triggerRegion", "triggerRegionRevision", "seconds", "flag",
             "changes", "creating");
+    private static final Set<String> FIELDS_V3 = Set.of(
+            "id", "revision", "name", "description", "message", "sound", "audience", "audienceRegion",
+            "audienceRegionRevision", "mode", "triggerRegion", "triggerRegionRevision", "seconds", "flag",
+            "changes", "creating", "encounterActions");
     private static final Set<String> CURRENT_FIELDS = Set.of(
             "id", "revision", "name", "description", "message", "sound", "audience", "audienceRegion",
             "audienceRegionRevision", "mode", "triggerRegion", "triggerRegionRevision", "seconds", "requiredFlags",
             "changes", "creating", "flagChanges", "source");
+    private static final Set<String> CURRENT_FIELDS_V3 = Set.of(
+            "id", "revision", "name", "description", "message", "sound", "audience", "audienceRegion",
+            "audienceRegionRevision", "mode", "triggerRegion", "triggerRegionRevision", "seconds", "requiredFlags",
+            "changes", "creating", "flagChanges", "source", "encounterActions");
     private static final Set<String> CHANGE_FIELDS = Set.of(
             "regionId", "label", "state", "areaRevision", "snapshotHash", "dimension", "current", "problem");
+    private static final Set<String> ENCOUNTER_FIELDS = Set.of(
+            "groupId","groupLabel","targetKind","siteId","siteLabel","siteRevision","current","problem");
 
     private EventEditorJson() { }
 
@@ -68,6 +78,9 @@ public final class EventEditorJson {
             changes.add(value);
         }
         object.add("changes", changes);
+        JsonArray encounterActions=new JsonArray();
+        for(EventEditorForm.EncounterAction action:form.encounterActions()){JsonObject value=new JsonObject();value.addProperty("groupId",action.groupId());value.addProperty("groupLabel",action.groupLabel());value.addProperty("targetKind",action.targetKind());value.addProperty("siteId",action.siteId());value.addProperty("siteLabel",action.siteLabel());value.addProperty("siteRevision",action.siteRevision());value.addProperty("current",action.current());value.addProperty("problem",action.problem());encounterActions.add(value);}
+        object.add("encounterActions",encounterActions);
         object.addProperty("creating", form.creating());
         String encoded = object.toString();
         bounded(encoded);
@@ -77,8 +90,8 @@ public final class EventEditorJson {
     public static EventEditorForm decode(String encoded) {
         bounded(encoded);
         JsonObject object = BookConfig.strictObject(encoded);
-        boolean legacy = object.has("flag");
-        exact(object, legacy ? FIELDS : CURRENT_FIELDS, "event editor");
+        boolean legacy = object.has("flag");boolean v3=object.has("encounterActions");
+        exact(object, legacy ? (v3?FIELDS_V3:FIELDS) : v3?CURRENT_FIELDS_V3:CURRENT_FIELDS, "event editor");
         List<String> requirements = new ArrayList<>();
         Map<String, Boolean> flags = new TreeMap<>();
         EventSource source = EventSource.empty();
@@ -108,12 +121,14 @@ public final class EventEditorJson {
                     number(value, "areaRevision"), string(value, "snapshotHash"), string(value, "dimension"),
                     bool(value, "current"), string(value, "problem")));
         }
+        List<EventEditorForm.EncounterAction> encounterActions=new ArrayList<>();
+        if(v3){JsonArray actionValues=array(required(object,"encounterActions"),"event encounter actions");if(actionValues.size()>EventEditorForm.MAX_ENCOUNTER_ACTIONS)throw new IllegalArgumentException("too many event encounter actions");for(JsonElement element:actionValues){JsonObject value=object(element,"event encounter action");exact(value,ENCOUNTER_FIELDS,"event encounter action");encounterActions.add(new EventEditorForm.EncounterAction(string(value,"groupId"),string(value,"groupLabel"),string(value,"targetKind"),string(value,"siteId"),string(value,"siteLabel"),number(value,"siteRevision"),bool(value,"current"),string(value,"problem")));}}
         return new EventEditorForm(
                 string(object, "id"), number(object, "revision"), string(object, "name"),
                 string(object, "description"), string(object, "message"), string(object, "sound"),
                 string(object, "audience"), string(object, "audienceRegion"), number(object, "audienceRegionRevision"),
                 string(object, "mode"), string(object, "triggerRegion"), number(object, "triggerRegionRevision"),
-                number(object, "seconds"), requirements, changes, bool(object, "creating"), flags, source);
+                number(object, "seconds"), requirements, changes, bool(object, "creating"), flags, source,encounterActions);
     }
 
     private static void bounded(String encoded) {

@@ -1,5 +1,13 @@
 # Bootstrap validation
 
+## 1 November: dev65 deferred Core tools and Altar offerings
+
+[Implementation/results](DEFERRED_TOOLS_RESULTS.md), [combined organizer review](DEFERRED_TOOLS_REVIEW.md), [remaining work](OUTSTANDING_WORK.md). Final offline `gradlew.bat --offline --no-daemon build :campaigns:quiet-below:writeSmokeClientLaunch` passes in 2m1s (`../reports/deferred-final-build-12.log`): **712 Java tests, 705 passed/seven Windows symlink-privilege skips**, zero failures/errors, both remaps and client launch. Python discovery passes114. Source reviews are clear after atomic encounter-catalog/full-footprint corrections; the lead inspected native frames and the integrated diff. Quiet Below now declares Core dev65 as its minimum.
+
+Native evidence covers copied-world/bundled-content role sources and exact archived retries; all four temporary Altar prayers with real death, reconnect, downtime, expiry and uncertainty; actual new prayer-page transport/stale tokens; bounded encounter spawning, world-save/restart/archive, invalid geometry, unloaded full footprints, zero partial spawns on blocked later candidates and explicit uncertain-result acceptance. The native group/Event editor creates and saves through normal transport at640-wide and320-wide layouts, including the minimum320x240 popup and generated IDs/labeled fields. Existing Events pass actual JVM interruption/media/outcome recovery and262144-cell/64-chunk preflight; existing menu layouts/restart and six lasting prayers with optional HUD also pass. Exact report directories and the scope of each proof are tabulated in the results document.
+
+Earlier failed reports are retained. Their final corrections distinguish actual UI/projection bugs from test setup errors; an attempted paused workstation open was correctly refused and its fixture now resumes play. No source world or original soak evidence was reset, no new three-hour run was required, and no main merge or Modrinth publication was performed. The dev65 review uses a separate authenticated disposable plot; the previous review world remains intact. Pack/deployment hashes and live status are recorded outside Git in the dev65 validation receipts.
+
 ## 28 October: dev64 shared picker navigation/alignment
 
 [Change and diagnosis](PICKER_NAVIGATION.md), [current outstanding work](OUTSTANDING_WORK.md). Final `workspace.build()` PASS2m4s:633 Java tests,628passed/5Windows symlink-privilege skips, no failures/errors; Python unittest discovery PASS93. No new unit tests mirror this low-impact UI patch; the regression drives actual paging and widgets. Matching artifact hashes are in `../reports/dev64-validation.json`.

@@ -55,7 +55,7 @@ public final class AncientAltarTrial {
         LastingBargains.registerGroup(PAGE_GROUP,pages);
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("chronicle_bargain_trial").requires(source -> source.hasPermissionLevel(2));
-            for (String verb : List.of("identity","basic","food","prepare","safety","proof_prepare","proof_check","life_after","feet_after","strong_slow","clear_slow","slow_timer","exhaustion","replay_prepare","replay_check","out_of_reach","return_to_altar","cut_power","restore_power","closed_check","pages","preview_foreign","preview_clean","expire","no_purchase","open","ui_check","death","respawn_check","orphan_death","orphan_respawn_repair","save","restart","corrupt","ending","ended","render","itemrender")) {
+            for (String verb : List.of("identity","basic","food","prepare","safety","proof_prepare","proof_check","life_after","feet_after","strong_slow","clear_slow","slow_timer","exhaustion","replay_prepare","replay_check","out_of_reach","return_to_altar","cut_power","restore_power","closed_check","pages","preview_foreign","preview_clean","expire","no_purchase","resume","open","ui_check","death","respawn_check","orphan_death","orphan_respawn_repair","save","restart","corrupt","ending","ended","render","itemrender")) {
                 root.then(literal(verb).executes(context -> run(context.getSource(), verb)));
             }
             dispatcher.register(root);
@@ -125,7 +125,18 @@ public final class AncientAltarTrial {
                     player.getAttributeInstance(EntityAttributes.MAX_HEALTH).removeModifier(id);
                     player.getAttributeInstance(EntityAttributes.MOVEMENT_SPEED).removeModifier(id);
                 }
-                case "open" -> { AncientAltars.open(player,ALTAR); check(token(player)!=null,"Altar did not issue an offer"); }
+                case "resume" -> {
+                    if(ChronicleRuntime.service(server).state().phase().name().equals("PAUSED"))resume(player);
+                    check(ChronicleRuntime.service(server).state().phase().name().equals("ACTIVE"),"workstation fixture must resume active play");
+                }
+                case "open" -> {
+                    var chunk=world.getChunkManager().getWorldChunk(ALTAR.getX()>>4,ALTAR.getZ()>>4);
+                    check(chunk!=null,"Altar chunk is not loaded");
+                    check(chunk.getBlockState(ALTAR).isOf(QuietBelow.ANCIENT_ALTAR_BLOCK),"Altar block changed to "+chunk.getBlockState(ALTAR));
+                    boolean cached=chunk.getBlockEntities().containsKey(ALTAR);
+                    AncientAltars.open(player,ALTAR);
+                    check(token(player)!=null,"Altar did not issue an offer; cached before="+cached+", present after="+chunk.getBlockEntities().containsKey(ALTAR));
+                }
                 case "ui_check","restart","respawn_check" -> {purchased(player);
                     if(verb.equals("respawn_check"))check(!player.hasStatusEffect(net.minecraft.entity.effect.StatusEffects.SLOWNESS),"vanilla death did not clear transient Slowness");
                 }

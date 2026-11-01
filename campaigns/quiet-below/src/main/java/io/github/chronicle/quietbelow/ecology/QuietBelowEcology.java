@@ -304,7 +304,9 @@ public final class QuietBelowEcology {
                 r.claimProblem=claimProblem(server,r.engine.claim());
                 if(r.claimProblem==null&&ChronicleRuntime.service(server).state().phase()!=SessionPhase.ACTIVE)r.engine.claimTick(world);
             } else r.claimProblem=null;
+            long growthBefore=r.engine.spreadAttempts();
             if(r.rootProblem==null)r.engine.tick(world,playing(server));else r.engine.flushVitality();
+            if(r.engine.spreadAttempts()>growthBefore){r.harvestBaseAttempts++;for(var aura:io.github.chronicle.quietbelow.content.TemporaryAltarOfferings.growthAuras(server,r.engine.setup().dimension()))if(aura.growthPercent()>100){int extra=aura.growthPercent()-100;if((r.harvestBaseAttempts*extra)%100<extra)r.engine.harvestOpportunity(world,new Pos(aura.x(),aura.y(),aura.z()),aura.radius());}}
             int priorHeartElapsed=r.engine.heartElapsed();
             if(priorHeartElapsed<r.lastHeartElapsed)resetDefianceSignals(r);
             EcologyHeart.Transition heart=r.engine.heartTick(r.rootProblem==null,playing(server));
@@ -336,7 +338,7 @@ public final class QuietBelowEcology {
             r.lastHeartElapsed=heart.current();
             if(server.getTicks()%20==0)heartAppearance(world.world,r);
             if(!r.crops.rules().equals(r.engine.cropRules()))r.crops=new EcologyCrops(r.engine.cropRules());
-            try{r.crops.tick(new EcologyCropWorld(world.world),r.engine,r.rootProblem==null&&playing(server));}
+            try{String dimension=r.engine.setup().dimension();r.crops.tick(new EcologyCropWorld(world.world),r.engine,r.rootProblem==null&&playing(server),p->io.github.chronicle.quietbelow.content.TemporaryAltarOfferings.cropPercent(server,dimension,p.x(),p.y(),p.z()));}
             catch(Exception e){r.crops.fail("Crop boost held: "+e.getMessage());QuietBelow.LOGGER.error("Quiet Below crop boost held; ecology retained",e);}
             if(!r.recovery.rules().equals(r.engine.recoveryRules()))r.recovery=new EcologyRecovery(r.engine.recoveryRules());
             try{r.recovery.tick(new EcologyRecoveryWorld(server,world.world,r.engine,r.recovery,()->r.rootProblem==null&&playing(server)),r.engine,r.rootProblem==null&&playing(server));}
@@ -937,7 +939,7 @@ public final class QuietBelowEcology {
                     io.github.chronicle.core.server.EventSources.id(endingAuthority,endingSource.type(),endingSource.target(),""),endingSource,endingAuthority);
             e.eradicate(endingOperation,pos(position),encode(actual),true);
             io.github.chronicle.core.server.EventSources.complete(world.getServer(),sourceReceipt,true);
-            try{OfferingStats.closeSource(world.getServer(),AncientAltars.SOURCE);r.sourceClosed=true;}
+            try{OfferingStats.closeSource(world.getServer(),AncientAltars.SOURCE);io.github.chronicle.core.server.TemporaryOfferings.closeSource(world.getServer(),AncientAltars.SOURCE);r.sourceClosed=true;}
             catch(IOException|RuntimeException failure){QuietBelow.LOGGER.error("Heart ended durably; Altar source closure will retry during cleanup",failure);}
             EcologyCostEffects.clear(world.getServer());
             for(var witness:world.getServer().getPlayerManager().getPlayerList())if(witness.getEntityWorld()==world&&witness.squaredDistanceTo(position.toCenterPos())<=25)
@@ -951,7 +953,7 @@ public final class QuietBelowEcology {
     private static void endingTick(MinecraftServer server,Runtime r){
         try{
             attach(server,r);
-            if(!r.sourceClosed){OfferingStats.closeSource(server,AncientAltars.SOURCE);r.sourceClosed=true;}
+            if(!r.sourceClosed){OfferingStats.closeSource(server,AncientAltars.SOURCE);io.github.chronicle.core.server.TemporaryOfferings.closeSource(server,AncientAltars.SOURCE);r.sourceClosed=true;}
             if(r.eradication==null)r.eradication=new EcologyEradication(r.engine.ending(),r.engine.endingRoot(),r.engine.endingRootState(),r.engine.cells());
             if(r.endingWorkTick!=server.getTicks()){r.endingWorkTick=server.getTicks();r.eradication.tick(adapter(server,r.engine.setup().dimension()).world,playing(server));}
             r.endingProblem=r.eradication.failure();
@@ -1126,7 +1128,7 @@ public final class QuietBelowEcology {
     @FunctionalInterface interface DefianceEffect { boolean run(); }
     record DefianceEffectResult(DefiancePhase phase,boolean value,RuntimeException failure) { }
     private static final class Runtime {
-        final EcologyEngine engine;EcologyJournal journal;final HeartDefianceStore defianceStore;int settlingWrites,endingWorkTick=Integer.MIN_VALUE,lastHeartElapsed;long menuRevision,lastTickNanos;boolean failureLogged,appearanceFailureLogged,defianceFailureLogged,defianceEffectFailureLogged;String rootProblem,claimProblem,defianceProblem;HeartDefianceStore.State defiance;DefiancePhase defiancePhase=DefiancePhase.UNDECIDED;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;EcologyEradication eradication;boolean sourceClosed,endingHeld;String endingProblem,lastEndingHold;
+        final EcologyEngine engine;EcologyJournal journal;final HeartDefianceStore defianceStore;int settlingWrites,endingWorkTick=Integer.MIN_VALUE,lastHeartElapsed;long menuRevision,lastTickNanos,harvestBaseAttempts;boolean failureLogged,appearanceFailureLogged,defianceFailureLogged,defianceEffectFailureLogged;String rootProblem,claimProblem,defianceProblem;HeartDefianceStore.State defiance;DefiancePhase defiancePhase=DefiancePhase.UNDECIDED;EcologyCleanup cleanup;EcologyCrops crops;EcologyRecovery recovery;EcologyCosts costs;EcologyEradication eradication;boolean sourceClosed,endingHeld;String endingProblem,lastEndingHold;
         final ExecutorService maintenanceWorker=Executors.newSingleThreadExecutor(task->{Thread thread=new Thread(task,"Chronicle ecology journal maintenance");thread.setDaemon(true);return thread;});
         CompletableFuture<EcologyAutomaticCompaction.Result> maintenanceJob;
         EcologyMaintenancePolicy maintenancePolicy=EcologyMaintenancePolicy.DEFAULT;
