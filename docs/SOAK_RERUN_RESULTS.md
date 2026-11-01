@@ -44,8 +44,14 @@ The normal dumponexit recording is zero bytes because the VM was killed. A separ
 
 The recovered file is 254,608,689 bytes and covers 09:26:02 to 12:26:23 UTC. It therefore covers most of the measured run plus most of the shutdown wait, with the first approximately 64 measurement seconds absent from retained fragments. It is partial recovery, not successful original finalization. Evidence: `jfr-recovery.json`, `recovered-complete-jfr-summary.txt`, `shutdown-profile-analysis.json`, and `terminal-execution-samples.json` in the report directory.
 
-## Next work
+## Follow-up at diagnosis
 
 Reproduce shutdown with a disposable copy of the retained city-scale journal, then address maintenance drain/throughput and the supervisor's bounded stop strategy. Preserve transaction verification and world ownership; do not cancel/promote a checkpoint blindly or merely relabel the run PASS. Capture a profiler dump and progress/thread evidence before any forced stop, and make all final outcome fields agree after cleanup.
 
 A focused shutdown regression can exercise the retained size without another three-hour growth run immediately. No gameplay repair, additional test run or shutdown code change was performed during this check. All four isolated processes have ended; the review installation and pack were not deployed or modified. Keep the world, snapshot and prepared candidate for the focused diagnosis. Real group, voice and handcrafted-map testing remain separate gates.
+
+## Subsequent repair and focused regression
+
+The organizer subsequently authorized that repair. On `fix/maintenance-shutdown-drain`, private automatic-checkpoint force batching and observable shutdown draining were implemented while preserving live-journal durability. The supervisor gained a bounded 300-second saving stop, pre-stop profiler capture, timeout diagnostics and consistent final verdict fields.
+
+The [focused captured-journal regression](MAINTENANCE_SHUTDOWN_RESULTS.md) passed: actual maintenance drained and the copied 95,927-cell world saved in about eight seconds, then reopened and saved cleanly again. Both normal recordings and pre-stop snapshots are readable. The original world and this raw soak report were hash checked unchanged. This resolves the reproduced shutdown problem separately; this three-hour run's overall FAIL remains unchanged. No additional three-hour run or review deployment was performed.

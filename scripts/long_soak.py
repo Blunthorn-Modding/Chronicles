@@ -19,6 +19,10 @@ TERMINAL = {"FINISHED", "FAILED", "INTERRUPTED", "CANCELLED"}
 ACTIVE_WORK = {"CONNECTION_ADOPTED", "WRITE_BUDGET", "COUNTDOWN", "GROWTH_ATTEMPT", "HEART_DEFENCE"}
 INACTIVE_WORK = {"NOT_TICKED", "NOT_PLAYING", "DISABLED", "UNINDEXED", "UNCONFIGURED",
                  "TOPOLOGY_UNKNOWN", "TOPOLOGY_REBUILD", "EXTENSION_WAIT", "DISCONNECTED", "MAINTENANCE", "FAILURE"}
+SHUTDOWN_DRAIN_SECONDS = 300
+SHUTDOWN_PROGRESS_SECONDS = 5
+SHUTDOWN_POLL_SECONDS = 1
+SHUTDOWN_DIAGNOSTIC_TIMEOUT_SECONDS = 30
 
 
 def atomic_json(path: Path, value: dict) -> None:
@@ -131,6 +135,112 @@ def summarize_recording(java: Path, reports: Path, manifest: dict) -> bool:
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
         manifest["jfrError"] = str(error)
     return manifest["jfrReadable"]
+
+
+def capture_shutdown_diagnostic(java: Path, pid: int, reports: Path, name: str, command: str,
+                                diagnostics: list[dict], command_runner=subprocess.run) -> None:
+    """Capture best-effort diagnostics from the owned JVM without changing shutdown outcome."""
+    jcmd = java.parent / ("jcmd.exe" if os.name == "nt" else "jcmd")
+    target = reports / name
+    args = [str(jcmd), str(pid), command]
+    if command == "JFR.dump":
+        args.append("name=1")
+        # subprocess handles Windows CRT quoting; jcmd must receive literal DCmd quotes, not backslashes.
+        filename = str(target).replace("\\", "/").replace('"', '\\"')
+        args.append('filename="' + filename + '"')
+    entry = {"name": name, "command": command, "pid": pid}
+    output = target.with_suffix(target.suffix + ".txt") if command == "JFR.dump" else target
+    entry["output"] = str(output)
+    try:
+        with output.open("w", encoding="utf-8") as out:
+            result = command_runner(args, stdout=out, stderr=subprocess.STDOUT,
+                                    timeout=SHUTDOWN_DIAGNOSTIC_TIMEOUT_SECONDS)
+        entry["returncode"] = result.returncode
+        entry["captured"] = result.returncode == 0
+        if command == "JFR.dump" and entry["captured"]:
+            entry["captured"] = target.is_file() and target.stat().st_size > 0
+            if not entry["captured"]:
+                entry["error"] = "JFR dump is missing or empty despite jcmd success"
+    except Exception as error:
+        entry["captured"] = False
+        entry["error"] = str(error)
+    diagnostics.append(entry)
+
+
+def stop_owned_server(server, java: Path, reports: Path, manifest: dict, checkpoint,
+                      clock=time.monotonic, sleeper=time.sleep, command_runner=subprocess.run) -> bool:
+    """Stop only this supervisor's process and retain diagnostic evidence for a slow drain."""
+    if server is None:
+        manifest["cleanServerStop"] = False
+        manifest["shutdownError"] = "Server was never started"
+        return False
+    diagnostics: list[dict] = []
+    manifest["shutdownDiagnostics"] = diagnostics
+    returncode = server.poll()
+    if returncode is not None:
+        manifest["cleanServerStop"] = returncode == 0
+        if returncode != 0:
+            manifest["shutdownError"] = "Server exited before supervisor stop with code " + str(returncode)
+        manifest["shutdown"] = {"state": "already-exited", "returncode": returncode}
+        return returncode == 0
+
+    capture_shutdown_diagnostic(java, server.pid, reports, "server-pre-stop.jfr", "JFR.dump", diagnostics,
+                                command_runner)
+    stop_request_error = None
+    try:
+        server.stdin.write("stop\n")
+        server.stdin.flush()
+    except OSError as error:
+        stop_request_error = "Could not request server stop: " + str(error)
+        manifest["shutdownStopRequestError"] = stop_request_error
+
+    started = clock()
+    deadline = started + SHUTDOWN_DRAIN_SECONDS
+    next_progress = started
+    while server.poll() is None:
+        now = clock()
+        if now >= deadline:
+            capture_shutdown_diagnostic(java, server.pid, reports, "server-timeout.jfr", "JFR.dump", diagnostics,
+                                        command_runner)
+            capture_shutdown_diagnostic(java, server.pid, reports, "server-timeout-threads.txt", "Thread.print",
+                                        diagnostics, command_runner)
+            try:
+                server.kill()
+                server.wait(timeout=15)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                manifest["shutdownKillError"] = str(error)
+            manifest["cleanServerStop"] = False
+            manifest["shutdownError"] = "Server did not stop within " + str(SHUTDOWN_DRAIN_SECONDS) + " seconds"
+            manifest["shutdown"] = {"state": "killed-after-timeout", "elapsedSeconds": now - started,
+                                    "returncode": server.poll()}
+            return False
+        if now >= next_progress:
+            try:
+                checkpoint("STOPPING", shutdownElapsedSeconds=now - started,
+                           shutdownDeadlineSeconds=SHUTDOWN_DRAIN_SECONDS, outcome=manifest.get("outcome"))
+            except Exception as error:
+                manifest.setdefault("shutdownProgressErrors", []).append(str(error))
+            next_progress = now + SHUTDOWN_PROGRESS_SECONDS
+        sleeper(min(SHUTDOWN_POLL_SECONDS, deadline - now))
+
+    returncode = server.returncode if server.returncode is not None else server.poll()
+    manifest["cleanServerStop"] = returncode == 0
+    manifest["shutdown"] = {"state": "stopped", "elapsedSeconds": clock() - started, "returncode": returncode}
+    if returncode != 0:
+        manifest["shutdownError"] = "Server exited during supervisor stop with code " + str(returncode)
+    elif stop_request_error:
+        manifest["shutdownError"] = stop_request_error
+    return returncode == 0
+
+
+def finalize_outcome(outcome: str, clean_server_stop: bool, review_unchanged: bool,
+                     recording_readable: bool) -> str:
+    """Derive the only final verdict after every cleanup outcome is known."""
+    if outcome == "PASS" and clean_server_stop and review_unchanged and recording_readable:
+        return "PASS"
+    if outcome in {"CANCELLED", "INTERRUPTED"} and clean_server_stop and review_unchanged:
+        return outcome
+    return "FAIL"
 
 
 def snapshot_launch(launch: dict, repo: Path, root: Path) -> dict:
@@ -295,12 +405,7 @@ def run(seconds: int, run_id: str) -> dict:
     finally:
         checkpoint("STOPPING", error=failure, outcome=outcome)
         outcome = await_completed_clients(manifest.get("summary", {}), reports, clients, manifest, outcome)
-        try:
-            f._stop(server)
-            manifest["cleanServerStop"] = True
-        except BaseException as error:
-            manifest["shutdownError"] = str(error)
-            outcome = "FAIL"
+        clean_server_stop = stop_owned_server(server, w.JAVA, reports, manifest, checkpoint)
         for process, handle in clients:
             try:
                 process.wait(timeout=20)
@@ -315,11 +420,9 @@ def run(seconds: int, run_id: str) -> dict:
         if server_log is not None:
             server_log.close()
         manifest["reviewArtifactsUnchanged"] = before == review_artifacts(w.WORK)
-        if not manifest["reviewArtifactsUnchanged"]:
-            outcome = "FAIL"
-        if not summarize_recording(w.JAVA, reports, manifest) and outcome == "PASS":
-            outcome = "FAIL"
-        checkpoint(outcome, finishedUTC=datetime.now(timezone.utc).isoformat())
+        recording_readable = summarize_recording(w.JAVA, reports, manifest)
+        outcome = finalize_outcome(outcome, clean_server_stop, manifest["reviewArtifactsUnchanged"], recording_readable)
+        checkpoint(outcome, outcome=outcome, finishedUTC=datetime.now(timezone.utc).isoformat())
         atomic_json(reports / "report.json", manifest)
         print(json.dumps({key: manifest.get(key) for key in ("result", "reports", "world", "error", "measurement")}, indent=2), flush=True)
     return manifest

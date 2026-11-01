@@ -8,7 +8,148 @@ import subprocess
 import long_soak
 
 
+class FakeClock:
+    def __init__(self):
+        self.value = 0.0
+
+    def __call__(self):
+        return self.value
+
+    def sleep(self, seconds):
+        self.value += seconds
+
+
+class FakeServer:
+    def __init__(self, clock, stop_after=None, returncode=None):
+        self.clock = clock
+        self.stop_after = stop_after
+        self.returncode = returncode
+        self.pid = 4242
+        self.stop_requested = False
+        self.kill_calls = 0
+        self.writes = []
+        self.stdin = self
+
+    def write(self, value):
+        self.writes.append(value)
+        self.stop_requested = True
+
+    def flush(self):
+        pass
+
+    def poll(self):
+        if self.returncode is None and self.stop_requested and self.stop_after is not None and self.clock() >= self.stop_after:
+            self.returncode = 0
+        return self.returncode
+
+    def kill(self):
+        self.kill_calls += 1
+        self.returncode = -9
+
+    def wait(self, timeout):
+        return self.returncode
+
+
 class LongSoakTest(unittest.TestCase):
+    def test_jcmd_filename_argument_keeps_quotes_for_workspace_with_spaces(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory) / "workspace with spaces"
+            reports.mkdir()
+            commands = []
+            def command_runner(args, **_kwargs):
+                commands.append(args)
+                Path(args[-1].removeprefix('filename="').removesuffix('"')).write_bytes(b"JFR")
+                return subprocess.CompletedProcess(args, 0)
+            diagnostics = []
+            long_soak.capture_shutdown_diagnostic(Path(directory) / "java.exe", 4242, reports,
+                "server-pre-stop.jfr", "JFR.dump", diagnostics, command_runner)
+            expected = str(reports / "server-pre-stop.jfr").replace("\\", "/")
+            self.assertEqual('filename="' + expected + '"', commands[0][-1])
+            self.assertTrue(diagnostics[0]["captured"])
+
+    def test_jcmd_zero_exit_without_jfr_file_is_not_a_capture(self):
+        with tempfile.TemporaryDirectory() as directory:
+            diagnostics = []
+            long_soak.capture_shutdown_diagnostic(Path(directory) / "java.exe", 4242, Path(directory),
+                "server-pre-stop.jfr", "JFR.dump", diagnostics,
+                lambda args, **_kwargs: subprocess.CompletedProcess(args, 0))
+            self.assertFalse(diagnostics[0]["captured"])
+            self.assertIn("missing or empty", diagnostics[0]["error"])
+
+    def test_checkpoint_failure_does_not_abort_owned_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            clock = FakeClock();server = FakeServer(clock, stop_after=1)
+            manifest = {}
+            def checkpoint(*_args, **_kwargs):
+                raise OSError("status volume unavailable")
+            self.assertTrue(long_soak.stop_owned_server(server, Path(directory) / "java.exe", Path(directory), manifest,
+                checkpoint, clock, clock.sleep, lambda args, **_kwargs: subprocess.CompletedProcess(args, 0)))
+            self.assertTrue(manifest["cleanServerStop"])
+            self.assertEqual(["status volume unavailable"], manifest["shutdownProgressErrors"])
+
+    def test_slow_drain_under_three_hundred_seconds_is_clean(self):
+        with tempfile.TemporaryDirectory() as directory:
+            clock = FakeClock();server = FakeServer(clock, stop_after=95)
+            diagnostics = []
+            def command_runner(args, **kwargs):
+                diagnostics.append(args[2])
+                return subprocess.CompletedProcess(args, 0)
+            progress = []
+            manifest = {"outcome": "PASS"}
+            self.assertTrue(long_soak.stop_owned_server(server, Path(directory) / "java.exe", Path(directory), manifest,
+                lambda state, **extra: progress.append((state, extra)), clock, clock.sleep, command_runner))
+            self.assertEqual(["JFR.dump"], diagnostics)
+            self.assertEqual(["stop\n"], server.writes)
+            self.assertEqual(0, server.kill_calls)
+            self.assertTrue(manifest["cleanServerStop"])
+            self.assertGreaterEqual(manifest["shutdown"]["elapsedSeconds"], 95)
+            self.assertTrue(progress)
+
+    def test_timeout_captures_diagnostics_before_killing_owned_server(self):
+        with tempfile.TemporaryDirectory() as directory:
+            clock = FakeClock();server = FakeServer(clock)
+            actions = []
+            def command_runner(args, **kwargs):
+                actions.append(args[2])
+                return subprocess.CompletedProcess(args, 0)
+            def checkpoint(*_args, **_kwargs):
+                pass
+            manifest = {}
+            self.assertFalse(long_soak.stop_owned_server(server, Path(directory) / "java.exe", Path(directory), manifest,
+                checkpoint, clock, clock.sleep, command_runner))
+            self.assertEqual(["JFR.dump", "JFR.dump", "Thread.print"], actions)
+            self.assertEqual(1, server.kill_calls)
+            self.assertEqual("killed-after-timeout", manifest["shutdown"]["state"])
+            self.assertFalse(manifest["cleanServerStop"])
+
+    def test_jcmd_failure_does_not_prevent_clean_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            clock = FakeClock();server = FakeServer(clock, stop_after=1)
+            def failing_runner(*_args, **_kwargs):
+                raise OSError("jcmd unavailable")
+            manifest = {}
+            self.assertTrue(long_soak.stop_owned_server(server, Path(directory) / "java.exe", Path(directory), manifest,
+                lambda *_args, **_kwargs: None, clock, clock.sleep, failing_runner))
+            self.assertTrue(manifest["cleanServerStop"])
+            self.assertFalse(manifest["shutdownDiagnostics"][0]["captured"])
+            self.assertIn("jcmd unavailable", manifest["shutdownDiagnostics"][0]["error"])
+
+    def test_early_nonzero_server_exit_is_not_clean(self):
+        with tempfile.TemporaryDirectory() as directory:
+            clock = FakeClock();server = FakeServer(clock, returncode=7)
+            manifest = {}
+            self.assertFalse(long_soak.stop_owned_server(server, Path(directory) / "java.exe", Path(directory), manifest,
+                lambda *_args, **_kwargs: None, clock, clock.sleep))
+            self.assertFalse(manifest["cleanServerStop"])
+            self.assertIn("code 7", manifest["shutdownError"])
+            self.assertEqual("FAIL", long_soak.finalize_outcome("PASS", False, True, True))
+
+    def test_final_outcome_agrees_with_post_cleanup_verdict(self):
+        self.assertEqual("PASS", long_soak.finalize_outcome("PASS", True, True, True))
+        self.assertEqual("FAIL", long_soak.finalize_outcome("PASS", True, True, False))
+        self.assertEqual("FAIL", long_soak.finalize_outcome("FAIL", True, True, True))
+        self.assertEqual("CANCELLED", long_soak.finalize_outcome("CANCELLED", True, True, False))
+
     def test_operation_accounting_rejects_incomplete_or_misclassified_v2_counts(self):
         counts = {kind: 0 for kind in long_soak.ACTIVE_WORK | long_soak.INACTIVE_WORK}
         counts['GROWTH_ATTEMPT'] = 90

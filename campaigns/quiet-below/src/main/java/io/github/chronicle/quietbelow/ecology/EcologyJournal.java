@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -73,6 +74,9 @@ public final class EcologyJournal implements AutoCloseable {
     private final Path file;
     private final long outputByteLimit;
     private final int outputEntryLimit;
+    @FunctionalInterface interface CandidateSync { void force(FileChannel channel) throws IOException; }
+    /** Non-null only for a create-only, unpublished checkpoint candidate. */
+    private final CandidateSync candidateSync;
     /** Expected early exit while building a discardable checkpoint candidate. */
     static final class OutputBudgetExceeded extends IOException {OutputBudgetExceeded(String reason){super(reason);}}
 
@@ -97,9 +101,23 @@ public final class EcologyJournal implements AutoCloseable {
     public EcologyJournal(Path file) throws IOException {this(file,MAX_FILE_BYTES,MAX_ENTRIES);}
 
     EcologyJournal(Path file,long outputByteLimit,int outputEntryLimit) throws IOException {
+        this(file,outputByteLimit,outputEntryLimit,null);
+    }
+
+    static EcologyJournal checkpointCandidate(Path file,long bytes,int records) throws IOException {
+        return checkpointCandidate(file,bytes,records,channel->channel.force(true));
+    }
+
+    static EcologyJournal checkpointCandidate(Path file,long bytes,int records,CandidateSync sync) throws IOException {
+        if(file==null||file.getFileName()==null||!file.getFileName().toString().endsWith(".prepared"))
+            throw new IllegalArgumentException("Checkpoint candidate must be a new .prepared file");
+        return new EcologyJournal(file,bytes,records,Objects.requireNonNull(sync));
+    }
+
+    private EcologyJournal(Path file,long outputByteLimit,int outputEntryLimit,CandidateSync candidateSync) throws IOException {
         if(outputByteLimit<1||outputByteLimit>MAX_FILE_BYTES||outputEntryLimit<1||outputEntryLimit>MAX_ENTRIES)
             throw new IllegalArgumentException("Invalid checkpoint output budget");
-        this.outputByteLimit=outputByteLimit;this.outputEntryLimit=outputEntryLimit;
+        this.outputByteLimit=outputByteLimit;this.outputEntryLimit=outputEntryLimit;this.candidateSync=candidateSync;
         if (file == null || file.getFileName() == null) {
             throw new IllegalArgumentException("ecology journal file is required");
         }
@@ -119,6 +137,7 @@ public final class EcologyJournal implements AutoCloseable {
                 opened = openChannel(this.file, true);
                 created = true;
             } catch (FileAlreadyExistsException exception) {
+                if(candidateSync!=null)throw exception;
                 pathBeforeOpen = attributes(this.file);
                 validateRegularAndBounded(pathBeforeOpen, this.file);
                 opened = openChannel(this.file, false);
@@ -198,6 +217,7 @@ public final class EcologyJournal implements AutoCloseable {
      * Read-only evidence operations remain available through the already locked channel.
      */
     synchronized void beginMaintenance() throws IOException {
+        if(candidateSync!=null)throw new IOException("An unpublished checkpoint candidate cannot become a live source");
         ensureAppendable();
         verifyUnchanged();
         maintenance = true;
@@ -249,8 +269,9 @@ public final class EcologyJournal implements AutoCloseable {
     }
 
     /**
-     * Appends and forces one record before publishing it through {@link #entries()} or
-     * {@link #revision()}. Any I/O failure or uncertain write poisons this instance.
+     * Live journals force each record before publishing it. A create-only private checkpoint
+     * candidate batches forcing until close; it must never be promoted before that succeeds.
+     * Any I/O failure or uncertain write poisons this instance.
      */
     public synchronized Entry append(String type, JsonObject payload) throws IOException {
         ensureAppendable();
@@ -288,7 +309,7 @@ public final class EcologyJournal implements AutoCloseable {
                 writeStarted = true;
                 channel.write(buffer);
             }
-            channel.force(true);
+            if(candidateSync==null)channel.force(true);
 
             long newByteCount = byteCount + record.length;
             byte[] newTail = appendTail(expectedTail, record);
@@ -327,14 +348,17 @@ public final class EcologyJournal implements AutoCloseable {
         if (closed) {
             return;
         }
-        closed = true;
         IOException failure = null;
+        try {
+            if(candidateSync!=null&&!poisoned){verifyUnchanged();candidateSync.force(channel);}
+        } catch(IOException exception){failure=exception;}
+        closed = true;
         try {
             if (lock.isValid()) {
                 lock.release();
             }
         } catch (IOException exception) {
-            failure = exception;
+            if(failure==null)failure=exception;else failure.addSuppressed(exception);
         }
         try {
             channel.close();
@@ -766,10 +790,10 @@ public final class EcologyJournal implements AutoCloseable {
         byte[] result = new byte[length];
         int combinedLength = oldTail.length + appended.length;
         int start = combinedLength - length;
-        for (int index = 0; index < length; index++) {
-            int source = start + index;
-            result[index] = source < oldTail.length ? oldTail[source] : appended[source - oldTail.length];
-        }
+        int oldLength=Math.max(0,oldTail.length-start);
+        if(oldLength>0)System.arraycopy(oldTail,start,result,0,oldLength);
+        int appendedStart=Math.max(0,start-oldTail.length);
+        System.arraycopy(appended,appendedStart,result,oldLength,length-oldLength);
         return result;
     }
 

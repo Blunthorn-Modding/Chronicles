@@ -198,6 +198,7 @@ public final class QuietBelowEcology {
         ServerTickEvents.END_SERVER_TICK.register(QuietBelowEcology::tick);
         ServerLifecycleEvents.SERVER_STOPPING.register(server->{
             EcologyCostEffects.clear(server);Runtime r=WORLDS.get(server);if(r==null)return;
+            r.stopping=true;
             if(r.maintenanceJob!=null){
                 QuietBelow.LOGGER.info("Waiting for ecology maintenance before releasing world ownership");
                 finishMaintenance(server,r,true);
@@ -272,6 +273,7 @@ public final class QuietBelowEcology {
     }
     private static void tick(MinecraftServer server) {
         Runtime r=WORLDS.get(server);if(r==null){EcologyCostEffects.clear(server);return;}
+        if(r.stopping)return;
         r.maintenanceTicks++;
         if(maintenanceBusy(r)){
             long began=System.nanoTime();finishMaintenance(server,r,false);r.maintenanceTickNanos=System.nanoTime()-began;
@@ -1050,6 +1052,7 @@ public final class QuietBelowEcology {
     }
     private static boolean maintenanceBusy(Runtime r){return r.maintenanceStarting||r.maintenanceJob!=null||r.maintenanceFailed;}
     private static void startMaintenance(MinecraftServer server,Runtime r){
+        if(r.stopping)return;
         r.maintenanceStarting=true;
         RuntimeHolds.hold(server,MAINTENANCE_HOLD,"World maintenance in progress. Play will resume shortly.");
         try {
@@ -1058,15 +1061,28 @@ public final class QuietBelowEcology {
             Path file=server.getSavePath(WorldSavePath.ROOT).resolve("quiet-below/ecology.jsonl").toAbsolutePath().normalize();
             r.maintenanceBeforeBytes=source.bytes();r.maintenanceBeforeRecords=source.revision();r.maintenanceReason="Preparing verified checkpoint";
             source.beginMaintenance();Runnable probe=r.maintenanceBeforeWork;
+            var progress=r.maintenanceProgress;progress.set("SNAPSHOT_PENDING");
+            QuietBelow.LOGGER.info("Automatic ecology maintenance started: {} bytes, {} records",r.maintenanceBeforeBytes,r.maintenanceBeforeRecords);
             r.maintenanceJob=CompletableFuture.supplyAsync(()->{
                 probe.run();
-                try{return EcologyAutomaticCompaction.compact(source,file,setup,area,heart);}
+                try{return EcologyAutomaticCompaction.compact(source,file,setup,area,heart,(stage,artifact)->progress.set(stage.name()));}
                 catch(IOException e){throw new CompletionException(e);}
             },r.maintenanceWorker);
         } catch(Exception failure){maintenanceFailure(server,r,failure);}
     }
     private static void finishMaintenance(MinecraftServer server,Runtime r,boolean wait){
         if(r.maintenanceJob==null||!wait&&!r.maintenanceJob.isDone())return;
+        boolean interrupted=false;
+        if(wait){
+            long began=System.nanoTime();
+            while(!r.maintenanceJob.isDone()){
+                QuietBelow.LOGGER.info("Ecology shutdown drain: stage={}, elapsed={}s",r.maintenanceProgress.get(),(System.nanoTime()-began)/1_000_000_000L);
+                try{r.maintenanceJob.get(10,TimeUnit.SECONDS);}
+                catch(TimeoutException pending){ }
+                catch(InterruptedException signal){interrupted=true;}
+                catch(ExecutionException failed){break;}
+            }
+        }
         try {
             var result=r.maintenanceJob.join();var old=r.journal;
             r.engine.replaceJournal(old,result.journal());r.journal=result.journal();
@@ -1082,6 +1098,7 @@ public final class QuietBelowEcology {
             QuietBelow.LOGGER.info("Automatic ecology maintenance complete: {} -> {} bytes, {} -> {} records; applied={}; archive={}",
                     r.maintenanceBeforeBytes,r.maintenanceAfterBytes,r.maintenanceBeforeRecords,r.maintenanceAfterRecords,result.applied(),r.maintenanceArchive);
         } catch(Exception failure){r.maintenanceJob=null;maintenanceFailure(server,r,failure);}
+        finally{if(interrupted)Thread.currentThread().interrupt();}
     }
     private static void maintenanceFailure(MinecraftServer server,Runtime r,Exception error){
         Throwable cause=error instanceof CompletionException&&error.getCause()!=null?error.getCause():error;
@@ -1114,7 +1131,8 @@ public final class QuietBelowEcology {
         CompletableFuture<EcologyAutomaticCompaction.Result> maintenanceJob;
         EcologyMaintenancePolicy maintenancePolicy=EcologyMaintenancePolicy.DEFAULT;
         Runnable maintenanceBeforeWork=()->{};
-        boolean maintenanceStarting,maintenanceFailed,maintenanceChanged;
+        boolean maintenanceStarting,maintenanceFailed,maintenanceChanged,stopping;
+        final java.util.concurrent.atomic.AtomicReference<String> maintenanceProgress=new java.util.concurrent.atomic.AtomicReference<>("IDLE");
         final Set<ChunkPos> maintenanceUnloads=new LinkedHashSet<>();
         long maintenanceTicks,maintenanceLastTick=-1,maintenanceBeforeBytes,maintenanceAfterBytes,maintenanceBeforeRecords,maintenanceAfterRecords,maintenanceTickNanos;
         int maintenanceCompleted;String maintenanceReason="Not needed",maintenanceSourceHash="",maintenanceArchive="";

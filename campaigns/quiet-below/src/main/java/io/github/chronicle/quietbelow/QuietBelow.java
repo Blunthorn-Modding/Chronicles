@@ -154,6 +154,7 @@ public final class QuietBelow implements ModInitializer {
         QuietBelowStages.register();
         io.github.chronicle.quietbelow.ecology.QuietBelowEcology.register();
         io.github.chronicle.quietbelow.ecology.EcologySoakTrial.register();
+        io.github.chronicle.quietbelow.ecology.CapturedShutdownTrial.register();
         io.github.chronicle.quietbelow.ecology.QuietBelowAreaChanges.register();
         io.github.chronicle.core.server.Departures.registerDefaults(java.util.List.of(
             new io.github.chronicle.core.departures.DepartureDefinition("quiet_below:ship", "The only ship", 1,

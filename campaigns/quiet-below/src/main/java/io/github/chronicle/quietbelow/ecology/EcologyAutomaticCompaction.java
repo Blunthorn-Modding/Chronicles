@@ -40,6 +40,8 @@ public final class EcologyAutomaticCompaction {
 
     enum Stage {
         SNAPSHOT_READY,
+        CHECKPOINT_WRITING,
+        CHECKPOINT_WRITTEN,
         CANDIDATE_VERIFIED,
         ARCHIVED,
         SOURCE_CLOSED,
@@ -62,6 +64,11 @@ public final class EcologyAutomaticCompaction {
             EcologyEngine.Area area,
             EcologyTerrain.Pos heart) throws IOException {
         return compact(source, file, setup, area, heart, EcologyAutomaticCompaction::promote, NOOP);
+    }
+
+    static Result compact(EcologyJournal source,Path file,EcologyEngine.Setup setup,
+                          EcologyEngine.Area area,EcologyTerrain.Pos heart,StageHook hook) throws IOException {
+        return compact(source,file,setup,area,heart,EcologyAutomaticCompaction::promote,hook);
     }
 
     static Result compact(
@@ -101,7 +108,8 @@ public final class EcologyAutomaticCompaction {
         String checkpointHash;
         try (EcologyJournal evidence = new EcologyJournal(snapshot)) {
             snapshotState = replay(evidence, setup, area, heart, "snapshot");
-            try (EcologyJournal prepared = new EcologyJournal(candidate,Math.max(1,beforeBytes-MINIMUM_SAVING),EcologyJournal.MAX_ENTRIES)) {
+            try (EcologyJournal prepared = EcologyJournal.checkpointCandidate(candidate,Math.max(1,beforeBytes-MINIMUM_SAVING),EcologyJournal.MAX_ENTRIES)) {
+                hook.reached(Stage.CHECKPOINT_WRITING,candidate);
                 try {
                     snapshotState.writeCheckpoint(prepared, sourceHash);
                 } catch (IllegalArgumentException | IllegalStateException exception) {
@@ -119,6 +127,8 @@ public final class EcologyAutomaticCompaction {
             return new Result(source,false,"Checkpoint cannot save at least 4 KiB within journal limits; original retained",
                     beforeBytes,beforeBytes,beforeRecords,beforeRecords,sourceHash,"",null);
         }
+
+        hook.reached(Stage.CHECKPOINT_WRITTEN,candidate);
 
         try (EcologyJournal prepared = new EcologyJournal(candidate)) {
             EcologyEngine candidateState = replay(prepared, setup, area, heart, "prepared checkpoint");
