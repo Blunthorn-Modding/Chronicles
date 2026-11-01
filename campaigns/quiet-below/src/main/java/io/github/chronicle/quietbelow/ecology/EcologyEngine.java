@@ -89,6 +89,9 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     private long vRootedHealth,vDetachedHealth;
     private int speedPercent=100;
     private long spreadAttempts;
+    private EcologyTickWork tickWork=EcologyTickWork.NOT_TICKED;
+    EcologyTickWork tickWorkForTest(){return tickWork;}
+    boolean incrementalExtensionForTest(){return graph!=null&&extending&&!unresolved&&graphGeneration==generation;}
     private SpreadRules spreadRules=DEFAULT_SPREAD;
     private EcologyHeart.Rules heartRules=EcologyHeart.DEFAULT;
     private int heartElapsed,heartUnflushed;
@@ -491,25 +494,36 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
     }
 
     /** One occupied-play tick. Call beginTick before native world ticks for shared mutation limits. */
-    public void beginTick() { writes=0; }
+    public void beginTick() { writes=0;tickWork=EcologyTickWork.NOT_TICKED; }
     public void tick(EcologyTerrain w,boolean playing) throws IOException {
-        if(!playing||!enabled()||!indexed||area==null) { flushVitality();clock=0;growthInterval=20;return; }
+        if(!playing||!enabled()||!indexed||area==null) {
+            tickWork=!playing?EcologyTickWork.NOT_PLAYING:!enabled()?EcologyTickWork.DISABLED:
+                    !indexed?EcologyTickWork.UNINDEXED:EcologyTickWork.UNCONFIGURED;
+            flushVitality();clock=0;growthInterval=20;return;
+        }
         reconcile(w);
         topology(w);
-        if(unresolved || (graph!=null&&!extending)) {cancelHeartBurst("topology-unresolved");flushVitality();resetVitalityScan();return;}
-        if(graph!=null) {flushVitality();resetVitalityScan();return;}
+        if(unresolved || (graph!=null&&!extending)) {
+            tickWork=graph!=null&&!extending?EcologyTickWork.TOPOLOGY_REBUILD:EcologyTickWork.TOPOLOGY_UNKNOWN;
+            cancelHeartBurst("topology-unresolved");flushVitality();resetVitalityScan();return;
+        }
+        if(graph!=null) {tickWork=EcologyTickWork.EXTENSION_WAIT;flushVitality();resetVitalityScan();return;}
         vitalityTick(w);
         projectAppearance(w);
         discoverExposure(w);
         boolean bursting=heartBurst!=null;
         if(bursting)continueHeartBurst(w);
-        if(bursting)return;
+        if(bursting){tickWork=EcologyTickWork.HEART_DEFENCE;return;}
         connectPlacedSculk(w);
-        if(graph!=null || connected.isEmpty()) return;
-        if(writes>=MAX_WRITES)return; // A busy native tick waits; it is not a persistence/capacity fault.
-        if(++clock<attemptTicks(growthInterval==10)) return;
+        if(graph!=null || connected.isEmpty()) {
+            tickWork=graph!=null?(extending?EcologyTickWork.CONNECTION_ADOPTED:EcologyTickWork.TOPOLOGY_REBUILD):EcologyTickWork.DISCONNECTED;
+            return;
+        }
+        if(writes>=MAX_WRITES){tickWork=EcologyTickWork.WRITE_BUDGET;return;} // Normal bounded work, not a persistence fault.
+        if(++clock<attemptTicks(growthInterval==10)){tickWork=EcologyTickWork.COUNTDOWN;return;}
         clock=0;
         spreadAttempts++;
+        tickWork=EcologyTickWork.GROWTH_ATTEMPT;
         grow(w);
     }
     private void projectAppearance(EcologyTerrain w) {

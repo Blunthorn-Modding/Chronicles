@@ -16,6 +16,9 @@ import zipfile
 
 RUN_ID = re.compile(r"[0-9]{8}T[0-9]{12,}Z")
 TERMINAL = {"FINISHED", "FAILED", "INTERRUPTED", "CANCELLED"}
+ACTIVE_WORK = {"CONNECTION_ADOPTED", "WRITE_BUDGET", "COUNTDOWN", "GROWTH_ATTEMPT", "HEART_DEFENCE"}
+INACTIVE_WORK = {"NOT_TICKED", "NOT_PLAYING", "DISABLED", "UNINDEXED", "UNCONFIGURED",
+                 "TOPOLOGY_UNKNOWN", "TOPOLOGY_REBUILD", "EXTENSION_WAIT", "DISCONNECTED", "MAINTENANCE", "FAILURE"}
 
 
 def atomic_json(path: Path, value: dict) -> None:
@@ -58,15 +61,60 @@ def evaluate(summary: dict, seconds: int) -> dict:
                "unexpectedHeldAtMost5Percent": ticks > 0 and int(summary.get("unexpectedHeldTicks", ticks)) / ticks <= .05,
                "growthAttempted": int(summary.get("spreadAttemptsGrowth", 0)) > 0,
                "newSculkObserved": int(summary.get("maxOwned", 0)) > int(summary.get("initialOwned", 0)),
-               "noRecordedFailure": not summary.get("failure")}
+               "noRecordedFailure": not summary.get("failure"),
+               "operationAccountingComplete": accounting_consistent(summary)}
     return {"completed": complete, "meanTps": tps, "budgets": budgets,
             "result": "PASS" if all(budgets.values()) else "FAIL"}
+
+
+def accounting_consistent(summary: dict) -> bool:
+    version = summary.get("telemetryVersion", 1)
+    if version == 1:
+        return True  # Preserve original v1 interpretation; never infer v2 reasons from old recordings.
+    if version != 2:
+        return False
+    work, unexpected = summary.get("tickWorkCounts"), summary.get("unexpectedTickWorkCounts")
+    kinds = ACTIVE_WORK | INACTIVE_WORK
+    if not isinstance(work, dict) or not isinstance(unexpected, dict) or set(work) != kinds or set(unexpected) != kinds:
+        return False
+    if any(type(value) is not int or value < 0 for counts in (work, unexpected) for value in counts.values()):
+        return False
+    return (sum(work.values()) == summary.get("ticks")
+            and sum(work[kind] for kind in ACTIVE_WORK) == summary.get("activeEcologyTicks")
+            and sum(unexpected.values()) == summary.get("unexpectedHeldTicks")
+            and all(unexpected[kind] == 0 for kind in ACTIVE_WORK)
+            and all(unexpected[kind] <= work[kind] for kind in kinds))
 
 
 def review_artifacts(work: Path) -> dict[str, str]:
     # Read-only guard against accidental deployment to the organizer's running server.
     folder = work / "reviews/events/20261028T102730212325Z/mods"
     return {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in folder.glob("*.jar")}
+
+
+def await_completed_clients(summary: dict, reports: Path, clients: list, manifest: dict,
+                            outcome: str, timeout: float = 25) -> str:
+    """Finish the native handshake before shutdown, independently of the budget verdict."""
+    if summary.get("state") != "FINISHED":
+        return outcome
+    deadline = time.monotonic() + timeout
+    while any(process.poll() is None for process, _ in clients) and time.monotonic() < deadline:
+        time.sleep(1)
+    try:
+        final_clients = {role: read_json(reports / ("client-" + role + ".json"))
+                         for role in ("anchor", "roamer")}
+    except (OSError, ValueError) as error:
+        manifest["clientCompletionAcknowledged"] = False
+        manifest["clientCompletionError"] = "Cannot read native completion acknowledgement: " + str(error)
+        return "FAIL"
+    acknowledged = (len(clients) == 2 and all(isinstance(value, dict) and value.get("result") == "PASS"
+                     for value in final_clients.values()) and all(process.poll() == 0 for process, _ in clients))
+    manifest["clientResults"] = final_clients
+    manifest["clientCompletionAcknowledged"] = acknowledged
+    if not acknowledged:
+        manifest["clientCompletionError"] = "Native clients did not cleanly acknowledge measured completion"
+        return "FAIL"
+    return outcome
 
 
 def summarize_recording(java: Path, reports: Path, manifest: dict) -> bool:
@@ -146,6 +194,7 @@ def run(seconds: int, run_id: str) -> dict:
         w.validate_mod_target(jar)
     with zipfile.ZipFile(next(p for p in jars if p.name.startswith("quiet_below-"))) as archive:
         assert "io/github/chronicle/quietbelow/ecology/EcologySoakTrial.class" in archive.namelist(), "Build soak harness before running"
+        assert "io/github/chronicle/quietbelow/ecology/EcologySoakAccounting.class" in archive.namelist(), "Build telemetry v2 before running"
     ecology_smoke._reserve_ports()
     root = f._stage(w)
     configure_world(root)
@@ -154,7 +203,7 @@ def run(seconds: int, run_id: str) -> dict:
     (root / "ops.json").write_text(json.dumps([{"uuid": f.offline_uuid(name), "name": name,
                                                 "level": 2, "bypassesPlayerLimit": False}
                                                for name in ("ChronicleSoakA", "ChronicleSoakB")]), encoding="utf-8")
-    manifest = {"result": "PREPARING", "controllerPid": os.getpid(), "world": str(root), "reports": str(reports),
+    manifest = {"result": "PREPARING", "telemetryVersion": 2, "controllerPid": os.getpid(), "world": str(root), "reports": str(reports),
                 "durationSeconds": seconds, "seed": "quiet-below-city-soak-v1", "minecraft": w.LOCK["minecraft"],
                 "clients": 2, "nativeClientFpsCap": 30, "serverHeapMax": "2G", "clientHeapMaxEach": "2G",
                 "targetTps": 20, "viewDistance": 12, "simulationDistance": 8, "preparationViewDistance": 3, "difficulty": "normal",
@@ -245,17 +294,7 @@ def run(seconds: int, run_id: str) -> dict:
         raise
     finally:
         checkpoint("STOPPING", error=failure, outcome=outcome)
-        if outcome == "PASS":
-            # Let native clients observe FINISHED and close before disconnecting the server.
-            deadline = time.monotonic() + 25
-            while any(process.poll() is None for process, _ in clients) and time.monotonic() < deadline:
-                time.sleep(1)
-            final_clients = {role: read_json(reports / ("client-" + role + ".json"))
-                             for role in ("anchor", "roamer")}
-            manifest["clientResults"] = final_clients
-            if any(not value or value.get("result") != "PASS" for value in final_clients.values()):
-                outcome = "FAIL"
-                manifest["clientCompletionError"] = "Native clients did not acknowledge measured completion"
+        outcome = await_completed_clients(manifest.get("summary", {}), reports, clients, manifest, outcome)
         try:
             f._stop(server)
             manifest["cleanServerStop"] = True

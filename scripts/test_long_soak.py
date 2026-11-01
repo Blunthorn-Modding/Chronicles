@@ -3,11 +3,104 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from unittest.mock import Mock
 import subprocess
 import long_soak
 
 
 class LongSoakTest(unittest.TestCase):
+    def test_operation_accounting_rejects_incomplete_or_misclassified_v2_counts(self):
+        counts = {kind: 0 for kind in long_soak.ACTIVE_WORK | long_soak.INACTIVE_WORK}
+        counts['GROWTH_ATTEMPT'] = 90
+        counts['TOPOLOGY_UNKNOWN'] = 10
+        unexpected = {kind: 0 for kind in counts}
+        unexpected['TOPOLOGY_UNKNOWN'] = 2
+        value = {'telemetryVersion': 2, 'ticks': 100, 'activeEcologyTicks': 90,
+                 'unexpectedHeldTicks': 2, 'tickWorkCounts': counts, 'unexpectedTickWorkCounts': unexpected}
+        self.assertTrue(long_soak.accounting_consistent(value))
+        for replacement in ({'tickWorkCounts': {}}, {'activeEcologyTicks': 100},
+                            {'unexpectedHeldTicks': 10}, {'telemetryVersion': 3},
+                            {'tickWorkCounts': counts | {'TOPOLOGY_UNKNOWN': -1}},
+                            {'unexpectedTickWorkCounts': unexpected | {'GROWTH_ATTEMPT': 1}}):
+            with self.subTest(replacement=replacement):
+                self.assertFalse(long_soak.accounting_consistent(value | replacement))
+
+    def test_completed_run_handshake_timeout_is_bounded(self):
+        with tempfile.TemporaryDirectory() as directory:
+            process = Mock();process.poll.return_value = None
+            manifest = {}
+            with patch('long_soak.time.monotonic', side_effect=[0, 26]), patch('long_soak.time.sleep') as sleep:
+                self.assertEqual('FAIL', long_soak.await_completed_clients({'state': 'FINISHED'},
+                    Path(directory), [(process, None), (process, None)], manifest, 'PASS'))
+            sleep.assert_not_called()
+            self.assertFalse(manifest['clientCompletionAcknowledged'])
+
+    def test_completed_run_waits_for_clients_even_when_performance_failed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            processes = [Mock(), Mock()]
+            for process in processes:
+                process.poll.return_value = None
+            def acknowledge(_):
+                for role, process in zip(('anchor', 'roamer'), processes):
+                    long_soak.atomic_json(reports / ('client-' + role + '.json'), {'result': 'PASS'})
+                    process.poll.return_value = 0
+            manifest = {}
+            with patch('long_soak.time.sleep', side_effect=acknowledge) as sleep:
+                outcome = long_soak.await_completed_clients({'state': 'FINISHED'}, reports,
+                    [(process, None) for process in processes], manifest, 'FAIL')
+            sleep.assert_called_once()
+            self.assertEqual('FAIL', outcome, 'client success must not erase a failed performance budget')
+            self.assertTrue(manifest['clientCompletionAcknowledged'])
+            self.assertEqual({'anchor', 'roamer'}, set(manifest['clientResults']))
+
+    def test_missing_or_crashed_client_fails_successful_completed_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            processes = [Mock(), Mock()]
+            processes[0].poll.return_value = 0
+            processes[1].poll.return_value = 1
+            for role in ('anchor', 'roamer'):
+                long_soak.atomic_json(reports / ('client-' + role + '.json'), {'result': 'PASS'})
+            manifest = {}
+            self.assertEqual('FAIL', long_soak.await_completed_clients({'state': 'FINISHED'},
+                reports, [(p, None) for p in processes], manifest, 'PASS'))
+            self.assertFalse(manifest['clientCompletionAcknowledged'])
+            (reports / 'client-roamer.json').unlink()
+            processes[1].poll.return_value = 0
+            self.assertEqual('FAIL', long_soak.await_completed_clients({'state': 'FINISHED'},
+                reports, [(p, None) for p in processes], {}, 'PASS'))
+
+    def test_interrupted_run_does_not_wait_for_success_acknowledgements(self):
+        with tempfile.TemporaryDirectory() as directory, patch('long_soak.time.sleep') as sleep:
+            self.assertEqual('CANCELLED', long_soak.await_completed_clients({'state': 'INTERRUPTED'},
+                Path(directory), [], {}, 'CANCELLED'))
+            sleep.assert_not_called()
+
+    def test_corrupt_acknowledgement_records_failure_without_aborting_shutdown(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            (reports / 'client-anchor.json').write_text('{broken', encoding='utf-8')
+            process = Mock();process.poll.return_value = 0
+            manifest = {}
+            self.assertEqual('FAIL', long_soak.await_completed_clients({'state': 'FINISHED'},
+                reports, [(process, None), (process, None)], manifest, 'PASS'))
+            self.assertFalse(manifest['clientCompletionAcknowledged'])
+            self.assertIn('Cannot read', manifest['clientCompletionError'])
+
+    def test_wrong_json_shape_cannot_abort_completion_cleanup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            process = Mock();process.poll.return_value = 0
+            long_soak.atomic_json(reports / 'client-roamer.json', {'result': 'PASS'})
+            for value in ([1], 'acknowledged', 1, True, None):
+                with self.subTest(value=value):
+                    (reports / 'client-anchor.json').write_text(json.dumps(value), encoding='utf-8')
+                    manifest = {}
+                    self.assertEqual('FAIL', long_soak.await_completed_clients({'state': 'FINISHED'},
+                        reports, [(process, None), (process, None)], manifest, 'PASS'))
+                    self.assertFalse(manifest['clientCompletionAcknowledged'])
+
     def test_elapsed_without_real_ticks_is_not_a_performance_pass(self):
         value = {"state": "FINISHED", "elapsedSeconds": 10800, "ticks": 0,
                  "callbackP99Nanos": 1, "ecologyP99Nanos": 1, "missedEligibleTicks": 0}

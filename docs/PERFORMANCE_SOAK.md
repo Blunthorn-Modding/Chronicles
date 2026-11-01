@@ -28,7 +28,7 @@ For an unattended run, launch that Python command with a hidden detached `Start-
 Output includes:
 
 - `controller-status.json`: preparation/running/shutdown/final state and owned PIDs, world, artifact hashes, actual start and due times.
-- `status.json` and `telemetry.csv`: ten-second samples of ticks/TPS, callback and ecology duration, heap, GC, CPU, chunks/entities, connected/owned/frontier sculk, growth attempts, journal size and eligibility/hold state.
+- `status.json` and `telemetry.csv`: ten-second samples of ticks/TPS, callback and ecology duration, heap, GC, CPU, chunks/entities, connected/owned/frontier sculk, growth attempts, journal size and eligibility/hold state. Telemetry v2 also reports actual tick work, cumulative work/reason counts and pending incremental extensions.
 - `summary.json`: bounded full-run timing percentiles, GC/memory and ecology coverage totals.
 - `client-*-status.json` and `client-*.json`: native connection heartbeats and final completion acknowledgement.
 - `server.log`, client logs, bounded `server.jfr` recording (512 MiB / three hours), `jfr-summary.txt`, and `report.json` with the final decision.
@@ -42,10 +42,20 @@ Elapsed duration is separate from performance success. A performance PASS requir
 - completed requested wall-clock duration, observed mean TPS at least 19;
 - full-run callback p99 below 50 ms and ecology p99 below 25 ms;
 - both eligible clients throughout measured ticks;
-- active/resolved/connected/enabled ecology during at least 80% of measured ticks;
+- actual active ecology work during at least 80% of measured ticks;
 - unexpected ecology holds during at most 5% of ticks (planned unload and 90-second post-return recovery are exempt);
 - new growth attempts and an observed ownership increase;
 - no recorded engine failure, both clients acknowledging completion, clean server shutdown, readable JFR, and unchanged review-server artifacts.
+
+Telemetry v2 also requires internally consistent operation counts. The original 80%/5% thresholds, timing limits and travel/recovery exemption are unchanged. A completed measurement waits up to 25 seconds for both native clients to acknowledge FINISHED and exit successfully, even when a performance budget failed. Client success never changes a failed performance verdict into PASS. Missing, corrupt, wrong-shaped or unsuccessful acknowledgements fail a successful result while still allowing server cleanup.
+
+## Telemetry v2, 1 November correction
+
+The engine records the branch actually reached in `tick()`, without changing its work order, rules, budgets or durable state. `COUNTDOWN`, `GROWTH_ATTEMPT`, `CONNECTION_ADOPTED`, `WRITE_BUDGET` and `HEART_DEFENCE` record active ecology work. Unknown topology, full rebuilds, actual extension waits, disconnection, skipped/paused/disabled ticks and maintenance have distinct inactive labels. For example, a successful growth attempt that queues a new connection at the end of its tick remains a growth attempt; a later tick that actually returns while waiting on graph work is counted separately.
+
+JSON `tickWorkCounts` accounts for every measured tick; `unexpectedTickWorkCounts` accounts for unavailable ticks outside the existing exemptions. `incrementalExtensionPendingTicks` and the original `unresolvedTicks` show pending end-of-tick graph work independently of actual operations. The CSV includes the current `tickWork` and cumulative activity, unavailability and extension counts. `telemetryVersion: 2` distinguishes the corrected definition. The supervisor rejects missing/inconsistent v2 counts; old v1 reports retain their original interpretation and are never retroactively regraded.
+
+The observer captures maintenance at START as well as END. A tick where maintenance finishes cannot inherit the last active engine label. These diagnostic fields are ephemeral and do not add blocks/entities, change the journal schema, or alter gameplay decisions. Plan and acceptance checks: [SOAK_RERUN_PLAN.md](SOAK_RERUN_PLAN.md).
 
 JFR/profile instrumentation adds overhead. The callback span runs from the Fabric start hook to this observer after ecology's end hook; it is not a claim to measure every possible later callback. Heap samples alone cannot establish a leak. An unexpected hold or a failed budget requires analysis of CSV/JFR/logs; three hours elapsing is insufficient evidence that the mod passed.
 

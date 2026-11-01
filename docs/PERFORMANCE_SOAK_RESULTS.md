@@ -44,3 +44,5 @@ The smallest repair is to wait for native completion acknowledgement whenever th
 This is useful three-hour stability/timing evidence for two automated players, native city growth and repeated chunk travel. It is not a large-player-group, voice, combat, handcrafted-map balance or final release certification. The isolated test processes have ended. The organizer's review server and released client pack were not upgraded.
 
 Next: correct the harness availability classification and completed-run shutdown handshake, then run a focused comparison and, if needed, another long test. Handcrafted-map integration and real group testing remain separate gates.
+
+On 1 November the organizer authorized these corrections and a rerun. Their implementation and validation are tracked in [SOAK_RERUN_PLAN.md](SOAK_RERUN_PLAN.md) and [the telemetry v2 definition](PERFORMANCE_SOAK.md). The October raw FAIL report and this historical analysis remain unchanged by the new definition.
