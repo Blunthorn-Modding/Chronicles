@@ -1,5 +1,6 @@
 package io.github.chronicle.core.campaign;
 
+import io.github.chronicle.core.history.ImmutableHistoryArchive;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -316,6 +317,38 @@ class CampaignServiceTest {
         assertThrows(IllegalStateException.class, () -> service.requireEventFlagCapacity(unknown));
         assertThrows(IllegalStateException.class, () -> service.applyEventFlags(GM, unknown, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true)));
         assertEquals(full, service.state());
+    }
+
+    @Test
+    void archivedReceiptsFreeCapacityButExactOldRetriesNeverReapplyFlags() throws IOException {
+        Map<UUID, FlagOutcomeReceipt> receipts = new LinkedHashMap<>();
+        for (int i = 0; i < CampaignState.MAX_EVENT_FLAG_OUTCOMES; i++) {
+            UUID id = new UUID(0, i);
+            receipts.put(id, new FlagOutcomeReceipt(id, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true)));
+        }
+        new CampaignStore(temporaryDirectory.resolve("campaign.json")).save(new CampaignState(2, 1, SessionPhase.PAUSED,
+                Map.of("quiet:ready", false), Set.of(), List.of(), 0, Map.of(), receipts));
+        CampaignService service = service(new CampaignEvents());
+        assertEquals(CampaignState.MAX_EVENT_FLAG_OUTCOMES, service.retireEventFlagOutcomes(receipts.keySet()));
+        service.resume(GM);
+        UUID fresh = UUID.randomUUID();
+        assertTrue(service.applyEventFlags(GM, fresh, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true)));
+        service.setFlag(GM, "quiet:ready", false);
+        UUID old = receipts.keySet().iterator().next();
+        assertFalse(service.applyEventFlags(GM, old, "quiet:event", FINGERPRINT, Map.of("quiet:ready", true)));
+        assertFalse(service.state().flag("quiet:ready"));
+        assertThrows(IllegalStateException.class, () -> service.applyEventFlags(GM, old, "quiet:event", FINGERPRINT, Map.of("quiet:ready", false)));
+    }
+
+    @Test
+    void conflictingArchiveRefusesBeforeCampaignReceiptPrune() throws Exception {
+        UUID id=UUID.randomUUID();FlagOutcomeReceipt receipt=new FlagOutcomeReceipt(id,"quiet:event",FINGERPRINT,Map.of("quiet:ready",true));
+        Path file=temporaryDirectory.resolve("campaign.json");new CampaignStore(file).save(new CampaignState(2,1,SessionPhase.PAUSED,
+                Map.of("quiet:ready",false),Set.of(),List.of(),0,Map.of(),Map.of(id,receipt)));
+        new ImmutableHistoryArchive(temporaryDirectory.resolve("event-flag-history"),"event-flag",64*1024).publish(id.toString(),new byte[]{1});
+        CampaignService service=service(new CampaignEvents());
+        assertThrows(IOException.class,()->service.retireEventFlagOutcomes(Set.of(id)));
+        assertEquals(receipt,new CampaignStore(file).load().eventFlagOutcomes().get(id));
     }
 
     @Test

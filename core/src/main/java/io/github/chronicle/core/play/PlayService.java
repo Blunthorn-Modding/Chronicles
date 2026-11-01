@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -27,6 +28,10 @@ public final class PlayService {
 
     /** Returns the last durable state. The active clock may be newer until the next checkpoint. */
     public synchronized PlayState state() { return current; }
+
+    public synchronized Optional<EventExecution> archivedExecution(UUID operationId) throws IOException {
+        return repository.archivedEvent(operationId);
+    }
 
     public synchronized long elapsedTicks() { return liveTicks; }
 
@@ -262,7 +267,9 @@ public final class PlayService {
         if (!execution.configuration().enabled()) throw new IllegalStateException("This Event is not configured for live execution.");
         if (execution.elapsedTicks() != liveTicks) throw new IllegalStateException("Play time changed during Event preparation.");
         EventExecution.Phase initial = execution.configuration().definition().changes().isEmpty()
-                ? EventExecution.Phase.EVENT_OUTCOME : EventExecution.Phase.PREPARED;
+                ? execution.configuration().definition().encounterActions().isEmpty()
+                    ? EventExecution.Phase.EVENT_OUTCOME : EventExecution.Phase.ENCOUNTER_EFFECTS
+                : EventExecution.Phase.PREPARED;
         if (execution.phase() != initial) throw new IllegalArgumentException("Invalid initial Event execution phase.");
         if (execution.source() != PlayState.DeliverySource.MANUAL
                 && !execution.source().name().equals(execution.configuration().mode().name()))
@@ -324,7 +331,7 @@ public final class PlayService {
 
     private static EventConfiguration revised(EventConfiguration event, long revision, long armedAt, PlayState.Mode mode, boolean enabled) {
         EventDefinition d = event.definition();
-        EventDefinition next = new EventDefinition(d.id(), revision, d.label(), d.description(), d.text(), d.sound(), d.audience(), d.audienceRegion(), d.changes(), d.flagChanges(), d.formatVersion());
+        EventDefinition next = new EventDefinition(d.id(), revision, d.label(), d.description(), d.text(), d.sound(), d.audience(), d.audienceRegion(), d.changes(), d.flagChanges(), d.encounterActions(), d.formatVersion());
         return new EventConfiguration(next, mode, event.triggerRegion(), armedAt, event.delayTicks(), event.requiredFlags(), enabled, event.source(), event.formatVersion());
     }
 
@@ -334,7 +341,8 @@ public final class PlayService {
                     || to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
             case APPLYING -> to == EventExecution.Phase.TERRAIN_SAVED || to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
             case TERRAIN_SAVED -> to == EventExecution.Phase.WORLD_COMMITTED || to == EventExecution.Phase.CONFLICT;
-            case WORLD_COMMITTED -> to == EventExecution.Phase.EVENT_OUTCOME || to == EventExecution.Phase.CONFLICT;
+            case WORLD_COMMITTED -> to == EventExecution.Phase.ENCOUNTER_EFFECTS || to == EventExecution.Phase.EVENT_OUTCOME || to == EventExecution.Phase.CONFLICT;
+            case ENCOUNTER_EFFECTS -> to == EventExecution.Phase.EVENT_OUTCOME || to == EventExecution.Phase.CONFLICT;
             case EVENT_OUTCOME -> to == EventExecution.Phase.MEDIA_CLAIMED || to == EventExecution.Phase.COMPLETE;
             case MEDIA_CLAIMED -> to == EventExecution.Phase.COMPLETE || to == EventExecution.Phase.MEDIA_UNCERTAIN;
             case MEDIA_UNCERTAIN -> to == EventExecution.Phase.COMPLETE;

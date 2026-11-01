@@ -86,6 +86,7 @@ class EventPlayStoreTest {
         store.archiveEvent(execution);
         Path archive = directory.resolve("event-history").resolve(execution.operationId() + ".json");
         byte[] original = Files.readAllBytes(archive);
+        assertEquals(execution,store.archivedEvent(execution.operationId()).orElseThrow());
         store.archiveEvent(execution);
         assertArrayEquals(original, Files.readAllBytes(archive));
 
@@ -100,6 +101,7 @@ class EventPlayStoreTest {
         Path corrupt = directory.resolve("event-history").resolve(corruptOperation + ".json");
         Files.writeString(corrupt, "not json");
         assertThrows(IOException.class, () -> store.archiveEvent(corruptTarget));
+        assertThrows(IOException.class, () -> store.archivedEvent(corruptOperation));
         assertEquals("not json", Files.readString(corrupt));
     }
 }

@@ -99,10 +99,13 @@ public final class CampaignService {
                 Map.of("value", Boolean.toString(value)));
     }
 
-    /** Preflight for callers before starting external effects; receipts are never pruned automatically. */
-    public synchronized void requireEventFlagCapacity(UUID operationId) {
+    /** Preflight for callers before starting external effects; archived operation IDs remain permanently reserved. */
+    public synchronized void requireEventFlagCapacity(UUID operationId) throws IOException {
         if (operationId == null) {
             throw new IllegalArgumentException("operation ID is required");
+        }
+        if (!current.eventFlagOutcomes().containsKey(operationId) && store.archivedEventFlagOutcome(operationId).isPresent()) {
+            throw new IllegalStateException("campaign Event flag outcome operation ID is already archived: " + operationId);
         }
         if (!current.eventFlagOutcomes().containsKey(operationId)
                 && current.eventFlagOutcomes().size() >= CampaignState.MAX_EVENT_FLAG_OUTCOMES) {
@@ -125,6 +128,13 @@ public final class CampaignService {
             }
             return false;
         }
+        FlagOutcomeReceipt archived = store.archivedEventFlagOutcome(operationId).orElse(null);
+        if (archived != null) {
+            if (!archived.equals(receipt)) {
+                throw new IllegalStateException("Event flag outcome operation ID conflicts with its archived receipt: " + operationId);
+            }
+            return false;
+        }
         requireEventFlagCapacity(operationId);
         Map<String, Boolean> flags = new LinkedHashMap<>(current.flags());
         flags.putAll(receipt.changes());
@@ -137,6 +147,21 @@ public final class CampaignService {
         commit(current.phase(), current.sessionNumber(), flags, current.completedEvents(), receipts,
                 actor, "event.flags", eventId, parameters);
         return true;
+    }
+
+    /** Explicit non-gameplay maintenance; CampaignStore archives every removed receipt before replacement. */
+    public synchronized int retireEventFlagOutcomes(Set<UUID> operationIds) throws IOException {
+        if (operationIds == null || operationIds.isEmpty()) return 0;
+        if (current.phase() == SessionPhase.ACTIVE) throw new IllegalStateException("Pause or end play before Event flag history maintenance");
+        Map<UUID,FlagOutcomeReceipt> receipts = new LinkedHashMap<>(current.eventFlagOutcomes());
+        int before = receipts.size();
+        for (UUID operationId : operationIds) {
+            if (operationId == null || !receipts.containsKey(operationId)) throw new IllegalStateException("Event flag outcome changed during maintenance");
+            receipts.remove(operationId);
+        }
+        CampaignState candidate = new CampaignState(CampaignState.SCHEMA_VERSION, current.sessionNumber(), current.phase(),
+                current.flags(), current.completedEvents(), current.history(), current.nextSequence(), current.flagOffVersions(), receipts);
+        store.save(candidate); current = candidate; return before - receipts.size();
     }
 
     public synchronized String preview(String eventId) {

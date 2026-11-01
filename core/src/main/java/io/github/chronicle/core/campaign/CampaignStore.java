@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.Strictness;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
+import io.github.chronicle.core.history.ImmutableHistoryArchive;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -22,6 +23,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.io.StringReader;
@@ -30,12 +32,14 @@ import java.io.StringReader;
 public final class CampaignStore {
     public static final long MAX_FILE_BYTES = 2L * 1024 * 1024;
     private final Path file;
+    private final ImmutableHistoryArchive eventFlagHistory;
 
     public CampaignStore(Path file) {
         if (file == null || file.getFileName() == null) {
             throw new IllegalArgumentException("campaign state file is required");
         }
         this.file = file.toAbsolutePath().normalize();
+        this.eventFlagHistory = new ImmutableHistoryArchive(this.file.resolveSibling("event-flag-history"), "event-flag", 64 * 1024);
     }
 
     public CampaignState load() throws IOException {
@@ -64,9 +68,21 @@ public final class CampaignStore {
         if (parent != null) {
             Files.createDirectories(parent);
         }
+        CampaignState previous = null;
         if (Files.exists(file)) {
             // Refuse to replace an invalid current file; its evidence must remain available to an operator.
-            load();
+            previous = load();
+        }
+        Map<UUID,FlagOutcomeReceipt> old = previous == null ? Map.of() : previous.eventFlagOutcomes();
+        for (var entry : old.entrySet()) {
+            if (!state.eventFlagOutcomes().containsKey(entry.getKey())) {
+                eventFlagHistory.publish(entry.getKey().toString(), encodeOutcome(entry.getValue()));
+            }
+        }
+        for (var entry : state.eventFlagOutcomes().entrySet()) {
+            if (!old.containsKey(entry.getKey()) && eventFlagHistory.read(entry.getKey().toString()).isPresent()) {
+                throw new IOException("Archived Event flag outcome cannot return to live campaign state: " + entry.getKey());
+            }
         }
         byte[] bytes = encode(state).getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_FILE_BYTES) {
@@ -91,6 +107,15 @@ public final class CampaignStore {
             deleteQuietly(temporary);
             deleteQuietly(backupTemporary);
         }
+    }
+
+    public Optional<FlagOutcomeReceipt> archivedEventFlagOutcome(UUID operationId) throws IOException {
+        if (operationId == null) throw new IllegalArgumentException("operation ID is required");
+        Optional<byte[]> payload = eventFlagHistory.read(operationId.toString());
+        if (payload.isEmpty()) return Optional.empty();
+        FlagOutcomeReceipt receipt = decodeOutcome(payload.get());
+        if (!receipt.operationId().equals(operationId)) throw new IOException("Archived Event flag outcome identity mismatch");
+        return Optional.of(receipt);
     }
 
     private static void forceWrite(Path target, byte[] bytes) throws IOException {
@@ -236,6 +261,35 @@ public final class CampaignStore {
             }
         }
         return result;
+    }
+
+    private static byte[] encodeOutcome(FlagOutcomeReceipt receipt) {
+        JsonObject encoded = new JsonObject();
+        encoded.addProperty("operationId", receipt.operationId().toString());
+        encoded.addProperty("eventId", receipt.eventId());
+        encoded.addProperty("definitionFingerprint", receipt.definitionFingerprint());
+        encoded.add("changes", booleans(receipt.changes()));
+        return encoded.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static FlagOutcomeReceipt decodeOutcome(byte[] payload) throws IOException {
+        try {
+            JsonElement parsed;
+            try (JsonReader reader = new JsonReader(new StringReader(new String(payload, StandardCharsets.UTF_8)))) {
+                reader.setStrictness(Strictness.STRICT); parsed = JsonParser.parseReader(reader);
+                if (reader.peek() != JsonToken.END_DOCUMENT) throw new IllegalArgumentException("unexpected trailing archive JSON");
+            }
+            JsonObject entry = object(parsed, "archived Event flag outcome");
+            fields(entry, Set.of("operationId", "eventId", "definitionFingerprint", "changes"), "archived Event flag outcome");
+            String operation = string(required(entry, "operationId"), "operationId");
+            UUID operationId = UUID.fromString(operation);
+            if (!operationId.toString().equals(operation)) throw new IllegalArgumentException("operation ID is not canonical");
+            return new FlagOutcomeReceipt(operationId, string(required(entry, "eventId"), "eventId"),
+                    string(required(entry, "definitionFingerprint"), "definitionFingerprint"),
+                    booleans(object(required(entry, "changes"), "changes"), "changes"));
+        } catch (RuntimeException failure) {
+            throw new IOException("Archived Event flag outcome is invalid", failure);
+        }
     }
 
     private static List<AuditEntry> history(JsonArray values) {

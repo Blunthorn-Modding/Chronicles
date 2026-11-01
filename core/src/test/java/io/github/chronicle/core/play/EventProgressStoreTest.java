@@ -74,6 +74,21 @@ class EventProgressStoreTest {
                 null, PlayState.DeliverySource.SYSTEM, "", true, Set.of(), Map.of(), false));
     }
 
+    @Test void retiredFactsTrimWithoutLosingLatchedOccurrenceCountdownOrRetrySafety() {
+        Set<String> oldFacts=new HashSet<>();IntStream.range(0,EventProgressState.Entry.MAX_FACTS).forEach(i->oldFacts.add("source:old_"+i));
+        EventProgressState.Entry latched=new EventProgressState.Entry("test:event","a".repeat(64),40,true,
+                UUID.fromString("11111111-1111-1111-1111-111111111111"),PlayState.DeliverySource.SYSTEM,"source:old_0",true,
+                oldFacts,Map.of("test:ready",2L),false);
+        EventProgressState state=new EventProgressState(9,Map.of(latched.eventId(),latched));
+        EventProgressState trimmed=state.retainLiveFacts(Set.of("source:old_999"));EventProgressState.Entry kept=trimmed.entries().get(latched.eventId());
+        assertEquals(Set.of("source:old_999"),kept.seenFacts());assertEquals("source:old_0",kept.occurrence());
+        assertEquals(40,kept.startedAt());assertTrue(kept.triggered());assertEquals(latched.offVersions(),kept.offVersions());
+        assertSame(trimmed,trimmed.retainLiveFacts(Set.of("source:old_999")));
+        Set<String> newFacts=new HashSet<>();IntStream.range(0,EventProgressState.Entry.MAX_FACTS).forEach(i->newFacts.add("source:new_"+i));
+        assertDoesNotThrow(()->new EventProgressState.Entry("test:new","b".repeat(64),-1,false,null,
+                PlayState.DeliverySource.SYSTEM,"",false,newFacts,Map.of(),false));
+    }
+
     @Test void rejectsUnknownMissingDuplicateAndWrongTypedSchemaFields() {
         JsonObject root = json(); root.addProperty("unknown", true);
         assertThrows(IllegalArgumentException.class, () -> EventProgressStore.decode(root.toString()));

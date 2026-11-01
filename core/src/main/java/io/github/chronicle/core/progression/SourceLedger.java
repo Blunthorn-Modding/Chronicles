@@ -56,6 +56,18 @@ public record SourceLedger(long revision, Map<String, Receipt> receipts) {
         }
         return new SourceLedger(Math.incrementExact(revision),next);
     }
+    /** Maintenance-only live pruning. The store must archive every removed record before publishing this state. */
+    public SourceLedger retire(Set<String> ids) {
+        if (ids == null || ids.isEmpty()) return this;
+        Map<String,Receipt> next = new LinkedHashMap<>(receipts);
+        for (String id : ids) {
+            Receipt receipt = next.get(id);
+            if (receipt == null) continue;
+            if (receipt.stage() == Stage.PREPARED) throw new IllegalStateException("prepared source evidence cannot be retired");
+            next.remove(id);
+        }
+        return next.size() == receipts.size() ? this : new SourceLedger(Math.incrementExact(revision), next);
+    }
     /** A trusted producer proved that no authority for this operation was committed. */
     public SourceLedger cancelAuthority(String authority) {
         SourceLedger next=this;

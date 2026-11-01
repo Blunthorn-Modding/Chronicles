@@ -1,5 +1,6 @@
 package io.github.chronicle.core.progression;
 
+import io.github.chronicle.core.history.ImmutableHistoryArchive;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -13,9 +14,13 @@ public final class SourceLedgerStore {
     public static final int MAX_BYTES = 16 * 1024 * 1024;
     private static final int MAGIC = 0x43535243, SCHEMA = 1;
     private final Path file;
+    private final ImmutableHistoryArchive history;
     private byte[] observed;
     private boolean loaded;
-    public SourceLedgerStore(Path file) { this.file = Objects.requireNonNull(file).toAbsolutePath().normalize(); }
+    public SourceLedgerStore(Path file) {
+        this.file = Objects.requireNonNull(file).toAbsolutePath().normalize();
+        this.history = new ImmutableHistoryArchive(this.file.resolveSibling("event-source-history"), "event-source", MAX_BYTES);
+    }
     public synchronized SourceLedger load() throws IOException {
         loaded=false;
         if (!Files.exists(file,LinkOption.NOFOLLOW_LINKS)) { observed=null; loaded=true; return SourceLedger.empty(); }
@@ -26,7 +31,15 @@ public final class SourceLedgerStore {
     public synchronized void save(SourceLedger ledger) throws IOException {
         if (!loaded) throw new IOException("load valid Event source evidence before saving");
         byte[] bytes=encode(ledger); if(bytes.length>MAX_BYTES)throw new IOException("Event source evidence exceeds size limit");
-        verifyUnchanged(); Files.createDirectories(file.getParent());
+        verifyUnchanged();
+        SourceLedger previous=observed==null?SourceLedger.empty():decode(observed);
+        for(var old:previous.receipts().entrySet())if(!ledger.receipts().containsKey(old.getKey())) {
+            if(old.getValue().stage()==SourceLedger.Stage.PREPARED)throw new IOException("prepared Event source evidence cannot be retired");
+            history.publish(old.getKey(),encodeReceipt(old.getValue()));
+        }
+        for(var next:ledger.receipts().entrySet())if(!previous.receipts().containsKey(next.getKey())&&history.read(next.getKey()).isPresent())
+            throw new IOException("archived Event source ID cannot return to the live ledger: "+next.getKey());
+        Files.createDirectories(file.getParent());
         Path temporary=Files.createTempFile(file.getParent(),".event-sources-",".tmp");
         try {
             try(FileChannel out=FileChannel.open(temporary,StandardOpenOption.WRITE,StandardOpenOption.TRUNCATE_EXISTING)) {
@@ -42,6 +55,13 @@ public final class SourceLedgerStore {
         if(!loaded)throw new IOException("Event source evidence is not loaded");
         boolean exists=Files.exists(file,LinkOption.NOFOLLOW_LINKS);
         if(exists!=(observed!=null)||exists&&!MessageDigest.isEqual(observed,read()))throw new IOException("Event source evidence changed externally");
+    }
+    public synchronized Optional<SourceLedger.Receipt> archived(String id) throws IOException {
+        Optional<byte[]> payload=history.read(id);
+        if(payload.isEmpty())return Optional.empty();
+        SourceLedger.Receipt receipt=decodeReceipt(payload.get());
+        if(!receipt.id().equals(id))throw new IOException("archived Event source identity mismatch");
+        return Optional.of(receipt);
     }
     private byte[] read() throws IOException {
         if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS)||Files.size(file)>MAX_BYTES)throw new IOException("Event source evidence type/size is invalid");
@@ -74,6 +94,16 @@ public final class SourceLedgerStore {
             if(in.read()!=-1)throw new IllegalArgumentException("source evidence has trailing data");
             return new SourceLedger(revision,receipts);
         }catch(IOException failure){throw new IllegalArgumentException("source evidence is truncated",failure);}
+    }
+    private static byte[] encodeReceipt(SourceLedger.Receipt receipt)throws IOException {
+        return encode(new SourceLedger(0,Map.of(receipt.id(),receipt)));
+    }
+    private static SourceLedger.Receipt decodeReceipt(byte[] bytes)throws IOException {
+        try {
+            SourceLedger ledger=decode(bytes);
+            if(ledger.revision()!=0||ledger.receipts().size()!=1)throw new IllegalArgumentException("archived source payload is not singular");
+            return ledger.receipts().values().iterator().next();
+        } catch(RuntimeException failure){throw new IOException("archived Event source evidence is invalid",failure);}
     }
     private static void text(DataOutputStream out,String text)throws IOException {byte[] bytes=text.getBytes(StandardCharsets.UTF_8);out.writeInt(bytes.length);out.write(bytes);}
     private static String text(DataInputStream in,int max)throws IOException {

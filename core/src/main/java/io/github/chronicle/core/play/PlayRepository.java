@@ -1,6 +1,8 @@
 package io.github.chronicle.core.play;
 
 import java.io.IOException;
+import java.util.Optional;
+import java.util.UUID;
 
 /** Durable storage boundary for shared participation, active time and observation deliveries. */
 public interface PlayRepository {
@@ -12,4 +14,6 @@ public interface PlayRepository {
     default void archiveEvent(EventExecution execution) throws IOException {
         throw new IOException("event execution archives are unsupported by this play repository");
     }
+
+    default Optional<EventExecution> archivedEvent(UUID operationId) throws IOException { return Optional.empty(); }
 }

@@ -3,6 +3,7 @@ package io.github.chronicle.core.server;
 import io.github.chronicle.core.ChronicleCore;
 import io.github.chronicle.core.campaign.CampaignState;
 import io.github.chronicle.core.play.*;
+import io.github.chronicle.core.progression.SourceLedger;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.WorldSavePath;
@@ -98,6 +99,24 @@ public final class EventProgressRuntime {
 
     public static boolean due(MinecraftServer server,EventConfiguration c){var e=entry(server,c);return e!=null&&EventCountdown.due(e,c.delayTicks(),PlayRuntime.elapsedTicks(server));}
     public static boolean trustedCompletion(MinecraftServer server,EventConfiguration c){var e=entry(server,c);return e!=null&&e.triggered()&&e.activeOrigin()&&!e.skipped()&&c.definition().progressOnly()&&e.source()==PlayState.DeliverySource.SYSTEM;}
+    static boolean observedByEverySubscriber(MinecraftServer server,SourceLedger.Receipt receipt){
+        return observedByEverySubscriber(EventRuntime.configurations(server).values(),runtime(server).state.entries(),receipt);
+    }
+    static boolean observedByEverySubscriber(Collection<EventConfiguration> configurations,Map<String,EventProgressState.Entry> progress,SourceLedger.Receipt receipt){
+        for(EventConfiguration configuration:configurations){
+            if(configuration.mode()!=PlayState.Mode.SYSTEM||!matches(configuration.source(),receipt))continue;
+            EventProgressState.Entry entry=progress.get(configuration.definition().id());
+            if(entry==null||!entry.fingerprint().equals(configuration.fingerprint())||!entry.seenFacts().contains(receipt.id())&&!entry.occurrence().equals(receipt.id()))return false;
+        }
+        return true;
+    }
+    /** Retry-safe cleanup after source publication/pruning; occurrence/countdown pins are deliberately retained. */
+    static int trimFactsMissingFromLiveLedger(MinecraftServer server,Set<String> liveIds)throws IOException{
+        Runtime runtime=runtime(server);int before=runtime.state.entries().values().stream().mapToInt(entry->entry.seenFacts().size()).sum();
+        EventProgressState next=runtime.state.retainLiveFacts(liveIds);int removed=before-next.entries().values().stream().mapToInt(entry->entry.seenFacts().size()).sum();
+        if(next!=runtime.state)save(server,next);
+        return removed;
+    }
     public static String status(MinecraftServer server,EventConfiguration c){
         if(legacyReviewRequired(c))return "Edit and save this old gated timer before running it; its unlock time was not recorded.";
         var e=entry(server,c);if(e==null)return "Not armed";if(e.skipped())return "Skipped: play ended. No effects or flags were applied.";
@@ -105,6 +124,7 @@ public final class EventProgressRuntime {
         return "Countdown: "+Math.max(0,c.delayTicks()-Math.max(0,PlayRuntime.elapsedTicks(server)-e.startedAt()))/20+" active seconds remaining";
     }
     private static boolean satisfied(EventConfiguration c,Map<String,Boolean> flags){return c.requiredFlags().stream().allMatch(id->Boolean.TRUE.equals(flags.get(id)));}
+    private static boolean matches(EventSource source,SourceLedger.Receipt receipt){return source.type().equals(receipt.type())&&(source.target().equals("*")||source.target().equals(receipt.target()))&&(source.activity().isEmpty()||source.activity().equals(receipt.activity()));}
     private static Map<String,Long> versions(EventConfiguration c,CampaignState campaign){var v=new TreeMap<String,Long>();c.requiredFlags().forEach(id->v.put(id,campaign.flagOffVersion(id)));return v;}
     private static void put(MinecraftServer server,EventProgressState.Entry e)throws IOException{
         var r=runtime(server);if(e.equals(r.state.entries().get(e.eventId())))return;

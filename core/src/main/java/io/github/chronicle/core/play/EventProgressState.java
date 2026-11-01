@@ -17,6 +17,20 @@ public record EventProgressState(long revision, Map<String, Entry> entries) {
 
     public static EventProgressState empty() { return new EventProgressState(0, Map.of()); }
 
+    /** Removes only facts no longer present in the live source ledger; trigger/occurrence/countdown pins remain exact. */
+    public EventProgressState retainLiveFacts(Set<String> liveFacts) {
+        Objects.requireNonNull(liveFacts, "live source facts are required");
+        Map<String,Entry> next = new TreeMap<>(); boolean changed = false;
+        for (Entry entry : entries.values()) {
+            Set<String> facts = new TreeSet<>(entry.seenFacts());
+            if (facts.retainAll(liveFacts)) changed = true;
+            next.put(entry.eventId(), facts.equals(entry.seenFacts()) ? entry : new Entry(entry.eventId(), entry.fingerprint(),
+                    entry.startedAt(), entry.triggered(), entry.actor(), entry.source(), entry.occurrence(), entry.activeOrigin(),
+                    facts, entry.offVersions(), entry.skipped()));
+        }
+        return changed ? new EventProgressState(Math.incrementExact(revision), next) : this;
+    }
+
     public record Entry(String eventId, String fingerprint, long startedAt, boolean triggered,
                         UUID actor, PlayState.DeliverySource source, String occurrence, boolean activeOrigin,
                         Set<String> seenFacts, Map<String, Long> offVersions, boolean skipped) {

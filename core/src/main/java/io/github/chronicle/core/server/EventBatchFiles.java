@@ -4,6 +4,7 @@ import io.github.chronicle.core.areas.AreaBounds;
 import io.github.chronicle.core.areas.AreaState;
 import io.github.chronicle.core.areas.SnapshotRef;
 import io.github.chronicle.core.authoring.BlockPosition;
+import io.github.chronicle.core.history.ImmutableHistoryArchive;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.WorldSavePath;
 
@@ -82,6 +83,11 @@ final class EventBatchFiles {
         static Journal empty(){return new Journal(0,Map.of());}
         void requireNewBatchCapacity(){if(entries.size()>=MAX_BATCHES)throw new IllegalStateException("World-change history is full (256 runs); preserve the stopped world for maintenance before starting another batch.");}
         Journal put(Entry entry){LinkedHashMap<UUID,Entry> next=new LinkedHashMap<>(entries);Entry old=next.put(entry.id(),entry);if(old==null&&next.size()>MAX_BATCHES)throw new IllegalStateException("event batch journal is full");return new Journal(Math.addExact(revision,1),next);}
+        Journal retire(Set<UUID> ids){
+            if(ids==null||ids.isEmpty())return this;LinkedHashMap<UUID,Entry> next=new LinkedHashMap<>(entries);
+            for(UUID id:ids){Entry entry=next.get(id);if(entry==null)continue;if(entry.phase()!=Phase.WORLD_COMMITTED)throw new IllegalStateException("unresolved event batch cannot be retired");next.remove(id);}
+            return next.size()==entries.size()?this:new Journal(Math.addExact(revision,1),next);
+        }
     }
 
     /** A saved terrain receipt alone never authorizes metadata commit after process continuity was lost. */
@@ -91,30 +97,40 @@ final class EventBatchFiles {
     }
 
     static final class Store{
-        private final Path file;private Boolean observedPresent;private byte[] observedHash;private boolean loadedValid;
+        private final Path file;private final ImmutableHistoryArchive history;private Boolean observedPresent;private byte[] observedHash,observedBytes;private boolean loadedValid;
         Store(MinecraftServer server){this(root(server).resolve("journal.bin"));}
-        Store(Path file){this.file=Objects.requireNonNull(file).toAbsolutePath().normalize();}
+        Store(Path file){this.file=Objects.requireNonNull(file).toAbsolutePath().normalize();this.history=new ImmutableHistoryArchive(this.file.getParent().resolve("history"),"event-batch",MAX_JOURNAL_BYTES);}
         synchronized Journal load()throws IOException{
-            if(!Files.exists(file,LinkOption.NOFOLLOW_LINKS)){observedPresent=false;observedHash=null;loadedValid=true;return Journal.empty();}
+            if(!Files.exists(file,LinkOption.NOFOLLOW_LINKS)){observedPresent=false;observedHash=null;observedBytes=null;loadedValid=true;return Journal.empty();}
             if(!Files.isRegularFile(file,LinkOption.NOFOLLOW_LINKS)||Files.size(file)>MAX_JOURNAL_BYTES)throw new IOException("event batch journal type/size is invalid");
-            byte[] bytes=Files.readAllBytes(file);try{Journal result=decodeJournal(bytes);observedPresent=true;observedHash=shaBytes(bytes);loadedValid=true;return result;}catch(RuntimeException failure){loadedValid=false;throw new IOException("event batch journal is invalid and was preserved",failure);}
+            byte[] bytes=Files.readAllBytes(file);try{Journal result=decodeJournal(bytes);observedPresent=true;observedHash=shaBytes(bytes);observedBytes=bytes;loadedValid=true;return result;}catch(RuntimeException failure){loadedValid=false;throw new IOException("event batch journal is invalid and was preserved",failure);}
         }
         synchronized void save(Journal journal)throws IOException{
             if(!loadedValid)throw new IOException("load a valid event batch journal before saving");byte[] bytes=encodeJournal(journal);if(bytes.length>MAX_JOURNAL_BYTES)throw new IOException("event batch journal exceeds size limit");
             Path parent=file.getParent();Files.createDirectories(parent);boolean present=Files.exists(file,LinkOption.NOFOLLOW_LINKS);
             if(observedPresent!=null&&present!=observedPresent)throw new IOException("event batch journal presence changed externally");
             if(present&&observedHash!=null&&!MessageDigest.isEqual(observedHash,shaBytes(readBounded(file,MAX_JOURNAL_BYTES))))throw new IOException("event batch journal changed externally");
+            Journal previous=observedBytes==null?Journal.empty():decodeJournal(observedBytes);
+            for(var old:previous.entries().entrySet())if(!journal.entries().containsKey(old.getKey())){
+                if(old.getValue().phase()!=Phase.WORLD_COMMITTED)throw new IOException("unresolved event batch cannot be archived");
+                history.publish(old.getKey().toString(),encodeEntry(old.getValue()));
+            }
+            for(var next:journal.entries().entrySet())if(!previous.entries().containsKey(next.getKey())&&history.read(next.getKey().toString()).isPresent())throw new IOException("archived event batch ID cannot return to the live journal: "+next.getKey());
             Path temp=Files.createTempFile(parent,".event-batches-",".tmp");try{
                 writeForced(temp,bytes);boolean now=Files.exists(file,LinkOption.NOFOLLOW_LINKS);if(now!=present)throw new IOException("event batch journal changed before publication");
                 if(now&&observedHash!=null&&!MessageDigest.isEqual(observedHash,shaBytes(readBounded(file,MAX_JOURNAL_BYTES))))throw new IOException("event batch journal changed before publication");
                 try{if(present)Files.move(temp,file,StandardCopyOption.ATOMIC_MOVE,StandardCopyOption.REPLACE_EXISTING);else Files.createLink(file,temp);}catch(AtomicMoveNotSupportedException failure){throw new IOException("atomic event batch journal replacement is unsupported",failure);}
-                observedPresent=true;observedHash=shaBytes(bytes);
+                observedPresent=true;observedHash=shaBytes(bytes);observedBytes=bytes;
             }finally{Files.deleteIfExists(temp);}
         }
         synchronized void verifyUnchanged()throws IOException{
             if(!loadedValid||observedPresent==null)throw new IOException("load a valid Event batch authority before verifying");
             boolean present=Files.exists(file,LinkOption.NOFOLLOW_LINKS);if(present!=observedPresent)throw new IOException("Event batch authority presence changed externally");
             if(present&&(observedHash==null||!MessageDigest.isEqual(observedHash,shaBytes(readBounded(file,MAX_JOURNAL_BYTES)))))throw new IOException("Event batch authority changed externally");
+        }
+        synchronized Optional<Entry> archived(UUID id)throws IOException{
+            Optional<byte[]> payload=history.read(id.toString());if(payload.isEmpty())return Optional.empty();
+            Entry entry=decodeEntry(payload.get());if(!entry.id().equals(id))throw new IOException("archived event batch identity mismatch");return Optional.of(entry);
         }
     }
 
@@ -146,6 +162,8 @@ final class EventBatchFiles {
 
     static byte[] encodeJournal(Journal journal)throws IOException{ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(DataOutputStream out=new DataOutputStream(bytes)){out.writeInt(JOURNAL_MAGIC);out.writeInt(JOURNAL_SCHEMA);out.writeLong(journal.revision());out.writeInt(journal.entries().size());for(Entry entry:journal.entries().values()){text(out,entry.id().toString());text(out,entry.planSha256());text(out,entry.phase().name());text(out,entry.step().name());out.writeInt(entry.target());out.writeInt(entry.cursor());textAllowEmpty(out,entry.detail());text(out,entry.updatedAt());}}return bytes.toByteArray();}
     static Journal decodeJournal(byte[] bytes){try(DataInputStream in=new DataInputStream(new ByteArrayInputStream(bytes))){if(in.readInt()!=JOURNAL_MAGIC||in.readInt()!=JOURNAL_SCHEMA)throw new IllegalArgumentException("event batch journal magic/schema is invalid");long revision=in.readLong();int count=count(in,0,MAX_BATCHES,"journal entry count");Map<UUID,Entry> entries=new LinkedHashMap<>();for(int i=0;i<count;i++){Entry entry=new Entry(uuid(text(in,36,"batch ID")),text(in,64,"plan hash"),enumValue(Phase.class,text(in,32,"phase")),enumValue(Step.class,text(in,32,"step")),in.readInt(),in.readInt(),textAllowEmpty(in,4096,"detail"),text(in,128,"updated time"));if(entries.putIfAbsent(entry.id(),entry)!=null)throw new IllegalArgumentException("duplicate event batch ID");}if(in.read()!=-1)throw new IllegalArgumentException("event batch journal has trailing bytes");return new Journal(revision,entries);}catch(EOFException failure){throw new IllegalArgumentException("event batch journal is truncated",failure);}catch(IOException failure){throw new IllegalArgumentException("event batch journal cannot be decoded",failure);}}
+    private static byte[] encodeEntry(Entry entry)throws IOException{return encodeJournal(new Journal(0,Map.of(entry.id(),entry)));}
+    private static Entry decodeEntry(byte[] bytes)throws IOException{try{Journal journal=decodeJournal(bytes);if(journal.revision()!=0||journal.entries().size()!=1)throw new IllegalArgumentException("archived event batch payload is not singular");return journal.entries().values().iterator().next();}catch(RuntimeException failure){throw new IOException("archived event batch evidence is invalid",failure);}}
 
     private static void bounds(DataOutputStream out,AreaBounds b)throws IOException{text(out,b.regionId());text(out,b.dimension());out.writeLong(b.regionRevision());position(out,b.min());position(out,b.max());}
     private static AreaBounds bounds(DataInputStream in)throws IOException{return new AreaBounds(text(in,129,"Region ID"),text(in,256,"dimension"),in.readLong(),position(in),position(in));}

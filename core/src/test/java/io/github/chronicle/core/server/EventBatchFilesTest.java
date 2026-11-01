@@ -2,16 +2,22 @@ package io.github.chronicle.core.server;
 
 import io.github.chronicle.core.areas.*;
 import io.github.chronicle.core.authoring.BlockPosition;
+import io.github.chronicle.core.history.ImmutableHistoryArchive;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class EventBatchFilesTest {
+    @TempDir Path directory;
     @Test void fullHistoryRefusesBeforePublishingAnotherRunAndExistingEntriesRemainUsable(){
         var entries=new java.util.LinkedHashMap<UUID,EventBatchFiles.Entry>();
         for(int i=0;i<256;i++){UUID id=new UUID(0,i);entries.put(id,new EventBatchFiles.Entry(id,"a".repeat(64),EventBatchFiles.Phase.WORLD_COMMITTED,EventBatchFiles.Step.COMMIT,1,0,"",Instant.EPOCH.toString()));}
@@ -50,6 +56,27 @@ class EventBatchFilesTest {
         EventBatchFiles.Entry resumed=EventBatchFiles.restartProof(plan,saved);assertEquals(EventBatchFiles.Phase.APPLYING,resumed.phase());assertEquals(EventBatchFiles.Step.VERIFY_ALL,resumed.step());assertEquals(0,resumed.target());assertEquals(0,resumed.cursor());
     }
 
+    @Test void committedHistoryArchivesAndFreesMoreThanTheLiveCapacity()throws Exception{
+        Path journal=directory.resolve("event-batches/journal.bin");EventBatchFiles.Store store=new EventBatchFiles.Store(journal);store.load();
+        Map<UUID,EventBatchFiles.Entry> entries=new java.util.LinkedHashMap<>();
+        for(int i=0;i<256;i++){UUID id=new UUID(0,i);entries.put(id,committed(id,"a".repeat(64)));}
+        EventBatchFiles.Journal full=new EventBatchFiles.Journal(1,entries);store.save(full);store.save(full.retire(entries.keySet()));
+        UUID old=entries.keySet().iterator().next();assertEquals(entries.get(old),store.archived(old).orElseThrow());
+        UUID fresh=UUID.randomUUID();EventBatchFiles.Entry freshEntry=committed(fresh,"b".repeat(64));EventBatchFiles.Journal next=new EventBatchFiles.Journal(3,Map.of(fresh,freshEntry));store.save(next);
+        Map<UUID,EventBatchFiles.Entry> replay=new java.util.LinkedHashMap<>(next.entries());replay.put(old,entries.get(old));
+        assertThrows(IOException.class,()->store.save(new EventBatchFiles.Journal(4,replay)));
+        assertEquals(Map.of(fresh,freshEntry),store.load().entries());
+    }
+
+    @Test void conflictingArchiveStopsBeforeCommittedJournalPrune()throws Exception{
+        Path journal=directory.resolve("event-batches/journal.bin");EventBatchFiles.Store store=new EventBatchFiles.Store(journal);store.load();
+        UUID id=UUID.randomUUID();EventBatchFiles.Entry entry=committed(id,"a".repeat(64));EventBatchFiles.Journal live=new EventBatchFiles.Journal(1,Map.of(id,entry));store.save(live);
+        new ImmutableHistoryArchive(journal.getParent().resolve("history"),"event-batch",4*1024*1024).publish(id.toString(),new byte[]{1});
+        assertThrows(IOException.class,()->store.save(live.retire(Set.of(id))));
+        assertEquals(entry,new EventBatchFiles.Store(journal).load().entries().get(id));
+    }
+
     private static EventBatchFiles.Target target(String id,String dimension,int x){AreaBounds b=new AreaBounds("region_"+id,dimension,1,new BlockPosition(x,0,0),new BlockPosition(x+1,0,0));AreaSnapshot s=new AreaSnapshot(b,List.of("{\"Name\":\"minecraft:stone\"}"),new int[]{0,0},Map.of());SnapshotRef r=AreaSnapshotCodec.encode(s).ref();return new EventBatchFiles.Target("area_"+id,1,AreaState.START,b,r,r);}
+    private static EventBatchFiles.Entry committed(UUID id,String hash){return new EventBatchFiles.Entry(id,hash,EventBatchFiles.Phase.WORLD_COMMITTED,EventBatchFiles.Step.COMMIT,1,0,"",Instant.EPOCH.toString());}
     private static long decoded(AreaSnapshot snapshot){return (long)snapshot.cells()*Integer.BYTES+snapshot.palette().stream().mapToInt(value->value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length).sum();}
 }

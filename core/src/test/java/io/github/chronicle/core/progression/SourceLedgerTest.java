@@ -1,5 +1,6 @@
 package io.github.chronicle.core.progression;
 
+import io.github.chronicle.core.history.ImmutableHistoryArchive;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
@@ -28,6 +29,7 @@ class SourceLedgerTest {
         assertThrows(UnsupportedOperationException.class,()->receipt.flags().clear());
         var conflict=new SourceLedger.Receipt(receipt.id(),receipt.type(),receipt.target(),receipt.activity(),receipt.actor(),true,Map.of("quiet:ready",true),receipt.authority(),receipt.stage());
         assertThrows(IllegalStateException.class,()->committed.prepare(conflict));
+        assertThrows(IllegalStateException.class,()->prepared.retire(Set.of(receipt.id())));
     }
     @Test void persistsPendingAndCompletedEvidenceAndRejectsExternalChanges()throws IOException {
         Path file=directory.resolve("sources.bin");SourceLedgerStore store=new SourceLedgerStore(file);assertEquals(SourceLedger.empty(),store.load());
@@ -75,6 +77,51 @@ class SourceLedgerTest {
         Files.writeString(parent,"not a directory");
         assertThrows(IOException.class,()->store.save(SourceLedger.empty().prepare(receipt("source:first"))));
         assertFalse(Files.exists(parent.resolve("sources.bin")));
+    }
+    @Test void conflictingArchiveStopsBeforeLivePrune()throws Exception {
+        Path file=directory.resolve("sources.bin");SourceLedgerStore store=new SourceLedgerStore(file);store.load();
+        SourceLedger.Receipt terminal=receipt("source:terminal").at(SourceLedger.Stage.COMMITTED);
+        SourceLedger live=new SourceLedger(1,Map.of(terminal.id(),terminal));store.save(live);
+        new ImmutableHistoryArchive(directory.resolve("event-source-history"),"event-source",SourceLedgerStore.MAX_BYTES)
+                .publish(terminal.id(),new byte[]{1});
+        assertThrows(IOException.class,()->store.save(live.retire(Set.of(terminal.id()))));
+        assertEquals(terminal,new SourceLedgerStore(file).load().receipts().get(terminal.id()));
+    }
+    @Test void retryAfterArchivePublicationBeforeLivePruneIsIdempotent()throws Exception{
+        SourceLedger.Receipt terminal=receipt("source:interrupted").at(SourceLedger.Stage.COMMITTED);SourceLedger live=new SourceLedger(1,Map.of(terminal.id(),terminal));
+        Path primary=directory.resolve("primary/sources.bin");SourceLedgerStore store=new SourceLedgerStore(primary);store.load();store.save(live);
+        Path shadow=directory.resolve("shadow/sources.bin");SourceLedgerStore completed=new SourceLedgerStore(shadow);completed.load();completed.save(live);completed.save(live.retire(Set.of(terminal.id())));
+        Path shadowArchive=shadow.resolveSibling("event-source-history"),primaryArchive=primary.resolveSibling("event-source-history");Files.createDirectories(primaryArchive);
+        try(var files=Files.list(shadowArchive)){Path archived=files.findFirst().orElseThrow();Files.copy(archived,primaryArchive.resolve(archived.getFileName()));}
+        store.save(live.retire(Set.of(terminal.id())));
+        assertTrue(new SourceLedgerStore(primary).load().receipts().isEmpty());assertEquals(terminal,store.archived(terminal.id()).orElseThrow());
+    }
+    @Test void archivedTerminalIdsCannotReplayAndMoreThanOneLiveCapacityCanProceed()throws Exception {
+        Path file=directory.resolve("sources.bin");SourceLedgerStore store=new SourceLedgerStore(file);store.load();
+        Map<String,SourceLedger.Receipt> first=new LinkedHashMap<>();
+        for(int i=0;i<SourceLedger.MAX_RECEIPTS;i++){String id="source:old_"+i;var r=new SourceLedger.Receipt(id,"chronicle_core:block_opened","*","",new UUID(0,i),true,Map.of(),"transient:old_"+i,SourceLedger.Stage.COMMITTED);first.put(id,r);}
+        SourceLedger full=new SourceLedger(1,first);store.save(full);store.save(full.retire(first.keySet()));
+        assertEquals(first.get("source:old_0"),store.archived("source:old_0").orElseThrow());
+        assertThrows(IOException.class,()->store.save(new SourceLedger(3,Map.of("source:old_0",first.get("source:old_0")))));
+        Map<String,SourceLedger.Receipt> second=new LinkedHashMap<>();
+        for(int i=0;i<SourceLedger.MAX_RECEIPTS;i++){String id="source:new_"+i;var r=new SourceLedger.Receipt(id,"chronicle_core:block_opened","*","",new UUID(1,i),true,Map.of(),"transient:new_"+i,SourceLedger.Stage.COMMITTED);second.put(id,r);}
+        store.save(new SourceLedger(3,second));assertEquals(SourceLedger.MAX_RECEIPTS,store.load().receipts().size());
+    }
+    @Test void automaticCancelledEvictionArchivesTheExactRetiredIdentity() throws Exception {
+        var store=new SourceLedgerStore(directory.resolve("cancelled.bin"));
+        var ledger=store.load();
+        for(int i=0;i<SourceLedger.MAX_CANCELLED;i++) {
+            String id="source:cancel_"+i;
+            ledger=ledger.prepare(receipt(id));store.save(ledger);
+            ledger=ledger.finish(id,false);store.save(ledger);
+        }
+        ledger=ledger.prepare(receipt("source:next"));store.save(ledger);
+        ledger=ledger.finish("source:next",false);store.save(ledger);
+        assertFalse(ledger.receipts().containsKey("source:cancel_0"));
+        assertEquals(SourceLedger.Stage.CANCELLED,store.archived("source:cancel_0").orElseThrow().stage());
+        var retired=ledger.prepare(receipt("source:cancel_0"));
+        assertThrows(IOException.class,()->store.save(retired));
+        assertFalse(store.load().receipts().containsKey("source:cancel_0"));
     }
     @Test void forgeProposalIsImmutableAndPinsTheActualChangedOutput()throws IOException {
         var evidence=new ForgeResultEvidence(UUID.randomUUID(),UUID.randomUUID(),"managed:"+UUID.randomUUID(),"{first}","{ingredient}","{enchanted-result}");

@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -122,6 +123,22 @@ public final class PlayStore implements PlayRepository {
             verifyArchive(target, execution, bytes);
         } finally {
             delete(temporary);
+        }
+    }
+
+    @Override
+    public synchronized Optional<EventExecution> archivedEvent(UUID operationId) throws IOException {
+        if (operationId == null) throw new IllegalArgumentException("event operation ID is required");
+        Path target = file.resolveSibling("event-history").resolve(operationId + ".json");
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return Optional.empty();
+        if (!Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS) || Files.size(target) < 1 || Files.size(target) > EventJson.MAX_ENCODED_BYTES)
+            throw new IOException("event execution archive type/size is invalid: " + target);
+        try {
+            EventExecution execution = EventJson.decodeExecution(PlayJson.object(Files.readString(target, StandardCharsets.UTF_8), "event execution archive"));
+            if (!execution.operationId().equals(operationId)) throw new IOException("event execution archive operation ID does not match its file: " + target);
+            return Optional.of(execution);
+        } catch (RuntimeException failure) {
+            throw new IOException("event execution archive is invalid: " + target, failure);
         }
     }
 
