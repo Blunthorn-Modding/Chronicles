@@ -75,7 +75,14 @@ public final class EcologySoakTrial {
             AuthoringSite site=MapSiteAssignments.resolve(source.getServer(),"quiet_below:source_city").orElseThrow(()->new IllegalStateException("Source city assignment is missing"));
             if(!(site instanceof AuthoringSite.Region city))throw new IllegalStateException("Source city must be a region");
             EcologyEngine engine=QuietBelowEcology.engineForTest(source.getServer()); EcologyEngine.View view=engine.view();
-            if(!view.configured()||!view.indexed()||view.connected()<=0||!view.enabled()||view.unresolved())throw new IllegalStateException("ecology must be configured, indexed, resolved, connected and enabled");
+            if(!view.configured()||!view.indexed()||!view.enabled()||engine.failure()!=null||engine.ending()!=null)
+                throw new IllegalStateException("ecology must be configured, indexed, enabled and healthy");
+            // A successful growth operation may queue a certified incremental extension between
+            // the preceding certification command and this one. Use gameplay readiness, not
+            // view().unresolved(), which deliberately includes that harmless pending snapshot.
+            if(view.connected()<=0||!engine.cropsAvailable()){
+                source.sendFeedback(()->Text.literal("SOAK_WAITING: connected ecology is still resolving"),false);return 0;
+            }
             List<ServerPlayerEntity> players=eligible(source.getServer());
             if(players.size()!=2){source.sendFeedback(()->Text.literal("SOAK_WAITING: both active eligible soak clients must be joined"),false);return 0;}
             ServerPlayerEntity anchor=byName(players,A),roamer=byName(players,B);

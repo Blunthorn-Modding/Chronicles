@@ -23,6 +23,7 @@ class EcologyTickWorkTest {
                     if(engine.incrementalExtensionForTest()) {
                         assertTrue(engine.view().unresolved(),"old counter must reproduce the queued-extension false positive");
                         assertTrue(engine.rooted(SOURCE),"existing certified cells retain functionality");
+                        assertTrue(engine.cropsAvailable(),"soak startup must accept gameplay-ready incremental extensions");
                         witnessed=true;break;
                     }
                 }
@@ -39,6 +40,7 @@ class EcologyTickWorkTest {
             engine.beginTick();engine.tick(world,true);
             assertFalse(engine.tickWorkForTest().active());
             assertTrue(engine.view().unresolved());
+            assertFalse(engine.cropsAvailable(),"soak startup must still wait for genuinely unloaded topology");
             assertTrue(engine.tickWorkForTest()==EcologyTickWork.TOPOLOGY_UNKNOWN
                     ||engine.tickWorkForTest()==EcologyTickWork.TOPOLOGY_REBUILD);
             world.unloaded.clear();engine.invalidateConnections();
