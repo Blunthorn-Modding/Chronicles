@@ -94,6 +94,13 @@ public final class PlayRuntime {
         return runtime == null || runtime.failure != null ? 0L : runtime.service.elapsedTicks();
     }
 
+    /** Checkpoints the occupied-play clock before another authority discards cooldown evidence. */
+    public static long checkpointElapsedTicks(MinecraftServer server) throws IOException {
+        service(server);Runtime runtime=WORLDS.get(server);
+        try{runtime.service.checkpoint();runtime.lastCheckpointTicks=runtime.service.state().elapsedTicks();return runtime.lastCheckpointTicks;}
+        catch(IOException|RuntimeException error){disable(server,error,"play clock dependency checkpoint failed");throw error;}
+    }
+
     /** Enrolled, online, alive players who currently count as play rather than authoring or spectating. */
     public static List<ServerPlayerEntity> eligiblePlayers(MinecraftServer server) {
         requireServerThread(server);

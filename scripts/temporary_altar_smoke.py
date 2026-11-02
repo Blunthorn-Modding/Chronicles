@@ -69,7 +69,7 @@ def _close(client) -> None:
 def _config(root: Path) -> None:
     target = root / "config/chronicle/quiet-below-altar-offerings.json"
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps({"schema": 1,
+    target.write_text(json.dumps({"schema": 2, "cooldownSeconds": 0,
         "emergency": {"enabled": True, "donorHealth": 4, "healing": 4, "radius": 8},
         "repair": {"enabled": True, "percent": 25, "health": 2, "seconds": 60},
         "sight": {"enabled": True, "levels": 3, "exhaustionPercent": 25, "seconds": 60},
@@ -100,7 +100,7 @@ def run(build: bool = True, only: str | None = None) -> None:
             ui = _client(w, fabric_smoke, launch, root, reports, "ui", "A"); clients.append(ui)
             outcome = _await(reports / "temporary-altar-ui-A.json", ui[0])
             report["checks"] = outcome["checks"]; report["result"] = "PASS"
-            print("PASS: temporary Altar page-two native smoke; evidence:", reports, flush=True)
+            print("PASS: five-choice Altar native feedback smoke; evidence:", reports, flush=True)
             return
         server, server_log = _server(w, root, reports, "initial")
         passive = _client(w, fabric_smoke, launch, root, reports, "initial", "B"); clients.append(passive)

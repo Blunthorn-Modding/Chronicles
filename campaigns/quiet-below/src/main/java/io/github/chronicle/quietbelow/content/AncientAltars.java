@@ -22,15 +22,15 @@ public final class AncientAltars {
     private AncientAltars() { }
     public static void register() {
         TemporaryAltarOfferings.register();
+        LastingBargains.registerCooldown(SOURCE,()->AltarOfferingConfig.get().cooldownSeconds()*20L);
         LastingBargains.registerGroup(GROUP,List.of(
                 new LastingBargains.Choice(EXTRA_HEART,"Pray for more life","The altar listens."),
                 new LastingBargains.Choice(MOVEMENT,"Pray for quicker feet","The altar listens."),
                 new LastingBargains.Choice(TemporaryAltarOfferings.REPAIR,"Pray for swift mending","The altar listens."),
                 new LastingBargains.Choice(TemporaryAltarOfferings.SIGHT,"Pray for clear sight","The altar listens."),
-                new LastingBargains.Choice(TemporaryAltarOfferings.HARVEST,"Pray for a quiet harvest","The altar listens."),
                 new LastingBargains.Choice(TemporaryAltarOfferings.EMERGENCY,"Pray for sheltering grace","The altar listens.")),
                 new io.github.chronicle.core.network.OfferingPayloads.Presentation("The altar listens...","The altar is quiet.","The altar listens.","One answer has faded.","No answer comes.","The altar falls silent.","The altar remembers."),
-                io.github.chronicle.core.network.OfferingPayloads.Layout.ALTAR_TWO_SHEET);
+                io.github.chronicle.core.network.OfferingPayloads.Layout.ALTAR_FIVE);
     }
     private static AncientAltarBlockEntity physical(ServerWorld world, BlockPos pos) {
         if (!world.isInBuildLimit(pos) || !world.getWorldBorder().contains(pos)) return null;
@@ -49,11 +49,34 @@ public final class AncientAltars {
             }
             @Override public io.github.chronicle.core.server.TemporaryOfferings.Station station(ServerPlayerEntity actor) { return TemporaryAltarOfferings.station(world,pos,activationHand); }
             @Override public String unavailable(ServerPlayerEntity actor) {
+                String invalid=invalidAttempt(actor);if(invalid!=null)return invalid;
+                return QuietBelowEcology.stationPower(world, pos);
+            }
+            @Override public boolean gameplayRefusals(){return true;}
+            @Override public long configurationRevision(){return AltarOfferingConfig.revision();}
+            @Override public String invalidAttempt(ServerPlayerEntity actor) {
                 if (actor.getEntityWorld() != world || !actor.isAlive() || actor.isSpectator() || actor.squaredDistanceTo(pos.toCenterPos()) > 36) return "The Altar is out of reach.";
                 if (physical(world, pos) != altar || altar.isRemoved()) return "The original Altar is no longer here.";
                 if (actor.isCreative()) return "Creative inspection only; use Survival or Adventure to accept a bargain.";
+                if(io.github.chronicle.core.server.ChronicleRuntime.service(world.getServer()).state().phase()!=io.github.chronicle.core.campaign.SessionPhase.ACTIVE
+                        ||io.github.chronicle.core.server.RuntimeHolds.reason(world.getServer())!=null)return "The Altar waits for active play.";
                 if (!PlayRuntime.eligiblePlayers(world.getServer()).contains(actor)) return "Join participation and leave editing mode before accepting a bargain.";
-                return QuietBelowEcology.stationPower(world, pos);
+                AltarOfferingConfig.get();
+                return QuietBelowEcology.stationAuthorityUnavailable(world,pos);
+            }
+            @Override public String refusalFeedback(){return "The altar takes a little life. No answer comes.";}
+            @Override public void refused(ServerPlayerEntity actor,String reason){
+                actor.damage(world,actor.getDamageSources().magic(),2);
+                String lower=reason.toLowerCase(java.util.Locale.ROOT);
+                String flavor=lower.contains("experience")?"The sculk refuses your call. You have no experience to share.":
+                        lower.contains("faded")?"The last whisper still clings to you.":
+                        lower.contains("already")?"The old gift still weighs upon you.":
+                        lower.contains("damaged gear")?"Your hand carries nothing the dark can mend.":
+                        lower.contains("nearby")?"No wounded soul waits close enough to hear.":
+                        lower.contains("far as")?"The dark can change you no further.":
+                        lower.contains("survive")||lower.contains("too little")?"Too little of you remains to offer.":
+                        "The dark is distant, and your prayer returns as pain.";
+                actor.sendMessage(net.minecraft.text.Text.literal(flavor),false);
             }
             @Override public void committed(ServerPlayerEntity actor,OfferingDefinition definition,java.util.UUID transaction) {
                 if(definition.id().equals(EXTRA_HEART.id())) {

@@ -19,7 +19,10 @@ public final class GameSetupTools {
     public static final int MAX_TOOLS = 16;
     public static final int MAX_VERBS = 12;
     private static final Map<String, Tool> TOOLS = new LinkedHashMap<>();
+    private static final java.util.Set<String> PRESENTED_WITHIN = new java.util.HashSet<>();
     private static boolean frozen;
+    private static boolean finishing;
+    private static final java.util.List<Runnable> FINALIZERS=new java.util.ArrayList<>();
 
     private GameSetupTools() { }
 
@@ -31,8 +34,24 @@ public final class GameSetupTools {
         TOOLS.put(tool.id(), tool);
     }
 
-    public static synchronized void freeze() { frozen = true; }
+    /** Compose tools only after every mod initializer has registered its own tools. */
+    public static synchronized void afterRegistrations(Runnable action){
+        if(frozen||finishing||FINALIZERS.size()>=MAX_TOOLS)throw new IllegalStateException("Game setup registration is complete or full.");
+        FINALIZERS.add(Objects.requireNonNull(action));
+    }
+    public static synchronized void freeze() {
+        if(frozen)return;if(finishing)throw new IllegalStateException("Recursive game setup registration.");
+        finishing=true;try{for(var action:List.copyOf(FINALIZERS))action.run();FINALIZERS.clear();frozen=true;}finally{finishing=false;}
+    }
     public static synchronized List<Tool> tools() { return List.copyOf(TOOLS.values()); }
+    /** Presentation only: original IDs, commands, guards and recovery providers remain registered. */
+    public static synchronized List<Tool> menuTools(){return TOOLS.values().stream().filter(tool->!PRESENTED_WITHIN.contains(tool.id())).toList();}
+    public static synchronized void presentWithin(String parent,List<String> children){
+        if(frozen)throw new IllegalStateException("Game setup presentation is frozen after server startup.");
+        tool(parent);
+        for(String child:children){tool(child);if(child.equals(parent)||PRESENTED_WITHIN.contains(parent))throw new IllegalArgumentException("Invalid consolidated game setup presentation");}
+        PRESENTED_WITHIN.addAll(children);
+    }
     public static synchronized Optional<Tool> get(String id) { return Optional.ofNullable(TOOLS.get(id)); }
 
     public static Status status(ServerCommandSource source, String toolId) {

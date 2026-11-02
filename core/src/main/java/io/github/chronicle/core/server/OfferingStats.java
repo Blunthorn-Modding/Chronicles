@@ -109,6 +109,7 @@ public final class OfferingStats {
     }
 
     public static OfferingLedger ledger(MinecraftServer server) { return ready(server).service.ledger(); }
+    static void verifyAuthority(MinecraftServer server){State state=ready(server);try{state.store.verifyUnchanged();}catch(IOException|RuntimeException error){fail(server,state,error);throw new IllegalStateException("Offering authority unavailable",error);}}
     static boolean sourceDefinitelyAbsent(MinecraftServer server,UUID transaction) {
         State state=ready(server);try{state.store.verifyUnchanged();return state.service.ledger().receipts().stream().noneMatch(receipt->receipt.transaction().equals(transaction));}
         catch(IOException failure){throw new IllegalStateException("Offering source refusal cannot be proved from its observed authority",failure);}
@@ -118,6 +119,8 @@ public final class OfferingStats {
         State state = ready(player.getEntityWorld().getServer());
         OfferingLedger ledger = state.service.ledger();
         assertAuthority(player, ledger);
+        LastingBargains.validateCooldown(player.getEntityWorld().getServer(),player.getUuid(),source);
+        if(ledger.count(player.getUuid(),source,definition.id())>=definition.maxPurchases())throw new OfferingRefusal("This prayer has changed this character as far as it can.");
         OfferingLedger next = ledger.purchase(ledger.revision(), UUID.randomUUID(), player.getUuid(), source, definition);
         Totals before = projected(player, ledger), after = projected(player, next);
         validate(after);
@@ -128,6 +131,7 @@ public final class OfferingStats {
     public static PurchaseResult purchase(ServerPlayerEntity player, String source, OfferingDefinition definition,
                                 UUID transaction, Preview expected) throws IOException {
         MinecraftServer server = player.getEntityWorld().getServer(); State state = ready(server);
+        LastingBargains.validateSource(server,source);
         for (OfferingReceipt receipt : state.service.ledger().receipts()) if (receipt.transaction().equals(transaction)) {
             if (!receipt.player().equals(player.getUuid()) || !receipt.source().equals(source)
                     || !receipt.offering().equals(definition.id()) || !receipt.terms().equals(definition.terms())) {
@@ -142,7 +146,8 @@ public final class OfferingStats {
         Preview current = preview(player, source, definition);
         if (!current.equals(expected)) throw new IllegalStateException("Your bargain or stats changed; review the trade again.");
         try {
-            OfferingLedger committed = state.service.purchase(expected.revision(), transaction, player.getUuid(), source, definition);
+            OfferingLedger committed = state.service.purchase(expected.revision(), transaction, player.getUuid(), source, definition,
+                    PlayRuntime.elapsedTicks(server),LastingBargains.cooldownTicks(source));
             reconcile(player, committed);
             return new PurchaseResult(transaction,true);
         } catch (IOException error) { fail(server, state, error); throw error; }
@@ -243,7 +248,7 @@ public final class OfferingStats {
     private static void validate(Totals totals) {
         if (!Double.isFinite(totals.health()) || !Double.isFinite(totals.speed()) || totals.health() < 2
                 || totals.food() < 2 || totals.food() > 40 || totals.speed() <= 0
-                || !Double.isFinite(totals.exhaustion()) || totals.exhaustion()<1 || totals.exhaustion()>256) throw new IllegalStateException("The resulting stats would be unsafe; no bargain was accepted.");
+                || !Double.isFinite(totals.exhaustion()) || totals.exhaustion()<1 || totals.exhaustion()>256) throw new OfferingRefusal("This prayer would leave too little of this character.");
     }
 
     private static void reconcile(ServerPlayerEntity player, OfferingLedger ledger) {

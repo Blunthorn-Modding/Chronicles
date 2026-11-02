@@ -25,6 +25,9 @@ public record TemporaryOfferingClaim(UUID transaction, UUID player, String sourc
             if (reviewedBy == null || reviewedBy.isBlank() || reviewedBy.length() > 160)
                 throw new IllegalArgumentException("reviewed temporary claim needs an operator");
         } else if (reviewedBy != null) throw new IllegalArgumentException("only reviewed claims have a reviewer");
+        // Validate new reserved metadata without changing the legacy digest/serialization format.
+        String cooldown=terms.evidence().get("chronicle.cooldown_until_ticks");
+        if(cooldown!=null){try{if(!cooldown.matches("0|[1-9][0-9]*")||Long.parseLong(cooldown)<claimedAtTicks)throw new IllegalArgumentException("invalid captured offering cooldown");}catch(NumberFormatException error){throw new IllegalArgumentException("invalid captured offering cooldown",error);}}
     }
     public boolean unresolved() { return state == State.CLAIMED; }
     public boolean active(long clock) { return state == State.COMPLETE && terms.durationTicks() > 0 && clock < expiresAtTicks; }

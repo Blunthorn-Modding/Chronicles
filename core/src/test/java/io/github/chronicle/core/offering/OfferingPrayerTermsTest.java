@@ -35,13 +35,13 @@ class OfferingPrayerTermsTest {
             assertEquals(new OfferingTerms(4,2,0,25),next.totals(old.receipts().getFirst().player()).get("quiet_below:network"));
         }
         assertArrayEquals(sentinel,Files.readAllBytes(file.resolveSibling("offerings.json.initialized")));
-        assertTrue(Files.readString(file).contains("\"schemaVersion\": 2"));
+        assertTrue(Files.readString(file).contains("\"schemaVersion\": 3"));
     }
     @Test void schemaTwoRequiresExactlyItsNewIntegerTerm(){
         String valid=OfferingStore.encode(OfferingLedger.EMPTY.purchase(0,UUID.randomUUID(),UUID.randomUUID(),"test:source",new OfferingDefinition("test:life",new OfferingTerms(2,0,0,25),3)));
         assertEquals(25,OfferingStore.decode(valid).receipts().getFirst().terms().exhaustionPercent());
         assertThrows(IllegalArgumentException.class,()->OfferingStore.decode(valid.replace("\"exhaustionPercent\": 25","\"exhaustionPercent\": 25.0")));
         assertThrows(IllegalArgumentException.class,()->OfferingStore.decode(valid.replace("\"exhaustionPercent\": 25","\"other\": 25")));
-        assertThrows(IllegalArgumentException.class,()->OfferingStore.decode(valid.replace("\"schemaVersion\": 2","\"schemaVersion\": 3")));
+        assertThrows(IllegalArgumentException.class,()->OfferingStore.decode(valid.replace("\"schemaVersion\": 3","\"schemaVersion\": 4")));
     }
 }

@@ -10,6 +10,15 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GameSetupToolsTest {
+    @Test void presentationConsolidationKeepsRegisteredRecoveryTools(){
+        String parent="test:altar_parent",child="test:altar_child";
+        for(String id:List.of(parent,child))GameSetupTools.register(new GameSetupTools.Tool(id,id,"",List.of(),ignored->new GameSetupTools.Status(0,List.of(),Map.of()),(source,verb)->"done"));
+        GameSetupTools.presentWithin(parent,List.of(child));
+        org.junit.jupiter.api.Assertions.assertTrue(GameSetupTools.get(child).isPresent());
+        org.junit.jupiter.api.Assertions.assertTrue(GameSetupTools.tools().stream().anyMatch(t->t.id().equals(child)));
+        org.junit.jupiter.api.Assertions.assertFalse(GameSetupTools.menuTools().stream().anyMatch(t->t.id().equals(child)));
+        org.junit.jupiter.api.Assertions.assertTrue(GameSetupTools.menuTools().stream().anyMatch(t->t.id().equals(parent)));
+    }
     @Test
     void toolDefinitionKeepsFiniteVerbsAndStatusDataBounded() {
         assertDoesNotThrow(() -> new GameSetupTools.Tool("quiet_below:ecology", "Ecology", "Campaign state.",

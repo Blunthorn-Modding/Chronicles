@@ -153,6 +153,8 @@ def run(build: bool = True) -> None:
                ":campaigns:quiet-below:remapJar", ":campaigns:quiet-below:writeSmokeClientLaunch"])
     launch = json.loads((w.REPO / "campaigns/quiet-below/build/smoke/client-launch.json").read_text(encoding="utf-8"))
     root = fabric_smoke._stage(w)
+    import temporary_altar_smoke
+    temporary_altar_smoke._config(root)
     # Only the isolated helper requires the passive account to invoke identity.
     ops_file = root / "ops.json"
     operators = json.loads(ops_file.read_text(encoding="utf-8"))

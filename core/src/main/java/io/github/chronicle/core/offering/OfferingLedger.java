@@ -48,10 +48,14 @@ public record OfferingLedger(long revision, List<OfferingReceipt> receipts, Set<
     }
 
     public OfferingLedger purchase(long expectedRevision, UUID transaction, UUID player, String source, OfferingDefinition definition) {
-        OfferingReceipt candidate = new OfferingReceipt(transaction, player, source, definition.id(), definition.terms());
+        return purchase(expectedRevision,transaction,player,source,definition,0,0);
+    }
+    public OfferingLedger purchase(long expectedRevision, UUID transaction, UUID player, String source, OfferingDefinition definition,long clock,long cooldownTicks) {
+        if(clock<0||cooldownTicks<0)throw new IllegalArgumentException("invalid offering cooldown clock");
+        OfferingReceipt candidate = new OfferingReceipt(transaction, player, source, definition.id(), definition.terms(),clock,Math.addExact(clock,cooldownTicks));
         if (closedSources.contains(source)) throw new IllegalStateException("this campaign source has ended");
         for (OfferingReceipt receipt : receipts) if (receipt.transaction().equals(transaction)) {
-            if (!receipt.equals(candidate)) throw new IllegalStateException("transaction id already belongs to a different offering");
+            if (!receipt.player().equals(player)||!receipt.source().equals(source)||!receipt.offering().equals(definition.id())||!receipt.terms().equals(definition.terms())) throw new IllegalStateException("transaction id already belongs to a different offering");
             return this;
         }
         if (expectedRevision != revision) throw new IllegalStateException("offerings changed; reopen before confirming");

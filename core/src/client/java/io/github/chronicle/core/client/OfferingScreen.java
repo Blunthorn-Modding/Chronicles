@@ -84,16 +84,13 @@ public final class OfferingScreen extends Screen implements ScreenHandlerProvide
         buttons.clear();
         int left = (width - OfferingScreenHandler.WIDTH) / 2;
         int top = panelTop();
-        button("choice0", "", left + 12, top + 48, 200, 20, () -> pray(0));
-        button("choice1", "", left + 12, top + 74, 200, 20, () -> pray(1));
-        button("choice2", "", left + 12, top + 100, 200, 20, () -> pray(2));
-        button("choice3", "", left + 12, top + 126, 200, 20, () -> pray(3));
-        if (twoSheet()) {
-            int footer=page==0?top+104:top+154;
-            button("close", "Close", page==0?left+144:left+112, footer, page==0?68:100, 20, this::close);
-            previous = button("previous", "Back", left + 12, footer, 80, 20, () -> { page=0; clearAndInit(); });
-            next = button("next", "More prayers...", left + 12, footer, 124, 20, () -> { page=1; clearAndInit(); });
+        if (altar()) {
+            for(int i=0;i<5;i++){final int visible=i;button("choice"+i,"",left+12,top+42+i*20,200,18,()->pray(visible));}
+            button("close","Close",left+62,top+178,100,20,this::close);
+            previous=null;next=null;
         } else {
+            button("choice0", "", left + 12, top + 48, 200, 20, () -> pray(0));
+            button("choice1", "", left + 12, top + 74, 200, 20, () -> pray(1));
             button("close", "Close", left + 62, top + 104, 100, 20, this::close);
             previous = button("previous", "<", left + 12, top + 104, 20, 20, () -> { page--; updateWidgets(); });
             next = button("next", ">", left + 192, top + 104, 20, 20, () -> { page++; updateWidgets(); });
@@ -101,8 +98,8 @@ public final class OfferingScreen extends Screen implements ScreenHandlerProvide
         updateWidgets();
     }
 
-    private boolean twoSheet(){return state.layout()==OfferingPayloads.Layout.ALTAR_TWO_SHEET;}
-    private int panelHeight(){return twoSheet()&&page==1?184:OfferingScreenHandler.HEIGHT;}
+    private boolean altar(){return state.layout()==OfferingPayloads.Layout.ALTAR_FIVE;}
+    private int panelHeight(){return altar()?204:OfferingScreenHandler.HEIGHT;}
     private int panelTop(){return (height-panelHeight())/2;}
 
     private ButtonWidget button(String key, String label, int left, int top, int buttonWidth, int buttonHeight, Runnable action) {
@@ -113,14 +110,13 @@ public final class OfferingScreen extends Screen implements ScreenHandlerProvide
     }
 
     private int pages() {
-        if(twoSheet())return 2;
+        if(altar())return 1;
         return Math.max(1, (state.choices().size() + 1) / 2);
     }
 
     private OfferingPayloads.Choice choice(int visible) {
-        if(!twoSheet()&&visible>=2)return null;
-        if(twoSheet()&&page==0&&visible>=2)return null;
-        int index = twoSheet()?(page==0?visible:2+visible):page * 2 + visible;
+        if(!altar()&&visible>=2)return null;
+        int index = altar()?visible:page * 2 + visible;
         return index >= 0 && index < state.choices().size() ? state.choices().get(index) : null;
     }
 
@@ -128,7 +124,7 @@ public final class OfferingScreen extends Screen implements ScreenHandlerProvide
         page = Math.clamp(page, 0, pages() - 1);
         boolean canPray = !pending() && !timedOut && state.state() == OfferingPayloads.State.READY
                 && ClientPlayNetworking.canSend(OfferingPayloads.Action.ID);
-        for (int visible = 0; visible < 4; visible++) {
+        for (int visible = 0; visible < (altar()?5:2); visible++) {
             ButtonWidget widget = buttons.get("choice" + visible);
             OfferingPayloads.Choice choice = choice(visible);
             widget.visible = choice != null;
@@ -138,16 +134,15 @@ public final class OfferingScreen extends Screen implements ScreenHandlerProvide
             }
         }
         boolean paged = pages() > 1;
-        previous.visible = paged && (!twoSheet()||page==1);next.visible=paged&&(!twoSheet()||page==0);
-        previous.active = previous.visible && !pending() && page > 0;
-        next.active = next.visible && !pending() && page + 1 < pages();
+        if(previous!=null){previous.visible=paged;previous.active=paged&&!pending()&&page>0;}
+        if(next!=null){next.visible=paged;next.active=paged&&!pending()&&page+1<pages();}
     }
 
     private void pray(int visible) {
         OfferingPayloads.Choice choice = choice(visible);
         if (choice == null || !choice.available() || choice.complete() || pending() || timedOut
                 || state.state() != OfferingPayloads.State.READY) return;
-        send(1, twoSheet()?(page==0?visible:2+visible):page * 2 + visible);
+        send(1, altar()?visible:page * 2 + visible);
     }
 
     private void send(int action, int selected) {
@@ -187,10 +182,14 @@ public final class OfferingScreen extends Screen implements ScreenHandlerProvide
         int top = panelTop();
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, POPUP, left, top,
                 OfferingScreenHandler.WIDTH, panelHeight());
-        context.drawCenteredTextWithShadow(textRenderer, state.title(), left + 112, top + 12, 0xFFFFFFFF);
-        context.drawCenteredTextWithShadow(textRenderer, stateLine(), left + 112, top + 32, 0xFFFFFFFF);
-        if (pages() > 1 && !twoSheet()) {
+        context.drawCenteredTextWithShadow(textRenderer, state.title(), left + 112, top + (altar()?10:12), 0xFFFFFFFF);
+        context.drawCenteredTextWithShadow(textRenderer, stateLine(), left + 112, top + (altar()?26:32), 0xFFFFFFFF);
+        if (pages() > 1 && !altar()) {
             context.drawTextWithShadow(textRenderer, (page + 1) + "/" + pages(), left + 34, top + 110, 0xFFFFFFFF);
+        }
+        if(altar()&&!state.feedback().isEmpty()){
+            var lines=textRenderer.wrapLines(Text.literal(state.feedback()),200);
+            for(int i=0;i<Math.min(2,lines.size());i++)context.drawTextWithShadow(textRenderer,lines.get(i),left+12,top+145+i*10,0xFFFFFFFF);
         }
         super.render(context, mouseX, mouseY, deltaTicks);
     }

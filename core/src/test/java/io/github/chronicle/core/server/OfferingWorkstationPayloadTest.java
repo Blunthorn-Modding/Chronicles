@@ -22,7 +22,12 @@ class OfferingWorkstationPayloadTest {
         assertEquals(Set.of("label","available","complete"),fields(OfferingPayloads.Choice.class));
     }
     @Test void playerViewWireShapeHasNoStatsTermsOrRawGateDiagnostics(){
-        assertEquals(Set.of("syncId","token","parent","title","state","choices","opening","presentation","layout"),fields(OfferingPayloads.View.class));
+        assertEquals(Set.of("syncId","token","parent","title","state","choices","opening","presentation","layout","feedback"),fields(OfferingPayloads.View.class));
+    }
+    @Test void altarShowsExactlyFiveChoicesAndOnlyBoundedDisplayFeedback(){
+        var choices=java.util.stream.IntStream.range(0,5).mapToObj(i->new OfferingPayloads.Choice("Prayer "+i,true,false)).toList();
+        assertDoesNotThrow(()->new OfferingPayloads.View(1,UUID.randomUUID(),null,"Altar",OfferingPayloads.State.READY,choices,true,OfferingPayloads.Presentation.neutral(),OfferingPayloads.Layout.ALTAR_FIVE,"No answer comes."));
+        assertThrows(IllegalArgumentException.class,()->new OfferingPayloads.View(1,UUID.randomUUID(),null,"Altar",OfferingPayloads.State.READY,choices.subList(0,4),true,OfferingPayloads.Presentation.neutral(),OfferingPayloads.Layout.ALTAR_FIVE,""));
     }
     @Test void campaignPresentationContainsOnlyBoundedDisplayStrings(){
         assertEquals(Set.of("pending","unavailable","ready","partial","exhausted","expired","answered"),fields(OfferingPayloads.Presentation.class));

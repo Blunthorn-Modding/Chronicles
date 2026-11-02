@@ -297,6 +297,8 @@ public final class EcologyEngine implements EcologyCrops.Network,EcologyRecovery
         if (recoveryAvailable()) return 2;
         return growthCount() >= (vitality.rules().established() + 1) / 2 ? 1 : 0;
     }
+    /** An incomplete assessment is technical unavailability, not a failed player offering. */
+    public boolean stationPowerAssessed(){return cropsAvailable()&&vitalityAssessed;}
     @Override public boolean costsAvailable(){return recoveryAvailable();}
     @Override public boolean extensive(){return currentExtent().equals("Extensive");}
     /** A certified removal cannot keep an old extent alive across its exit threshold. */

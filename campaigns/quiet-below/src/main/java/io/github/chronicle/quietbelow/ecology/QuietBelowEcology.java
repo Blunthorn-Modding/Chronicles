@@ -359,8 +359,14 @@ public final class QuietBelowEcology {
                     && !PlayRuntime.eligiblePlayers(server).isEmpty();
         } catch(IllegalStateException e) {return false;}
     }
-    private record StationReadiness(String unavailable, int heat) {
+    private record StationReadiness(String unavailable, int heat, boolean technical) {
+        StationReadiness(String unavailable,int heat){this(unavailable,heat,false);}
         static StationReadiness off(String reason) { return new StationReadiness(reason, 0); }
+        static StationReadiness technical(String reason){return new StationReadiness(reason,0,true);}
+    }
+    /** Technical assessment failures must not be interpreted as a player's rejected prayer. */
+    public static String stationAuthorityUnavailable(ServerWorld world,BlockPos station){
+        var readiness=stationReadiness(world,station);return readiness.technical()?readiness.unavailable():null;
     }
     /** Loaded-only, six-neighbor physical station power, independent of authored station bindings. */
     public static String stationPower(ServerWorld world, BlockPos station) {
@@ -373,18 +379,20 @@ public final class QuietBelowEcology {
     private static StationReadiness stationReadiness(ServerWorld world, BlockPos station) {
         try {
             var server = world.getServer(); var r = runtime(server); var e = r.engine;
-            if (e.ending() != null) return StationReadiness.off("The Relic Heart was destroyed; this network has ended permanently.");
-            if (!playing(server)) return StationReadiness.off("The network rests while play is paused, empty or held.");
+            if (e.ending() != null) return StationReadiness.technical("The Relic Heart was destroyed; this network has ended permanently.");
+            if (!playing(server)) return StationReadiness.technical("The network rests while play is paused, empty or held.");
             if (e.setup() == null || !e.setup().dimension().equals(world.getRegistryKey().getValue().toString()))
-                return StationReadiness.off("No campaign network is configured in this dimension.");
+                return StationReadiness.technical("No campaign network is configured in this dimension.");
             Pins root = pins(server);
-            if (!root.setup.equals(e.setup())) return StationReadiness.off("Source or Heart bindings changed; resolve ecology setup first.");
+            if (!root.setup.equals(e.setup())) return StationReadiness.technical("Source or Heart bindings changed; resolve ecology setup first.");
             var rootChunk = EcologyLoadedBlocks.chunk(world, blockPos(root.heart));
             if (rootChunk == null || !Registries.BLOCK.getId(rootChunk.getBlockState(blockPos(root.heart)).getBlock()).toString().equals(root.heartBlock))
-                return StationReadiness.off("The living Relic Heart is missing or unloaded.");
+                return StationReadiness.technical("The living Relic Heart is missing or unloaded.");
+            if(r.rootProblem!=null)return StationReadiness.technical(r.rootProblem);
+            if(!e.stationPowerAssessed())return StationReadiness.technical("The network's current strength has not yet been assessed.");
             String small = "The network needs connected Established or Extensive living sculk.";
             int heat = e.forgeHeat();
-            if (r.rootProblem != null || heat == 0) return StationReadiness.off(small);
+            if (heat == 0) return StationReadiness.off(small);
             for (Direction direction : Direction.values()) {
                 BlockPos at = station.offset(direction); var chunk = EcologyLoadedBlocks.chunk(world, at);
                 if (chunk != null && e.living(pos(at), encode(chunk.getBlockState(at))))
@@ -392,7 +400,7 @@ public final class QuietBelowEcology {
             }
             return StationReadiness.off(heat == 1 ? small : "Place the station directly beside connected living sculk (at least25% vitality).");
         } catch (IllegalStateException error) {
-            return StationReadiness.off("The network is unavailable: " + error.getMessage());
+            return StationReadiness.technical("The network is unavailable: " + error.getMessage());
         }
     }
     private static GameSetupTools.Status status(ServerCommandSource source) {

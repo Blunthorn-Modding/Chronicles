@@ -18,7 +18,11 @@ public final class OfferingService implements AutoCloseable {
 
     public synchronized OfferingLedger purchase(long expectedRevision, UUID transaction, UUID player, String source,
             OfferingDefinition definition) throws IOException {
-        OfferingLedger replacement = ledger.purchase(expectedRevision, transaction, player, source, definition);
+        return purchase(expectedRevision,transaction,player,source,definition,0,0);
+    }
+    public synchronized OfferingLedger purchase(long expectedRevision, UUID transaction, UUID player, String source,
+            OfferingDefinition definition,long clock,long cooldownTicks) throws IOException {
+        OfferingLedger replacement = ledger.purchase(expectedRevision, transaction, player, source, definition,clock,cooldownTicks);
         if (replacement == ledger) {
             store.verifyUnchanged();
             return ledger;

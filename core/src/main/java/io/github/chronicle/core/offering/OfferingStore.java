@@ -34,7 +34,7 @@ import java.util.UUID;
 
 /** Strict, bounded, exclusively locked versioned authority for lasting offerings. */
 public final class OfferingStore implements AutoCloseable {
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
     public static final long MAX_FILE_BYTES = 8L * 1024 * 1024;
     // Stable initialization sentinel: JSON schema upgrades must not invalidate existing authority.
     private static final byte[] INITIALIZED = "chronicle-offerings-schema-1\n".getBytes(StandardCharsets.UTF_8);
@@ -157,6 +157,8 @@ public final class OfferingStore implements AutoCloseable {
             value.addProperty("player", receipt.player().toString());
             value.addProperty("source", receipt.source());
             value.addProperty("offering", receipt.offering());
+            value.addProperty("acceptedAtTicks",receipt.acceptedAtTicks());
+            value.addProperty("cooldownUntilTicks",receipt.cooldownUntilTicks());
             JsonObject terms = new JsonObject();
             terms.addProperty("health", receipt.terms().health());
             terms.addProperty("food", receipt.terms().food());
@@ -176,7 +178,7 @@ public final class OfferingStore implements AutoCloseable {
         JsonObject root = object(parse(source), "offering ledger root");
         exact(root, ROOT_FIELDS, "offering ledger root");
         int schema=integer(required(root,"schemaVersion"),"schemaVersion");
-        if (schema!=1 && schema!=SCHEMA_VERSION) {
+        if (schema!=1 && schema!=2 && schema!=SCHEMA_VERSION) {
             throw new IllegalArgumentException("unsupported offering ledger schemaVersion");
         }
         long revision = number(required(root, "revision"), "revision");
@@ -185,7 +187,7 @@ public final class OfferingStore implements AutoCloseable {
         List<OfferingReceipt> receipts = new ArrayList<>(receiptValues.size());
         for (JsonElement element : receiptValues) {
             JsonObject value = object(element, "offering receipt");
-            exact(value, RECEIPT_FIELDS, "offering receipt");
+            exact(value, schema<3?RECEIPT_FIELDS:Set.of("transaction","player","source","offering","terms","acceptedAtTicks","cooldownUntilTicks"), "offering receipt");
             JsonObject termsValue = object(required(value, "terms"), "offering terms");
             exact(termsValue, schema==1 ? LEGACY_TERMS_FIELDS : TERMS_FIELDS, "offering terms");
             receipts.add(new OfferingReceipt(
@@ -196,7 +198,9 @@ public final class OfferingStore implements AutoCloseable {
                     new OfferingTerms(signedInteger(required(termsValue, "health"), "health"),
                             signedInteger(required(termsValue, "food"), "food"),
                             signedInteger(required(termsValue, "speedPercent"), "speedPercent"),
-                            schema==1 ? 0 : signedInteger(required(termsValue,"exhaustionPercent"),"exhaustionPercent"))));
+                            schema==1 ? 0 : signedInteger(required(termsValue,"exhaustionPercent"),"exhaustionPercent")),
+                    schema<3?0:number(required(value,"acceptedAtTicks"),"acceptedAtTicks"),
+                    schema<3?0:number(required(value,"cooldownUntilTicks"),"cooldownUntilTicks")));
         }
         JsonArray closedValues = array(required(root, "closedSources"), "closedSources");
         if (closedValues.size() > OfferingLedger.MAX_CLOSED_SOURCES) throw new IllegalArgumentException("too many closed offering sources");

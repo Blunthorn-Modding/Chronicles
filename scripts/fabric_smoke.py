@@ -109,7 +109,10 @@ def _client(w, launch, root, reports, name, label, variables):
         'tutorialStep:none', 'lang:en_us', 'pauseOnLostFocus:false',
         'soundCategory_master:0.0', ''
     ]), encoding='utf-8')
-    jvm = [arg for arg in launch['jvmArgs'] if not arg.startswith(('-Xmx', '-Xms'))]
+    temporary = directory / 'tmp'
+    temporary.mkdir()
+    jvm = [arg for arg in launch['jvmArgs'] if not arg.startswith(('-Xmx', '-Xms', '-Djava.io.tmpdir=', '-Djna.tmpdir='))]
+    jvm.extend(['-Djava.io.tmpdir=' + str(temporary), '-Djna.tmpdir=' + str(temporary)])
     width = int(variables.get('CHRONICLE_MENU_WIDTH', '640'))
     height = int(variables.get('CHRONICLE_MENU_HEIGHT', '480'))
     if not 320 <= width <= 2560 or not 240 <= height <= 1440:
