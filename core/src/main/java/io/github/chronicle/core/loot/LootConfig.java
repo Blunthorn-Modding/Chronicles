@@ -43,6 +43,11 @@ public final class LootConfig {
      * Creates the initial file from campaign defaults, or overlays complete configured types on
      * those defaults. Existing invalid files are never changed.
      */
+    /** Profile-owned catalogs are complete overrides: never recreate or merge removed definitions. */
+    public synchronized Map<String,LootType> loadExisting()throws IOException{
+        byte[] bytes=current();try{return observe(bytes,decode(new String(bytes,StandardCharsets.UTF_8)));}
+        catch(RuntimeException error){throw new IOException("Existing profile loot catalog is invalid and was preserved: "+file,error);}
+    }
     public synchronized Map<String, LootType> loadOrCreate(Map<String, LootType> defaults) throws IOException {
         Map<String, LootType> validatedDefaults = defaults(defaults);
         if (!Files.exists(file)) {

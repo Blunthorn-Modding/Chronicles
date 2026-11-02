@@ -35,6 +35,9 @@ public final class PlayerRolesTrial {
             for (String verb : List.of("verify_editor", "seed_component", "verify_component", "prepare", "full", "uncertain", "verify_uncertain", "release", "verify", "repeat", "clear", "death", "verify_death", "manual_respawn", "verify_manual", "off_respawn", "verify_off", "maintain", "verify_export", "restart"))
                 root.then(literal(verb).executes(context -> run(context.getSource(), verb)));
             dispatcher.register(root);
+            var profiles=literal("chronicle_profile_trial").requires(source->source.hasPermissionLevel(2));
+            for(String verb:List.of("empty","seed","export","imported","edit","edited"))profiles.then(literal(verb).executes(context->{try{fixture(context.getSource());ScenarioProfileTrial.run(context.getSource(),verb);context.getSource().sendFeedback(()->Text.literal("Profile trial PASS "+verb),false);return 1;}catch(Exception error){context.getSource().sendError(Text.literal("Profile trial FAIL "+verb+": "+error.getMessage()));return 0;}}));
+            dispatcher.register(profiles);
         });
     }
 

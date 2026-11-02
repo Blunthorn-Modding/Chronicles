@@ -22,14 +22,14 @@ public final class BookRuntime {
             try { load(server); }
             catch (IOException | RuntimeException failure) {
                 ChronicleCore.LOGGER.error("Book catalog unavailable; existing config retained", failure);
-                RuntimeHolds.hold(server, HOLD, "Book configuration unavailable; correct config/chronicle/books.json and reload Books & Lore.");
+                RuntimeHolds.hold(server, HOLD, "Book configuration unavailable; correct "+ScenarioAuthoringProfiles.contentFile("books.json")+" and reload Books & Lore.");
             }
         });
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
     }
     private static void load(MinecraftServer server) throws IOException {
-        var config = new BookConfig(FabricLoader.getInstance().getConfigDir().resolve("chronicle/books.json"));
-        var books = config.loadOrCreate(ChronicleCore.books().books());
+        var config = new BookConfig(ScenarioAuthoringProfiles.contentFile("books.json"));
+        var books = ScenarioAuthoringProfiles.active().isPresent()?config.loadExisting():config.loadOrCreate(ChronicleCore.books().books());
         if(WORLDS.containsKey(server)){
             for(var type:TypedChestLoot.types(server).values())for(var ref:type.books())if(!books.containsKey(ref.bookId()))throw new IllegalArgumentException("Book still referenced by loot table: "+ref.bookId());
             for(var binding:ChestAuthoring.service(server).state().bindings().values())if(binding.directBook()!=null&&!books.containsKey(binding.directBook().bookId()))throw new IllegalArgumentException("Book still referenced by bound chest: "+binding.directBook().bookId());

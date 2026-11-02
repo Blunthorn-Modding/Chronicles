@@ -1,5 +1,7 @@
 # Scenario content build input
 
+This page describes raw content exports for the next mod build. A **custom runtime profile** is a separate typed envelope installed on a dedicated server as `config/chronicle/scenario-profile.json`; see [custom authoring](SCENARIO_CONTENT_EXPORT.md). Do not pass a runtime profile to the mod-build importer.
+
 Scenario content is a reusable build input. It contains roles, books, loot tables, encounter-group compositions, and disabled Event templates. Event encounter targets remain symbolic map binding names only; it never contains Regions, Locations, chest bindings, map settings, coordinates, dimensions, player data, session progress, receipts, snapshots, or a runtime Event schedule.
 
 Validate a captured editor export before review:

@@ -26,7 +26,7 @@ public final class CoreMenuModel {
         BOOK_NEW, BOOK_EDIT_DETAILS, BOOK_EDIT_PAGES, BOOK_RULE, BOOK_CREATE, BOOK_SAVE, BOOK_RELOAD, BOOK_REF_ADD, BOOK_REF_REMOVE, BOOK_OPEN, CHEST_BOOK_SET, BOOK_KEEP, BOOK_KEEP_START, BOOK_KEEP_STOP, BOOK_KEEP_REVIEW, BOOK_GIVE_OPEN, BOOK_GIVE_REVIEW, BOOK_GIVE, LOOT_NEW,
         EVENT_NEW, EVENT_EDIT, EVENT_CREATE, EVENT_DEFINITION_SAVE, EVENT_DELETE, EVENT_DRAFT_PREVIEW, EVENT_SHOW_BOUNDS, EVENT_RECOVER, EVENT_ACK_MEDIA,
         FLAG_CREATE, EVENT_SOURCE_REVIEW, EVENT_SOURCE_COMPLETE, EVENT_SOURCE_CANCEL, EVENT_SOURCE_RELOAD,
-        SCENARIO_CONTENT_OPEN, SCENARIO_CONTENT_EXPORT,
+        SCENARIO_CONTENT_OPEN, SCENARIO_CONTENT_EXPORT, SCENARIO_CONTENT_CREATE,
         ENCOUNTER_NEW, ENCOUNTER_EDIT, ENCOUNTER_CREATE, ENCOUNTER_SAVE, ENCOUNTER_DELETE, EVENT_TEMPLATE_NEW,
         EVENT_ENCOUNTER_REVIEW, EVENT_ENCOUNTER_ACCEPT
     }
@@ -104,11 +104,20 @@ public final class CoreMenuModel {
         }
         public BlockLimitType selected() { return types.stream().filter(type->type.typeId().equals(selectedType)).findFirst().orElse(null); }
     }
+    public record ScenarioResult(String kind,String path,String scenarioId,long requestToken){
+        public ScenarioResult{text(kind,16);text(path,2048);text(scenarioId,160);if(!List.of("PREVIEW","KIT","PROFILE","CONTENT").contains(kind)||(!kind.equals("PREVIEW")&&path.isBlank())||requestToken<0)throw new IllegalArgumentException("Invalid scenario operation result");}
+    }
     public record View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
                        boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
                        List<Entry> entries,Detail detail,Picker picker,boolean close,BlockLimitsForm blockLimits,EventEditorForm eventEditor,
                        List<ScenarioExportPreview> scenarioProviders,ScenarioExportPreview scenarioPreview,
-                       EncounterEditorForm encounterEditor) {
+                       EncounterEditorForm encounterEditor,ScenarioResult scenarioResult) {
+        public View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
+                    boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
+                    List<Entry> entries,Detail detail,Picker picker,boolean close,BlockLimitsForm blockLimits,EventEditorForm eventEditor,
+                    List<ScenarioExportPreview> scenarioProviders,ScenarioExportPreview scenarioPreview,EncounterEditorForm encounterEditor){
+            this(token,page,index,pages,filter,selected,phase,session,editing,editable,operator,hold,clock,message,success,entries,detail,picker,close,blockLimits,eventEditor,scenarioProviders,scenarioPreview,encounterEditor,null);
+        }
         public View(long token,Page page,int index,int pages,String filter,String selected,String phase,int session,
                     boolean editing,boolean editable,boolean operator,String hold,String clock,String message,boolean success,
                     List<Entry> entries,Detail detail,Picker picker,boolean close,BlockLimitsForm blockLimits,EventEditorForm eventEditor,
@@ -138,7 +147,7 @@ public final class CoreMenuModel {
             if(scenarioProviders.size()>16)throw new IllegalArgumentException("Too many scenario providers");
             if(scenarioPreview!=null&&!scenarioProviders.stream().anyMatch(provider->provider.providerId().equals(scenarioPreview.providerId())))throw new IllegalArgumentException("Scenario preview provider was not advertised");
             if(!operator) {
-                if(!scenarioProviders.isEmpty()||scenarioPreview!=null)throw new IllegalArgumentException("Public player view contains scenario management state");
+                if(!scenarioProviders.isEmpty()||scenarioPreview!=null||scenarioResult!=null)throw new IllegalArgumentException("Public player view contains scenario management state");
                 if(eventEditor!=null||encounterEditor!=null||blockLimits!=null||page!=Page.PLAYERS||editing||editable||!hold.isBlank()||!clock.isBlank()||picker!=null||entries.size()>1||entries.stream().anyMatch(e->!e.id().equals(selected)))throw new IllegalArgumentException("Public player view contains management state");
                 if(detail!=null&&(detail.role()!=null||detail.area()!=null||detail.departure()!=null||detail.loot()!=null||detail.event()!=null||detail.region()!=null||detail.book()!=null||detail.lore()!=null||detail.controls().stream().anyMatch(c->switch(c.action()){case CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->false;default->true;})))throw new IllegalArgumentException("Public player view contains management controls");
                 if(detail!=null&&detail.roleAssignment()!=null&&(detail.roleAssignment().canAssign()||!detail.roleAssignment().playerId().equals(selected)||!detail.roleAssignment().pendingRoleId().isEmpty()))throw new IllegalArgumentException("Public role form contains management data");

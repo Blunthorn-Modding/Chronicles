@@ -50,6 +50,11 @@ public final class BookConfig {
         this.beforeCommit = java.util.Objects.requireNonNull(beforeCommit);
     }
 
+    /** Profile-owned catalogs are complete overrides: never recreate or merge removed definitions. */
+    public synchronized Map<String,BookDefinition> loadExisting()throws IOException{
+        byte[] bytes=current();try{return observe(bytes,decode(new String(bytes,StandardCharsets.UTF_8)));}
+        catch(RuntimeException error){throw new IOException("Existing profile book catalog is invalid and was preserved: "+file,error);}
+    }
     public synchronized Map<String, BookDefinition> loadOrCreate(Map<String, BookDefinition> defaults) throws IOException {
         Map<String, BookDefinition> validatedDefaults = defaults(defaults);
         if (!Files.exists(file)) return observe(writeInitial(validatedDefaults), validatedDefaults);

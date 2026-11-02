@@ -407,24 +407,29 @@ public final class CoreMenuScreen extends Screen {
     }
 
     void acceptWhileScenarioOpen(ScenarioContentScreen popup, View updated) {
-        Action receivedFor=requestedAction;
         long priorToken=state.token();
         acceptWhileEditorOpen(updated);
-        if(pendingScenarioScreen!=popup)return;
-        if(receivedFor==Action.SCENARIO_CONTENT_OPEN||receivedFor==Action.SCENARIO_CONTENT_EXPORT) popup.serverUpdated(updated,receivedFor==Action.SCENARIO_CONTENT_EXPORT&&priorToken!=updated.token());
+        popup.serverUpdated(updated,priorToken!=updated.token());
     }
 
     void openScenarioContent(String providerId, ScenarioContentScreen popup) {
+        if(pending){popup.rejected("Waiting for the previous server request. Try again shortly.");return;}
         if(providerId==null||providerId.isBlank()||popup.openingToken()!=state.token()){popup.markStale("The menu changed. Close and reopen Scenario content.");return;}
         pendingScenarioScreen=popup;
         request(Action.SCENARIO_CONTENT_OPEN,state.page(),providerId,"",state.index(),state.filter(),"",false);
     }
     void exportScenarioContent(ScenarioContentScreen popup) {
+        if(pending){popup.rejected("Waiting for the previous server request. Try again shortly.");return;}
         if(popup.openingToken()!=state.token()){popup.markStale("The menu changed. Review Scenario content again.");return;}
         pendingScenarioScreen=popup;
         request(Action.SCENARIO_CONTENT_EXPORT,state.page(),"","",state.index(),state.filter(),"",false);
     }
-    void dismissScenario(ScenarioContentScreen popup) { if(pendingScenarioScreen==popup)pendingScenarioScreen=null; }
+    void createScenarioContent(ScenarioContentScreen popup,String id,String title){
+        if(pending){popup.rejected("Waiting for the previous server request. Try again shortly.");return;}
+        if(popup.openingToken()!=state.token()){popup.markStale("The menu changed. Close and reopen Scenario content.");return;}
+        pendingScenarioScreen=popup;request(Action.SCENARIO_CONTENT_CREATE,state.page(),id,title,state.index(),state.filter(),"",false);
+    }
+    void dismissScenario(ScenarioContentScreen popup) { if(pendingScenarioScreen==popup){pendingScenarioScreen=null;pending=false;requestedAction=null;} }
 
     /**
      * Receives a reply for the dedicated event editor without treating a successful save as a
@@ -527,11 +532,11 @@ public final class CoreMenuScreen extends Screen {
             int debugX = refreshX - 2 - 60;
             button(debugLabel(), debugX, layout.headerY(), 60, 18, () -> setDebug(!debug), "Show or hide editor details on this client", true);
             int editingX=debugX-2-87;
-            if(!state.scenarioProviders().isEmpty()) {
+            {
                 int scenarioWidth=compact?18:112;
                 int scenarioX=editingX-2-scenarioWidth;
                 if(scenarioX>=layout.content().x()+54) button(compact?"...":"Scenario content...",scenarioX,layout.headerY(),scenarioWidth,18,
-                        () -> { var popup=new ScenarioContentScreen(this,state.token(),state.scenarioProviders(),null,""); client.setScreen(popup); if(state.scenarioProviders().size()==1&&state.scenarioProviders().getFirst().available())openScenarioContent(state.scenarioProviders().getFirst().providerId(),popup); },
+                        () -> { var popup=new ScenarioContentScreen(this,state.token(),state.scenarioProviders(),null,""); client.setScreen(popup); },
                         "Scenario content",true);
             }
             button(state.editing() ? "Stop editing" : "Enable editing", editingX, layout.headerY(), 87, 18,

@@ -15,8 +15,22 @@ import net.minecraft.server.network.ServerPlayerEntity;
 public final class ScenarioContentRuntime {
     private static final int MAX_PROVIDERS=16;
     private static final Map<String,String> PROVIDERS=new TreeMap<>(); private static boolean frozen;
+    private static final Map<String,String> MECHANICS=new TreeMap<>();
     private ScenarioContentRuntime() { }
     public record Pinned(ScenarioExportPreview preview,ScenarioContent content) { }
+    /** Explicit opt-in: this provider suppresses its reusable defaults when a profile is installed. */
+    public static synchronized void registerScenario(String id,String title,String mechanics){
+        new ScenarioContent(mechanics,Map.of(),Map.of(),Map.of(),Map.of());registerScenario(id,title);MECHANICS.put(id,mechanics);
+    }
+    static synchronized Set<String> compatibleMechanics(){
+        if(!MECHANICS.keySet().containsAll(PROVIDERS.keySet()))throw new IllegalStateException("An installed scenario mod does not support empty custom authoring yet.");
+        return Collections.unmodifiableSet(new TreeSet<>(MECHANICS.values()));
+    }
+    static void requireCompatibleMechanics(Set<String> required){if(!compatibleMechanics().equals(required))throw new IllegalStateException("This profile requires a different set of installed mechanics providers: "+required);}
+    static java.nio.file.Path create(MinecraftServer server,String id,String title)throws IOException{
+        if(PROVIDERS.containsKey(id)||ScenarioAuthoringProfiles.active().map(p->p.content().scenarioId().equals(id)).orElse(false))throw new IllegalArgumentException("Choose a new custom scenario ID, distinct from the active or installed scenarios.");
+        var empty=ScenarioProfile.empty(id,title,compatibleMechanics());return new ScenarioProfileStore(ScenarioAuthoringProfiles.chronicleConfig()).create(empty);
+    }
     public static synchronized void registerScenario(String id,String title) {
         new ScenarioContent(id,Map.of(),Map.of(),Map.of(),Map.of());
         if(title==null||title.isBlank()||title.length()>160)throw new IllegalArgumentException("Scenario title is required and bounded");
@@ -29,8 +43,9 @@ public final class ScenarioContentRuntime {
     public static synchronized void register(){ServerLifecycleEvents.SERVER_STARTED.register(server->freezeRegistrations());}
     private static synchronized void freezeRegistrations(){frozen=true;}
     static synchronized List<ScenarioExportPreview> previews(MinecraftServer server) {
-        try {int roles=PlayerRoles.definitions(server).size(),books=BookRuntime.books(server).size(),loot=TypedChestLoot.types(server).size(),events=eventCount(server),groups=Encounters.groups(server).size();return PROVIDERS.entrySet().stream().map(entry->new ScenarioExportPreview(entry.getKey(),entry.getValue(),roles,books,loot,events,0,"",true,"",groups)).toList();}
-        catch(RuntimeException exception){return PROVIDERS.entrySet().stream().map(entry->new ScenarioExportPreview(entry.getKey(),entry.getValue(),0,0,0,0,0,"",false,shortText(exception.getMessage()))).toList();}
+        Map<String,String> visible=ScenarioAuthoringProfiles.active().map(p->Map.of(p.content().scenarioId(),p.title())).orElseGet(()->Map.copyOf(PROVIDERS));
+        try {int roles=PlayerRoles.definitions(server).size(),books=BookRuntime.books(server).size(),loot=TypedChestLoot.types(server).size(),events=eventCount(server),groups=Encounters.groups(server).size();return visible.entrySet().stream().map(entry->new ScenarioExportPreview(entry.getKey(),entry.getValue(),roles,books,loot,events,0,"",true,"",groups)).toList();}
+        catch(RuntimeException exception){return visible.entrySet().stream().map(entry->new ScenarioExportPreview(entry.getKey(),entry.getValue(),0,0,0,0,0,"",false,shortText(exception.getMessage()))).toList();}
     }
     private static int eventCount(MinecraftServer server) {
         var ids=new HashSet<>(ScenarioEventTemplates.templates().keySet());
@@ -38,6 +53,7 @@ public final class ScenarioContentRuntime {
         return ids.size();
     }
     static synchronized Pinned open(MinecraftServer server,String providerId) {
+        var custom=ScenarioAuthoringProfiles.active();if(custom.isPresent()){if(!custom.get().content().scenarioId().equals(providerId))throw new IllegalArgumentException("Choose the active custom scenario.");return capture(server,providerId,custom.get().title());}
         String title=PROVIDERS.get(providerId);if(title==null)throw new IllegalArgumentException("Choose a registered scenario content provider.");
         return capture(server,providerId,title);
     }
@@ -45,6 +61,7 @@ public final class ScenarioContentRuntime {
         if(pinned==null)throw new IllegalStateException("Open Scenario content and review the current definitions first.");
         Pinned current=open(server,pinned.preview().providerId());
         if(!MessageDigest.isEqual(pinned.preview().digest().getBytes(StandardCharsets.US_ASCII),current.preview().digest().getBytes(StandardCharsets.US_ASCII)))throw new IllegalStateException("Scenario definitions changed. Review the current content before exporting.");
+        var custom=ScenarioAuthoringProfiles.active();if(custom.isPresent())return new ScenarioProfileStore(ScenarioAuthoringProfiles.chronicleConfig()).export(custom.get().withContent(pinned.content())).toString();
         ScenarioDraftStore store=new ScenarioDraftStore(FabricLoader.getInstance().getConfigDir().resolve("chronicle"),pinned.content().scenarioId());
         store.load(); // Establishes the observed revision and rejects corrupt/external draft data before overwrite.
         store.save(pinned.content());

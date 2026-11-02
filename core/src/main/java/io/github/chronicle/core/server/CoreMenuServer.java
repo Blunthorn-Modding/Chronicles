@@ -126,7 +126,7 @@ public final class CoreMenuServer {
             context.filter=CoreMenuFilters.normalize(context.page,gm?request.filter():"");
             context.index=request.index();
             context.selected=gm?request.id():player.getUuidAsString();
-            if(request.action()==Action.SCENARIO_CONTENT_OPEN||request.action()==Action.SCENARIO_CONTENT_EXPORT)context.selected=priorSelection;
+            if(request.action()==Action.SCENARIO_CONTENT_OPEN||request.action()==Action.SCENARIO_CONTENT_EXPORT||request.action()==Action.SCENARIO_CONTENT_CREATE){context.selected=priorSelection;context.scenarioResult=null;}
             if(gm&&request.action()==Action.OPEN&&context.page==Page.AREA_CHANGES){var legacy=AreaChanges.catalog(server).areas().get(context.selected);context.page=Page.REGIONS;context.selected=legacy==null?"":legacy.bounds().regionId();}
             if(gm&&request.action()==Action.OPEN&&context.page==Page.DEPARTURES){var legacy=Departures.state(server).definitions().get(context.selected);context.page=Page.LOCATIONS;context.filter="BLOCK";context.selected=legacy==null?"":legacy.exactBlockAnchor().filter(r->sites(server).get(r.id()) instanceof AuthoringSite.Anchor).map(io.github.chronicle.core.departures.SiteRef::id).orElse(CoreDepartureMenu.pendingKey(legacy.id()));}
 
@@ -191,13 +191,20 @@ public final class CoreMenuServer {
         var source=player.getCommandSource();var server=source.getServer();String id=c.selected,arg=request.argument();
         switch(request.action()) {
             case SCENARIO_CONTENT_OPEN -> {
-                editor(player);
                 c.scenarioPinned=ScenarioContentRuntime.open(server,request.id());
+                c.scenarioResult=new ScenarioResult("PREVIEW","",request.id(),request.token());
                 return "";
+            }
+            case SCENARIO_CONTENT_CREATE -> {
+                editor(player);var path=ScenarioContentRuntime.create(server,request.id(),arg);c.scenarioPinned=null;
+                c.scenarioResult=new ScenarioResult("KIT",path.toString(),request.id(),request.token());
+                player.sendMessage(Text.literal("Empty scenario authoring setup: "+path),false);
+                return "Authoring setup created. Start a separate server with it; the current world and content were not changed.";
             }
             case SCENARIO_CONTENT_EXPORT -> {
                 editor(player);
                 String exported=ScenarioContentRuntime.export(server,c.scenarioPinned);
+                c.scenarioResult=new ScenarioResult(ScenarioAuthoringProfiles.active().isPresent()?"PROFILE":"CONTENT",exported,c.scenarioPinned.content().scenarioId(),request.token());
                 player.sendMessage(Text.literal("Scenario content export: "+exported),false);
                 return "Exported. The full server path is in your chat.";
             }
@@ -389,14 +396,14 @@ public final class CoreMenuServer {
             }
             case EVENT_SOURCE_RELOAD -> {EventSources.reload(source);return "Source evidence reloaded. Any remaining uncertain activity still requires explicit review; gameplay was not replayed.";}
             case EVENT_ENCOUNTER_REVIEW -> {
-                if(!id.startsWith("cue:"))throw new IllegalArgumentException("Choose the Event with uncertain encounter evidence.");
-                String eventId=raw(id);c.encounterReview=Encounters.review(server,eventId).orElseThrow(()->new IllegalStateException("This Event has no uncertain encounter child to review."));c.encounterReviewEvent=id;c.encounterReviewAt=System.nanoTime();
-                return "Pinned uncertain child "+c.encounterReview.child().operationId()+" with plan "+c.encounterReview.child().planHash()+". Inspect every retained entity UUID and stage, then accept only the current partial result. No entity will be spawned, removed, refunded or replanned.";
+                if(!id.startsWith("cue:"))throw new IllegalArgumentException("Choose the Event with retained encounter evidence.");
+                String eventId=raw(id);c.encounterReview=Encounters.review(server,eventId).orElseThrow(()->new IllegalStateException("This Event has no retained encounter child to review."));c.encounterReviewEvent=id;c.encounterReviewAt=System.nanoTime();
+                return "Pinned encounter "+c.encounterReview.child().operationId()+" with plan "+c.encounterReview.child().planHash()+". Inspect its retained positions, entity UUIDs and stages. Confirming keeps the current result and skips all remaining spawns. It never removes, refunds or replans entities.";
             }
             case EVENT_ENCOUNTER_ACCEPT -> {
-                if(c.encounterReview==null||!id.equals(c.encounterReviewEvent)||System.nanoTime()-c.encounterReviewAt>30_000_000_000L)throw new IllegalStateException("Review the exact uncertain encounter result again before accepting it.");
-                Encounters.Review current=Encounters.review(server,raw(id)).orElseThrow(()->new IllegalStateException("The uncertain encounter result changed; review it again."));if(!current.equals(c.encounterReview))throw new IllegalStateException("The uncertain encounter identity or stages changed; review it again.");
-                Encounters.acceptReview(player,current);c.encounterReview=null;c.encounterReviewEvent="";return "Current partial encounter result accepted without replay. Remaining planned or claimed members will never spawn automatically; the parent Event may continue only when its normal session and prerequisites are valid.";
+                if(c.encounterReview==null||!id.equals(c.encounterReviewEvent)||System.nanoTime()-c.encounterReviewAt>30_000_000_000L)throw new IllegalStateException("Review the exact retained encounter result again before confirming.");
+                Encounters.Review current=Encounters.review(server,raw(id)).orElseThrow(()->new IllegalStateException("The retained encounter result changed; review it again."));if(!current.equals(c.encounterReview))throw new IllegalStateException("The retained encounter identity or stages changed; review it again.");
+                Encounters.acceptReview(player,current);c.encounterReview=null;c.encounterReviewEvent="";return "Encounter result retained and remaining spawns skipped. Nothing was spawned or removed. The parent Event continues only when normal play and its prerequisites are valid.";
             }
             case ENCOUNTER_NEW,ENCOUNTER_EDIT -> {
                 editor(player);if(c.page!=Page.ENCOUNTER_GROUPS)throw new IllegalArgumentException("Manage encounter groups under Advanced → Encounter groups.");boolean creating=request.action()==Action.ENCOUNTER_NEW;c.encounterEditor=CoreEncounterMenu.form(server,id,creating);return "";
@@ -555,7 +562,7 @@ public final class CoreMenuServer {
         try{detail=detail(player,c);if(gm&&c.page==Page.EVENTS&&CoreMenuFilters.GAME_EVENTS.equals(c.filter))detail=CoreEventMenu.withCreator(player,detail);}catch(RuntimeException exception){ChronicleCore.LOGGER.warn("Chronicle menu detail unavailable for page {} selection {}",c.page,c.selected,exception);detail=new Detail(c.selected,"Service unavailable",shortText(Objects.requireNonNullElse(exception.getMessage(),"The selected editor is unavailable. Inspect the server log."),2048),List.of(),List.of(),null,null,null);}
         var campaign=ChronicleRuntime.service(server).state();
         String clock=gm?"Active play: "+PlayRuntime.elapsedTicks(server)/20+"s":"";
-        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c),gm?c.eventEditor:null,gm?ScenarioContentRuntime.previews(server):List.of(),gm&&c.scenarioPinned!=null?c.scenarioPinned.preview():null,gm?c.encounterEditor:null);
+        var view=new View(c.token,c.page,c.index,pages,c.filter,c.selected,campaign.phase().name(),campaign.sessionNumber(),gm&&AuthoringRuntime.isAuthor(player),gm&&AuthoringRuntime.editable(server),gm,gm?Objects.requireNonNullElse(RuntimeHolds.reason(server),""):"",clock,shortText(message,4096),success,all.subList(c.index*12,Math.min((c.index+1)*12,all.size())),detail,c.picker,close,blockLimitsForm(player,c),gm?c.eventEditor:null,gm?ScenarioContentRuntime.previews(server):List.of(),gm&&c.scenarioPinned!=null?c.scenarioPinned.preview():null,gm?c.encounterEditor:null,gm?c.scenarioResult:null);
         if(c.picker==null&&(c.visible||close))c.navigation=new Navigation(c.page,c.selected,c.index,c.filter);
         ServerPlayNetworking.send(player,new Response(view,open));
     }
@@ -613,7 +620,7 @@ public final class CoreMenuServer {
             case SETUP -> {
                 var tools=new ArrayList<Entry>();
                 tools.add(entry("limits","Block limits","Set how many supplied blocks may be placed.","LIMITS","",0));
-                GameSetupTools.tools().forEach(tool->tools.add(entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)));
+                GameSetupTools.menuTools().forEach(tool->tools.add(entry("tool:"+tool.id(),tool.label(),tool.description(),"TOOL",tool.id(),0)));
                 yield tools;
             }
         };
@@ -891,7 +898,7 @@ public final class CoreMenuServer {
     private static Object optional(Supplier<?> operation){try{return operation.get();}catch(IllegalArgumentException|IllegalStateException e){return "unavailable:"+e.getMessage();}}
     private static Map<String,Object> toolRevisions(ServerPlayerEntity player) {
         var revisions=new TreeMap<String,Object>();var source=player.getCommandSource();
-        for(var tool:GameSetupTools.tools()) {
+        for(var tool:GameSetupTools.menuTools()) {
             try {revisions.put(tool.id(),GameSetupTools.status(source,tool.id()).controlRevision());}
             catch(RuntimeException exception) {revisions.put(tool.id(),"unavailable:"+shortText(exception.getMessage(),512));}
         }
@@ -1030,7 +1037,7 @@ public final class CoreMenuServer {
     private static final class Context {
         Navigation navigation=new Navigation(Page.SESSION,"",0,"POINT");
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
-        PlayRuntime.Preview observation;EventRuntime.Review eventReview;EventConfiguration expectedEvent;EventEditorForm eventEditor;EncounterEditorForm encounterEditor;String eventSelection="";LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;ScenarioContentRuntime.Pinned scenarioPinned;
+        PlayRuntime.Preview observation;EventRuntime.Review eventReview;EventConfiguration expectedEvent;EventEditorForm eventEditor;EncounterEditorForm encounterEditor;String eventSelection="";LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;ScenarioContentRuntime.Pinned scenarioPinned;ScenarioResult scenarioResult;
         String giveBook="",giveTarget="";long giveAt;
         io.github.chronicle.core.progression.SourceLedger.Receipt sourceReview;String sourceReviewEvent="";long sourceReviewAt;
         Encounters.Review encounterReview;String encounterReviewEvent="";long encounterReviewAt;

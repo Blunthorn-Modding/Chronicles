@@ -60,6 +60,7 @@ public final class ChronicleCore implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        io.github.chronicle.core.server.ScenarioAuthoringProfiles.register();
         AUTHORING.register(new AuthoringCatalog.Role("chronicle_core:arrival", "Starting position", "An optional oriented starting point; saving it moves no players.", AuthoringCatalog.Kind.LOCATION));
         AUTHORING.register(new AuthoringCatalog.Role("chronicle_core:respawn", "Respawn point", "A default oriented respawn location; saving it changes no vanilla respawn rules.", AuthoringCatalog.Kind.LOCATION));
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> ChronicleCommands.register(dispatcher));

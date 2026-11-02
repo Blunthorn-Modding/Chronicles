@@ -87,10 +87,10 @@ public final class TypedChestLoot {
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
     }
 
-    private static Path configPath() { return FabricLoader.getInstance().getConfigDir().resolve("chronicle/chest-loot.json"); }
+    private static Path configPath() { return ScenarioAuthoringProfiles.contentFile("chest-loot.json"); }
     private static void load(MinecraftServer server) throws IOException {
         LootConfig config = new LootConfig(configPath());
-        Map<String, LootType> candidate = config.loadOrCreate(ChronicleCore.chestTypes().types());
+        Map<String, LootType> candidate = ScenarioAuthoringProfiles.active().isPresent()?config.loadExisting():config.loadOrCreate(ChronicleCore.chestTypes().types());
         validateTypes(server, candidate);
         Runtime previous = WORLDS.get(server);
         Runtime runtime = new Runtime(config, candidate, previous == null ? ChestAuthoring.service(server).state().schedule() : previous.schedule);

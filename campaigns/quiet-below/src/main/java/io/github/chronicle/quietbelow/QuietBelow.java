@@ -95,8 +95,9 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        io.github.chronicle.core.server.ScenarioContentRuntime.registerScenario("quiet_below:scenario", "The Quiet Below");
-        var scenarioDefaults = io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults.loadOptional();
+        io.github.chronicle.core.server.ScenarioContentRuntime.registerScenario("quiet_below:scenario", "The Quiet Below","quiet_below:mechanics");
+        boolean custom=io.github.chronicle.core.server.ScenarioAuthoringProfiles.active().isPresent();
+        var scenarioDefaults = custom?java.util.Optional.of(new io.github.chronicle.core.scenario.ScenarioContent("quiet_below:scenario",Map.of(),Map.of(),Map.of(),Map.of())):io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults.loadOptional();
         scenarioDefaults.ifPresent(io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults::register);
         if (scenarioDefaults.isEmpty()) {
         try (var input=QuietBelow.class.getResourceAsStream("/data/quiet_below/chronicle/player-roles.yaml")) {
@@ -165,7 +166,7 @@ public final class QuietBelow implements ModInitializer {
         io.github.chronicle.quietbelow.ecology.EcologySoakTrial.register();
         io.github.chronicle.quietbelow.ecology.CapturedShutdownTrial.register();
         io.github.chronicle.quietbelow.ecology.QuietBelowAreaChanges.register();
-        io.github.chronicle.core.server.Departures.registerDefaults(java.util.List.of(
+        if(!custom)io.github.chronicle.core.server.Departures.registerDefaults(java.util.List.of(
             new io.github.chronicle.core.departures.DepartureDefinition("quiet_below:ship", "The only ship", 1,
                 java.util.Optional.empty(), java.util.Optional.empty(),
                 "You are taking the only ship off this island. Everyone aboard will come with you. Those left behind will have to fend for themselves. Are you sure?",
@@ -184,13 +185,13 @@ public final class QuietBelow implements ModInitializer {
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_FORGE));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_ALTAR));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RELIC_HEART_ITEM));
-        ChronicleCore.events().register(new CampaignEvent("quiet_below:readiness_check",
+        if(!custom){ChronicleCore.events().register(new CampaignEvent("quiet_below:readiness_check",
                 "Records a framework readiness check without changing the world.", true, Map.of(),
                 state -> new EventOutcome(Map.of("quiet_below:readiness_checked", true), "The Quiet Below readiness check was recorded.")));
         ChronicleCore.events().register(new CampaignEvent("quiet_below:mine_whisper",
                 "Reveal a new public observation at Resonance Markers; changes no blocks.", true, Map.of(),
                 state -> new EventOutcome(Map.of("quiet_below:fragment_revealed", true),
-                        "A new trace can be observed at Resonance Markers, with or without an Echo Lens.")));
+                        "A new trace can be observed at Resonance Markers, with or without an Echo Lens.")));}
         LOGGER.info("The Quiet Below initialized");
     }
 }
