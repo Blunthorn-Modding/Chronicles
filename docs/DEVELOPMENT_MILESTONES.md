@@ -1,5 +1,7 @@
 # Implementation milestones after the prototype
 
+**2 November dev66 feedback repairs:** [scope and decisions](DEV65_FEEDBACK_PLAN.md). Repair encounter recovery/placement, consolidate the five-prayer Altar with refusal/cooldown behavior, and add visible scenario export results plus separate empty custom authoring profiles. These refine the existing Core/content contracts.
+
 **1 November dev65 delivered for combined review:** [deferred tools and verification](DEFERRED_TOOLS_RESULTS.md) completes the role-source, encounter, additional Altar and scenario export/build work, plus explicit guarded Event-history maintenance. Automatic quiet-period scheduling is still a follow-up. The [review guide](DEFERRED_TOOLS_REVIEW.md) bundles the human review; [Outstanding work](OUTSTANDING_WORK.md) is authoritative for remaining map/content/balance gates.
 
 **1 November queued milestone:** [M18 / CF24 bundled custom event sounds](CF24_BUNDLED_EVENT_SOUNDS.md). Bundle campaign audio with the mod and matching client pack, register stable sound IDs and reuse the Event picker/private preview. This records future implementation after the deferred tools; no runtime uploader or server resource pack is required.

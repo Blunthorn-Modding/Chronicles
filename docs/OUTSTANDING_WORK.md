@@ -1,5 +1,7 @@
 # Outstanding work
 
+2 November dev66 feedback repairs are verified and ready for combined organizer review: retained encounter retry/skip and bounded clear Region placement; one five-prayer Altar screen, truthful refusal damage and shared 15-active-minute cooldown; acknowledged scenario exports and empty custom profiles for isolated authoring servers. See [results](DEV66_FEEDBACK_RESULTS.md), [combined review](DEV66_FEEDBACK_REVIEW.md) and [scenario workflow](SCENARIO_CONTENT_EXPORT.md). The map/content/group gates below remain separate.
+
 1 November 2026. The deferred-tools implementation now provides encounter groups and Event spawning, role-assignment/entry Event sources, explicit Event-history archival, four additional Altar prayers, and reusable scenario-content export/build input. Role definitions and map destinations travel in the world. See [combined review](DEFERRED_TOOLS_REVIEW.md) and the latest [test evidence](TEST_PLAN.md). Human UI/balance review and the delivery gates below remain; this does not declare the scenario production-ready.
 
 This rollup supersedes old "planned" and "review pending" wording in the historical backlog. The organizer confirmed the Event/flag functionality and dev64 picker correction; practical map setup and group testing are still to come.

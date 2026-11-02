@@ -1,4 +1,4 @@
-# Chronicle commands (dev65)
+# Chronicle commands (dev66)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored.
 

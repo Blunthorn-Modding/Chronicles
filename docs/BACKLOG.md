@@ -1,5 +1,7 @@
 # Chronicle work tracking
 
+**2 November dev66 organizer feedback:** [repair scope](DEV65_FEEDBACK_PLAN.md) covers explicit retained encounter recovery, clear Region placement, consolidated Altar prayers/refusal/cooldown, visible export results and isolated empty custom scenario profiles. The world remains the map authority; no runtime JAR rewriting or active-world draft switching.
+
 **1 November dev65 delivered for combined review:** Event/source archival, role Event sources, encounter groups and Event spawning, scenario-content export/build inputs and four temporary Altar prayers. See [results](DEFERRED_TOOLS_RESULTS.md), [review guide](DEFERRED_TOOLS_REVIEW.md) and [remaining work](OUTSTANDING_WORK.md). Automatic quiet-period Event-history scheduling remains a follow-up; production map, final content and group/balance review remain separate gates.
 
 **1 November queued:** [M18 / CF24 bundled custom event sounds](CF24_BUNDLED_EVENT_SOUNDS.md) records the organizer's choice to ship custom audio inside the mod and matching client pack. Future implementation; no uploader or server resource pack. This is separate from the delivered deferred tools.

@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 2 November: dev66 organizer feedback repairs
+
+Read [results](DEV66_FEEDBACK_RESULTS.md) and the [combined review guide](DEV66_FEEDBACK_REVIEW.md). Java: 735 tests, 728 passed/seven existing Windows symlink-privilege skips, zero failures/errors. Python: 121 passed. Native suites pass encounter Region placement/restart/retry/skip/uncertainty, five-prayer Altar real transport/refusal/no-damage/cooldowns, lasting/temporary death/reconnect/restart/expiry and optional HUD, custom empty-profile create/edit/export/import/updated-profile restart, plus the existing role/copied-map/bundled-export regression. Source-world hashes remain unchanged in the isolated portability checks. Failed reports remain preserved with their diagnosis. Final map/content/group and audible voice gates remain distinct.
+
 ## 1 November: dev65 deferred Core tools and Altar offerings
 
 [Implementation/results](DEFERRED_TOOLS_RESULTS.md), [combined organizer review](DEFERRED_TOOLS_REVIEW.md), [remaining work](OUTSTANDING_WORK.md). Final offline `gradlew.bat --offline --no-daemon build :campaigns:quiet-below:writeSmokeClientLaunch` passes in 2m1s (`../reports/deferred-final-build-12.log`): **712 Java tests, 705 passed/seven Windows symlink-privilege skips**, zero failures/errors, both remaps and client launch. Python discovery passes114. Source reviews are clear after atomic encounter-catalog/full-footprint corrections; the lead inspected native frames and the integrated diff. Quiet Below now declares Core dev65 as its minimum.
