@@ -52,7 +52,7 @@ public final class Encounters {
     public record Snapshot(long groupRevision, long bindingRevision, Map<String, EncounterGroup> groups,
                            Map<String, EncounterBinding> bindings) { }
     public record Review(String eventId,UUID eventOperation,EncounterOperation child) {
-        public Review{if(eventId==null||eventId.isBlank())throw new IllegalArgumentException("review Event ID is required");Objects.requireNonNull(eventOperation);Objects.requireNonNull(child);if(child.terminal()!=EncounterOperation.Terminal.UNCERTAIN)throw new IllegalArgumentException("review child must be uncertain");}
+        public Review{if(eventId==null||eventId.isBlank())throw new IllegalArgumentException("review Event ID is required");Objects.requireNonNull(eventOperation);Objects.requireNonNull(child);if(child.terminal()!=EncounterOperation.Terminal.UNCERTAIN&&child.terminal()!=EncounterOperation.Terminal.OPEN)throw new IllegalArgumentException("review child must be unresolved");}
     }
 
     public static void register() {
@@ -99,24 +99,36 @@ public final class Encounters {
     /** Validates authoring pins and aggregate bounds without loading or spawning anything. */
     public static void validate(MinecraftServer server,List<EventEncounterAction> actions) {
         Runtime runtime=runtime(server);if(actions.size()>4)throw new IllegalArgumentException("An Event may spawn at most 4 encounter groups");
-        int total=0;List<PlannedBox> candidates=new ArrayList<>();for(EventEncounterAction action:actions){EncounterGroup group=requireGroup(runtime,action.groupId());total=Math.addExact(total,group.entityCount());if(total>MAX_EVENT_ENTITIES)throw new IllegalArgumentException("Event encounter actions may spawn at most 128 entities");AuthoringSite site=requireSite(server,resolveTarget(server,runtime,action));double[] footprint=footprint(group);List<EncounterPlacementPlanner.Position> positions=EncounterPlacementPlanner.positions(site,group.entityCount(),footprint[0],footprint[1]);int index=0;for(EncounterMember member:group.members())for(int count=0;count<member.count();count++){var position=positions.get(index++);Box box=entityType(member.entityType()).getDimensions().getBoxAt(position.x(),position.y(),position.z());requireGeometry(world(server,site.dimension()),box);for(PlannedBox candidate:candidates)if(candidate.dimension.equals(site.dimension())&&candidate.box.intersects(box))throw new IllegalArgumentException("Encounter plan candidates overlap; choose a larger target or smaller composition");candidates.add(new PlannedBox(site.dimension(),box));}}
+        int total=0;List<PlannedBox> points=new ArrayList<>();
+        for(EventEncounterAction action:actions){
+            EncounterGroup group=requireGroup(runtime,action.groupId());total=Math.addExact(total,group.entityCount());if(total>MAX_EVENT_ENTITIES)throw new IllegalArgumentException("Event encounter actions may spawn at most 128 entities");
+            AuthoringSite site=requireSite(server,resolveTarget(server,runtime,action));double[] size=footprint(group);
+            List<EncounterPlacementPlanner.Position> positions=site instanceof AuthoringSite.Region region
+                    ?EncounterPlacementPlanner.structuralRegionPositions(region,group.entityCount(),size[0],size[1])
+                    :EncounterPlacementPlanner.positions(site,group.entityCount(),size[0],size[1]);
+            int index=0;
+            for(EncounterMember member:group.members())for(int count=0;count<member.count();count++){
+                var position=positions.get(index++);Box box=entityType(member.entityType()).getDimensions().getBoxAt(position.x(),position.y(),position.z());requireGeometry(world(server,site.dimension()),box);
+                // Region anchors are chosen after terrain outcomes; shared Regions can use separate free spaces.
+                if(site instanceof AuthoringSite.Location){
+                    for(PlannedBox candidate:points)if(candidate.dimension.equals(site.dimension())&&candidate.box.intersects(box))throw new IllegalArgumentException("Encounter plan candidates overlap; choose a larger target or smaller composition");
+                    points.add(new PlannedBox(site.dimension(),box));
+                }
+            }
+        }
     }
     public static void requireCapacity(MinecraftServer server,int additionalOperations){Runtime runtime=runtime(server);if(additionalOperations<0||additionalOperations>4)throw new IllegalArgumentException("invalid encounter operation count");if(runtime.operations.state().operations().size()+additionalOperations>EncounterOperationJournal.MAX_LIVE_OPERATIONS)throw new IllegalStateException("Encounter operation history is full; archive completed Event history first");}
 
     /** Performs at most four external spawns. Every claimed spawn stays unreported until one confirmed world flush. */
     public static Progress progress(MinecraftServer server, EventExecution execution, BooleanSupplier eligible) throws IOException {
         Objects.requireNonNull(execution,"event execution is required");Objects.requireNonNull(eligible,"encounter eligibility is required");Runtime runtime=runtime(server);
-        List<EventEncounterAction> actions=execution.configuration().definition().encounterActions();validate(server,actions);
-        List<EncounterOperation> plans=new ArrayList<>();
-        for(int index=0;index<actions.size();index++){EncounterOperation proposed=plan(server,execution,index,actions.get(index));plans.add(runtime.operations.ensure(proposed));}
+        List<EncounterOperation> plans=executionPlans(server,execution,true);
         preflight(server,runtime,plans);
         int budget=MAX_SPAWNS_PER_TICK;
         for(int actionIndex=0;actionIndex<plans.size();actionIndex++){
             EncounterOperation current=current(runtime,plans.get(actionIndex).operationId());
-            if(current.terminal()==EncounterOperation.Terminal.COMPLETE||current.terminal()==EncounterOperation.Terminal.REVIEWED)continue;
+            if(current.resolved())continue;
             if(current.terminal()==EncounterOperation.Terminal.UNCERTAIN)throw new IllegalStateException("Encounter spawn outcome is uncertain; retain the Event for GM review");
-            EncounterOperation expected=plan(server,execution,actionIndex,actions.get(actionIndex));
-            if(!current.planHash().equals(expected.planHash()))throw new IllegalStateException("Encounter composition or map binding changed after its operation was planned");
             List<EncounterSpawnEntry> confirmed=new ArrayList<>();
             for(EncounterSpawnEntry entry:current.entries()){
                 if(entry.stage()==EncounterSpawnEntry.Stage.SPAWNED){try{requireExisting(server,entry);}catch(IllegalStateException failure){publishConfirmed(server,runtime,current.operationId(),confirmed);runtime.operations.uncertain(current.operationId());throw failure;}continue;}
@@ -150,7 +162,7 @@ public final class Encounters {
     /** Checks the entire immutable Event plan before the first new claim or external spawn. */
     private static void preflight(MinecraftServer server,Runtime runtime,List<EncounterOperation> plans)throws IOException{
         List<PlannedBox> candidates=new ArrayList<>();
-        for(EncounterOperation proposed:plans){EncounterOperation operation=current(runtime,proposed.operationId());if(operation.terminal()==EncounterOperation.Terminal.COMPLETE||operation.terminal()==EncounterOperation.Terminal.REVIEWED)continue;if(operation.terminal()==EncounterOperation.Terminal.UNCERTAIN)throw new IllegalStateException("Encounter spawn outcome is uncertain; retain the Event for GM review");
+        for(EncounterOperation operation:plans){if(operation.resolved())continue;if(operation.terminal()==EncounterOperation.Terminal.UNCERTAIN)throw new IllegalStateException("Encounter spawn outcome is uncertain; retain the Event for GM review");
             for(EncounterSpawnEntry entry:operation.entries()){
                 requireLoaded(server,entry);Entity existing=find(server,entry);
                 if(entry.stage()==EncounterSpawnEntry.Stage.SPAWNED){try{if(existing==null)throw new IllegalStateException("A spawned encounter entity disappeared before its operation completed; GM review is required");requireType(existing,entry);}catch(IllegalStateException failure){runtime.operations.uncertain(operation.operationId());throw failure;}continue;}
@@ -175,10 +187,17 @@ public final class Encounters {
     public static int liveOperationCount(MinecraftServer server){return runtime(server).operations.state().operations().size();}
     public static boolean hasUnresolved(MinecraftServer server){Runtime value=WORLDS.get(server);return value==null||value.failure!=null||value.operations.state().operations().values().stream().anyMatch(operation->operation.terminal()==EncounterOperation.Terminal.OPEN||operation.terminal()==EncounterOperation.Terminal.UNCERTAIN);}
 
-    /** Exact operator-facing evidence for the first uncertain child of this parent Event. */
+    /** Checks an unchanged retained plan without creating claims, entities or additional children. */
+    static void validateRetry(MinecraftServer server,EventExecution execution)throws IOException{
+        Runtime runtime=runtime(server);List<EncounterOperation> retained=executionPlans(server,execution,false);
+        for(EncounterOperation operation:retained)if(operation.terminal()==EncounterOperation.Terminal.UNCERTAIN)throw new IllegalStateException("The uncertain encounter requires explicit review; retry is forbidden");
+        preflight(server,runtime,retained);
+    }
+
+    /** Exact operator-facing evidence for the first unresolved child of this parent Event. */
     public static Optional<Review> review(MinecraftServer server,String eventId){
         EventExecution execution=PlayRuntime.service(server).state().executions().get(eventId);if(execution==null||execution.phase()!=EventExecution.Phase.ENCOUNTER_EFFECTS)return Optional.empty();Runtime runtime=runtime(server);
-        for(int i=0;i<execution.configuration().definition().encounterActions().size();i++){EncounterOperation operation=runtime.operations.liveOperation(childOperationId(execution.operationId(),i)).orElse(null);if(operation!=null&&operation.terminal()==EncounterOperation.Terminal.UNCERTAIN)return Optional.of(new Review(eventId,execution.operationId(),operation));}
+        for(int i=0;i<execution.configuration().definition().encounterActions().size();i++){EncounterOperation operation=runtime.operations.liveOperation(childOperationId(execution.operationId(),i)).orElse(null);if(operation!=null&&!operation.resolved())return Optional.of(new Review(eventId,execution.operationId(),operation));}
         return Optional.empty();
     }
 
@@ -186,11 +205,11 @@ public final class Encounters {
     public static void acceptReview(ServerPlayerEntity player,Review expected)throws IOException{
         Objects.requireNonNull(expected,"encounter review is required");requireOperator(player);MinecraftServer server=player.getEntityWorld().getServer();
         if(RuntimeHolds.reason(server)==null||RuntimeHolds.heldByOther(server,EventRuntime.HOLD))throw new IllegalStateException("Encounter acceptance requires its parent Event hold and no unrelated Chronicle hold");
-        Review current=review(server,expected.eventId()).orElseThrow(()->new IllegalStateException("The uncertain encounter result changed; review it again"));
-        if(!current.equals(expected))throw new IllegalStateException("The uncertain encounter identity or stages changed; review it again");
-        Runtime runtime=runtime(server);EncounterOperation reviewed=runtime.operations.reviewUncertain(expected.child().operationId());
-        EventRuntime.encounterReviewAccepted(server,expected.eventId(),expected.eventOperation());
-        ChronicleRuntime.service(server).recordOperation(new io.github.chronicle.core.campaign.Actor(player.getName().getString(),player.getUuidAsString()),"event.encounter.review.accepted",expected.eventId(),Map.of(
+        Review current=review(server,expected.eventId()).orElseThrow(()->new IllegalStateException("The retained encounter result changed; review it again"));
+        if(!current.equals(expected))throw new IllegalStateException("The retained encounter identity or stages changed; review it again");
+        Runtime runtime=runtime(server);EncounterOperation reviewed=expected.child().terminal()==EncounterOperation.Terminal.UNCERTAIN?runtime.operations.reviewUncertain(expected.child().operationId()):runtime.operations.cancelOpen(expected.child().operationId());
+        EventRuntime.encounterReviewAccepted(server,expected.eventId(),expected.eventOperation(),player.getUuid());
+        ChronicleRuntime.service(server).recordOperation(new io.github.chronicle.core.campaign.Actor(player.getName().getString(),player.getUuidAsString()),reviewed.terminal()==EncounterOperation.Terminal.CANCELLED?"event.encounter.cancelled":"event.encounter.review.accepted",expected.eventId(),Map.of(
                 "eventOperation",expected.eventOperation().toString(),"childOperation",reviewed.operationId().toString(),"groupFingerprint",reviewed.groupFingerprint(),"planHash",reviewed.planHash(),"stages",reviewed.entries().stream().map(entry->entry.entityId()+":"+entry.stage()).toList().toString()));
     }
 
@@ -199,14 +218,83 @@ public final class Encounters {
         if(!"true".equals(System.getenv("CHRONICLE_ENCOUNTERS_TRIAL"))||!server.isDedicated()||server.isOnlineMode()||server.getServerPort()!=25575||!"127.0.0.1".equals(server.getServerIp()))throw new IllegalStateException("encounter fault injection is disabled");
         Path worldRoot=server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize(),fixture=Objects.requireNonNull(worldRoot.getParent()).resolve(".encounter-actions-fixture");if(!java.nio.file.Files.isRegularFile(fixture))throw new IllegalStateException("encounter fault injection requires a disposable fixture");
         if(execution.phase()!=EventExecution.Phase.ENCOUNTER_EFFECTS||execution.configuration().definition().encounterActions().isEmpty())throw new IllegalStateException("encounter fault injection requires a pending encounter Event");
-        Runtime runtime=runtime(server);EncounterOperation operation=runtime.operations.ensure(plan(server,execution,0,execution.configuration().definition().encounterActions().getFirst()));EncounterSpawnEntry first=operation.entries().stream().filter(entry->entry.stage()==EncounterSpawnEntry.Stage.PLANNED).findFirst().orElseThrow(()->new IllegalStateException("fixture child has no planned entry"));runtime.operations.claim(operation.operationId(),first.entityId());runtime.operations.uncertain(operation.operationId());
+        Runtime runtime=runtime(server);EncounterOperation operation=runtime.operations.ensure(plan(server,execution,0,execution.configuration().definition().encounterActions().getFirst(),List.of()));EncounterSpawnEntry first=operation.entries().stream().filter(entry->entry.stage()==EncounterSpawnEntry.Stage.PLANNED).findFirst().orElseThrow(()->new IllegalStateException("fixture child has no planned entry"));runtime.operations.claim(operation.operationId(),first.entityId());runtime.operations.uncertain(operation.operationId());
     }
 
     static UUID childOperationId(UUID eventOperation,int actionIndex){return UUID.nameUUIDFromBytes(("chronicle:encounter:"+eventOperation+":"+actionIndex).getBytes(StandardCharsets.UTF_8));}
+    /** Legacy-record fixture uses the pre-v2 deterministic anchors; no claim or entity is created. */
+    public static void testingSeedLegacyPlan(MinecraftServer server,EventExecution execution)throws IOException{
+        if(testingOperation(server,execution.operationId(),0).isPresent())throw new IllegalStateException("legacy fixture child already exists");
+        EventEncounterAction action=execution.configuration().definition().encounterActions().getFirst();Runtime runtime=runtime(server);EncounterGroup group=requireGroup(runtime,action.groupId());AuthoringSite site=requireSite(server,resolveTarget(server,runtime,action));double[] size=footprint(group);
+        runtime.operations.create(makePlan(execution,0,group,site,EncounterPlacementPlanner.positions(site,group.entityCount(),size[0],size[1]),Optional.empty()));
+    }
     static UUID entityId(UUID childOperation,int entryIndex){return UUID.nameUUIDFromBytes(("chronicle:encounter-entity:"+childOperation+":"+entryIndex).getBytes(StandardCharsets.UTF_8));}
     public static Optional<EncounterOperation> testingOperation(MinecraftServer server,UUID eventOperation,int actionIndex){Path worldRoot=server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize();if(!"true".equals(System.getenv("CHRONICLE_ENCOUNTERS_TRIAL"))||!server.isDedicated()||server.isOnlineMode()||server.getServerPort()!=25575||!"127.0.0.1".equals(server.getServerIp())||worldRoot.getParent()==null||!java.nio.file.Files.isRegularFile(worldRoot.getParent().resolve(".encounter-actions-fixture")))throw new IllegalStateException("encounter fixture inspection is disabled");return runtime(server).operations.liveOperation(childOperationId(eventOperation,actionIndex));}
 
-    private static EncounterOperation plan(MinecraftServer server,EventExecution execution,int actionIndex,EventEncounterAction action){Runtime runtime=runtime(server);EncounterGroup group=requireGroup(runtime,action.groupId());EncounterTarget target=resolveTarget(server,runtime,action);AuthoringSite site=requireSite(server,target);UUID operation=childOperationId(execution.operationId(),actionIndex);UUID actor=execution.actor()==null?AUTOMATIC_ACTOR:execution.actor();double[] footprint=footprint(group);List<EncounterPlacementPlanner.Position> positions=EncounterPlacementPlanner.positions(site,group.entityCount(),footprint[0],footprint[1]);List<EncounterSpawnEntry> entries=new ArrayList<>();int index=0;for(EncounterMember member:group.members())for(int count=0;count<member.count();count++){var position=positions.get(index);entries.add(new EncounterSpawnEntry(entityId(operation,index),member.entityType(),site.dimension(),position.x(),position.y(),position.z(),EncounterSpawnEntry.Stage.PLANNED));index++;}String fingerprint=EncounterOperation.fingerprint(group);return new EncounterOperation(operation,actor,group.id(),fingerprint,EncounterOperation.planHash(operation,actor,fingerprint,entries),entries,EncounterOperation.Terminal.OPEN);}
+    /** Saved children are authoritative before any mutable authoring lookup, including resolved archives. */
+    private static List<EncounterOperation> executionPlans(MinecraftServer server,EventExecution execution,boolean persistNew)throws IOException{
+        Runtime runtime=runtime(server);List<EventEncounterAction> actions=execution.configuration().definition().encounterActions();
+        if(actions.size()>4)throw new IllegalArgumentException("An Event may spawn at most 4 encounter groups");
+        List<EncounterOperation> plans=new ArrayList<>(Collections.nCopies(actions.size(),null));List<PlannedBox> reserved=new ArrayList<>();boolean[] newPlan=new boolean[actions.size()];int total=0;
+        // First retain every saved plan, regardless of action order. Resolved children need no authoring lookup.
+        for(int index=0;index<actions.size();index++){
+            EventEncounterAction action=actions.get(index);UUID id=childOperationId(execution.operationId(),index);
+            EncounterOperation operation=runtime.operations.liveOperation(id).orElse(null);
+            if(operation==null)operation=runtime.operations.archived(id).orElse(null);
+            if(operation==null){newPlan[index]=true;continue;}
+            if(!operation.groupId().equals(action.groupId())||!operation.actorId().equals(execution.actor()==null?AUTOMATIC_ACTOR:execution.actor()))throw new IllegalStateException("Retained encounter child does not match its parent action or original actor");
+            if(!operation.resolved()){validateRetained(server,execution,index,action,operation);reserve(reserved,operation);}
+            total=Math.addExact(total,operation.entries().size());plans.set(index,operation);
+        }
+        // Fixed Point anchors also reserve their full boxes before any flexible NEW Region selects space.
+        for(int index=0;index<actions.size();index++)if(newPlan[index]){
+            EventEncounterAction action=actions.get(index);EncounterGroup group=requireGroup(runtime,action.groupId());
+            AuthoringSite site=requireSite(server,resolveTarget(server,runtime,action));total=Math.addExact(total,group.entityCount());
+            if(site instanceof AuthoringSite.Location){EncounterOperation proposed=plan(server,execution,index,action,List.of());plans.set(index,proposed);reserve(reserved,proposed);}
+        }
+        if(total>MAX_EVENT_ENTITIES)throw new IllegalArgumentException("Event encounter actions may spawn at most 128 entities");
+        for(int index=0;index<actions.size();index++)if(plans.get(index)==null){
+            EncounterOperation proposed=plan(server,execution,index,actions.get(index),reserved);plans.set(index,proposed);reserve(reserved,proposed);
+        }
+        // No partial new selection is persisted if a later Region has no clear space. Claims still follow whole-plan preflight.
+        if(persistNew)for(int index=0;index<plans.size();index++)if(newPlan[index])plans.set(index,runtime.operations.ensure(plans.get(index)));
+        return List.copyOf(plans);
+    }
+    private static void reserve(List<PlannedBox> reserved,EncounterOperation operation){
+        for(EncounterSpawnEntry entry:operation.entries())reserved.add(new PlannedBox(entry.dimension(),entityType(entry).getDimensions().getBoxAt(entry.x(),entry.y(),entry.z())));
+    }
+
+    private static void validateRetained(MinecraftServer server,EventExecution execution,int index,EventEncounterAction action,EncounterOperation operation){
+        Runtime runtime=runtime(server);EncounterGroup group=requireGroup(runtime,action.groupId());EncounterTarget target=resolveTarget(server,runtime,action);
+        if(!EncounterOperation.fingerprint(group).equals(operation.groupFingerprint()))throw new IllegalStateException("Encounter composition changed after its operation was planned");
+        if(operation.target().isPresent()){
+            if(!operation.target().orElseThrow().equals(target))throw new IllegalStateException("Encounter map binding changed after its operation was planned");
+        }else{
+            // Schema-1 plans keep the original deterministic min-Y anchors and their original digests.
+            EncounterOperation legacy=makePlan(execution,index,group,requireSite(server,target),EncounterPlacementPlanner.positions(requireSite(server,target),group.entityCount(),footprint(group)[0],footprint(group)[1]),Optional.empty());
+            if(!legacy.planHash().equals(operation.planHash()))throw new IllegalStateException("Encounter composition or map binding changed after its operation was planned");
+        }
+        for(EncounterSpawnEntry entry:operation.entries())requireGeometry(world(server,entry.dimension()),entityType(entry).getDimensions().getBoxAt(entry.x(),entry.y(),entry.z()));
+    }
+
+    private static EncounterOperation plan(MinecraftServer server,EventExecution execution,int actionIndex,EventEncounterAction action,List<PlannedBox> reserved){
+        Runtime runtime=runtime(server);EncounterGroup group=requireGroup(runtime,action.groupId());EncounterTarget target=resolveTarget(server,runtime,action);AuthoringSite site=requireSite(server,target);double[] size=footprint(group);
+        List<EncounterPlacementPlanner.Position> positions=site instanceof AuthoringSite.Region region
+                ?EncounterPlacementPlanner.clearRegionPositions(region,group.entityCount(),size[0],size[1],position->clearCandidate(server,site.dimension(),position,size,reserved))
+                :EncounterPlacementPlanner.positions(site,group.entityCount(),size[0],size[1]);
+        return makePlan(execution,actionIndex,group,site,positions,Optional.of(target));
+    }
+    private static boolean clearCandidate(MinecraftServer server,String dimension,EncounterPlacementPlanner.Position position,double[] size,List<PlannedBox> reserved){
+        ServerWorld world=world(server,dimension);Box box=new Box(position.x()-size[0]/2,position.y(),position.z()-size[0]/2,position.x()+size[0]/2,position.y()+size[1],position.z()+size[0]/2);
+        try{requireLoaded(world,box);requireGeometry(world,box);}catch(IllegalArgumentException|IllegalStateException unavailable){return false;}
+        for(PlannedBox earlier:reserved)if(earlier.dimension.equals(dimension)&&earlier.box.intersects(box))return false;
+        return world.isSpaceEmpty(box);
+    }
+    private static EncounterOperation makePlan(EventExecution execution,int actionIndex,EncounterGroup group,AuthoringSite site,List<EncounterPlacementPlanner.Position> positions,Optional<EncounterTarget> target){
+        UUID operation=childOperationId(execution.operationId(),actionIndex);UUID actor=execution.actor()==null?AUTOMATIC_ACTOR:execution.actor();List<EncounterSpawnEntry> entries=new ArrayList<>();int index=0;
+        for(EncounterMember member:group.members())for(int count=0;count<member.count();count++){var position=positions.get(index);entries.add(new EncounterSpawnEntry(entityId(operation,index),member.entityType(),site.dimension(),position.x(),position.y(),position.z(),EncounterSpawnEntry.Stage.PLANNED));index++;}
+        String fingerprint=EncounterOperation.fingerprint(group);return new EncounterOperation(operation,actor,group.id(),fingerprint,EncounterOperation.planHash(operation,actor,fingerprint,entries,target),entries,EncounterOperation.Terminal.OPEN,target);
+    }
     private static double[] footprint(EncounterGroup group){double width=0,height=0;for(EncounterMember member:group.members()){Box box=entityType(member.entityType()).getDimensions().getBoxAt(0,0,0);width=Math.max(width,box.maxX-box.minX);height=Math.max(height,box.maxY-box.minY);}return new double[]{width,height};}
     private static EncounterGroup requireGroup(Runtime runtime,String id){EncounterGroup group=runtime.groups.groups().get(id);if(group==null)throw new IllegalStateException("Encounter group is missing: "+id);group.requireAllowed(EncounterTypeAllowlist.only(entityTypes()));return group;}
     private static EncounterTarget resolveTarget(MinecraftServer server,Runtime runtime,EventEncounterAction action){EncounterTarget target=action.targetOverride().orElseGet(()->{EncounterBinding binding=runtime.bindings.bindings().get(action.groupId());if(binding==null)throw new IllegalStateException("Encounter group has no map binding: "+action.groupId());return binding.target();});validateTarget(server,target);return target;}
@@ -215,7 +303,7 @@ public final class Encounters {
     private static EncounterOperation current(Runtime runtime,UUID id){return runtime.operations.liveOperation(id).orElseGet(()->{try{return runtime.operations.archived(id).orElseThrow(()->new IllegalStateException("Encounter operation evidence is missing"));}catch(IOException failure){throw new IllegalStateException("Encounter operation archive is unreadable",failure);}});}
     private static void requireLoaded(MinecraftServer server,EncounterSpawnEntry entry){ServerWorld world=world(server,entry.dimension());requireLoaded(world,entityType(entry).getDimensions().getBoxAt(entry.x(),entry.y(),entry.z()));}
     private static void requireLoaded(ServerWorld world,Box box){int minChunkX=((int)Math.floor(box.minX))>>4,maxChunkX=((int)Math.floor(Math.nextDown(box.maxX)))>>4,minChunkZ=((int)Math.floor(box.minZ))>>4,maxChunkZ=((int)Math.floor(Math.nextDown(box.maxZ)))>>4;for(int x=minChunkX;x<=maxChunkX;x++)for(int z=minChunkZ;z<=maxChunkZ;z++)if(!world.getChunkManager().isChunkLoaded(x,z))throw new IllegalStateException("Encounter candidate footprint crosses an unloaded chunk; no chunk was forced");}
-    private static Box requireSpawnSpace(MinecraftServer server,EncounterSpawnEntry entry){ServerWorld world=world(server,entry.dimension());EntityType<?> type=entityType(entry);Box box=type.getDimensions().getBoxAt(entry.x(),entry.y(),entry.z());requireLoaded(world,box);requireGeometry(world,box);if(!world.isSpaceEmpty(box))throw new IllegalStateException("Encounter candidate space is blocked; no entity was claimed");return box;}
+    private static Box requireSpawnSpace(MinecraftServer server,EncounterSpawnEntry entry){ServerWorld world=world(server,entry.dimension());EntityType<?> type=entityType(entry);Box box=type.getDimensions().getBoxAt(entry.x(),entry.y(),entry.z());requireLoaded(world,box);requireGeometry(world,box);if(!world.isSpaceEmpty(box))throw new IllegalStateException("Encounter candidate space is blocked at "+entry.dimension()+" "+entry.x()+", "+entry.y()+", "+entry.z()+"; this candidate was not claimed");return box;}
     private static void requireGeometry(ServerWorld world,Box box){BlockPos low=new BlockPos((int)Math.floor(box.minX),(int)Math.floor(box.minY),(int)Math.floor(box.minZ)),high=new BlockPos((int)Math.floor(Math.nextDown(box.maxX)),(int)Math.floor(Math.nextDown(box.maxY)),(int)Math.floor(Math.nextDown(box.maxZ)));if(!world.isInBuildLimit(low)||!world.isInBuildLimit(high))throw new IllegalArgumentException("Encounter candidate is outside dimension build limits");var border=world.getWorldBorder();for(BlockPos corner:List.of(new BlockPos(low.getX(),low.getY(),low.getZ()),new BlockPos(low.getX(),low.getY(),high.getZ()),new BlockPos(high.getX(),low.getY(),low.getZ()),new BlockPos(high.getX(),low.getY(),high.getZ())))if(!border.contains(corner))throw new IllegalArgumentException("Encounter candidate is outside the world border");}
     private static ServerWorld world(MinecraftServer server,String dimension){ServerWorld world=server.getWorld(RegistryKey.of(RegistryKeys.WORLD,Identifier.of(dimension)));if(world==null)throw new IllegalStateException("Encounter dimension is unavailable: "+dimension);return world;}
     private static Entity find(MinecraftServer server,EncounterSpawnEntry entry){return world(server,entry.dimension()).getEntity(entry.entityId());}

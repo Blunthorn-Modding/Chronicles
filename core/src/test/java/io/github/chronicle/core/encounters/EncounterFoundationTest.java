@@ -9,6 +9,46 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EncounterFoundationTest {
+    @Test void pinnedPlansRoundTripAndHashExactTargetRevision() throws Exception {
+        EncounterOperation legacy=operation(UUID.randomUUID());Optional<EncounterTarget> target=Optional.of(new EncounterTarget(EncounterTarget.Kind.REGION,"yard",3));
+        EncounterOperation pinned=new EncounterOperation(legacy.operationId(),legacy.actorId(),legacy.groupId(),legacy.groupFingerprint(),EncounterOperation.planHash(legacy.operationId(),legacy.actorId(),legacy.groupFingerprint(),legacy.entries(),target),legacy.entries(),legacy.terminal(),target);
+        EncounterOperationStore store=store();store.load();store.create(pinned);assertEquals(pinned,store.load().operations().get(pinned.operationId()));
+        Optional<EncounterTarget> moved=Optional.of(new EncounterTarget(EncounterTarget.Kind.REGION,"yard",4));
+        assertThrows(IllegalArgumentException.class,()->new EncounterOperation(pinned.operationId(),pinned.actorId(),pinned.groupId(),pinned.groupFingerprint(),pinned.planHash(),pinned.entries(),pinned.terminal(),moved));
+        store.cancelOpen(pinned.operationId());store.archiveComplete(pinned.operationId());assertEquals(target,store.archived(pinned.operationId()).orElseThrow().target());
+    }
+
+    @Test void legacyJournalAndRawArchiveKeepOriginalHashAndExactPublicationBytes() throws Exception {
+        EncounterOperation planned=operation(UUID.randomUUID());UUID entity=planned.entries().getFirst().entityId();EncounterOperation legacy=planned.claim(entity).markSpawned(entity).complete();
+        byte[] modern=EncounterOperationStore.encode(new EncounterOperationJournal(7,Map.of(legacy.operationId(),legacy)));
+        // A schema-1 record ends at its terminal string, before the v2 optional-target byte.
+        byte[] oldJournal=Arrays.copyOf(modern,modern.length-1);java.nio.ByteBuffer.wrap(oldJournal).putInt(4,1);
+        Files.write(directory.resolve("operations.bin"),oldJournal);EncounterOperationStore store=store();assertEquals(legacy,store.load().operations().get(legacy.operationId()));
+        byte[] raw=Arrays.copyOfRange(oldJournal,20,oldJournal.length);ImmutableHistoryArchive archive=new ImmutableHistoryArchive(directory.resolve("history"),"encounter-operation",64*1024);
+        archive.publish(legacy.operationId().toString(),raw);assertEquals(legacy,store.archived(legacy.operationId()).orElseThrow());
+        store.archiveComplete(legacy.operationId());assertArrayEquals(raw,archive.read(legacy.operationId().toString()).orElseThrow());
+        assertEquals(legacy.planHash(),store.ensure(legacy).planHash());
+    }
+    @Test void blockedUnattemptedPlanCanBeCancelledWithoutInventingUncertainty() throws Exception {
+        EncounterOperationStore store=store();store.load();EncounterOperation planned=operationWithTwoEntries(UUID.randomUUID());store.create(planned);
+        assertThrows(IllegalStateException.class,()->store.uncertain(planned.operationId()));
+        EncounterOperation cancelled=store.cancelOpen(planned.operationId());
+        assertEquals(EncounterOperation.Terminal.CANCELLED,cancelled.terminal());
+        assertEquals(planned.entries(),cancelled.entries());assertEquals(planned.planHash(),cancelled.planHash());
+        assertEquals(cancelled,store.load().operations().get(planned.operationId()));
+        assertThrows(IllegalStateException.class,()->store.claim(planned.operationId(),planned.entries().getFirst().entityId()));
+        store.archiveComplete(planned.operationId());assertEquals(cancelled,store.archived(planned.operationId()).orElseThrow());
+        assertEquals(cancelled,store.ensure(planned));
+    }
+
+    @Test void cancellationPreservesConfirmedStagesButCannotBypassUncertainReview() throws Exception {
+        EncounterOperationStore store=store();store.load();EncounterOperation planned=operationWithTwoEntries(UUID.randomUUID());store.create(planned);
+        UUID entity=planned.entries().getFirst().entityId();store.claim(planned.operationId(),entity);store.markSpawned(planned.operationId(),entity);
+        EncounterOperation before=store.state().operations().get(planned.operationId());
+        assertEquals(before.entries(),store.cancelOpen(planned.operationId()).entries());
+        EncounterOperation uncertain=operation(UUID.randomUUID());store.create(uncertain);store.claim(uncertain.operationId(),uncertain.entries().getFirst().entityId());store.uncertain(uncertain.operationId());
+        assertThrows(IllegalStateException.class,()->store.cancelOpen(uncertain.operationId()));
+    }
     @TempDir Path directory;
     private static final EncounterTypeAllowlist ALLOWED=EncounterTypeAllowlist.only(List.of("minecraft:zombie","minecraft:skeleton"));
     private static EncounterGroup group(String id){return new EncounterGroup(id,"Patrol","A bounded group",List.of(new EncounterMember("minecraft:zombie",2),new EncounterMember("minecraft:skeleton",1)));}

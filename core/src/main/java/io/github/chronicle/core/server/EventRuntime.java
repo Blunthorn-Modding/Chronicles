@@ -193,6 +193,7 @@ public final class EventRuntime {
         try{
             var pending=pending(server);if(pending.size()>1)throw new IllegalStateException("Multiple unfinished Event runs require stopped-world repair.");
             if(!pending.isEmpty())RuntimeHolds.hold(server,HOLD,"An Event is awaiting exact recovery.");
+            for(var execution:pending)if(execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS)r.failure="Retained encounter execution requires explicit recovery or review after restart.";
             for(var execution:pending)if(execution.phase()==EventExecution.Phase.MEDIA_CLAIMED){
                 PlayRuntime.service(server).advanceExecution(execution.eventId(),execution.operationId(),EventExecution.Phase.MEDIA_UNCERTAIN,"Restart after media claim; delivery is uncertain and will not be replayed.");RuntimeHolds.release(server,HOLD);
             }
@@ -230,7 +231,7 @@ public final class EventRuntime {
                 EventExecution pinned=e;
                 var eligible=(java.util.function.BooleanSupplier)()->eligible(server,pinned.configuration(),pinned.session(),pinned.source(),authority(server,pinned),false);
                 if(!eligible.getAsBoolean())return;
-                if(Encounters.progress(server,pinned,eligible)==Encounters.Progress.COMPLETE)advance(server,pinned,EventExecution.Phase.EVENT_OUTCOME,"All encounter entities were durably spawned before Event outcomes.");
+                if(Encounters.progress(server,pinned,eligible)==Encounters.Progress.COMPLETE)advance(server,pinned,EventExecution.Phase.EVENT_OUTCOME,"Encounter operations resolved; confirmed spawns and explicit skipped or reviewed results are retained.");
                 return;
             }
             if(e.phase()==EventExecution.Phase.CONFLICT)return;
@@ -254,7 +255,18 @@ public final class EventRuntime {
         runtime(server).attached=e.operationId();
     }
     public static void recover(ServerPlayerEntity player,String id)throws IOException{
-        requireOperator(player);var server=server(player);Runtime r=runtime(server);var e=PlayRuntime.service(server).state().executions().get(id);
+        requireOperator(player);var server=server(player);var e=PlayRuntime.service(server).state().executions().get(id);
+        if(e!=null&&e.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS){
+            Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Events are unavailable");
+            if(RuntimeHolds.heldByOther(server,HOLD))throw new IllegalStateException("Resolve unrelated Chronicle holds before encounter recovery");
+            var campaign=ChronicleRuntime.service(server).state();
+            if(campaign.sessionNumber()!=e.session()||(campaign.phase()!=SessionPhase.ACTIVE&&campaign.phase()!=SessionPhase.PAUSED)||!configuration(server,id).equals(e.configuration()))throw new IllegalStateException("Restore this Event's session and exact configuration before recovery");
+            Encounters.validateRetry(server,e);
+            ChronicleRuntime.service(server).recordOperation(new Actor(player.getName().getString(),player.getUuidAsString()),"event.encounter.retry.requested",id,Map.of("operation",e.operationId().toString()));
+            if(e.source()==PlayState.DeliverySource.MANUAL){r.recoveryOperation=e.operationId();r.recoveryActor=player.getUuid();}
+            r.failure=null;r.attached=e.operationId();RuntimeHolds.hold(server,HOLD,"Exact encounter retry is waiting for active play and normal prerequisites.");return;
+        }
+        Runtime r=runtime(server);
         if(e==null||e.terminal()||e.phase()==EventExecution.Phase.MEDIA_CLAIMED)throw new IllegalStateException("That Event has no recoverable world operation.");
         // Explicit recovery grants this live operator authority; the original run actor remains immutable.
         boolean outcome=e.phase()==EventExecution.Phase.EVENT_OUTCOME||e.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS||e.phase()==EventExecution.Phase.WORLD_COMMITTED;
@@ -272,11 +284,14 @@ public final class EventRuntime {
         requireOperator(player);var server=server(player);write(server,()->PlayRuntime.service(server).acknowledgeEventMedia(id));
     }
 
-    /** Re-enables only the exact parent after its uncertain child was durably accepted by an operator. */
-    static void encounterReviewAccepted(MinecraftServer server,String eventId,UUID operation){
+    public static Optional<String> failureReason(MinecraftServer server){Runtime runtime=WORLDS.get(server);return runtime==null?Optional.of("Events are unavailable"):Optional.ofNullable(runtime.failure);}
+
+    /** Re-enables only the exact parent after its retained child was durably resolved by an operator. */
+    static void encounterReviewAccepted(MinecraftServer server,String eventId,UUID operation,UUID supervisor){
         Runtime runtime=WORLDS.get(server);if(runtime==null)throw new IllegalStateException("Events are unavailable");
         EventExecution execution=PlayRuntime.service(server).state().executions().get(eventId);
         if(execution==null||!execution.operationId().equals(operation)||execution.phase()!=EventExecution.Phase.ENCOUNTER_EFFECTS)throw new IllegalStateException("The parent Event changed before encounter review was accepted");
+        if(execution.source()==PlayState.DeliverySource.MANUAL){runtime.recoveryOperation=operation;runtime.recoveryActor=supervisor;}
         runtime.failure=null;runtime.attached=operation;RuntimeHolds.hold(server,HOLD,"A reviewed encounter result is waiting for normal Event prerequisites before outcomes.");
     }
 

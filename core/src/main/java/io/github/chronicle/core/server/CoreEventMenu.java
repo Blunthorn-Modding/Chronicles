@@ -153,11 +153,11 @@ final class CoreEventMenu {
                 .reduce((left,right)->left+"; "+right).orElse("None")));
         if(encounterReview.isPresent()){
             var child=encounterReview.orElseThrow().child();long planned=child.entries().stream().filter(entry->entry.stage()==io.github.chronicle.core.encounters.EncounterSpawnEntry.Stage.PLANNED).count(),claimed=child.entries().stream().filter(entry->entry.stage()==io.github.chronicle.core.encounters.EncounterSpawnEntry.Stage.CLAIMED).count(),spawned=child.entries().stream().filter(entry->entry.stage()==io.github.chronicle.core.encounters.EncounterSpawnEntry.Stage.SPAWNED).count();
-            facts.add(new Fact("Parent Event operation",encounterReview.orElseThrow().eventOperation().toString()));facts.add(new Fact("Uncertain encounter child",child.operationId()+" / "+child.groupId()));facts.add(new Fact("Composition digest",child.groupFingerprint()));facts.add(new Fact("Exact plan hash",child.planHash()));facts.add(new Fact("Retained stages","Planned "+planned+", claimed "+claimed+", spawned "+spawned));
-            for(var entry:child.entries())facts.add(new Fact("Entity UUID",entry.entityId()+" / "+entry.entityType()+" / "+entry.stage()));
+            facts.add(new Fact("Parent Event operation",encounterReview.orElseThrow().eventOperation().toString()));facts.add(new Fact("Encounter child",child.operationId()+" / "+child.groupId()));facts.add(new Fact("Composition digest",child.groupFingerprint()));facts.add(new Fact("Exact plan hash",child.planHash()));facts.add(new Fact("Retained stages","Planned "+planned+", claimed "+claimed+", spawned "+spawned));
+            for(var entry:child.entries())facts.add(new Fact("Entity UUID",entry.entityId()+" / "+entry.entityType()+" / "+entry.stage()+" / "+entry.dimension()+" "+entry.x()+", "+entry.y()+", "+entry.z()));
             boolean reviewable=player.getCommandSource().hasPermissionLevel(2)&&RuntimeHolds.reason(server)!=null&&!RuntimeHolds.heldByOther(server,EventRuntime.HOLD);
-            controls.add(control(Action.EVENT_ENCOUNTER_REVIEW,"Review uncertain encounter result",reviewable,"Requires this Event's hold and no unrelated Chronicle hold.",false,""));
-            if(encounterReviewed)controls.add(control(Action.EVENT_ENCOUNTER_ACCEPT,"Accept current encounter result",reviewable,"Requires this Event's hold and no unrelated Chronicle hold.",true,""));
+            controls.add(control(Action.EVENT_ENCOUNTER_REVIEW,child.terminal()==io.github.chronicle.core.encounters.EncounterOperation.Terminal.UNCERTAIN?"Review uncertain encounter result":"Review retained encounter plan",reviewable,"Requires this Event's hold and no unrelated Chronicle hold.",false,""));
+            if(encounterReviewed)controls.add(control(Action.EVENT_ENCOUNTER_ACCEPT,child.terminal()==io.github.chronicle.core.encounters.EncounterOperation.Terminal.UNCERTAIN?"Accept current encounter result":"Skip remaining encounter spawns",reviewable&&(child.terminal()!=io.github.chronicle.core.encounters.EncounterOperation.Terminal.OPEN||claimed==0),claimed>0&&child.terminal()==io.github.chronicle.core.encounters.EncounterOperation.Terminal.OPEN?"Use exact Retry first to validate retained claims; missing claims require uncertain-result review.":"Requires this Event's hold and no unrelated Chronicle hold.",true,""));
         }
         facts.add(new Fact("Completion", execution != null ? execution.phase() + " - " + execution.detail()
                 : delivery != null ? delivery.status() + " - " + delivery.recipients().size() + " recipients" : "Not run"));
@@ -194,7 +194,7 @@ final class CoreEventMenu {
         if (execution != null && execution.phase() == EventExecution.Phase.MEDIA_UNCERTAIN) {
             controls.add(control(Action.EVENT_ACK_MEDIA, "Acknowledge uncertain delivery", true, "", true, ""));
         } else if (execution != null && !execution.terminal()) {
-            controls.add(control(Action.EVENT_RECOVER, "Recover event", active, "Restore active play before recovery.", true, ""));
+            controls.add(control(Action.EVENT_RECOVER, execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS?"Retry exact encounter plan":"Recover event", execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS||active, "Restore active play before recovery.", true, ""));
         }
         var progress=EventProgressRuntime.entry(server,configuration);
         if (delivery != null || execution != null && execution.phase() == EventExecution.Phase.COMPLETE || progress!=null&&(progress.skipped()||progress.triggered()&&execution==null)) {
@@ -206,6 +206,13 @@ final class CoreEventMenu {
         String description = definition.description().isBlank()
                 ? "A player-facing Event with optional media, saved Region changes, encounter spawns, and flag outcomes."
                 : definition.description();
+        if(execution!=null&&execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS&&encounterReview.isPresent()){
+            var child=encounterReview.orElseThrow().child();
+            description="Encounter "+child.groupId()+" is retained: "+child.terminal()+". "+EventRuntime.failureReason(server).orElse("Inspect the retained plan before resolving it.");
+            if(child.terminal()==io.github.chronicle.core.encounters.EncounterOperation.Terminal.OPEN&&child.entries().stream().anyMatch(entry->entry.stage()==io.github.chronicle.core.encounters.EncounterSpawnEntry.Stage.CLAIMED))description="This encounter retains a claimed entity. Use exact Retry first to validate that claim. A missing claimed entity becomes uncertain and can then be explicitly reviewed; it is never respawned automatically.";
+            else if(child.terminal()==io.github.chronicle.core.encounters.EncounterOperation.Terminal.OPEN)description+=" Clear the exact planned space, then retry; or review and confirm skipping its remaining spawns. Retry while paused waits for active play.";
+        }
+        if(execution!=null&&execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS&&encounterReview.isEmpty()&&EventRuntime.failureReason(server).isPresent())description="Encounter planning needs recovery: "+EventRuntime.failureReason(server).orElseThrow()+". No new encounter claim was made. Clear the target Region, then retry its new plan.";
         if(EventProgressRuntime.legacyReviewRequired(configuration))description+=" Review and save this timer to enable its flag-based countdown.";
         return new Detail(selected, definition.label(), description, facts, controls, null, null, null);
     }
