@@ -1,6 +1,8 @@
 # Scenario content capture and export
 
-`Scenario content...` appears in the Core editor header for operators. Its landing page lists installed content providers and **Create custom scenario...**. Viewing a preview does not require Editing; creating or exporting requires non-active Editing and refuses while a Chronicle operation hold exists.
+`Scenario content...` appears in the Core editor header for operators. Its landing page lists installed content providers and **Create custom scenario...**. Viewing a preview does not require Editing. Creating or exporting requires Editing enabled while play is paused or stopped, and refuses while a Chronicle operation hold exists.
+
+For export, **pause or stop play, then enable Editing**. Editing must be on; active play must be off. The refusal message states these separately. Switching to a different scenario remains a deliberate server/configuration operation, outside the running editor.
 
 The popup captures the current effective role, book, loot-table, encounter-group and Event definitions from their ordinary Core editors. It does not create a separate content editor. Role starting and respawn bindings are removed; Events retain only portable symbolic references and require target-map review before use. Regions, locations, chests, saved states, map settings, player identities, histories, receipts, clocks and terrain are excluded. Managed block-instance UUID targets become unbound references; encounter compositions export without their world bindings.
 

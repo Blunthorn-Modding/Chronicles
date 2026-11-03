@@ -1,8 +1,8 @@
 # Outstanding work
 
-2 November dev66 feedback repairs are verified and ready for combined organizer review: retained encounter retry/skip and bounded clear Region placement; one five-prayer Altar screen, truthful refusal damage and shared 15-active-minute cooldown; acknowledged scenario exports and empty custom profiles for isolated authoring servers. See [results](DEV66_FEEDBACK_RESULTS.md), [combined review](DEV66_FEEDBACK_REVIEW.md) and [scenario workflow](SCENARIO_CONTENT_EXPORT.md). The map/content/group gates below remain separate.
+3 November: the organizer **passed the dev66 combined review**, confirming recovery and encounter spawning, the Altar, custom authoring, export and import. The export refusal wording is corrected to distinguish paused/stopped play from enabled Editing. Manual scenario switching through server/configuration setup is accepted. See [results](DEV66_FEEDBACK_RESULTS.md) and [scenario workflow](SCENARIO_CONTENT_EXPORT.md). The map/content/group gates below remain separate.
 
-1 November 2026. The deferred-tools implementation now provides encounter groups and Event spawning, role-assignment/entry Event sources, explicit Event-history archival, four additional Altar prayers, and reusable scenario-content export/build input. Role definitions and map destinations travel in the world. See [combined review](DEFERRED_TOOLS_REVIEW.md) and the latest [test evidence](TEST_PLAN.md). Human UI/balance review and the delivery gates below remain; this does not declare the scenario production-ready.
+The library tools and main Quiet Below mechanics are implemented and reviewed. Role definitions and map destinations travel in the world; reusable content can be exported separately. See the latest [test evidence](TEST_PLAN.md). The delivery gates below still require the actual map, final content and players.
 
 This rollup supersedes old "planned" and "review pending" wording in the historical backlog. The organizer confirmed the Event/flag functionality and dev64 picker correction; practical map setup and group testing are still to come.
 

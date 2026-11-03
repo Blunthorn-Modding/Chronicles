@@ -23,7 +23,9 @@ Offline build and both remaps pass. Java results: 735 tests, 728 passed and seve
 
 Independent source reviews are clear after fixed-Point reservation and same-identity helper restart corrections. The lead inspected the integrated diff and native screenshots at GUI scale 2. Earlier failed reports remain intact: Peaceful hostile despawns and stale fixture menu frames were corrected in test setup; an early tool-registration startup bug was fixed in production. No new three-hour soak was needed for these focused changes.
 
-Human review remains for the combined UI/feel and the organizer's retained Event. Final handcrafted-map integration, final journals/content, group/balance/voice gates, bundled custom sounds and quiet-period history scheduling remain tracked in [Outstanding work](OUTSTANDING_WORK.md).
+On 3 November the organizer passed the combined review: retained Event recovery and encounter spawning, the Altar, custom authoring, export and import work. The sole follow-up corrects the ambiguous export refusal: play must be paused or stopped, while Editing must be enabled. Scenario switching remains a deliberate server/configuration operation, as accepted by the organizer. Final handcrafted-map integration, final journals/content, group/balance/voice gates, bundled custom sounds and quiet-period history scheduling remain tracked in [Outstanding work](OUTSTANDING_WORK.md).
+
+The wording-only follow-up passed `gradlew.bat --offline --no-daemon :core:compileJava` (44 seconds) and `git diff --check`. No conditions, permissions or persistence changed, so no additional gameplay suite/review was required. It is a source correction for the next server update; the installed dev66 review artifacts remain unchanged.
 
 ## Review deployment
 
