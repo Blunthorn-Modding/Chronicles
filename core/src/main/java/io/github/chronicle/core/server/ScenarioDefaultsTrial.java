@@ -31,6 +31,7 @@ public final class ScenarioDefaultsTrial {
             switch (verb) {
                 case "fresh" -> {
                     require(RuntimeHolds.reason(server) == null, "startup hold: " + RuntimeHolds.reason(server));
+                    require(io.github.chronicle.core.ChronicleCore.events().events().stream().noneMatch(e->Set.of("quiet_below:readiness_check","quiet_below:mine_whisper","test:readiness_check","test:marker_clue").contains(e.id())),"prototype or test actions leaked into normal defaults");
                     require(play.state().scenarioDefaults().size() == 9 && play.state().events().size() == 6 && play.state().scenarioDrafts().size() == 3, "fresh Event defaults/drafts count");
                     require(campaign.state().flags().size() == 4 && campaign.state().flags().values().stream().noneMatch(Boolean::booleanValue), "fresh flag defaults");
                     var entries = CoreEventMenu.entries(server);

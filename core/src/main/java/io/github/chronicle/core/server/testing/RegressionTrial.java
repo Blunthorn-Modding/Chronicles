@@ -26,6 +26,22 @@ public final class RegressionTrial {
 
     public static void register() {
         if (System.getenv(ENABLE_ENV) == null || System.getenv(SERVER_ENV) == null) return;
+        Path expected=Path.of(System.getenv(SERVER_ENV)).toAbsolutePath().normalize();
+        if(expected.getParent()==null||!expected.getParent().getFileName().toString().equals("test-runs")
+                ||!expected.getFileName().toString().matches("[0-9]{8}T[0-9]{12,}Z")
+                ||!Files.isRegularFile(expected.resolve(".regression-events-fixture"),java.nio.file.LinkOption.NOFOLLOW_LINKS))
+            throw new IllegalStateException("Unsafe regression Event fixture root");
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTING.register(server->{
+            if(!server.isDedicated()||!server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize().getParent().equals(expected))
+                throw new IllegalStateException("Regression Event fixture does not own this server");
+        });
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(server->{
+            if(server.isOnlineMode()||server.getServerPort()!=25575||!"127.0.0.1".equals(server.getServerIp()))
+                throw new IllegalStateException("Unsafe regression Event fixture binding");
+        });
+        io.github.chronicle.core.ChronicleCore.events().register(new io.github.chronicle.core.campaign.CampaignEvent(
+                "test:readiness_check", "Disposable once-only event regression.", true, java.util.Map.of(),
+                state -> new io.github.chronicle.core.campaign.EventOutcome(java.util.Map.of("test:readiness_checked",true),"Regression readiness recorded.")));
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(
                 literal("chronicle_regression_trial").requires(source -> source.hasPermissionLevel(2))
                         .then(literal("observation")

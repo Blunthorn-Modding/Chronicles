@@ -1,5 +1,7 @@
 # The Quiet Below: M5 pilot runbook
 
+> Dev69 removes `quiet_below:readiness_check` and `quiet_below:mine_whisper` from the normal game. The old stage regression now explicitly registers `test:marker_clue` only in its isolated test server. References below describe the historical prototype, not the current authored Event catalogue.
+
 > **Technical fixture only — superseded campaign fiction.** Operator feedback on 19 October 2026 confirmed that the mechanics generally work but the narrative feels incoherent. Keep this generated site for regression tests. The operator handcrafts the production map; use [the new outline](THE_QUIET_BELOW.md) and [authoring plan](MAP_AUTHORING.md) before further campaign development. The scenes, signs and custom-prop explanations below are not approved production lore.
 
 > **M5 group playtest pending.** M3/M4 are implemented and automatically rehearsed. The pilot tools prepare a separate authenticated world and verify a disposable copy; this runbook supplies the human session plan. Keep the ordinary play world separate from the prototype site.

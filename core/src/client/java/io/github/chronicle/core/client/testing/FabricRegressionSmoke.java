@@ -252,16 +252,16 @@ public final class FabricRegressionSmoke {
                         "M8 cue prerequisite was not persisted as true"));
         awaitObservationDelivery(client, "city presence waits for its configured flag prerequisite", "quiet_below:city_presence");
 
-        readOnlyCommand(client, "event list is read-only", "chronicle debug events list", ".*quiet_below:readiness_check.*");
-        readOnlyCommand(client, "event preview is read-only", "chronicle debug events preview quiet_below:readiness_check",
-                ".*quiet_below:readiness_check.*Ready\\..*");
-        mutation(client, "trigger readiness once", "chronicle debug events trigger quiet_below:readiness_check",
-                "^Chronicle event quiet_below:readiness_check completed\\..*$", () -> {
+        readOnlyCommand(client, "event list is read-only", "chronicle debug events list", ".*test:readiness_check.*");
+        readOnlyCommand(client, "event preview is read-only", "chronicle debug events preview test:readiness_check",
+                ".*test:readiness_check.*Ready\\..*");
+        mutation(client, "trigger readiness once", "chronicle debug events trigger test:readiness_check",
+                "^Chronicle event test:readiness_check completed\\..*$", () -> {
                     JsonObject state = campaign();
-                    require(state.getAsJsonObject("flags").get("quiet_below:readiness_checked").getAsBoolean(), "readiness flag was not persisted");
-                    require(jsonArrayContains(state.getAsJsonArray("completedEvents"), "quiet_below:readiness_check"), "readiness completion was not persisted");
+                    require(state.getAsJsonObject("flags").get("test:readiness_checked").getAsBoolean(), "readiness flag was not persisted");
+                    require(jsonArrayContains(state.getAsJsonArray("completedEvents"), "test:readiness_check"), "readiness completion was not persisted");
                 });
-        rejectedCommand(client, "reject duplicate once-only event", "chronicle debug events trigger quiet_below:readiness_check",
+        rejectedCommand(client, "reject duplicate once-only event", "chronicle debug events trigger test:readiness_check",
                 "^Event has already been completed\\.$");
 
         mutation(client, "pause session 1", "chronicle session pause", "^Paused Chronicle session 1\\.$", () -> assertCampaign("PAUSED", 1));
@@ -296,7 +296,7 @@ public final class FabricRegressionSmoke {
         check("paused world time stays frozen", () -> require(dayDelta(firstTime, secondTime) <= 2,
                 "paused world time advanced: " + firstTime + " -> " + secondTime));
         rejectedCommand(client, "reject pause while paused", "chronicle session pause", "^cannot pause while campaign session is paused$");
-        rejectedCommand(client, "reject event while paused", "chronicle debug events trigger quiet_below:readiness_check", "^Campaign session is not active\\.$");
+        rejectedCommand(client, "reject event while paused", "chronicle debug events trigger test:readiness_check", "^Campaign session is not active\\.$");
         command(client, "summon uniquely tagged frozen pig",
                 "summon minecraft:pig ~ ~6 ~ {Tags:[\"chronicle_fabric_smoke\"]}", ".*summoned.*");
         pigYQuery(client, "capture frozen pig Y", value -> firstPigY = value);
@@ -977,8 +977,8 @@ public final class FabricRegressionSmoke {
         JsonObject state = campaign();
         assertCampaign(expectedPhase, expectedNumber);
         require(state.getAsJsonObject("flags").get("quiet_below:fabric_smoke").getAsBoolean(), "Fabric smoke flag did not survive restart");
-        require(state.getAsJsonObject("flags").get("quiet_below:readiness_checked").getAsBoolean(), "readiness flag did not survive restart");
-        require(jsonArrayContains(state.getAsJsonArray("completedEvents"), "quiet_below:readiness_check"), "completed readiness event did not survive restart");
+        require(state.getAsJsonObject("flags").get("test:readiness_checked").getAsBoolean(), "readiness flag did not survive restart");
+        require(jsonArrayContains(state.getAsJsonArray("completedEvents"), "test:readiness_check"), "completed readiness event did not survive restart");
     }
 
     private void assertAudit(List<String> expectedActions) throws IOException {

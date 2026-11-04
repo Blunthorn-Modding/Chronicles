@@ -15,6 +15,7 @@ def run(pilot=False):
     w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':campaigns:quiet-below:writeSmokeClientLaunch'])
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text())
     root = f._stage(w)
+    (root / '.stage-events-fixture').write_text('Disposable stage-event fixture\n', encoding='utf-8')
     if pilot:
         import pilot as p
         source = p.resolve_latest()
@@ -39,7 +40,9 @@ def run(pilot=False):
                 probe.bind(('127.0.0.1', 24455))
             logfile = reports / ('server-' + phase + '.log')
             server_log = logfile.open('w', encoding='utf-8')
-            server = subprocess.Popen(w.server_command(), cwd=root, env=w.env(), stdin=subprocess.PIPE,
+            environment = w.env()
+            environment.update(CHRONICLE_STAGE_TRIAL='true', CHRONICLE_STAGE_SERVER_DIR=str(root))
+            server = subprocess.Popen(w.server_command(), cwd=root, env=environment, stdin=subprocess.PIPE,
                                       stdout=server_log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             deadline = time.monotonic() + 240
             while 'Voice chat server started at 127.0.0.1:24455' not in logfile.read_text(encoding='utf-8', errors='replace'):

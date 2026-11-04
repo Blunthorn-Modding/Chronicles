@@ -1,5 +1,11 @@
 # Bootstrap validation
 
+## 4 November: dev69 prototype Event cleanup
+
+Read [cleanup evidence](PROTOTYPE_EVENT_CLEANUP.md). Full offline build passed: 780 Java tests, 773 passed and seven existing Windows symlink skips; no failures/errors. Final fixture-guard remap passed; Python discovery passed 131 tests. Native fresh/copied-world defaults passed with an explicit assertion that both retired actions and both test-only replacements are absent from normal startup. Separate positive/negative fixture boots verified the isolated test registrations and rejected inherited fixture environments on another world. The full old Fabric/stage interaction suites were not rerun.
+
+`../reports/dev69-validation.json` records exact native-tested JARs, all three authenticated review servers, pack verification and preservation of configuration, roles, existing Events and flags. The storage split, nine authored Events and accepted audio are unchanged. Two precise native coverage follow-ups remain documented under [outstanding work](OUTSTANDING_WORK.md); this cleanup does not claim those paths were exercised.
+
 ## 4 November: dev68 automatic scenario defaults
 
 Read [results](AUTOMATIC_SCENARIO_DEFAULTS_RESULTS.md) and [the contract](AUTOMATIC_SCENARIO_DEFAULTS.md). Final offline full build/remaps PASS2m47s (`../reports/scenario-defaults-release-build5.log`): **780 Java tests, 773 passed/seven existing Windows symlink-privilege skips**, no failures/errors. Python discovery131PASS. Source generator/check retains the original Word hash. Independent source review closed progress/claim/actor-history reservation risks; dedicated UI design and the lead-reviewed native frame preserve the existing menu framework.

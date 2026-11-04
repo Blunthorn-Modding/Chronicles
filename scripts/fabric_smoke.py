@@ -185,6 +185,7 @@ def run(include_content=True, regression=True):
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text())
     root = _stage(w)
     if regression:
+        (root / '.regression-events-fixture').write_text('Disposable regression Event fixture\n', encoding='utf-8')
         _loot_fixture(root)
         _m8_fixture(root)
     reports = w.REPORTS / ('fabric-smoke-' + root.name)

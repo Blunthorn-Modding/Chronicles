@@ -1,10 +1,10 @@
 # Chronicle
 
-**Current dev68:** scenario Events and flags appear automatically. Incomplete map setup shows `!` with a reason; prepared worlds retain their saved configurations, bindings, flag values and completions. The existing split between world setup and reusable mod/server content is unchanged. See the [automatic-defaults contract](docs/AUTOMATIC_SCENARIO_DEFAULTS.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [verification results](docs/AUTOMATIC_SCENARIO_DEFAULTS_RESULTS.md).
+**Current dev69:** the obsolete Readiness Check and Mine Whisper prototype actions are removed from the normal game. The nine authored Events and automatic flag/setup behavior remain. See the [cleanup results](docs/PROTOTYPE_EVENT_CLEANUP.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [remaining work](docs/OUTSTANDING_WORK.md).
 
 **Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
 
-Use the [matching dev68 review pack](../client/Chronicle-0.1.0-dev.68-1.21.10.mrpack) and join **127.0.0.1:25591**. The existing review at **25589** and custom authoring server at **25590** retain their worlds/configuration. All three addresses are included in the pack. The organizer accepted the default content and sounds; handcrafted-map/group testing remains. Earlier dated checkpoints below describe historical builds.
+Use the [matching dev69 review pack](../client/Chronicle-0.1.0-dev.69-1.21.10.mrpack) and join **127.0.0.1:25591**. The existing review at **25589** and custom authoring server at **25590** retain their worlds/configuration. All three addresses are included in the pack. The organizer accepted the default content and sounds; handcrafted-map/group testing remains. Earlier dated checkpoints below describe historical builds.
 
 ## Historical development checkpoints
 

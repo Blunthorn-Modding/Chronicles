@@ -4,7 +4,7 @@ The source contains the organizer's `A Quite Below.docx`: six roles, nine named 
 
 ## Installing and retaining map work
 
-Use matching dev68 Core, Quiet Below and client pack. The editor protocol remains v13; scenario content and Play state now use schema4. Older schemas load, but rollback to an older mod requires its stopped-world backup. A configuration-stage sound catalogue check rejects missing or mismatched client audio. The packaged clips play locally; no Freesound/SoundCloud connection is needed during play. See [audio sources and credits](QUIET_BELOW_AUDIO_SOURCES.md).
+Use matching dev69 Core, Quiet Below and client pack. The editor protocol remains v13; scenario content and Play state use schema4. Older schemas load, but rollback to a pre-dev68 mod requires its stopped-world backup. Dev69 removes the two legacy prototype actions; the nine authored Events are unchanged. A configuration-stage sound catalogue check rejects missing or mismatched client audio. The packaged clips play locally; no Freesound/SoundCloud connection is needed during play. See [audio sources and credits](QUIET_BELOW_AUDIO_SOURCES.md).
 
 Existing initialized world/server configuration remains authoritative. Installing new defaults does not replace edited roles, books, loot or live Event records. An intentionally empty custom authoring profile stays empty while retaining the installed mechanics. Regions, Locations, chest bindings and role destinations stay with the map; reusable scenario content still uses the [export/build workflow](SCENARIO_CONTENT_BUILD.md).
 
@@ -76,6 +76,6 @@ The organizer accepted the default content and audible clips on 4 November. Hand
 
 ## Current review
 
-Install `../client/Chronicle-0.1.0-dev.68-1.21.10.mrpack` and join **127.0.0.1:25591** for the defaults review world. It is paused, with an Altar, Forge and supplies near spawn. Review **Player Roles**, **Books & Lore**, **Loot Tables**, **Events** and **Flags**. Events are already listed; use entries marked `!` to finish map setup. **Preview privately** plays the message/sound without applying world outcomes, including for an incomplete Event.
+Install `../client/Chronicle-0.1.0-dev.69-1.21.10.mrpack` and join **127.0.0.1:25591** for the defaults review world. It is paused, with an Altar, Forge and supplies near spawn. Review **Player Roles**, **Books & Lore**, **Loot Tables**, **Events** and **Flags**. Events are already listed; use entries marked `!` to finish map setup. **Preview privately** plays the message/sound without applying world outcomes, including for an incomplete Event.
 
 The previous review remains at **127.0.0.1:25589** and the separate custom authoring profile at **127.0.0.1:25590**. Installing defaults preserves their existing content, so they are not substitutes for the fresh defaults review. All three addresses are included in the pack.

@@ -126,8 +126,8 @@ final class QuietBelowStageSmoke {
             command(client, "explicitly resume stage", "chronicle game quiet-below stage resume", "Stage resumed:.*");
             step("complete exactly 64 sculk placements", () -> {}, () -> count(client, Blocks.SCULK) == 64);
             command(client, "completed stage status", "chronicle game quiet-below stage status", ".*status=APPLIED.*");
-            command(client, "review clue event", "chronicle events run review action \"quiet_below:mine_whisper\"", ".*Ready.*");
-            command(client, "reveal clue event", "chronicle events run confirm action \"quiet_below:mine_whisper\"", "Chronicle event quiet_below:mine_whisper completed.*");
+            command(client, "review clue event", "chronicle events run review action \"test:marker_clue\"", ".*Ready.*");
+            command(client, "reveal clue event", "chronicle events run confirm action \"test:marker_clue\"", "Chronicle event test:marker_clue completed.*");
             command(client, "place clue marker outside stage", "setblock 4 -60 13 quiet_below:resonance_marker[facing=south]", "Changed the block.*");
             command(client, "empty hand for public clue", "clear @s", ".*(Removed|No items).*" );
             step("new clue is accessible without lens", () -> {

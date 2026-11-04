@@ -8,8 +8,6 @@ import io.github.chronicle.core.play.ObservationCatalog;
 import io.github.chronicle.core.managed.ManagedBlockDefinition;
 import io.github.chronicle.core.managed.ManagedBlockItem;
 import java.util.List;
-import io.github.chronicle.core.campaign.CampaignEvent;
-import io.github.chronicle.core.campaign.EventOutcome;
 import io.github.chronicle.quietbelow.content.ResonanceMarkerBlock;
 import io.github.chronicle.quietbelow.stage.QuietBelowStages;
 import net.fabricmc.api.ModInitializer;
@@ -186,13 +184,7 @@ public final class QuietBelow implements ModInitializer {
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_FORGE));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(ANCIENT_ALTAR));
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.FUNCTIONAL).register(entries -> entries.add(RELIC_HEART_ITEM));
-        if(!custom){ChronicleCore.events().register(new CampaignEvent("quiet_below:readiness_check",
-                "Records a framework readiness check without changing the world.", true, Map.of(),
-                state -> new EventOutcome(Map.of("quiet_below:readiness_checked", true), "The Quiet Below readiness check was recorded.")));
-        ChronicleCore.events().register(new CampaignEvent("quiet_below:mine_whisper",
-                "Reveal a new public observation at Resonance Markers; changes no blocks.", true, Map.of(),
-                state -> new EventOutcome(Map.of("quiet_below:fragment_revealed", true),
-                        "A new trace can be observed at Resonance Markers, with or without an Echo Lens.")));}
+        io.github.chronicle.quietbelow.testing.StageEventFixture.register();
         LOGGER.info("The Quiet Below initialized");
     }
 }
