@@ -16,6 +16,7 @@ Proposed Core ownership: ballot domain/store, privacy projections and reusable v
 4. Close with a durable tally/outcome receipt. Aggregate history and law records remain available before and after a crown decision; free-text decrees do not execute arbitrary rules.
 5. Add eligibility checks for every player and host operation, public versus secret projections and transparent technical recovery. Settle the void/reopen rule before exposing it.
 6. Connect the authorized Council call to a source occurrence consumed by the existing repeating text/sound Event path. Keep alarm configuration in the existing Events editor; preserve once-only Event completion records and recurring-media restrictions. A later call gets a new occurrence, while a retry of the same call does not replay it. Meeting state and ballot choices remain their authoritative records; the bell does not automatically open a vote or choose an agenda.
+7. Provide the Council progression/recess contract used by LC-08B: due random complications block regency opening and meeting closure until delivered and the Chancellor resumes. Normal Council recess leaves Core play ACTIVE. Enforce the gate on UI, command and recovery/opening paths; do not secretly change ordinary ballot choices or show the GM a future complication schedule.
 
 ## Acceptance and verification
 
@@ -26,6 +27,7 @@ Proposed Core ownership: ballot domain/store, privacy projections and reusable v
 - Player motions, sponsorship and deferral reasons are recorded; an eliminated candidate remains a voter. No automatic forced meeting at a timer deadline.
 - The GM can conduct several small motions before the ruler vote, defer that vote to a later meeting, and stop the current meeting without exhausting a fixed agenda. Once-per-meeting succession remains enforced. GM authority alone adds no seat/vote.
 - Two authorized gatherings can use the same configured alarm Event with distinct call receipts. Duplicate requests/restart cannot produce an unplanned second alarm or ballot. Existing private Event preview remains without political effects.
+- A random complication due for this meeting is delivered before a regency vote can be opened. Late delivery allows a Council recess for RP; the world is not technically paused. Due events in later meetings do not block this meeting's election. See [timing/count rules](RANDOM_COMPLICATIONS.md).
 
 Use parameterized counting/lifecycle/privacy tests, forged packet tests and at least two native participants plus a GM. Include restart while open and interrupted close. Core changes need relevant Quiet Below session/menu/profile regressions; ballots stay absent when the capability is unused.
 

@@ -6,6 +6,8 @@ The user's later [card/randomizer and Event-flow clarification](FRAMEWORK_INTEGR
 
 Further feedback: secret knowledge is a random subset with no coverage guarantee or owner-visible exposure count. Reuse genuine mechanics where appropriate; shared UI/helper code is not an existing gameplay mechanic. Complications belong in Events, banquet is new scenario gameplay, and treaties start as a Last Council feature rather than a mandatory generic Core agreement framework. [LC-10](LC-10-room-voice.md) investigates room audio separately from palace access.
 
+Latest [random-complication rule](RANDOM_COMPLICATIONS.md): reusable Event pools, hidden live selection/arrival even from the GM, configurable total across the evening and delivery only during Council meetings before that meeting's regency vote. A late arrival creates a Council recess, keeping Core play active for RP; it is not a global technical pause. The original brief's manual host-selected complication timing is superseded by this user clarification.
+
 ## Library versus scenario
 
 | Area | Chronicle Core | The Last Council |
@@ -18,7 +20,7 @@ Further feedback: secret knowledge is a random subset with no coverage guarantee
 | Map access | Opt-in server-authoritative Region access policy with safe destinations and bounded recovery | Palace restrictions derived from house standing and supervised visit exceptions |
 | Room audio | Existing Region geometry; optional new Simple Voice Chat integration after an acoustics prototype | Palace/private-room configuration; independent of guards, house status and ordinary participation |
 | Banquet | Reuse existing item, clock and effect helpers where suitable | Drink/poison/antidote items, information boundaries and illness rules; no generic thirst engine |
-| Events/content | Existing Event execution, flags, source receipts, books and scenario export | Council-call occurrences, host-directed meeting/agenda flow, complications and replayable content pools |
+| Events/content | Existing execution/flags/source receipts/books/export; new optional generic Event-pool draw/dispatch | Council-call occurrences, GM-led agenda, random complication count/arrival/recess policy and replayable content pools |
 
 Intended new content module: `campaigns/last-council`, mod ID `last_council`, depending on `chronicle_core`, Fabric API and the supported game/loader. It must not depend on or import `quiet_below`. Add only this demonstrated campaign, not empty modules for every possible format.
 
@@ -38,6 +40,8 @@ The existing public card contains name/pronouns/description; it is not a private
 The last item concerns shared UI implementation only. Confirmation widgets and the ordinary participant flag do not implement treaties or rebellion. A rebel stays an ordinary participant; their political rights are new Last Council state. Complications use Events; a physical book letter uses Books & Lore only when that item presentation is wanted, and Event-driven book delivery would need an explicit new action.
 
 Council gatherings begin with configured Event text/sound; the GM then opens a meeting, chooses motions and opens/closes votes one by one. No separate Chancellor player/delegation mechanism is needed. Repeated calls use authorized source receipts and the existing recurring-media path, whose current constraints exclude repeated terrain/flag changes and delays. Do not reset Event completion history or add a competing sound scheduler to ring the bell again.
+
+Random pool dispatch is also a new Core capability, not permission to ignore those executor constraints. The Last Council service must gate every normal regency-opening path on this meeting's due complications/recess state. Meeting-close checks cover meetings without regency. Core's technical pause remains separate; live RP and other gameplay continue through a normal Council recess. Pending/delivered counts and hidden allocation are world progress, never reusable exports or normal spoiler-visible previews.
 
 These APIs need focused integration work; their existence does not mean ballots, treaties or palace exclusion are already implemented. The current root `build.gradle` explicitly configures two modules, so adding Last Council also requires extending that shared build configuration.
 

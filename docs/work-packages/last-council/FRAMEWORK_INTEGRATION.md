@@ -6,6 +6,8 @@ This remains a design/implementation plan. No randomizer, Council controls or po
 
 Further clarification on 4 November: cross-house secret exposure is independently random, with no requirement that every secret be known by someone else. Reuse refers to genuinely shared workflows or services, not a reason to describe every new mechanic as an existing feature. Room acoustics through Simple Voice Chat is a new shared integration to investigate in [LC-10](LC-10-room-voice.md).
 
+Latest complication rule: [reusable random Event pools](RANDOM_COMPLICATIONS.md) surprise the GM as well as players. A configurable total is distributed across the evening's Council meetings. Each arrives before its own meeting's regency vote; a late arrival requires a Council recess while Core play stays active. This supersedes manual crisis selection/timing. Character cast preview does not reveal future complications.
+
 ## Character cards and randomized lore
 
 Keep Core's existing character card as the public character surface and Player Roles for assignment, starting gear and destinations where needed. Add reusable assignment pools to the existing book/role workflow, supporting card-bound handout delivery when no role is assigned. Do not require an organizer to fill out a second house dossier, create a separate role solely to hold each randomized house, or maintain another character catalogue.
@@ -40,9 +42,11 @@ Last Council still needs a small amount of authoritative political state tied to
 2. Players gather in the authored Council Region. The Chancellor opens the meeting and chooses what to discuss.
 3. The Chancellor selects or adds a motion, opens that vote, allows discussion/casting, then closes and records it. They repeat this for as many ordinary motions as appropriate, starting with smaller matters and raising the stakes at their discretion.
 4. When relevant, the Chancellor opens the ruler/regency vote using the brief's succession procedure. A meeting need not contain that vote; the existing maximum of one succession ballot per meeting still applies.
-5. The Chancellor closes the meeting or continues permissible business. Results can feed existing Event sources and flags for later announcements or complications. Electing a ruler does not automatically finish the whole experience.
+5. The Chancellor closes the meeting or continues permissible business, after any complication obligations for this meeting are resolved. Results can feed existing Event sources and flags for later announcements or pool eligibility. Electing a ruler does not automatically finish the whole experience.
 
 There is no second alarm/sound scheduler and no automatic agenda sequence. Existing Event timers/conditions may support authored cues, but the default Council flow is host-directed. The meeting/ballot records preserve procedure; the clock does not decide which motion is next or force the ruler vote.
+
+Random complications have their own Council-window gate within that flow: the system chooses content/arrival from the configured pool without the GM seeing the upcoming result. Before a regency vote—or closing a meeting without one—the current meeting must resolve its due complications. Late delivery creates RP time in a Council recess, not a technical pause. A later meeting may still receive a complication even if an earlier meeting already held a regency vote.
 
 Implementation detail requiring LC-02 work: current repeatable Events use registered source occurrences, with text/sound only and no delay. A completed once-per-campaign manual Event cannot simply be reused indefinitely. Route each authorized Council call through a durable, distinct call occurrence and the existing repeating Event path. Expose that approved call through the Events/Council integration so the GM does not maintain duplicate cue definitions. Retrying a call uses its same receipt; a later deliberate call is a new occurrence. Preserve current limits on repeating world/flag outcomes rather than clearing completion history.
 
@@ -64,7 +68,7 @@ Use the existing GM/operator authority for Chancellor controls. No separate role
 | Palace setup | Current Region selection, subtypes and safe Point binding | Guarded access subtype/policy, not a separate area registry or map-authoring workflow |
 | Room acoustics | Existing Regions plus Simple Voice Chat's documented APIs; evaluate Sound Physics Remastered first | New optional shared room-voice integration if existing physical acoustics is insufficient; decide hard isolation versus audible muffling after a prototype |
 | Drinks, poison and antidote | No existing banquet mechanic; vanilla item/effect facilities and Core pause/clock behavior are implementation foundations | New Last Council drinks, contamination, delayed illness and antidote interactions. Starting gear and chest loot are not dependencies of the banquet |
-| Complications | Existing Events with text/sound/flags | Author crises as Events; add a specific political action only when required and reviewed |
+| Complications | Existing Event execution with text/sound/flags | New optional Core Event-pool selection/dispatch; Last Council's configurable evening total, hidden Council timing and pre-regency/recess rules. Author the reusable pool once; do not pick a live crisis each run |
 | Letters | Event text for a narrative message; Books & Lore only when an actual book item is wanted | A letter is content of a complication/communication, not a separate mechanics category. Event-driven physical book delivery would require a new explicit action; it does not exist today |
 | Political history and ending | Durable operation records, existing notices/text presentation | Last Council aggregate view of laws, treaties/conflicts and crown state, with permitted visibility |
 | Authoring and portability | Existing editor, separate authoring profile, export/import and world-bound map setup | Explicit support for new reusable pools/rules; no duplicate editor or export of live secrets/ballots |

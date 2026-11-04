@@ -10,6 +10,8 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 
 **Further clarification:** secrets may be known by zero, one or several other houses; the owner gets no indication of exposure. Complications are Events; banquet and treaties are new scenario mechanics, not starting-gear/book systems. Shared UI utilities are not gameplay reuse. Room voice/acoustics has its own LC-10 investigation, with existing mod support evaluated before custom routing.
 
+**Random complications:** a reusable Event pool surprises everyone, including the GM, with hidden selection and arrival. The configured total spans the evening, not one per meeting; delivery happens during Council meetings before that meeting's regency vote. A late event creates a Council recess with normal gameplay still active. See [the confirmed count/timing rules](RANDOM_COMPLICATIONS.md). The owner will evaluate the sound mod tomorrow; no new voice dependency is selected by this plan.
+
 ## Package order and dependencies
 
 | Package | Deliverable | Depends on | Status |
@@ -21,7 +23,7 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 | [LC-05](LC-05-conflicts.md) | House/civil/external wars and political settlements | LC-02, LC-04 | Planned |
 | [LC-06](LC-06-rebellion-access.md) | Optional guarded Regions; rebellion and formal reinstatement | LC-01, LC-02, LC-03; LC-04/05 integration | Planned; confirmation/access review required |
 | [LC-07](LC-07-banquet.md) | Optional drinks, delayed illness and antidote | LC-01, existing Core clocks/items | Planned; can progress independently of LC-03/04/05 |
-| [LC-08](LC-08-content-events.md) | Replayable content pools, host complications and Event/flag sources | LC-01B/C for draws; integrate each delivered political operation | Planned; content review required |
+| [LC-08](LC-08-content-events.md) | Core Event pools; random Council complications, character content and source/flag links | LC-01B/C for handouts; LC-02 progression gate for timing; integrate delivered operations | Planned; pool/timing/content review required |
 | [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08, chosen LC-10 voice behavior; LC-07 when enabled | Planned |
 | [LC-10](LC-10-room-voice.md) | Shared room-voice/acoustics investigation using Regions and Simple Voice Chat | Existing Regions/voice setup | Investigate early; implementation choice needs prototype review |
 
@@ -57,6 +59,7 @@ Keep builds/native clients serialized where they share class directories or test
 - **LC-06:** define the narrow supervised-visit exception and the separate crowned-ruler abdication/deposition procedure before exposing those controls.
 - **LC-07:** review dose counts, onset/duration, symptoms and antidote strength; the brief deliberately leaves those numbers open. Banquet poisoning remains optional.
 - **LC-01B/LC-08:** review pool content, draw quantities, repetition policies and compatibility rules for replayable characters. Cross-house knowledge must resolve to the same draw's assigned facts. The brief's fixed eight-house example is illustrative, not final canon.
+- **LC-08B:** complication total across the evening and the current-meeting regency horizon are confirmed. Review hidden allocation/rescheduling, spacing and Council-recess presentation with the UI. No per-run GM choice or preview of future crises.
 - **LC-10:** compare natural wall/door attenuation with hard room privacy or boundary muffling. Automatic group membership is a possible implementation, not a substitute for choosing and testing the acoustic behavior.
 
 These are tracked design decisions, not reasons to delay the work-package tree or invent new rules now. The source brief remains authoritative where it already gives an answer.
