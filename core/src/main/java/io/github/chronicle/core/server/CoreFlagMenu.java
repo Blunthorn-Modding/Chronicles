@@ -40,7 +40,7 @@ final class CoreFlagMenu {
         String id = selected.startsWith("flag:") ? selected.substring(5) : selected;
         Boolean value = state.flags().get(id);
         if (value == null) throw new IllegalArgumentException("Choose an existing flag.");
-        boolean live = state.phase() == SessionPhase.ACTIVE && free;
+        boolean live = state.phase() == SessionPhase.ACTIVE && (free||EventOccurrenceRuntime.onlyBackpressureHold(server));
         controls.add(new Control(Action.CONDITION_SET, value ? "Turn Off" : "Turn On", live,
                 live ? "" : !free ? "Finish pending operations before changing flags." : "Start or resume play to change this flag.", true, value ? "FLAG_OFF" : "FLAG_ON"));
         return new Detail("flag:" + id, id,

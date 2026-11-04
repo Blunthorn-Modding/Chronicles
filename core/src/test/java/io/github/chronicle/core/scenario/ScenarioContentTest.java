@@ -64,9 +64,9 @@ class ScenarioContentTest {
         var unknown = JsonParser.parseString(encoded).getAsJsonObject(); unknown.addProperty("futureEncounterChange", true);
         assertThrows(IllegalArgumentException.class, () -> ScenarioContentJson.decode(unknown.toString()));
     }
-    @Test void readsLegacySchemaOneAndWritesEncounterSchemaTwo() {
+    @Test void readsLegacySchemaOneAndWritesCurrentSchema() {
         ScenarioContent original = new ScenarioContent("example:legacy", Map.of(), Map.of(), Map.of(), Map.of());
         var root = JsonParser.parseString(ScenarioContentJson.encode(original)).getAsJsonObject(); root.addProperty("schemaVersion", 1); root.remove("encounterGroups");
-        assertEquals(original, ScenarioContentJson.decode(root.toString())); assertTrue(ScenarioContentJson.encode(original).contains("\"schemaVersion\":2"));
+        assertEquals(original, ScenarioContentJson.decode(root.toString())); assertTrue(ScenarioContentJson.encode(original).contains("\"schemaVersion\":" + ScenarioContentJson.SCHEMA_VERSION));
     }
 }

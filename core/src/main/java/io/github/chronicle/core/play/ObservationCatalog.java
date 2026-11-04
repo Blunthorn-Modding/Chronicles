@@ -16,7 +16,7 @@ public final class ObservationCatalog {
     public static final int MAX_ID_LENGTH = 128;
     public static final Pattern NAMESPACED_ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
-    public enum Audience { PARTICIPANTS, REGION }
+    public enum Audience { PARTICIPANTS, REGION, SOURCE_ACTOR }
 
     public record Definition(String id, String label, String text, String sound, Audience audience) {
         public Definition {
@@ -26,6 +26,9 @@ public final class ObservationCatalog {
             if (sound == null) throw new IllegalArgumentException("observation sound is required; use an empty string for no sound");
             if (!sound.isEmpty()) requireIdentifier(sound, "observation sound");
             if (audience == null) throw new IllegalArgumentException("observation audience is required");
+            if (audience == Audience.SOURCE_ACTOR) {
+                throw new IllegalArgumentException("source-actor audience is available only to unified system Events");
+            }
         }
 
         /** Stable digest of every campaign-controlled definition field used by a saved binding. */

@@ -13,7 +13,10 @@ public final class EventHistoryMaintenance {
     private EventHistoryMaintenance() { }
 
     public record Result(int sourcesRetired, int progressFactsTrimmed, int flagReceiptsRetired,
-                         int worldBatchesRetired, int encounterOperationsRetired, int temporaryOfferingsRetired) {
+                         int worldBatchesRetired, int encounterOperationsRetired, int temporaryOfferingsRetired, int actorRecordsRetired) {
+        public Result(int sourcesRetired,int progressFactsTrimmed,int flagReceiptsRetired,int worldBatchesRetired,int encounterOperationsRetired,int temporaryOfferingsRetired){
+            this(sourcesRetired,progressFactsTrimmed,flagReceiptsRetired,worldBatchesRetired,encounterOperationsRetired,temporaryOfferingsRetired,0);
+        }
         public Result(int sourcesRetired,int progressFactsTrimmed,int flagReceiptsRetired,int worldBatchesRetired,int encounterOperationsRetired){
             this(sourcesRetired,progressFactsTrimmed,flagReceiptsRetired,worldBatchesRetired,encounterOperationsRetired,0);
         }
@@ -26,12 +29,14 @@ public final class EventHistoryMaintenance {
         if (campaign.state().phase() == SessionPhase.ACTIVE)
             throw new IllegalStateException("Pause or end play before Event history maintenance");
         String hold = RuntimeHolds.reason(server);
-        if (hold != null) throw new IllegalStateException("Resolve the current Chronicle operation before Event history maintenance: " + hold);
+        if (hold != null&&!EventOccurrenceRuntime.onlyBackpressureHold(server)) throw new IllegalStateException("Resolve the current Chronicle operation before Event history maintenance: " + hold);
         if (!EventWorldBatches.ready(server) || EventWorldBatches.hasReservation(server))
             throw new IllegalStateException("Resolve Event Region batch recovery before history maintenance");
         if (Encounters.hasUnresolved(server)) throw new IllegalStateException("Resolve encounter spawn recovery before history maintenance");
         if (!EventSources.pending(server).isEmpty())
             throw new IllegalStateException("Prepared Event source evidence cannot be maintained; resolve its exact outcome first");
+        if (EventOccurrenceRuntime.liveClaims(server) > 0)
+            throw new IllegalStateException("Queued repeating Event occurrences cannot be maintained; let their exact executions finish first");
 
         PlayService play = PlayRuntime.service(server);
         if (play.state().executions().values().stream().anyMatch(execution -> execution.phase() != EventExecution.Phase.COMPLETE))
@@ -58,7 +63,8 @@ public final class EventHistoryMaintenance {
             if (completedExecution(play, operation, completed)) batches.add(operation);
         int retiredBatches = EventWorldBatches.retireCommitted(server, batches);
         int retiredEncounters=Encounters.maintainCompleted(server);
-        return new Result(sources.size(), trimmed, retiredFlags, retiredBatches,retiredEncounters,retiredTemporaryOfferings);
+        int retiredActors=EventOccurrenceRuntime.maintainActors(server);
+        return new Result(sources.size(), trimmed, retiredFlags, retiredBatches,retiredEncounters,retiredTemporaryOfferings,retiredActors);
     }
 
     private static boolean completedExecution(PlayService play, UUID operation, Map<UUID,Boolean> cache) throws IOException {

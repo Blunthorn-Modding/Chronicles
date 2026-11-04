@@ -80,7 +80,7 @@ public final class ChronicleCommands {
                             String id = IdentifierArgumentType.getIdentifier(context, "id").toString();
                             boolean value = BoolArgumentType.getBool(context, "value");
                             return mutate(context.getSource(), (service, actor) -> {
-                                if (RuntimeHolds.reason(context.getSource().getServer()) != null)
+                                if (RuntimeHolds.reason(context.getSource().getServer()) != null&&!EventOccurrenceRuntime.onlyBackpressureHold(context.getSource().getServer()))
                                     throw new IllegalStateException("Finish pending operations before changing flags.");
                                 service.setFlag(actor, id, value);
                                 return "Chronicle flag " + id + " = " + value + ".";

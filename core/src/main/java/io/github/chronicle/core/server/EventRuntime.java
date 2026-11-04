@@ -55,9 +55,10 @@ public final class EventRuntime {
         if(creating&&(configurations(server).containsKey(id)||configurations(server).size()>=ObservationCatalog.MAX_DEFINITIONS))throw new IllegalStateException("That Event already exists, or the Event limit has been reached.");
         if(!creating){var current=configuration(server,id);if(current.definition().revision()!=form.revision())throw new IllegalStateException("The Event changed; reopen it.");}
         var mode=PlayState.Mode.valueOf(form.mode());
+        var occurrencePolicy=EventOccurrencePolicy.valueOf(form.occurrencePolicy());
         boolean progressOnly=form.message().isBlank()&&form.sound().isEmpty()&&form.changes().isEmpty()&&form.encounterActions().isEmpty()&&!form.flagChanges().isEmpty();
         var audienceType=progressOnly?ObservationCatalog.Audience.PARTICIPANTS:ObservationCatalog.Audience.valueOf(form.audience());
-        Optional<EventRegionReference> audience=audienceType==ObservationCatalog.Audience.PARTICIPANTS?Optional.empty():pin(server,form.audienceRegion(),form.audienceRegionRevision());
+        Optional<EventRegionReference> audience=audienceType==ObservationCatalog.Audience.REGION?pin(server,form.audienceRegion(),form.audienceRegionRevision()):Optional.empty();
         Optional<EventRegionReference> trigger=mode==PlayState.Mode.ENTRY?pin(server,form.triggerRegion(),form.triggerRegionRevision()):Optional.empty();
         List<EventRegionChange> changes=new ArrayList<>();
         for(var choice:form.changes()){
@@ -71,31 +72,40 @@ public final class EventRuntime {
             Optional<io.github.chronicle.core.encounters.EncounterTarget> target=action.targetKind().equals("GROUP")?Optional.empty():Optional.of(new io.github.chronicle.core.encounters.EncounterTarget(io.github.chronicle.core.encounters.EncounterTarget.Kind.valueOf(action.targetKind()),action.siteId(),action.siteRevision()));
             if(!action.current())throw new IllegalStateException("An encounter group or map target is missing or changed; choose it again.");encounterActions.add(new EventEncounterAction(action.groupId(),target));
         }
-        var definition=encounterActions.isEmpty()?new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges()):new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges(),encounterActions);
+        boolean currentFormat=occurrencePolicy!=EventOccurrencePolicy.ONCE||audienceType==ObservationCatalog.Audience.SOURCE_ACTOR;
+        var definition=currentFormat?new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges(),encounterActions,4):encounterActions.isEmpty()?new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges()):new EventDefinition(id,service.nextEventRevision(),form.name(),form.description(),form.message(),form.sound(),audienceType,audience,changes,form.flagChanges(),encounterActions);
         sound(definition.sound());for(String flag:form.requiredFlags())validateFlag(server,flag);
         for(String flag:form.flagChanges().keySet())validateFlag(server,flag);
         long delay=Math.multiplyExact(form.seconds(),20);
         if(mode==PlayState.Mode.SYSTEM)EventSources.validate(server,form.source());
+        if(mode==PlayState.Mode.SYSTEM)EventSources.validateAudience(form.source(),audienceType);
         Encounters.validate(server,definition.encounterActions());
-        var configuration=new EventConfiguration(definition,mode,trigger,service.elapsedTicks(),delay,form.requiredFlags(),true,mode==PlayState.Mode.SYSTEM?form.source():EventSource.empty());
+        var configuration=occurrencePolicy==EventOccurrencePolicy.ONCE
+                ?new EventConfiguration(definition,mode,trigger,service.elapsedTicks(),delay,form.requiredFlags(),true,mode==PlayState.Mode.SYSTEM?form.source():EventSource.empty())
+                :new EventConfiguration(definition,mode,trigger,service.elapsedTicks(),delay,form.requiredFlags(),true,form.source(),occurrencePolicy);
+        if(occurrencePolicy!=EventOccurrencePolicy.ONCE||(expected!=null&&expected.occurrencePolicy()!=EventOccurrencePolicy.ONCE))EventOccurrenceRuntime.requireNoPending(server,id);
         write(server,()->service.putEvent(configuration,expected,creating));
         write(server,()->EventProgressRuntime.arm(server,configuration));
         return definition.id();
     }
     public static void delete(ServerPlayerEntity player,String id,EventConfiguration expected)throws IOException{
         requireEditing(player);var server=server(player);if(ChronicleCore.observations().get(id).isPresent())throw new IllegalStateException("Default Events retain their registered definition; remove their configuration instead.");
+        EventOccurrenceRuntime.requireNoPending(server,id);
         write(server,()->PlayRuntime.service(server).deleteEvent(id,expected));
         write(server,()->EventProgressRuntime.remove(server,id));
     }
     public static void disableAutomatic(ServerPlayerEntity player,String id)throws IOException{changeEnabled(player,id,true);}
     public static void removeConfiguration(ServerPlayerEntity player,String id)throws IOException{
         requireEditing(player);var server=server(player);
+        EventOccurrenceRuntime.requireNoPending(server,id);
         if(ChronicleCore.observations().get(id).isEmpty())throw new IllegalStateException("Custom Events have their own definition; delete the Event to remove it.");
         var expected=stored(server,id);write(server,()->{var service=PlayRuntime.service(server);if(expected!=null)service.deleteEvent(id,expected);else service.off(id);});
         write(server,()->EventProgressRuntime.remove(server,id));
     }
     private static void changeEnabled(ServerPlayerEntity player,String id,boolean enabled)throws IOException{
         requireEditing(player);var server=server(player);var old=configuration(server,id);var service=PlayRuntime.service(server);var d=old.definition();
+        EventOccurrenceRuntime.requireNoPending(server,id);
+        if(old.occurrencePolicy()!=EventOccurrencePolicy.ONCE)throw new IllegalStateException("Repeating Events retain their source policy; edit or remove the configuration instead.");
         var next=new EventDefinition(d.id(),service.nextEventRevision(),d.label(),d.description(),d.text(),d.sound(),d.audience(),d.audienceRegion(),d.changes(),d.flagChanges(),d.encounterActions(),d.formatVersion());
         var configuration=new EventConfiguration(next,PlayState.Mode.MANUAL,old.triggerRegion(),service.elapsedTicks(),0,old.requiredFlags(),enabled,old.source(),old.formatVersion());
         var expected=stored(server,id);write(server,()->service.putEvent(configuration,expected,false));
@@ -114,6 +124,7 @@ public final class EventRuntime {
     public static Review review(MinecraftServer server,String id){
         runtime(server);requireNoPending(server);if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the current operation before reviewing an Event.");
         var c=configuration(server,id);validate(server,c);var campaign=active(server);requireFlag(c,campaign);unclaimed(server,id);
+        if(c.occurrencePolicy()!=EventOccurrencePolicy.ONCE)throw new IllegalStateException("Repeating Events run only from their durable source activities.");
         var recipients=audience(server,c);if(recipients.isEmpty()&&!c.definition().progressOnly())throw new IllegalStateException("No participating players are in this Event's audience.");
         String names=recipients.stream().limit(8).map(p->p.getName().getString()).reduce((a,b)->a+", "+b).orElse("");
         String targets=c.definition().changes().stream().map(change->change.region().id()+" -> "+change.state()).reduce((a,b)->a+"; "+b).orElse("none");
@@ -134,7 +145,7 @@ public final class EventRuntime {
         long clock=PlayRuntime.elapsedTicks(server);if(clock<r.retryAt)return;var campaign=active(server);
         for(var c:configurations(server).values()){
             String id=c.definition().id();var state=PlayRuntime.service(server).state();
-            if(!c.enabled()||state.deliveries().containsKey(id)||state.executions().containsKey(id))continue;
+            if(!c.enabled()||c.occurrencePolicy()!=EventOccurrencePolicy.ONCE||state.deliveries().containsKey(id)||state.executions().containsKey(id))continue;
             try{
                 validate(server,c);
                 var entrants=c.triggerRegion().isPresent()?PlayRuntime.eligiblePlayers(server).stream().filter(p->inside(p,region(server,c.triggerRegion().get()))).toList():List.<ServerPlayerEntity>of();
@@ -158,7 +169,19 @@ public final class EventRuntime {
     private static void begin(MinecraftServer server,EventConfiguration c,PlayState.DeliverySource source,UUID actor,List<UUID> recipients)throws IOException{
         if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the current operation hold before starting an Event.");
         Runtime r=runtime(server);requireNoPending(server);unclaimed(server,c.definition().id());var campaign=active(server);validate(server,c);requireFlag(c,campaign);
-        UUID operation=UUID.randomUUID();int session=campaign.sessionNumber();
+        begin(server,c,source,actor,recipients,UUID.randomUUID());
+    }
+
+    static void beginOccurrence(MinecraftServer server,EventConfiguration c,EventOccurrenceState.Claim claim)throws IOException{
+        if(c.occurrencePolicy()==EventOccurrencePolicy.ONCE||!c.fingerprint().equals(claim.configurationFingerprint())
+                ||!c.definition().id().equals(claim.eventId()))throw new IllegalArgumentException("Occurrence claim does not match its repeating Event");
+        begin(server,c,PlayState.DeliverySource.SYSTEM,claim.source().actor(),claim.recipients(),claim.operationId());
+    }
+
+    private static void begin(MinecraftServer server,EventConfiguration c,PlayState.DeliverySource source,UUID actor,List<UUID> recipients,UUID operation)throws IOException{
+        if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the current operation hold before starting an Event.");
+        Runtime r=runtime(server);requireNoPending(server);unclaimed(server,c.definition().id());var campaign=active(server);validate(server,c);requireFlag(c,campaign);
+        int session=campaign.sessionNumber();
         if(!c.definition().flagChanges().isEmpty())ChronicleRuntime.service(server).requireEventFlagCapacity(operation);
         if(!c.definition().encounterActions().isEmpty())Encounters.requireCapacity(server,c.definition().encounterActions().size());
         if(c.definition().changes().isEmpty()){
@@ -203,7 +226,7 @@ public final class EventRuntime {
         var play=PlayRuntime.service(server).state();var campaign=ChronicleRuntime.service(server).state();
         for(var c:configurations(server).values()){
             String id=c.definition().id();
-            if(c.formatVersion()==1||!c.enabled()||play.executions().containsKey(id)||play.deliveries().containsKey(id))continue;
+            if(c.formatVersion()==1||c.occurrencePolicy()!=EventOccurrencePolicy.ONCE||!c.enabled()||play.executions().containsKey(id)||play.deliveries().containsKey(id))continue;
             try{
                 var progress=EventProgressRuntime.observe(server,c,null,false);
                 if(campaign.phase()==SessionPhase.ENDED&&c.definition().encounterActions().isEmpty()&&c.delayTicks()==0&&EventProgressRuntime.trustedCompletion(server,c)
@@ -281,7 +304,9 @@ public final class EventRuntime {
         r.attached=e.operationId();
     }
     public static void acknowledge(ServerPlayerEntity player,String id)throws IOException{
-        requireOperator(player);var server=server(player);write(server,()->PlayRuntime.service(server).acknowledgeEventMedia(id));
+        requireOperator(player);var server=server(player);var execution=PlayRuntime.service(server).state().executions().get(id);
+        String receipt=execution==null?null:CompletionEventSources.prepare(server,execution);
+        write(server,()->PlayRuntime.service(server).acknowledgeEventMedia(id));EventSources.complete(server,receipt,true);
     }
 
     public static Optional<String> failureReason(MinecraftServer server){Runtime runtime=WORLDS.get(server);return runtime==null?Optional.of("Events are unavailable"):Optional.ofNullable(runtime.failure);}
@@ -309,13 +334,19 @@ public final class EventRuntime {
         var eligible=PlayRuntime.eligiblePlayers(server);var pinnedRecipients=e.recipients();var recipients=eligible.stream().filter(p->pinnedRecipients.contains(p.getUuid())).toList();
         e=advance(server,e,EventExecution.Phase.MEDIA_CLAIMED,"Media claim persisted before network delivery.");
         try{
+            if(FoundationVerificationTrial.failMediaForTrial(e))throw new IllegalStateException("Disposable post-claim media failure injection");
             for(var player:recipients)media(player,e.configuration().definition().text(),sound);
             advance(server,e,EventExecution.Phase.COMPLETE,"Outcome committed; media sent to "+recipients.size()+" online eligible recipients.");
             RuntimeHolds.release(server,HOLD);
-        }catch(RuntimeException failure){advance(server,e,EventExecution.Phase.MEDIA_UNCERTAIN,"Media delivery failed after its durable claim; no automatic replay.");RuntimeHolds.release(server,HOLD);ChronicleCore.LOGGER.error("Event media delivery is uncertain; acknowledge it before deliberately allowing another run",failure);}
+        }catch(EventSources.Unavailable failure){throw failure;}
+        catch(RuntimeException failure){advance(server,e,EventExecution.Phase.MEDIA_UNCERTAIN,"Media delivery failed after its durable claim; no automatic replay.");RuntimeHolds.release(server,HOLD);ChronicleCore.LOGGER.error("Event media delivery is uncertain; acknowledge it before deliberately allowing another run",failure);}
     }
     private static EventExecution advance(MinecraftServer server,EventExecution e,EventExecution.Phase phase,String detail)throws IOException{
-        try{return PlayRuntime.service(server).advanceExecution(e.eventId(),e.operationId(),phase,detail);}catch(IOException failure){fail(server,failure);throw failure;}
+        try{
+            String receipt=phase==EventExecution.Phase.COMPLETE?CompletionEventSources.prepare(server,e):null;
+            var result=PlayRuntime.service(server).advanceExecution(e.eventId(),e.operationId(),phase,detail);
+            EventSources.complete(server,receipt,true);return result;
+        }catch(IOException failure){fail(server,failure);throw failure;}
     }
     /** Physical outcome is already authoritative. Finish even if its original actor/audience left; never catch up offline media. */
     private static boolean outcomeEligible(MinecraftServer server,EventExecution e){
@@ -342,6 +373,7 @@ public final class EventRuntime {
         for(String flag:c.definition().flagChanges().keySet())validateFlag(server,flag);
         Encounters.validate(server,c.definition().encounterActions());
         if(c.mode()==PlayState.Mode.SYSTEM){
+            EventSources.validateAudience(c.source(),c.definition().audience());
             try{EventSources.validate(server,c.source());}
             catch(IllegalArgumentException unavailable){
                 var progress=EventProgressRuntime.entry(server,c);
@@ -355,7 +387,23 @@ public final class EventRuntime {
     }
     private static Optional<EventRegionReference> pin(MinecraftServer server,String id,long revision){if(id.isEmpty())return Optional.empty();var pin=new EventRegionReference(id,revision);region(server,pin);return Optional.of(pin);}
     private static AuthoringSite.Region region(MinecraftServer server,EventRegionReference pin){var site=AuthoringRuntime.get(server).service().state().sites().get(pin.id());if(!(site instanceof AuthoringSite.Region region)||region.revision()!=pin.revision())throw new IllegalStateException("Region is missing or changed: "+pin.id());return region;}
-    private static List<ServerPlayerEntity> audience(MinecraftServer server,EventConfiguration c){var players=PlayRuntime.eligiblePlayers(server);return c.definition().audience()==ObservationCatalog.Audience.PARTICIPANTS?players:players.stream().filter(p->inside(p,region(server,c.definition().audienceRegion().orElseThrow(()->new IllegalStateException("Choose an audience Region."))))).toList();}
+    private static List<ServerPlayerEntity> audience(MinecraftServer server,EventConfiguration c){
+        var players=PlayRuntime.eligiblePlayers(server);
+        return switch(c.definition().audience()){
+            case PARTICIPANTS->players;
+            case REGION->players.stream().filter(p->inside(p,region(server,c.definition().audienceRegion().orElseThrow(()->new IllegalStateException("Choose an audience Region."))))).toList();
+            case SOURCE_ACTOR->throw new IllegalStateException("Triggering-player audience requires a claimed source actor.");
+        };
+    }
+    static List<UUID> occurrenceRecipients(MinecraftServer server,EventConfiguration configuration,UUID actor){
+        var players=PlayRuntime.eligiblePlayers(server);
+        List<ServerPlayerEntity> recipients=switch(configuration.definition().audience()){
+            case PARTICIPANTS->players;
+            case REGION->players.stream().filter(player->inside(player,region(server,configuration.definition().audienceRegion().orElseThrow(()->new IllegalStateException("Choose an audience Region."))))).toList();
+            case SOURCE_ACTOR->{if(actor==null)yield List.of();yield players.stream().filter(player->player.getUuid().equals(actor)).toList();}
+        };
+        return ids(recipients);
+    }
     private static boolean inside(ServerPlayerEntity player,AuthoringSite.Region region){var p=player.getBlockPos();return region.dimension().equals(player.getEntityWorld().getRegistryKey().getValue().toString())&&region.contains(new BlockPosition(p.getX(),p.getY(),p.getZ()));}
     private static List<UUID> ids(List<ServerPlayerEntity> players){return players.stream().map(ServerPlayerEntity::getUuid).toList();}
     private static SoundEvent sound(String value){if(value.isEmpty())return null;var id=Identifier.tryParse(value);if(id==null)throw new IllegalArgumentException("Choose a valid sound ID.");return Registries.SOUND_EVENT.getOptionalValue(id).orElseThrow(()->new IllegalArgumentException("Unknown sound: "+value));}

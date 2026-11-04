@@ -39,7 +39,7 @@ class CoreMenuModelTest {
         var detail=new Detail(type.id(),type.label(),type.description(),List.of(),List.of(),type,null,null);
         var original=view(true,"","","",List.of(),detail);
         var decoded=gson.fromJson(gson.toJson(original),View.class);
-        assertEquals(original,decoded);assertEquals(27,decoded.detail().loot().entries().size());
+        assertEquals(original,decoded);assertEquals(LootType.MAX_ENTRIES,decoded.detail().loot().entries().size());
         assertTrue(decoded.detail().loot().entries().getLast().componentsJson().contains("Keepsake"));
     }
 

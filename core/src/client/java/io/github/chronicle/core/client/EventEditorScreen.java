@@ -62,6 +62,7 @@ public final class EventEditorScreen extends Screen {
     private String pickerKind = "";
     private String idDraft, nameDraft, descriptionDraft, messageDraft, soundDraft;
     private String audienceDraft, audienceRegionDraft, modeDraft, triggerRegionDraft, secondsDraft, flagDraft;
+    private String occurrencePolicy="ONCE";
     private long audienceRegionRevision, triggerRegionRevision;
     private final List<EventEditorForm.Change> changes = new ArrayList<>();
     private final List<EventEditorForm.EncounterAction> encounterActions = new ArrayList<>();
@@ -80,7 +81,7 @@ public final class EventEditorScreen extends Screen {
         openingToken = parent.state().token();
         creating = value.creating(); revision = value.revision();
         idDraft = value.id(); nameDraft = value.name(); descriptionDraft = value.description();
-        messageDraft = value.message(); soundDraft = value.sound(); audienceDraft = value.audience();
+        messageDraft = value.message(); soundDraft = value.sound(); audienceDraft = value.audience();occurrencePolicy=value.occurrencePolicy();
         audienceRegionDraft = value.audienceRegion(); audienceRegionRevision = value.audienceRegionRevision();
         modeDraft = value.mode(); triggerRegionDraft = value.triggerRegion(); triggerRegionRevision = value.triggerRegionRevision();
         secondsDraft = Long.toString(value.seconds()); delayEnabled = value.seconds() > 0; flagDraft = value.flag(); changes.addAll(value.changes());
@@ -174,6 +175,7 @@ public final class EventEditorScreen extends Screen {
         descriptionField = field(x, row + 34, w, "Organizer description (optional)", descriptionDraft, 512, value -> descriptionDraft = value);
     }
     private void when(int x, int y, int w) {
+        button("How often: "+frequencyLabel(),x,y+126,w,()->{occurrencePolicy=switch(occurrencePolicy){case "ONCE"->"ONCE_PER_ACTOR";case "ONCE_PER_ACTOR"->"PER_SOURCE_OCCURRENCE";default->"ONCE";};clearAndInit();},"Once per campaign, once per triggering player, or each matching activity. Repeating cues use immediate text/sound only.",usable());
         button("Trigger: " + triggerLabel(), x, y + 60, w, () -> openPicker(PickerPurpose.TRIGGER), "Choose when this event is eligible", usable());
         if ("ENTRY".equals(modeDraft)) button(regionButton("Entry Region", triggerRegionDraft), x, y + 82, w, () -> openPicker(PickerPurpose.TRIGGER_REGION), "Choose an entry Region", usable());
         if ("SYSTEM".equals(modeDraft)) {
@@ -265,9 +267,11 @@ public final class EventEditorScreen extends Screen {
         int half = (w - 4) / 2;
         button(choice("", audienceDraft, "PARTICIPANTS"), x, y + 94, half, () -> { audienceDraft = "PARTICIPANTS"; clearAndInit(); }, "Send to participants", usable());
         button(choice("", audienceDraft, "REGION"), x + half + 4, y + 94, w - half - 4, () -> { audienceDraft = "REGION"; clearAndInit(); }, "Send to a Region", usable());
-        if ("REGION".equals(audienceDraft)) button(regionButton("Audience Region", audienceRegionDraft), x, y + 116, w, () -> openPicker(PickerPurpose.AUDIENCE_REGION), "Choose audience Region", usable());
-        button("Preview privately", x, y + 150, w, this::preview, "Preview only your unsaved text and sound", usable() && (!messageDraft.isBlank() || !soundDraft.isBlank()));
+        button(("SOURCE_ACTOR".equals(audienceDraft)?"● ":"○ ")+"Triggering player",x,y+116,w,()->{audienceDraft="SOURCE_ACTOR";clearAndInit();},"The eligible participant who caused the selected source activity",usable());
+        if ("REGION".equals(audienceDraft)) button(regionButton("Audience Region", audienceRegionDraft), x, y + 138, w, () -> openPicker(PickerPurpose.AUDIENCE_REGION), "Choose audience Region", usable());
+        button("Preview privately", x, y + 160, w, this::preview, "Preview only your unsaved text and sound", usable() && (!messageDraft.isBlank() || !soundDraft.isBlank()));
     }
+    private String frequencyLabel(){return switch(occurrencePolicy){case "ONCE"->"Once per campaign";case "ONCE_PER_ACTOR"->"Once per player";case "PER_SOURCE_OCCURRENCE"->"Each matching activity";default->"Choose a frequency";};}
     private String triggerLabel() { return switch (modeDraft) { case "MANUAL" -> "Manual"; case "ENTRY" -> "Region entry"; case "TIMER" -> "Active play timer"; case "CONDITION" -> "When flags are On"; case "SYSTEM" -> sourceTypeLabel.isBlank() ? sourceName(sourceType) : sourceTypeLabel; default -> "Choose…"; }; }
 
     private void openPicker(PickerPurpose purpose) {
@@ -337,13 +341,21 @@ public final class EventEditorScreen extends Screen {
         long seconds = preview || !delayEnabled ? 0 : Math.max(0, Math.min(EventEditorForm.MAX_SECONDS, parseSeconds()));
         return new EventEditorForm(idDraft.trim(), revision, nameDraft.trim(), descriptionDraft, messageDraft, soundDraft,
                 audienceDraft, audienceRegionDraft, audienceRegionRevision, modeDraft, triggerRegionDraft, triggerRegionRevision,
-                seconds, List.copyOf(requiredFlags), List.copyOf(changes), creating, Map.copyOf(flagChanges), new EventSource(sourceType, sourceTarget, sourceActivity),List.copyOf(encounterActions));
+                seconds, List.copyOf(requiredFlags), List.copyOf(changes), creating, Map.copyOf(flagChanges), new EventSource(sourceType, sourceTarget, sourceActivity),List.copyOf(encounterActions),occurrencePolicy);
     }
     private String validation() {
         if (stale) return "Chronicle changed. This draft is preserved; reopen the event before saving.";
         if (idDraft.trim().isBlank()) return "An event ID is required.";
         if (nameDraft.trim().isBlank()) return "An event name is required.";
-        if ((!messageDraft.isBlank() || !soundDraft.isBlank()) && !"PARTICIPANTS".equals(audienceDraft) && !"REGION".equals(audienceDraft)) return "Choose an audience.";
+        if ((!messageDraft.isBlank() || !soundDraft.isBlank()) && !Set.of("PARTICIPANTS","REGION","SOURCE_ACTOR").contains(audienceDraft)) return "Choose an audience.";
+        if(!Set.of("ONCE","ONCE_PER_ACTOR","PER_SOURCE_OCCURRENCE").contains(occurrencePolicy))return "Choose a frequency.";
+        if(!occurrencePolicy.equals("ONCE")){
+            if(!modeDraft.equals("SYSTEM"))return "Choose a source activity trigger for this frequency, or choose Once per campaign.";
+            if(!changes.isEmpty()||!flagChanges.isEmpty()||!encounterActions.isEmpty())return "Remove Region, encounter and flag actions, or choose Once per campaign.";
+            if(delayEnabled)return "Repeating source cues require no delay. Choose No delay or Once per campaign.";
+            if(occurrencePolicy.equals("ONCE_PER_ACTOR")&&!audienceDraft.equals("SOURCE_ACTOR"))return "Choose Triggering player for a once-per-player cue.";
+        }
+        if(audienceDraft.equals("SOURCE_ACTOR")&&(!modeDraft.equals("SYSTEM")||occurrencePolicy.equals("ONCE")))return "Choose a source activity and a per-player/repeating frequency, or choose another audience.";
         if ((!messageDraft.isBlank() || !soundDraft.isBlank()) && "REGION".equals(audienceDraft) && audienceRegionDraft.isBlank()) return "Choose an audience Region.";
         if (!Set.of("MANUAL", "ENTRY", "TIMER", "CONDITION", "SYSTEM").contains(modeDraft)) return "Choose a trigger.";
         if ("ENTRY".equals(modeDraft) && triggerRegionDraft.isBlank()) return "Choose an entry Region.";

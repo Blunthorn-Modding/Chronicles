@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -104,6 +105,10 @@ public final class PlayService {
     /** Explicitly clears one receipt and freshly arms its binding, if still configured. */
     public synchronized void reset(String id) throws IOException {
         requireId(id);
+        EventConfiguration configured = current.events().get(id);
+        if (configured != null && configured.occurrencePolicy() != EventOccurrencePolicy.ONCE) {
+            throw new IllegalStateException("Repeating Events run from durable source occurrences and cannot be reset or rearmed.");
+        }
         EventExecution execution = current.executions().get(id);
         if (execution != null) {
             if (execution.phase() != EventExecution.Phase.COMPLETE)
@@ -312,6 +317,30 @@ public final class PlayService {
             throw new IllegalStateException("This Event has no uncertain media to acknowledge.");
         advanceExecution(id, execution.operationId(), EventExecution.Phase.COMPLETE,
                 "Media uncertainty acknowledged; no message, sound or Region change was replayed.");
+    }
+
+    /**
+     * Archives one completed repeating run exactly before clearing its live Event-ID slot.
+     * Configuration and revision are intentionally retained; retrying after a crash verifies
+     * the same immutable archive before publishing the pointer removal.
+     */
+    public synchronized void archiveAndRetireExecution(String id, UUID operationId) throws IOException {
+        requireId(id);
+        Objects.requireNonNull(operationId, "Event operation ID is required");
+        EventExecution execution = current.executions().get(id);
+        if (execution == null || !execution.operationId().equals(operationId)) {
+            throw new IllegalStateException("The completed Event execution changed before retirement.");
+        }
+        if (execution.phase() != EventExecution.Phase.COMPLETE) {
+            throw new IllegalStateException("Only a completed Event execution can be retired.");
+        }
+        if (execution.configuration().occurrencePolicy() == EventOccurrencePolicy.ONCE) {
+            throw new IllegalStateException("Legacy once-only Event executions retain their live completion record.");
+        }
+        repository.archiveEvent(execution);
+        Map<String, EventExecution> executions = new LinkedHashMap<>(current.executions()); executions.remove(id);
+        Map<String, PlayState.Delivery> deliveries = new LinkedHashMap<>(current.deliveries()); deliveries.remove(id);
+        commit(nextRevision(), current.participants(), current.bindings(), deliveries, current.events(), executions);
     }
 
     private void requireEditableEvent(String id) {

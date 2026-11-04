@@ -40,6 +40,8 @@ public final class EventJson {
             "definition", "mode", "triggerRegion", "armedAtTicks", "delayTicks", "requiredFlag", "enabled");
     private static final Set<String> CONFIGURATION_FIELDS_V2 = Set.of(
             "definition", "mode", "triggerRegion", "armedAtTicks", "delayTicks", "requiredFlags", "enabled", "source", "formatVersion");
+    private static final Set<String> CONFIGURATION_FIELDS_V4 = Set.of(
+            "definition", "mode", "triggerRegion", "armedAtTicks", "delayTicks", "requiredFlags", "enabled", "source", "formatVersion", "occurrencePolicy");
     private static final Set<String> SOURCE_FIELDS = Set.of("type", "target", "activity");
     private static final Set<String> EXECUTION_FIELDS = Set.of(
             "eventId", "operationId", "configuration", "phase", "source", "actor", "session", "elapsedTicks",
@@ -116,6 +118,9 @@ public final class EventJson {
             configuration.requiredFlags().forEach(flags::add);
             object.add("requiredFlags", flags);
             object.add("source", encodeSource(configuration.source()));
+            if (configuration.formatVersion() >= 4) {
+                object.addProperty("occurrencePolicy", configuration.occurrencePolicy().name());
+            }
         }
         object.addProperty("enabled", configuration.enabled());
         return bounded(object, "event configuration");
@@ -124,7 +129,7 @@ public final class EventJson {
     public static EventConfiguration decodeConfiguration(JsonObject object) {
         bounded(object, "event configuration");
         int version = formatVersion(object);
-        PlayJson.fields(object, version == 1 ? CONFIGURATION_FIELDS : CONFIGURATION_FIELDS_V2, "event configuration");
+        PlayJson.fields(object, version == 1 ? CONFIGURATION_FIELDS : version >= 4 ? CONFIGURATION_FIELDS_V4 : CONFIGURATION_FIELDS_V2, "event configuration");
         List<String> flags;
         if (version == 1) {
             String flag = PlayJson.string(PlayJson.required(object, "requiredFlag"), "required flag");
@@ -143,7 +148,8 @@ public final class EventJson {
                 PlayJson.number(PlayJson.required(object, "delayTicks"), "event delay"),
                 flags,
                 bool(PlayJson.required(object, "enabled"), "event enabled state"),
-                version == 1 ? EventSource.empty() : decodeSource(PlayJson.object(PlayJson.required(object, "source"), "event source")), version);
+                version == 1 ? EventSource.empty() : decodeSource(PlayJson.object(PlayJson.required(object, "source"), "event source")), version,
+                version >= 4 ? PlayJson.enumeration(PlayJson.required(object, "occurrencePolicy"), EventOccurrencePolicy.class, "event occurrence policy") : EventOccurrencePolicy.ONCE);
     }
 
     public static JsonObject encodeSource(EventSource source) {
@@ -171,7 +177,7 @@ public final class EventJson {
     private static int formatVersion(JsonObject object) {
         if (!object.has("formatVersion")) return 1;
         int version = PlayJson.integer(PlayJson.required(object, "formatVersion"), "event format version");
-        if (version != 2 && version != 3) throw new IllegalArgumentException("unsupported event format version");
+        if (version != 2 && version != 3 && version != 4) throw new IllegalArgumentException("unsupported event format version");
         return version;
     }
 

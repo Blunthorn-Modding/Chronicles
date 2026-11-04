@@ -37,6 +37,7 @@ public final class EventSources {
     private static final Set<String> WORKSHOP_TYPES=new LinkedHashSet<>();
     private static final Map<String,BiPredicate<MinecraftServer,SourceLedger.Receipt>> AUTHORITIES=new LinkedHashMap<>();
     private static final Set<String> UNCERTAIN_AUTHORITIES=new LinkedHashSet<>();
+    private static final Set<String> ENTITY_RECOVERY_OWNERS=Set.of(HOLD,EventRuntime.HOLD,Encounters.HOLD,EventWorldBatches.HOLD);
     private static final Map<MinecraftServer,Runtime> WORLDS=new IdentityHashMap<>();
     private static boolean registered,frozen;
     private EventSources() { }
@@ -48,17 +49,26 @@ public final class EventSources {
         if(frozen||prefix==null||!prefix.matches("[a-z0-9_-]+:")||AUTHORITIES.putIfAbsent(prefix,Objects.requireNonNull(verifier))!=null)throw new IllegalStateException("invalid or duplicate Event source authority");
         if(uncertainOnRestart)UNCERTAIN_AUTHORITIES.add(prefix);
     }
-    public record Occurrence(String id,UUID actor,boolean activeOrigin,Map<String,Boolean> flags) {
-        public Occurrence { if(id==null||id.isEmpty()||id.length()>256||flags==null||flags.size()>256)throw new IllegalArgumentException("invalid source occurrence");flags=Map.copyOf(flags); }
+    public record Occurrence(String id,String type,String target,String activity,UUID actor,boolean activeOrigin,
+                             Map<String,Boolean> flags,String authority) {
+        public Occurrence {
+            if(id==null||id.isEmpty()||id.length()>256||flags==null||flags.size()>256||authority==null||authority.isEmpty())
+                throw new IllegalArgumentException("invalid source occurrence");
+            new EventSource(type,target,activity);flags=Map.copyOf(flags);
+        }
     }
     public record Choice(String id,String label,String description) { }
-    private record Provider(String label,String description,Function<MinecraftServer,List<Choice>> targets,List<Choice> activities) { }
+    private record Provider(String label,String description,Function<MinecraftServer,List<Choice>> targets,List<Choice> activities,boolean supportsActor) { }
     /** Mods register meaning/selectors. Accepted evidence is still published through prepare/complete. */
     public static synchronized void registerProvider(String id,String label,String description,
             Function<MinecraftServer,List<Choice>> targets,List<Choice> activities) {
+        registerProvider(id,label,description,targets,activities,true);
+    }
+    public static synchronized void registerProvider(String id,String label,String description,
+            Function<MinecraftServer,List<Choice>> targets,List<Choice> activities,boolean supportsActor) {
         new EventSource(id,"","");
         if(frozen||PROVIDERS.size()>=32||PROVIDERS.containsKey(id))throw new IllegalStateException("Event source providers are frozen, full or duplicated");
-        PROVIDERS.put(id,new Provider(Objects.requireNonNull(label),Objects.requireNonNull(description),Objects.requireNonNull(targets),List.copyOf(activities)));
+        PROVIDERS.put(id,new Provider(Objects.requireNonNull(label),Objects.requireNonNull(description),Objects.requireNonNull(targets),List.copyOf(activities),supportsActor));
     }
     public static synchronized void register() {
         if(registered)return;registered=true;
@@ -115,10 +125,15 @@ public final class EventSources {
         if(p.targets.apply(server).stream().noneMatch(c->c.id.equals(source.target())))throw new IllegalArgumentException("Choose an available trigger target");
         if(!source.activity().isEmpty()&&p.activities.stream().noneMatch(c->c.id.equals(source.activity())))throw new IllegalArgumentException("Choose an available trigger activity");
     }
+    public static void validateAudience(EventSource source,io.github.chronicle.core.play.ObservationCatalog.Audience audience) {
+        Provider provider=PROVIDERS.get(source.type());
+        if(audience==io.github.chronicle.core.play.ObservationCatalog.Audience.SOURCE_ACTOR&&provider!=null&&!provider.supportsActor())
+            throw new IllegalArgumentException("This trigger has no player actor. Choose Participants or Region audience and a campaign/activity frequency.");
+    }
     public static List<Occurrence> facts(MinecraftServer server,EventSource source) {
         Runtime r=runtime(server);try{reconcile(server,r);}catch(RuntimeException failure){fail(server,failure);throw new Unavailable("Event source authority could not be reconciled",failure);}
         return r.ledger.receipts().values().stream().filter(e->e.stage()==SourceLedger.Stage.COMMITTED&&matches(source,e))
-                .map(e->new Occurrence(e.id(),e.actor(),e.activeOrigin(),e.flags())).toList();
+                .map(e->new Occurrence(e.id(),e.type(),e.target(),e.activity(),e.actor(),e.activeOrigin(),e.flags(),e.authority())).toList();
     }
     private static boolean matches(EventSource source,SourceLedger.Receipt receipt) {
         return source.type().equals(receipt.type())&&(source.target().equals("*")||source.target().equals(receipt.target()))
@@ -131,7 +146,7 @@ public final class EventSources {
     }
     /** Called at the accepted origin, before the durable source authority or gameplay mutation. */
     public static String prepare(MinecraftServer server,String id,EventSource source,UUID actor,boolean activeOrigin,String authority) {
-        if(!activeOrigin||!EventProgressRuntime.interested(server,source))return null;
+        if(!activeOrigin||!EventProgressRuntime.interested(server,source,actor))return null;
         Runtime r=runtime(server);
         SourceLedger.Receipt receipt=new SourceLedger.Receipt(id,source.type(),source.target(),source.activity(),actor,true,
                 ChronicleRuntime.service(server).state().flags(),authority,SourceLedger.Stage.PREPARED);
@@ -191,9 +206,10 @@ public final class EventSources {
     }
     /** Explicitly reload repaired evidence; loading never itself acknowledges an uncertain gameplay outcome. */
     public static void reload(net.minecraft.server.command.ServerCommandSource source)throws IOException {
-        MinecraftServer server=source.getServer();requireRecoveryAuthority(source);Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Event source evidence unavailable");
+        MinecraftServer server=source.getServer();requireRecoveryAuthority(source,true);Runtime r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Event source evidence unavailable");
         try {
             SourceLedger loaded=r.store.load();
+            requireRecoveryAuthority(source,metadataOnlyRecovery(r.ledger,loaded));
             ChronicleRuntime.service(server).recordOperation(new io.github.chronicle.core.campaign.Actor(source.getName(),source.getPlayer().getUuidAsString()),"event.source.reload","event-sources",Map.of("revision",Long.toString(loaded.revision())));
             r.ledger=loaded;r.ready=true;r.reconciledTick=Integer.MIN_VALUE;
             if(loaded.receipts().values().stream().anyMatch(receipt->receipt.stage()==SourceLedger.Stage.PREPARED&&uncertain(receipt))){r.held=true;RuntimeHolds.hold(server,HOLD,"Review the exact uncertain gameplay source before resuming.");}
@@ -203,9 +219,10 @@ public final class EventSources {
     /** Explicit review of an exact uncertain source. Automatic reconciliation never manufactures this decision. */
     public static void recover(net.minecraft.server.command.ServerCommandSource source,SourceLedger.Receipt expected,boolean acknowledgeSuccess)throws IOException {
         MinecraftServer server=source.getServer();
-        requireRecoveryAuthority(source);
+        requireRecoveryAuthority(source,entityMetadataOnly(expected));
         Runtime r=WORLDS.get(server);if(r==null||expected==null)throw new IllegalStateException("Review the exact source evidence first");
         SourceLedger loaded=r.store.load();SourceLedger.Receipt actual=loaded.receipts().get(expected.id());
+        requireRecoveryAuthority(source,entityMetadataOnly(expected)&&metadataOnlyRecovery(r.ledger,loaded));
         if(!expected.equals(actual)||actual.stage()!=SourceLedger.Stage.PREPARED||!uncertain(actual))throw new IllegalStateException("Source evidence changed or has an authoritative system outcome; review it again");
         if(actual.authority().startsWith("forge:"))forgeEvidence(server,actual);
         if(acknowledgeSuccess&&actual.authority().startsWith("book:"))BookDeliveryRuntime.inspectRecovery(server,actual);
@@ -215,7 +232,15 @@ public final class EventSources {
         SourceLedger next=loaded.finish(actual.id(),acknowledgeSuccess);r.store.save(next);r.ledger=next;r.ready=true;
         releaseIfResolved(server,r);
     }
-    private static void requireRecoveryAuthority(net.minecraft.server.command.ServerCommandSource source){if(!source.hasPermissionLevel(2)||source.getPlayer()==null||ChronicleRuntime.service(source.getServer()).state().phase()==SessionPhase.ACTIVE||RuntimeHolds.heldByOther(source.getServer(),HOLD))throw new IllegalStateException("Source recovery requires an operator, non-active play and no other operation hold");}
+    static boolean entityMetadataOnly(SourceLedger.Receipt receipt){return receipt!=null&&receipt.type().equals(EntitySpawnEventSources.TYPE)&&receipt.authority().startsWith("entityspawn:");}
+    static boolean metadataOnlyPending(SourceLedger state){return state.receipts().values().stream().filter(receipt->receipt.stage()==SourceLedger.Stage.PREPARED).allMatch(EventSources::entityMetadataOnly);}
+    static boolean metadataOnlyRecovery(SourceLedger current,SourceLedger replacement){
+        if(current==null||replacement==null||!metadataOnlyPending(current)||!metadataOnlyPending(replacement))return false;
+        // This exception reloads identical evidence only; no pending or terminal fact can disappear.
+        return current.receipts().equals(replacement.receipts());
+    }
+    public static boolean reloadAvailable(MinecraftServer server){Runtime r=WORLDS.get(server);return r!=null&&(r.held||!r.ready)&&!RuntimeHolds.heldByOthers(server,ENTITY_RECOVERY_OWNERS);}
+    private static void requireRecoveryAuthority(net.minecraft.server.command.ServerCommandSource source,boolean entityOnly){if(!source.hasPermissionLevel(2)||source.getPlayer()==null||ChronicleRuntime.service(source.getServer()).state().phase()==SessionPhase.ACTIVE||RuntimeHolds.heldByOthers(source.getServer(),entityOnly?ENTITY_RECOVERY_OWNERS:Set.of(HOLD)))throw new IllegalStateException("Source recovery requires an operator and non-active play. Only entity-spawn metadata can be resolved alongside its Event/encounter hold; unrelated holds remain blocking.");}
     private static boolean uncertain(SourceLedger.Receipt receipt){return receipt.authority().startsWith("transient:")||receipt.authority().startsWith("forge:")||receipt.authority().startsWith("extent:")||receipt.authority().startsWith("book:")||UNCERTAIN_AUTHORITIES.stream().anyMatch(receipt.authority()::startsWith);}
     public static boolean recoverable(SourceLedger.Receipt receipt){return receipt!=null&&receipt.stage()==SourceLedger.Stage.PREPARED&&uncertain(receipt);}
     public static io.github.chronicle.core.progression.ForgeResultEvidence forgeEvidence(MinecraftServer server,SourceLedger.Receipt receipt)throws IOException {

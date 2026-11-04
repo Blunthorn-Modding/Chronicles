@@ -176,13 +176,13 @@ public final class EventEditorSmoke {
                 require(++pickerMoves<150,"picker failed to return to its start");
                 if(popupActive(p,"↑")){pressPopup(p,"↑");return;}
                 require(picker.page()==0&&pickerReturned&&popupHasRow(p,pickerFirstPage.getFirst().label()),"Up stopped before the first entry");
-                popupSearch(p,"Forge");pressPopup(p,"Find");step=902;
+                popupSearch(p,"chronicle_core:forge_completed");pressPopup(p,"Find");step=902;
             }
             case 902 -> {
                 if (!(client.currentScreen instanceof CatalogAddPopup p)) return;
                 if(((EventEditorScreen)p.parentScreen()).parentMenu().pending())return;
                 var picker=((EventEditorScreen)p.parentScreen()).parentMenu().state().picker();
-                if(!picker.query().equals("Forge"))return;
+                if(!picker.query().equals("chronicle_core:forge_completed"))return;
                 require(picker.page()==0&&picker.entries().size()==1&&picker.entries().getFirst().id().equals("chronicle_core:forge_completed"),"search did not reset the catalog");
                 require(!popupActive(p,"↑")&&!popupActive(p,"↓"),"single search result still scrolls");popupSearch(p,"");pressPopup(p,"Find");step=903;
             }
@@ -193,7 +193,12 @@ public final class EventEditorSmoke {
                 require(picker.page()==0&&popupHasRow(p,pickerFirstPage.getFirst().label()),"cleared search did not return to the start");checks.add("Up returns through prior pages and search resets scrolling without losing entries");step=10;
             }
             case 10 -> { selectPopup(client, "chronicle_core:book_found", "selected Book found source through the shared picker"); if (step==11) step=1001; }
-            case 1001 -> { EventEditorScreen e=editor(client); frame(client,e); require(e.visibleWidgetBoundsForTest().stream().anyMatch(w -> w.label().contains("Book found")), "system trigger did not display its catalog label"); capture(client,"event-when.png"); checks.add("captured When section"); require(pressPrefix(e,"Trigger:"), "trigger picker unavailable after source"); step=1002; }
+            case 1001 -> { EventEditorScreen e=editor(client); frame(client,e); require(e.visibleWidgetBoundsForTest().stream().anyMatch(w -> w.label().contains("Book found")), "system trigger did not display its catalog label");
+                require(e.valuesForTest().occurrencePolicy().equals("ONCE"),"legacy/new draft frequency changed");
+                require(pressPrefix(e,"How often:"),"frequency control missing");require(e.valuesForTest().occurrencePolicy().equals("ONCE_PER_ACTOR"),"player frequency lost");
+                require(pressPrefix(e,"How often:"),"activity frequency control missing");require(e.valuesForTest().occurrencePolicy().equals("PER_SOURCE_OCCURRENCE"),"activity frequency lost");
+                require(pressPrefix(e,"How often:"),"campaign frequency control missing");require(e.valuesForTest().occurrencePolicy().equals("ONCE"),"campaign frequency lost");frame(client,e);checks.add("native frequency control cycles all three policies while preserving the draft");
+                capture(client,"event-when.png"); checks.add("captured When section"); require(pressPrefix(e,"Trigger:"), "trigger picker unavailable after source"); step=1002; }
             case 1002 -> { selectPopup(client, "CONDITION", "selected the flags-On trigger through the shared picker"); if (step==1003) step=11; }
             case 11 -> { EventEditorScreen e=editor(client); require(e.pressForTest(">"), "Requirements navigation unavailable"); step=1111; }
             case 1111 -> { EventEditorScreen e=editor(client); frame(client,e); capture(client,"event-requirements.png"); checks.add("captured Requirements section"); require(pressPrefix(e,"Add prerequisite"), "prerequisite picker unavailable"); step=12; }

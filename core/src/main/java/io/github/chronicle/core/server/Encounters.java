@@ -147,7 +147,7 @@ public final class Encounters {
                 Entity entity;
                 try{entity=create(server,entry);}catch(RuntimeException failure){publishConfirmed(server,runtime,current.operationId(),confirmed);throw failure;}
                 runtime.operations.claim(current.operationId(),entry.entityId());
-                if(!world(server,entry.dimension()).spawnEntity(entity)){publishConfirmed(server,runtime,current.operationId(),confirmed);runtime.operations.uncertain(current.operationId());throw new IllegalStateException("Minecraft refused a claimed encounter spawn; its outcome requires GM review");}
+                if(!EntitySpawnEventSources.spawnEncounter(world(server,entry.dimension()),entity)){publishConfirmed(server,runtime,current.operationId(),confirmed);runtime.operations.uncertain(current.operationId());throw new IllegalStateException("Minecraft refused a claimed encounter spawn; its outcome requires GM review");}
                 confirmed.add(entry);budget--;
             }
             publishConfirmed(server,runtime,current.operationId(),confirmed);

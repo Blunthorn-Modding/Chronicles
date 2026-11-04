@@ -22,10 +22,13 @@ public record EventEditorForm(
         String audience, String audienceRegion, long audienceRegionRevision,
         String mode, String triggerRegion, long triggerRegionRevision, long seconds, List<String> requiredFlags,
         List<Change> changes, boolean creating, Map<String, Boolean> flagChanges, EventSource source,
-        List<EncounterAction> encounterActions) {
+        List<EncounterAction> encounterActions, String occurrencePolicy) {
     public static final long MAX_SECONDS = 604_800L;
     public static final int MAX_CHANGES = 8;
     public static final int MAX_FLAGS = 32;
+    public EventEditorForm(String id,long revision,String name,String description,String message,String sound,String audience,String audienceRegion,long audienceRegionRevision,String mode,String triggerRegion,long triggerRegionRevision,long seconds,List<String> requiredFlags,List<Change> changes,boolean creating,Map<String,Boolean> flagChanges,EventSource source,List<EncounterAction> encounterActions){
+        this(id,revision,name,description,message,sound,audience,audienceRegion,audienceRegionRevision,mode,triggerRegion,triggerRegionRevision,seconds,requiredFlags,changes,creating,flagChanges,source,encounterActions,"ONCE");
+    }
     public static final int MAX_ENCOUNTER_ACTIONS = 4;
 
     public EventEditorForm(String id, long revision, String name, String description, String message, String sound,
@@ -45,6 +48,7 @@ public record EventEditorForm(
     }
 
     public EventEditorForm {
+        text(occurrencePolicy,32);
         text(id, 128); text(name, 80); text(description, 512); text(message, 512); text(sound, 128);
         text(audience, 32); text(audienceRegion, 128); text(mode, 32); text(triggerRegion, 128);
         requiredFlags = List.copyOf(Objects.requireNonNull(requiredFlags, "requiredFlags"));

@@ -27,7 +27,8 @@
     "BookClickDiscoveryMixin",
     "BookPickupDiscoveryMixin",
     "ServerPlayerInteractionManagerEventSourceMixin",
-    "WrittenBookItemEventSourceMixin"
+    "WrittenBookItemEventSourceMixin",
+    "EntitySpawnEventSourceMixin"
   ],
   "injectors": {
     "defaultRequire": 1

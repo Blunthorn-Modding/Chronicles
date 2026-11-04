@@ -259,6 +259,7 @@ public final class PlayRuntime {
         return switch (definition.audience()) {
             case PARTICIPANTS -> eligible;
             case REGION -> playersInRegion(eligible, region(authoring, binding));
+            case SOURCE_ACTOR -> throw new IllegalStateException("Legacy observations cannot target a source actor");
         };
     }
 

@@ -69,6 +69,7 @@ public final class QuietBelowEcology {
                                 io.github.chronicle.core.authoring.BlockPosition position) { }
 
     public static void register() {
+        EcologyEventCues.register();
         io.github.chronicle.core.server.EventSources.registerProvider("quiet_below:heart_destroyed","Relic Heart destroyed",
                 "The vulnerable bound Heart was durably destroyed with a pickaxe. Complete sculk cleanup is a separate outcome.",
                 server->List.of(new io.github.chronicle.core.server.EventSources.Choice("network","Campaign sculk network","The registered Relic Heart")),List.of());
@@ -78,7 +79,7 @@ public final class QuietBelowEcology {
         EventSources.registerProvider("quiet_below:ecology_milestone","Ecology milestone reached",
                 "The campaign network durably crossed an extent threshold during eligible active play. Later weakening does not erase the historical fact.",
                 server->List.of(new EventSources.Choice("network","Campaign sculk network","The registered campaign ecology")),
-                List.of(new EventSources.Choice("Established","Established","First or later transition reaching Established"),new EventSources.Choice("Extensive","Extensive","First or later transition reaching Extensive")));
+                List.of(new EventSources.Choice("Established","Established","First or later transition reaching Established"),new EventSources.Choice("Extensive","Extensive","First or later transition reaching Extensive")),false);
         EventSources.registerAuthority("extent:",(server,receipt)->{
             Runtime runtime=WORLDS.get(server);if(runtime==null)return false;String[] parts=receipt.authority().split(":",3);if(parts.length!=3)return false;
             long sequence=Long.parseLong(parts[1]);return runtime.journal.entries().stream().anyMatch(entry->entry.sequence()==sequence&&entry.type().equals("VITALITY")&&sourceEntryHash(entry).equals(parts[2]));
@@ -306,6 +307,7 @@ public final class QuietBelowEcology {
             } else r.claimProblem=null;
             long growthBefore=r.engine.spreadAttempts();
             if(r.rootProblem==null)r.engine.tick(world,playing(server));else r.engine.flushVitality();
+            if(r.rootProblem==null)EcologyEventCues.tick(server,r.engine);
             if(r.engine.spreadAttempts()>growthBefore){r.harvestBaseAttempts++;for(var aura:io.github.chronicle.quietbelow.content.TemporaryAltarOfferings.growthAuras(server,r.engine.setup().dimension()))if(aura.growthPercent()>100){int extra=aura.growthPercent()-100;if((r.harvestBaseAttempts*extra)%100<extra)r.engine.harvestOpportunity(world,new Pos(aura.x(),aura.y(),aura.z()),aura.radius());}}
             int priorHeartElapsed=r.engine.heartElapsed();
             if(priorHeartElapsed<r.lastHeartElapsed)resetDefianceSignals(r);

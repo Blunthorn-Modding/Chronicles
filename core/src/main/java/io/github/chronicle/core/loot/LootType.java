@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 /** A bounded, authorable chest loot profile. */
 public record LootType(String id, String label, String description, int recommendedChests, double refillMinutes, List<LootEntry> entries, List<io.github.chronicle.core.books.BookChance> books) {
     public LootType(String id,String label,String description,int recommendedChests,double refillMinutes,List<LootEntry> entries){this(id,label,description,recommendedChests,refillMinutes,entries,List.of());}
-    public static final int MAX_ENTRIES = 27;
+    public static final int MAX_ENTRIES = 32;
     private static final Pattern ID = Pattern.compile("[a-z0-9_.-]+:[a-z0-9_./-]+");
 
     public LootType {
@@ -18,7 +18,7 @@ public record LootType(String id, String label, String description, int recommen
         if (entries == null || entries.size() > MAX_ENTRIES) throw new IllegalArgumentException("loot type entries must contain at most " + MAX_ENTRIES + " entries");
         entries = List.copyOf(entries);
         books = List.copyOf(books);
-        if(entries.size()+books.size()>MAX_ENTRIES)throw new IllegalArgumentException("Loot table exceeds 27 combined entries");
+        if(entries.size()+books.size()>MAX_ENTRIES)throw new IllegalArgumentException("Loot table exceeds "+MAX_ENTRIES+" combined entries");
         if(books.stream().map(io.github.chronicle.core.books.BookChance::bookId).distinct().count()!=books.size())throw new IllegalArgumentException("Duplicate named book reference");
         if (entries.stream().anyMatch(java.util.Objects::isNull)) throw new IllegalArgumentException("loot type entries must not contain null");
     }

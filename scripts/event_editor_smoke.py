@@ -57,12 +57,13 @@ def _window_size() -> tuple[str, str, str]:
     return width, height, logical
 
 
-def run() -> None:
+def run(build: bool = True) -> None:
     import workspace as w
     w.require_eula()
     w.validate_server_runtime()
     w.validate_managed_mod_names()
-    w.run([w.REPO / 'gradlew.bat', '--no-daemon', ':core:remapJar', ':campaigns:quiet-below:remapJar', ':campaigns:quiet-below:writeSmokeClientLaunch'])
+    if build:
+        w.run([w.REPO / 'gradlew.bat', '--offline', '--no-daemon', ':core:remapJar', ':campaigns:quiet-below:remapJar', ':campaigns:quiet-below:writeSmokeClientLaunch'])
     launch = json.loads((w.REPO / 'campaigns/quiet-below/build/smoke/client-launch.json').read_text(encoding='utf-8'))
     width, height, logical_size = _window_size()
     root = fabric_smoke._stage(w)

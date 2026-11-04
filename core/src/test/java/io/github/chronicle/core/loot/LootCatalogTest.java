@@ -21,7 +21,7 @@ class LootCatalogTest {
         assertThrows(IllegalArgumentException.class, () -> new LootEntry("minecraft:bread", 1, 2, 1, "{}"));
         assertThrows(IllegalArgumentException.class, () -> new LootEntry("minecraft:bread", 1, 1, 1, "[]"));
         assertThrows(IllegalArgumentException.class, () -> new LootEntry("minecraft:bread", 1, 1, 1, "{\"x\":1,\"x\":2}"));
-        assertThrows(IllegalArgumentException.class, () -> new LootType("example:many", "Many", "A profile.", 0, 0, java.util.Collections.nCopies(28, type("example:entry").entries().getFirst())));
+        assertThrows(IllegalArgumentException.class, () -> new LootType("example:many", "Many", "A profile.", 0, 0, java.util.Collections.nCopies(LootType.MAX_ENTRIES + 1, type("example:entry").entries().getFirst())));
 
         LootCatalog catalog = new LootCatalog();
         LootType value = type("example:camp");

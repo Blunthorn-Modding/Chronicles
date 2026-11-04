@@ -47,6 +47,8 @@ public final class ChronicleCoreClient implements ClientModInitializer {
         io.github.chronicle.core.client.testing.BooksLoreSmoke.register();
         io.github.chronicle.core.client.testing.PlayerRolesSmoke.register();
         io.github.chronicle.core.client.testing.ScenarioProfileSmoke.register();
+        BundledSoundHandshakeClient.register();
+        io.github.chronicle.core.client.testing.FoundationVerificationSmoke.register();
         io.github.chronicle.core.client.testing.AreaChangesSmoke.register();
         io.github.chronicle.core.client.testing.EventEditorSmoke.register();
         io.github.chronicle.core.client.testing.EventActionsSmoke.register();

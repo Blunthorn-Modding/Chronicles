@@ -50,6 +50,7 @@ public final class EventEditorJson {
         object.addProperty("description", form.description());
         object.addProperty("message", form.message());
         object.addProperty("sound", form.sound());
+        object.addProperty("occurrencePolicy",form.occurrencePolicy());
         object.addProperty("audience", form.audience());
         object.addProperty("audienceRegion", form.audienceRegion());
         object.addProperty("audienceRegionRevision", form.audienceRegionRevision());
@@ -91,7 +92,8 @@ public final class EventEditorJson {
         bounded(encoded);
         JsonObject object = BookConfig.strictObject(encoded);
         boolean legacy = object.has("flag");boolean v3=object.has("encounterActions");
-        exact(object, legacy ? (v3?FIELDS_V3:FIELDS) : v3?CURRENT_FIELDS_V3:CURRENT_FIELDS, "event editor");
+        var fields=new java.util.HashSet<>(legacy?(v3?FIELDS_V3:FIELDS):v3?CURRENT_FIELDS_V3:CURRENT_FIELDS);if(object.has("occurrencePolicy"))fields.add("occurrencePolicy");
+        exact(object,fields,"event editor");
         List<String> requirements = new ArrayList<>();
         Map<String, Boolean> flags = new TreeMap<>();
         EventSource source = EventSource.empty();
@@ -128,7 +130,7 @@ public final class EventEditorJson {
                 string(object, "description"), string(object, "message"), string(object, "sound"),
                 string(object, "audience"), string(object, "audienceRegion"), number(object, "audienceRegionRevision"),
                 string(object, "mode"), string(object, "triggerRegion"), number(object, "triggerRegionRevision"),
-                number(object, "seconds"), requirements, changes, bool(object, "creating"), flags, source,encounterActions);
+                number(object, "seconds"), requirements, changes, bool(object, "creating"), flags, source,encounterActions,object.has("occurrencePolicy")?string(object,"occurrencePolicy"):"ONCE");
     }
 
     private static void bounded(String encoded) {

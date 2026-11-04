@@ -77,7 +77,7 @@ final class CoreEventMenu {
                 trigger.map(io.github.chronicle.core.play.EventRegionReference::id).orElse(""),
                 trigger.map(io.github.chronicle.core.play.EventRegionReference::revision).orElse(0L),
                 configuration.delayTicks() / 20,
-                configuration.requiredFlags(), changes, false,definition.flagChanges(),configuration.source(),encounterActions);
+                configuration.requiredFlags(), changes, false,definition.flagChanges(),configuration.source(),encounterActions,configuration.occurrencePolicy().name());
     }
 
     static EventEditorForm templateForm(MinecraftServer server,String id){
@@ -93,7 +93,7 @@ final class CoreEventMenu {
         List<EventEditorForm.EncounterAction> encounters=template.encounterOutcomes().stream().map(outcome->templateEncounter(server,outcome)).toList();
         return new EventEditorForm(template.id(),0,template.label(),template.description(),template.text(),template.sound(),template.audience().name(),
                 audience,audienceRevision,template.mode().name(),trigger,triggerRevision,template.delayTicks()/20,template.requiredFlags(),changes,true,
-                template.flagOutcomes(),template.source(),encounters);
+                template.flagOutcomes(),template.source(),encounters,template.occurrencePolicy().name());
     }
 
     static Detail detail(ServerPlayerEntity player, String selected, boolean reviewed) {
@@ -170,7 +170,7 @@ final class CoreEventMenu {
                 controls.add(control(Action.EVENT_SOURCE_CANCEL,"Record activity as not happened",!active,"Pause play before recovery.",true,""));
             }
         }
-        if(RuntimeHolds.reason(server)!=null&&!RuntimeHolds.heldByOther(server,EventSources.HOLD))
+        if(EventSources.reloadAvailable(server))
             controls.add(control(Action.EVENT_SOURCE_RELOAD,"Reload source evidence",!active,"Pause play before reloading repaired evidence.",true,""));
 
         controls.add(control(Action.EVENT_EDIT, "Edit event", canEdit && !unresolved,
@@ -221,7 +221,7 @@ final class CoreEventMenu {
         ArrayList<Entry> entries = new ArrayList<>();
         switch (kind) {
             case "EVENT_SOUND" -> Registries.SOUND_EVENT.getIds().stream().sorted()
-                    .forEach(id -> entries.add(entry(id.toString(), id.toString(), "Registered sound", "SOUND", id.toString(), 0)));
+                    .forEach(id -> {var bundled=EventSoundRegistry.metadata(id.toString());entries.add(entry(id.toString(),bundled.map(io.github.chronicle.core.sound.BundledSoundCatalog.Sound::label).orElse(id.toString()),bundled.map(sound->sound.title()+" by "+sound.creator()+" — "+sound.id()).orElse("Registered sound"),"SOUND",id.toString(),0));});
             case "EVENT_REGION" -> AuthoringRuntime.get(server).service().state().sites().values().stream()
                     .filter(AuthoringSite.Region.class::isInstance).map(AuthoringSite.Region.class::cast)
                     .sorted(Comparator.comparing(AuthoringSite.Region::id))

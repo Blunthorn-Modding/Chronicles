@@ -26,6 +26,12 @@ public final class EventProgressRuntime {
     }
 
     public static boolean interested(MinecraftServer server, EventSource source) {
+        return interested(server, source, null, false);
+    }
+    public static boolean interested(MinecraftServer server, EventSource source, UUID actor) {
+        return interested(server, source, actor, true);
+    }
+    private static boolean interested(MinecraftServer server, EventSource source, UUID actor, boolean actorKnown) {
         if (!WORLDS.containsKey(server)) return false;
         try {
             var play = PlayRuntime.service(server).state();
@@ -35,9 +41,12 @@ public final class EventProgressRuntime {
                     && (c.source().target().equals("*")||c.source().target().equals(source.target()))
                     && (c.source().activity().isEmpty()||c.source().activity().equals(source.activity()))
                     && c.requiredFlags().stream().allMatch(id->Boolean.TRUE.equals(campaign.flags().get(id)))
+                    && (c.occurrencePolicy()!=EventOccurrencePolicy.ONCE&&(actorKnown?EventOccurrenceRuntime.interested(server,c,actor):EventOccurrenceRuntime.interested(server,c))
+                    ||c.occurrencePolicy()==EventOccurrencePolicy.ONCE
                     && !play.executions().containsKey(c.definition().id()) && !play.deliveries().containsKey(c.definition().id())
-                    && (entry(server,c)==null || !entry(server,c).triggered() && !entry(server,c).skipped()));
-        } catch (RuntimeException unavailable) { return false; }
+                    && (entry(server,c)==null || !entry(server,c).triggered() && !entry(server,c).skipped())));
+        } catch (EventSources.Unavailable unavailable) { throw unavailable; }
+        catch (RuntimeException unavailable) { return false; }
     }
 
     public static EventProgressState.Entry entry(MinecraftServer server,EventConfiguration c) {
@@ -48,6 +57,7 @@ public final class EventProgressRuntime {
 
     public static void arm(MinecraftServer server,EventConfiguration c)throws IOException {
         var facts=c.mode()==PlayState.Mode.SYSTEM?EventSources.facts(server,c.source()):List.<EventSources.Occurrence>of();
+        if(c.occurrencePolicy()!=EventOccurrencePolicy.ONCE)EventOccurrenceRuntime.baseline(server,c);
         var seen=new TreeSet<String>();facts.forEach(f->seen.add(f.id()));
         var campaign=ChronicleRuntime.service(server).state();
         PlayRuntime.service(server).checkpoint();
@@ -64,6 +74,7 @@ public final class EventProgressRuntime {
 
     public static EventProgressState.Entry observe(MinecraftServer server,EventConfiguration c,
             UUID entrant,boolean eligible)throws IOException {
+        if(c.occurrencePolicy()!=EventOccurrencePolicy.ONCE)throw new IllegalArgumentException("Repeating source Events use the occurrence queue");
         if(c.formatVersion()==1)return null;
         var e=entry(server,c);if(e==null){arm(server,c);e=entry(server,c);}
         var campaign=ChronicleRuntime.service(server).state();
@@ -111,6 +122,16 @@ public final class EventProgressRuntime {
         return true;
     }
     /** Retry-safe cleanup after source publication/pruning; occurrence/countdown pins are deliberately retained. */
+    static boolean hasFactsMissingFromLiveLedger(MinecraftServer server,Set<String> liveIds){return runtime(server).state.entries().values().stream().flatMap(entry->entry.seenFacts().stream()).anyMatch(id->!liveIds.contains(id));}
+    static void markFactSeen(MinecraftServer server,EventConfiguration configuration,String fact)throws IOException{
+        EventProgressState.Entry entry=entry(server,configuration);
+        if(entry==null)throw new IllegalStateException("Repeating Event is not armed");
+        if(entry.seenFacts().contains(fact))return;
+        if(entry.seenFacts().size()>=EventProgressState.Entry.MAX_FACTS)throw new IOException("Event source observation capacity reached; preserve evidence for maintenance");
+        Set<String> facts=new TreeSet<>(entry.seenFacts());facts.add(fact);
+        put(server,new EventProgressState.Entry(entry.eventId(),entry.fingerprint(),entry.startedAt(),entry.triggered(),entry.actor(),
+                entry.source(),entry.occurrence(),entry.activeOrigin(),facts,entry.offVersions(),entry.skipped()));
+    }
     static int trimFactsMissingFromLiveLedger(MinecraftServer server,Set<String> liveIds)throws IOException{
         Runtime runtime=runtime(server);int before=runtime.state.entries().values().stream().mapToInt(entry->entry.seenFacts().size()).sum();
         EventProgressState next=runtime.state.retainLiveFacts(liveIds);int removed=before-next.entries().values().stream().mapToInt(entry->entry.seenFacts().size()).sum();

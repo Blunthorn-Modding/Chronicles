@@ -71,7 +71,10 @@ public record EventDefinition(String id, long revision, String label, String des
         }
         Objects.requireNonNull(changes, "event Region changes are required");
         changes = List.copyOf(changes);
-        if (formatVersion < 1 || formatVersion > 3) throw new IllegalArgumentException("unsupported event definition format");
+        if (formatVersion < 1 || formatVersion > 4) throw new IllegalArgumentException("unsupported event definition format");
+        if (audience == ObservationCatalog.Audience.SOURCE_ACTOR && formatVersion < 4) {
+            throw new IllegalArgumentException("source-actor audience requires current Event format");
+        }
         Objects.requireNonNull(flagChanges, "event flag changes are required");
         if (flagChanges.size() > MAX_FLAGS) throw new IllegalArgumentException("too many event flag changes");
         TreeMap<String, Boolean> orderedFlags = new TreeMap<>();
