@@ -4,6 +4,9 @@
   "version": "${version}",
   "name": "Chronicle Core",
   "description": "Reusable services for Chronicle roleplay campaigns.",
+  "authors": ["TheOnlyAesir"],
+  "license": "MIT",
+  "contact": {"sources": "https://github.com/TheOnlyAesir/Chronicles", "issues": "https://github.com/TheOnlyAesir/Chronicles/issues"},
   "environment": "*",
   "mixins": ["chronicle_core.mixins.json"],
   "entrypoints": {

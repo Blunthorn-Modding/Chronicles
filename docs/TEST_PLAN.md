@@ -1,5 +1,11 @@
 # Bootstrap validation
 
+## 4 November: initial alpha and final default-Event checks
+
+Both former native coverage gaps are closed: the exact `0.1.0-alpha.1` JARs pass the six-phase defaults proof in `../reports/scenario-defaults-20261104T204641530535Z/report.json`, including real ACTIVE restart deferral/non-active promotion and actual incomplete-default editor save/restart. The test exposed template renaming replacing its ID; the client now preserves supplied IDs. The ordinary editor regression passes 40 checks at320x240, including new-name ID generation and manual-ID preservation (`event-editor-smoke-20261104T205100218008Z`). Independent source review is clear.
+
+Full offline build3m33s:780Java=773passed/seven existing Windows symlink skips, zero failures/errors; Python131PASS. The final identity fix was subsequently compiled/remapped and exercised by both native suites; there were no subsequent binary edits. Exact package/pack/license/audio/nested-library checks and negative release-gate checks are in `../reports/initial-alpha-validation.json`. Read the [release verification](releases/0.1.0-alpha.1/VERIFICATION.md) for exact scope and retained failure evidence. All review/test worlds and approved old backups were removed; compact reports remain. The owner chose manual Modrinth creation/upload; no publication is claimed. No new3hsoak or handcrafted-map/group review.
+
 ## 4 November: dev69 prototype Event cleanup
 
 Read [cleanup evidence](PROTOTYPE_EVENT_CLEANUP.md). Full offline build passed: 780 Java tests, 773 passed and seven existing Windows symlink skips; no failures/errors. Final fixture-guard remap passed; Python discovery passed 131 tests. Native fresh/copied-world defaults passed with an explicit assertion that both retired actions and both test-only replacements are absent from normal startup. Separate positive/negative fixture boots verified the isolated test registrations and rejected inherited fixture environments on another world. The full old Fabric/stage interaction suites were not rerun.

@@ -1,5 +1,7 @@
 # Outstanding work
 
+**4 November initial alpha:** both focused native default-Event follow-ups now pass. The checks exposed and fixed default renaming generating a replacement ID; supplied template IDs are now retained. Initial MIT alpha release files, notices, project descriptions and upload settings are prepared. The owner chose manual Modrinth project creation/upload, so publication remains an owner action rather than a claimed completed upload. All review servers and the approved old generated worlds/backups were removed; see [storage policy](WORKSPACE_STORAGE.md).
+
 **4 November dev69:** removed the obsolete Readiness Check and Mine Whisper actions from normal Quiet Below startup. They were old prototypes, separate from the nine authored Events. Regression equivalents use test-only IDs and strictly isolated fixtures. Saved history is retained. Main Quiet Below mechanics have no newly identified implementation gap; the remaining delivery work is below.
 
 **4 November dev68:** the organizer accepted the default content and audible sounds. Default Events/flags now load automatically; incomplete map-dependent entries show `!`. Prepared worlds preserve their Event bindings and progress. Reusable content/settings remain in the mod/server configuration; no configuration relocation is part of this change. See [automatic defaults](AUTOMATIC_SCENARIO_DEFAULTS.md).
@@ -23,8 +25,7 @@ The corrected 1 November three-hour measurement passed all original runtime limi
 
 ## Deferred implementation, separate from those gates
 
-- **Narrow verification follow-ups:** add native tests for default-draft promotion being deferred during ACTIVE play/restart, and saving an incomplete default through the actual editor. The guards and shared create/save flow are implemented; current evidence is source/domain review plus the generic native editor suite, rather than those two exact end-to-end paths.
-- **Release preparation:** select final release versions/metadata, prepare release notes and complete the Modrinth publication process once the map/group gates pass. Current artifacts remain development builds; no release has been published by the agent.
+- **Modrinth upload by the owner:** preparation is complete for `0.1.0-alpha.1`; create the two projects and upload the JARs using [the prepared guide](releases/0.1.0-alpha.1/PUBLISHING.md). The alpha explicitly discloses the remaining map/group testing. No project or version has been uploaded by the agent.
 - **M18 / CF24:** implementation and the organizer's initial audible review are complete. Map/group audibility remains part of the eventual playtest. New audio remains a mod/pack update; no runtime uploader or server resource pack.
 - Automatic quiet-period Event/source history archival is implemented. Its default waits 60 consecutive non-active seconds with zero online players and at least 300 seconds between attempts. Manual maintenance remains available; both preserve exact archives and refuse unresolved operations. The sculk journal's maintenance remains separate.
 - Dedicated Survival, Journey and hidden-faction engines. These are future Chronicle formats, outside the current Quiet Below completion focus. Voting is optional for hidden-faction games.

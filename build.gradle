@@ -60,4 +60,9 @@ configure([project(':core'), project(':campaigns:quiet-below')]) {
             expand version: project.version
         }
     }
+
+    tasks.named('jar') {
+        from(rootProject.file('LICENSE'))
+        from(rootProject.file('NOTICE'))
+    }
 }

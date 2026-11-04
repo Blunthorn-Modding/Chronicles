@@ -1,4 +1,4 @@
-"""Disposable, opt-in two-server scenario-defaults world-copy smoke."""
+"""Disposable native defaults proof: world copy, ACTIVE restart guard and UI save."""
 from __future__ import annotations
 import hashlib
 import json
@@ -22,26 +22,35 @@ def run(build: bool = False) -> None:
     original = fabric_smoke._stage(w)
     (original / '.scenario-defaults-fixture').write_text('Disposable scenario defaults proof\n', encoding='utf-8')
     reports = w.REPORTS / ('scenario-defaults-' + original.name); reports.mkdir(parents=True)
-    report = {'result': 'FAIL', 'world': str(original), 'checks': [], 'limitations': ['Does not exercise active-phase promotion gating or saving through the UI editor.']}
+    report = {'result': 'FAIL', 'world': str(original), 'checks': [], 'limitations': [],
+              'artifacts': {p.name: w.digest(p) for p in w.artifacts()}}
     server = None; log = None; clients = []
     try:
         env = w.env(); env['CHRONICLE_SCENARIO_DEFAULTS_TRIAL'] = 'true'
-        for phase in ('fresh', 'copied'):
+        followup_roots = {}
+        for phase in ('fresh', 'copied', 'active_prepare', 'active_restart', 'ui_save', 'ui_restart'):
             if phase == 'fresh':
                 root = original
-            else:
+            elif phase == 'copied':
                 before = _hashes(original / 'world')
                 root = fabric_smoke._stage(w)
                 (root / '.scenario-defaults-fixture').write_text('Disposable copied-world proof\n', encoding='utf-8')
                 if _hashes(original / 'mods') != _hashes(root / 'mods'): raise RuntimeError('staged servers do not have identical mods')
                 shutil.copytree(original / 'world', root / 'world')
                 report['copiedWorld'] = str(root)
+            elif phase in ('active_prepare', 'ui_save'):
+                root = fabric_smoke._stage(w)
+                (root / '.scenario-defaults-fixture').write_text('Disposable native follow-up proof\n', encoding='utf-8')
+                followup_roots[phase] = root
+                report[phase + 'World'] = str(root)
+            else:
+                root = followup_roots['active_prepare' if phase == 'active_restart' else 'ui_save']
             menu_smoke._reserve_ports()
             log = (reports / (phase + '-server.log')).open('w', encoding='utf-8')
             server = subprocess.Popen(w.server_command(), cwd=root, env=env, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             menu_smoke._wait_ready(server, reports / (phase + '-server.log'))
             result = reports / (phase + '-client.json')
-            client_env = {'CHRONICLE_SCENARIO_DEFAULTS_ROOT': str(root), 'CHRONICLE_SCENARIO_DEFAULTS_SMOKE': str(result), 'CHRONICLE_SCENARIO_DEFAULTS_COPIED': str(phase == 'copied').lower(), 'CHRONICLE_MENU_WIDTH': '1280', 'CHRONICLE_MENU_HEIGHT': '720'}
+            client_env = {'CHRONICLE_SCENARIO_DEFAULTS_ROOT': str(root), 'CHRONICLE_SCENARIO_DEFAULTS_SMOKE': str(result), 'CHRONICLE_SCENARIO_DEFAULTS_PHASE': phase, 'CHRONICLE_MENU_WIDTH': '1280', 'CHRONICLE_MENU_HEIGHT': '720'}
             clients = [fabric_smoke._client(w, launch, root, reports, 'ChronicleFabricA', phase, client_env)]
             fabric_smoke._await_clients(clients, [result], timeout=160)
             proof = json.loads(result.read_text(encoding='utf-8'))
@@ -54,7 +63,7 @@ def run(build: bool = False) -> None:
                 if _hashes(original / 'world') != before: raise RuntimeError('original stopped world changed during copy proof')
                 report['checks'].append('original stopped world hashes unchanged while copied world ran')
         report['result'] = 'PASS'
-        print('PASS partial scenario defaults native proof:', reports, flush=True)
+        print('PASS scenario defaults native proof including ACTIVE restart and UI-save follow-ups:', reports, flush=True)
     finally:
         for process, handle in clients:
             if process.poll() is None: process.terminate()

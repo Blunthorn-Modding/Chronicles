@@ -1,10 +1,10 @@
 # Chronicle
 
-**Current dev69:** the obsolete Readiness Check and Mine Whisper prototype actions are removed from the normal game. The nine authored Events and automatic flag/setup behavior remain. See the [cleanup results](docs/PROTOTYPE_EVENT_CLEANUP.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [remaining work](docs/OUTSTANDING_WORK.md).
+**Current 0.1.0-alpha.1:** the two remaining native default-Event checks pass, including ACTIVE promotion across restart and editing/saving an incomplete default through the real editor. Renaming a default preserves its ID. Original Chronicle code/assets are MIT, with separate third-party notices. See the [release package and upload guide](docs/releases/0.1.0-alpha.1/PUBLISHING.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [remaining work](docs/OUTSTANDING_WORK.md).
 
 **Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
 
-Use the [matching dev69 review pack](../client/Chronicle-0.1.0-dev.69-1.21.10.mrpack) and join **127.0.0.1:25591**. The existing review at **25589** and custom authoring server at **25590** retain their worlds/configuration. All three addresses are included in the pack. The organizer accepted the default content and sounds; handcrafted-map/group testing remains. Earlier dated checkpoints below describe historical builds.
+The [alpha client pack](../client/Chronicle-0.1.0-alpha.1-1.21.10.mrpack) has no retired server addresses. All review servers, old generated worlds and backups were removed at the owner's request; no review is running. The owner will create the two Modrinth projects and upload the prepared files in `../releases/0.1.0-alpha.1`. Handcrafted-map/group testing remains. See [storage policy](docs/WORKSPACE_STORAGE.md). Earlier dated checkpoints below describe historical builds.
 
 ## Historical development checkpoints
 
@@ -125,7 +125,7 @@ Smoke needs prior EULA acceptance and a desktop/OpenGL context. It overlays buil
 
 `ecology-smoke` covers source growth, restart, containment, organic patches and a real-time dormant/reconnected vitality trial. `warden-smoke` uses a separate hard-difficulty fixture for actual vanilla warnings 1-4, emergence, quiet digging and natural despawn; it does not inject warning levels or shorten cooldowns. Both rebuild the remapped server artifacts before staging, retain evidence under `../reports`, and share the test ports above.
 
-The tests need no AI credentials or launcher tokens. Custom M3 registries require matching Fabric clients; historical `legacy-smoke` Mineflayer clients cannot join this build and fail explicitly. The Node parser tests remain useful historical checks. Use the [manual checklist](docs/TEST_PLAN.md) for licensed-launcher import, group play and microphone/audio. Jars are `core/build/libs/chronicle_core-0.1.0-dev.58.jar` and `campaigns/quiet-below/build/libs/quiet_below-0.1.0-dev.58.jar`. Players install both mods plus the pinned Fabric API and voice chat jars.
+The tests need no AI credentials or launcher tokens. Custom registries require matching Fabric clients; historical `legacy-smoke` Mineflayer clients cannot join this build and fail explicitly. The Node parser tests remain useful historical checks. Use the [manual checklist](docs/TEST_PLAN.md) for licensed-launcher import, group play and microphone/audio. Jars are `core/build/libs/chronicle_core-0.1.0-alpha.1.jar` and `campaigns/quiet-below/build/libs/quiet_below-0.1.0-alpha.1.jar`. Players install both mods plus Fabric API; Simple Voice Chat is recommended for proximity roleplay. Original Chronicle content is under [MIT](LICENSE), with third-party exceptions in [NOTICE](NOTICE).
 
 New client imports also receive GUI scale 2, narrator off, accessibility onboarding skipped and the multiplayer warning acknowledged. These initial preferences come from `config/client/options.txt`, packaged in `client-overrides/options.txt` using the [Modrinth pack format](https://support.modrinth.com/en/articles/8802351-modrinth-modpack-format-mrpack). They are editable in Minecraft; no mod forces them each launch. Existing profiles can retain their own options when replacing the jars.
 

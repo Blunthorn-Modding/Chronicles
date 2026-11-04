@@ -80,6 +80,9 @@ public final class EventEditorScreen extends Screen {
         EventEditorForm value = java.util.Objects.requireNonNull(initial, "initial");
         openingToken = parent.state().token();
         creating = value.creating(); revision = value.revision();
+        // A supplied template/draft identity is authoritative. Only the blank
+        // new-Event placeholder follows the generated name until edited.
+        manuallyEditedId = !value.id().equals("chronicle_core:event");
         idDraft = value.id(); nameDraft = value.name(); descriptionDraft = value.description();
         messageDraft = value.message(); soundDraft = value.sound(); audienceDraft = value.audience();occurrencePolicy=value.occurrencePolicy();
         audienceRegionDraft = value.audienceRegion(); audienceRegionRevision = value.audienceRegionRevision();

@@ -1,0 +1,22 @@
+Chronicle's original code, documentation, models, textures and scenario content
+are licensed under the MIT License; see LICENSE.
+
+Third-party materials retain their own licenses:
+
+- Chronicle Core includes SnakeYAML Engine 3.1.1 (Apache-2.0), unmodified.
+  Its license is in META-INF/licenses/snakeyaml-engine-LICENSE.txt and in
+  the included library JAR. See config/bundled-library.lock.json.
+- The Quiet Below includes audio under CC BY 4.0, CC BY 3.0 and CC0 1.0.
+  Full creator/source/attribution and license links are provided in
+  quiet_below-sound-credits.txt inside the mod and
+  docs/QUIET_BELOW_AUDIO_SOURCES.md in the repository.
+- Fabric API, Simple Voice Chat, SpiffyHUD, FancyMenu, Konkrete and Melody
+  are separate mods. Their own licenses apply. They are not included in
+  Chronicle's mod JARs. Pack files reference official downloads.
+- Vitality-state sculk visuals adapt Minecraft's sculk textures and models.
+  Chronicle's modifications are MIT; the underlying Minecraft artwork remains
+  the property of Mojang/Microsoft. This notice does not relicense it.
+- The Gradle wrapper in the source repository retains its Apache-2.0 license.
+
+Minecraft is a separate product of Mojang/Microsoft and is not distributed
+with Chronicle's release files. Chronicle is not an official Minecraft product.

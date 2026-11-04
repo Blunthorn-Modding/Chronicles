@@ -20,7 +20,7 @@ public final class ScenarioDefaultsTrial {
         if (!"true".equals(System.getenv("CHRONICLE_SCENARIO_DEFAULTS_TRIAL"))) return;
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> {
             var root = literal("chronicle_scenario_defaults").requires(source -> source.hasPermissionLevel(2));
-            for (String verb : List.of("fresh", "prepare", "captured", "held", "release", "promoted", "run", "completed", "copied")) root.then(literal(verb).executes(c -> run(c.getSource(), verb)));
+            for (String verb : List.of("fresh", "prepare", "captured", "held", "release", "promoted", "run", "completed", "copied", "active_prepare", "active_waiting", "active_resumed", "active_pause", "active_promoted", "ui_prepare", "ui_saved", "ui_restarted")) root.then(literal(verb).executes(c -> run(c.getSource(), verb)));
             dispatcher.register(root);
         });
     }
@@ -29,6 +29,55 @@ public final class ScenarioDefaultsTrial {
             fixture(source); var server = source.getServer(); var play = PlayRuntime.service(server); var campaign = ChronicleRuntime.service(server);
             var player = source.getPlayerOrThrow(); Path evidence = server.getSavePath(net.minecraft.util.WorldSavePath.ROOT).resolve("chronicle/scenario-defaults-trial.json");
             switch (verb) {
+                case "active_prepare" -> {
+                    require(play.state().scenarioDrafts().contains("quiet_below:city_discovery"), "city must start as an incomplete draft");
+                    player.changeGameMode(net.minecraft.world.GameMode.SURVIVAL);
+                    PlayRuntime.setSelfParticipant(player, true); campaign.start(ACTOR, null);
+                    // Trusted fixture setup creates a now-resolvable binding during ACTIVE;
+                    // the normal authoring UI deliberately does not permit this mutation.
+                    var p = player.getBlockPos().add(1000, 0, 0);
+                    var corner = new io.github.chronicle.core.authoring.BlockPosition(p.getX(), p.getY(), p.getZ());
+                    AuthoringRuntime.get(server).service().put(new io.github.chronicle.core.authoring.AuthoringSite.Region(
+                            "quiet_below:ancient_city", source.getWorld().getRegistryKey().getValue().toString(), 1, corner, corner), false);
+                    JsonObject record = new JsonObject(); record.addProperty("preparedAt", server.getTicks());
+                    Files.createDirectories(evidence.getParent()); Files.writeString(evidence, record.toString());
+                }
+                case "active_waiting", "active_resumed" -> {
+                    require(campaign.state().phase() == io.github.chronicle.core.campaign.SessionPhase.ACTIVE, "ACTIVE phase was not retained");
+                    if (verb.equals("active_waiting")) {
+                        int prepared = JsonParser.parseString(Files.readString(evidence)).getAsJsonObject().get("preparedAt").getAsInt();
+                        if (server.getTicks() - prepared < 40) return 0;
+                    } else if (server.getTicks() < 40) return 0;
+                    require(RuntimeHolds.reason(server) == null, "unexpected hold masks promotion guard");
+                    require(play.state().scenarioDrafts().contains("quiet_below:city_discovery") && !play.state().events().containsKey("quiet_below:city_discovery"), "ACTIVE play promoted the city draft");
+                    require(ScenarioDefaultEvents.issue(server, "quiet_below:city_discovery").orElse("").contains("Waiting for non-active"), "city binding is not resolvable");
+                    require(play.state().executions().isEmpty() && campaign.state().flags().values().stream().noneMatch(Boolean::booleanValue), "guard check dispatched effects");
+                }
+                case "active_pause" -> campaign.pause(ACTOR);
+                case "active_promoted" -> {
+                    if (play.state().scenarioDrafts().contains("quiet_below:city_discovery")) return 0;
+                    require(campaign.state().phase() == io.github.chronicle.core.campaign.SessionPhase.PAUSED, "not paused");
+                    var event = play.state().events().get("quiet_below:city_discovery");
+                    require(event != null && event.triggerRegion().orElseThrow().id().equals("quiet_below:ancient_city") && event.definition().audienceRegion().orElseThrow().revision() == 1, "city promotion lost Region pins");
+                    require(play.state().executions().isEmpty() && campaign.state().flags().values().stream().noneMatch(Boolean::booleanValue), "promotion dispatched effects");
+                }
+                case "ui_prepare" -> {
+                    require(play.state().scenarioDrafts().contains("quiet_below:sinkhole_opening") && !play.state().events().containsKey("quiet_below:sinkhole_opening"), "expected an incomplete default");
+                    AuthoringRuntime.get(server).enable(player.getUuid());
+                }
+                case "ui_saved", "ui_restarted" -> {
+                    var event = play.state().events().get("quiet_below:sinkhole_opening");
+                    require(event != null && !play.state().scenarioDrafts().contains("quiet_below:sinkhole_opening"), "UI did not persist the default");
+                    require(event.definition().label().equals("Native edited default") && event.definition().description().equals("Saved through the ordinary default Event editor"), "UI edits lost");
+                    require(event.definition().changes().isEmpty() && event.definition().flagChanges().getOrDefault("quiet_below:sinkholes_opened", false), "UI action edit lost or unrelated flag action changed");
+                    require(event.mode() == PlayState.Mode.TIMER && event.definition().text().contains("The Earth quakes") && event.definition().sound().equals("quiet_below:event.sinkhole_opening"), "UI save changed unrelated template fields");
+                    require(play.state().scenarioDefaults().size() == 9 && play.state().events().keySet().stream().filter(id -> id.equals(event.definition().id())).count() == 1, "default duplicated or tombstone lost");
+                    require(play.state().executions().isEmpty() && campaign.state().flags().values().stream().noneMatch(Boolean::booleanValue), "UI save dispatched effects");
+                    if (verb.equals("ui_saved")) {
+                        JsonObject record = new JsonObject(); record.addProperty("uiFingerprint", event.fingerprint());
+                        Files.createDirectories(evidence.getParent()); Files.writeString(evidence, record.toString());
+                    } else require(event.fingerprint().equals(JsonParser.parseString(Files.readString(evidence)).getAsJsonObject().get("uiFingerprint").getAsString()), "restart changed UI-saved Event");
+                }
                 case "fresh" -> {
                     require(RuntimeHolds.reason(server) == null, "startup hold: " + RuntimeHolds.reason(server));
                     require(io.github.chronicle.core.ChronicleCore.events().events().stream().noneMatch(e->Set.of("quiet_below:readiness_check","quiet_below:mine_whisper","test:readiness_check","test:marker_clue").contains(e.id())),"prototype or test actions leaked into normal defaults");

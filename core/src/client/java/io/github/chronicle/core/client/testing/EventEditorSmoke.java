@@ -152,7 +152,11 @@ public final class EventEditorSmoke {
                 }
                 if (!(client.currentScreen instanceof EventEditorScreen e)) return;
                 require("BASICS".equals(e.pageForTest()), "new editor did not open on Basics"); frame(client,e); capture(client,"event-basics.png");
-                e.setDraftForTest("name", "Smoke Event"); e.setDraftForTest("id", "chronicle_core:smoke_event");
+                e.setDraftForTest("name", "Smoke Event");
+                require(e.valuesForTest().id().equals("chronicle_core:event_smoke_event"), "new Event no longer generates an ID from its name");
+                e.setDraftForTest("id", "chronicle_core:smoke_event"); e.setDraftForTest("name", "Smoke Event renamed");
+                require(e.valuesForTest().id().equals("chronicle_core:smoke_event"), "renaming overwrote the explicitly chosen new Event ID");
+                e.setDraftForTest("name", "Smoke Event");
                 require(e.pressForTest(">"), "When navigation unavailable"); checks.add("Create opens the Event flow and Cancel remains local without a write"); step++;
             }
             case 9 -> { EventEditorScreen e=editor(client); frame(client,e); require("WHEN".equals(e.pageForTest()), "When section missing"); require(pressPrefix(e,"Trigger:"), "trigger picker unavailable"); step=900; }
