@@ -4,6 +4,8 @@ This page describes raw content exports for the next mod build. A **custom runti
 
 Scenario content is a reusable build input. It contains roles, books, loot tables, encounter-group compositions, and disabled Event templates. Event encounter targets remain symbolic map binding names only; it never contains Regions, Locations, chest bindings, map settings, coordinates, dimensions, player data, session progress, receipts, snapshots, or a runtime Event schedule.
 
+Dev67 writes schema 3, adding Event occurrence policy; schemas 1 and 2 remain readable with their original once-per-campaign behavior. Recurring templates support immediate source-triggered text/sound, including a triggering-player audience. Their claims, discoveries and per-player history stay in world progress and are never exported. Bundled audio remains a mod asset referenced by sound ID. See [the final Quiet Below defaults](FINAL_DEFAULTS_GUIDE.md).
+
 Validate a captured editor export before review:
 
 ```powershell

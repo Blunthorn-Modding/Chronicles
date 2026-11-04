@@ -95,6 +95,7 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        io.github.chronicle.quietbelow.content.QuietBelowEventSounds.register();
         io.github.chronicle.core.server.ScenarioContentRuntime.registerScenario("quiet_below:scenario", "The Quiet Below","quiet_below:mechanics");
         boolean custom=io.github.chronicle.core.server.ScenarioAuthoringProfiles.active().isPresent();
         var scenarioDefaults = custom?java.util.Optional.of(new io.github.chronicle.core.scenario.ScenarioContent("quiet_below:scenario",Map.of(),Map.of(),Map.of(),Map.of())):io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults.loadOptional();

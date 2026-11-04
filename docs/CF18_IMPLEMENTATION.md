@@ -1,5 +1,7 @@
 # CF18 implementation: Books & Lore
 
+**4 November dev67 update:** Quiet Below now supplies the organizer's nine final books. The shared table budget is 32 item/book entries so the complete Ancient City approximation fits. See [current defaults and setup](FINAL_DEFAULTS_GUIDE.md). The dated implementation evidence below records the earlier five-journal, 27-entry build.
+
 Core owns named books, their server configuration, delivery rules, discovery and keeping a copy available. Quiet Below supplies five unchanged research journals and defaults. The approved workflow is in [the design](CF18_BOOKS_LORE_UI_DESIGN.md); implementation is on `feat/core-books-lore`, candidate dev52. One combined organizer review follows native verification.
 
 ## Organizer workflow

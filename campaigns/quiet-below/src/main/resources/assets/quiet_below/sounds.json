@@ -1,0 +1,10 @@
+{
+  "event.sinkhole_opening": { "subtitle": "subtitles.quiet_below.sinkhole_opening", "sounds": [{ "name": "quiet_below:events/sinkhole_opening", "stream": false }] },
+  "event.sculk_awakening": { "subtitle": "subtitles.quiet_below.sculk_awakening", "sounds": [{ "name": "quiet_below:events/sculk_awakening", "stream": false }] },
+  "event.whisper_from_below": { "subtitle": "subtitles.quiet_below.whisper_from_below", "sounds": [{ "name": "quiet_below:events/whisper_from_below", "stream": false }] },
+  "event.city_discovery": { "subtitle": "subtitles.quiet_below.city_discovery", "sounds": [{ "name": "quiet_below:events/city_discovery", "stream": false }] },
+  "event.station_awakened": { "subtitle": "subtitles.quiet_below.station_awakened", "sounds": [{ "name": "quiet_below:events/station_awakened", "stream": false }] },
+  "event.altar_offering": { "subtitle": "subtitles.quiet_below.altar_offering", "sounds": [{ "name": "quiet_below:events/altar_offering", "stream": false }] },
+  "event.sculk_growth": { "subtitle": "subtitles.quiet_below.sculk_growth", "sounds": [{ "name": "quiet_below:events/sculk_growth", "stream": false }] },
+  "event.heart_destroyed": { "subtitle": "subtitles.quiet_below.heart_destroyed", "sounds": [{ "name": "quiet_below:events/heart_destroyed", "stream": false }] }
+}

@@ -8,5 +8,13 @@
   "message.quiet_below.marker_lens_revealed": "The vibration returns after pressure eases. Something below is responding; what it wants remains unclear.",
   "block.quiet_below.ancient_forge": "Ancient Forge",
   "block.quiet_below.ancient_altar": "Ancient Altar",
-  "block.quiet_below.relic_heart": "Relic Heart"
+  "block.quiet_below.relic_heart": "Relic Heart",
+  "subtitles.quiet_below.sinkhole_opening": "Sinkhole opening",
+  "subtitles.quiet_below.sculk_awakening": "Sculk awakening",
+  "subtitles.quiet_below.whisper_from_below": "Whisper from below",
+  "subtitles.quiet_below.city_discovery": "City discovery",
+  "subtitles.quiet_below.station_awakened": "Ancient station awakens",
+  "subtitles.quiet_below.altar_offering": "Altar offering",
+  "subtitles.quiet_below.sculk_growth": "Sculk growth",
+  "subtitles.quiet_below.heart_destroyed": "Heart destroyed"
 }

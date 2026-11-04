@@ -160,12 +160,17 @@ def pack():
         raise RuntimeError('Only Chronicle-owned artifacts may be embedded')
     for jar in jars:
         verify_owned_jar(jar)
+    import bundled_audio
+    sound_jar = next(jar for jar in jars if w.validate_mod_target(jar)['id'] == 'quiet_below')
+    bundled_audio.validate_resources(sound_jar)
+    with zipfile.ZipFile(sound_jar) as resources:
+        sound_credits = resources.read(bundled_audio.CREDITS).decode('utf-8')
     with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as archive:
         archive.writestr('modrinth.index.json', json.dumps(index, indent=2))
         archive.writestr('client-overrides/options.txt', w.client_options())
         for name, contents in client_defaults.payloads(w.WORK, w.LOCK['minecraft_protocol']).items():
             archive.writestr('client-overrides/' + name, contents)
-        archive.writestr('client-overrides/Chronicle-THIRD-PARTY.txt', notices(mods))
+        archive.writestr('client-overrides/Chronicle-THIRD-PARTY.txt', notices(mods) + '\n\n' + sound_credits)
         for jar in jars:
             archive.write(jar, 'overrides/mods/' + jar.name)
     verify_pack(target, mods)
@@ -185,6 +190,16 @@ def verify_pack(target, mods, artifacts=None):
         actual = {n for n in archive.namelist() if n.endswith('.jar')}
         if actual != expected:
             raise RuntimeError('Unexpected embedded jar: HUD dependencies must remain references')
+        for jar in (w.artifacts() if artifacts is None else artifacts):
+            if archive.read('overrides/mods/' + jar.name) != jar.read_bytes():
+                raise RuntimeError('Embedded Chronicle artifact differs from the verified build')
+            if w.validate_mod_target(jar)['id'] == 'quiet_below':
+                import bundled_audio
+                bundled_audio.validate_resources(jar)
+                with zipfile.ZipFile(jar) as resources:
+                    credits = resources.read(bundled_audio.CREDITS).decode('utf-8')
+                if credits not in archive.read('client-overrides/Chronicle-THIRD-PARTY.txt').decode('utf-8'):
+                    raise RuntimeError('Bundled Event audio credits are missing from client notices')
         # Also reject renamed/copied vendor classes or assets outside jars.
         defaults = {name: archive.read('client-overrides/' + name) for name in (client_defaults.FANCY_PATH, client_defaults.SERVERS_PATH)}
         client_defaults.validate_payloads(defaults)

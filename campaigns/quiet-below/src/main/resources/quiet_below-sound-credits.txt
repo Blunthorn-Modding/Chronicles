@@ -1,0 +1,75 @@
+Quiet Below bundled Event sounds
+================================
+
+These are unmodified public Ogg preview-quality downloads bundled for local playback.
+They are not licensed under the Chronicle code license. No audio edits were made.
+Source evidence was checked on 2026-11-03.
+
+sinkhole_opening — “Landmass / Earth Rumble” by el-bee
+Author: el-bee
+Source: https://freesound.org/people/el-bee/sounds/363122/
+License: CC BY 4.0
+License URL: https://creativecommons.org/licenses/by/4.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: 77fd3fe736c6f38f999a71db2123635457b39e0e0631f208f54c6fd80673dffa
+Attribution requested by the source: Arto Koivisto. The Freesound page also lists
+derivative sources:
+https://freesound.org/people/Mnslugger20/sounds/259758/ and
+https://freesound.org/people/prozaciswack/sounds/82722/.
+
+sculk_awakening — “Dark Horn Blast” by hykenfreak
+Author: hykenfreak
+Source: https://freesound.org/people/hykenfreak/sounds/218072/
+License: CC BY 4.0
+License URL: https://creativecommons.org/licenses/by/4.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: 7656c9baa98c6b44026b533d33c6892b1f7810c6aedcb8747dc0b5cc381bf636
+
+whisper_from_below — “What the frick W fx.wav” by .Andre_Onate
+Author: .Andre_Onate
+Source: https://freesound.org/people/.Andre_Onate/sounds/482658/
+License: CC0 1.0
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: 70e4a430a65436a4f3c85ffa839e0b5f48e4a6cec7132d925c9c0cd07a097f93
+
+city_discovery — “Reversed Discovery Sound.wav” by DeVern
+Author: DeVern
+Source: https://freesound.org/people/DeVern/sounds/472587/
+License: CC0 1.0
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: aaf203debfe71e1d29078ca0b638f0f893563b05939fe6f4ef20f0b7d7972641
+
+station_awakened — “Eerie Moment” by miksmusic
+Author: miksmusic
+Source: https://freesound.org/people/miksmusic/sounds/497708/
+License: CC BY 3.0
+License URL: https://creativecommons.org/licenses/by/3.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: 7b734cb43f2dac4088b55dcf979aba1c4b880fcff277dacd1882717b0783339e
+Sound effects by TunePocket – Unlimited royalty free music and sound effects for video creators
+
+altar_offering — “Broken bell.wav” by Physon712
+Author: Physon712
+Source: https://freesound.org/people/Physon712/sounds/580871/
+License: CC0 1.0
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: 8b279a21c38cc408f50e77ac7e3953ffe844d809333eeaf7890f0f71a8f7c846
+
+sculk_growth — “Plant Growing” by IENBA
+Author: IENBA
+Source: https://freesound.org/people/IENBA/sounds/648958/
+License: CC0 1.0
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: 2a6593454936ce434a81d14a5b4c31c7347506f665ff01e66d7dff0785f24c72
+
+heart_destroyed — “bittersweet.wav” by joanne_pang
+Author: joanne_pang
+Source: https://freesound.org/people/joanne_pang/sounds/841957/
+License: CC0 1.0
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Changes: No audio edits; bundled public preview quality.
+SHA256: 515f60044edf81380ff31e31bab19f2ea4d2e783910b5a72a347c4951a614b96

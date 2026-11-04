@@ -373,6 +373,7 @@ def client_options():
 def pack():
     import hud_dependencies as hud
     import client_defaults
+    import bundled_audio
     jars = artifacts()
     versions = {validate_mod_target(jar)['version'] for jar in jars}
     if len(versions) != 1:
@@ -384,6 +385,11 @@ def pack():
     files.extend(hud.index_entries(hud_mods))
     for jar in jars:
         hud.verify_owned_jar(jar)
+    sound_jar = next(jar for jar in jars if validate_mod_target(jar)['id'] == 'quiet_below')
+    bundled_audio.validate_resources(REPO / 'campaigns/quiet-below/src/main/resources')
+    bundled_audio.validate_resources(sound_jar)
+    with zipfile.ZipFile(sound_jar) as sound_resources:
+        sound_credits = sound_resources.read(bundled_audio.CREDITS).decode('utf-8')
     index = {'formatVersion': 1, 'game': 'minecraft', 'versionId': versions.pop() + '+mc' + LOCK['minecraft'],
              'name': f'Chronicle - The Quiet Below ({MILESTONE})', 'summary': 'Local development pack',
              'files': files, 'dependencies': {'minecraft': LOCK['minecraft'], 'fabric-loader': LOCK['loader']}}
@@ -394,7 +400,7 @@ def pack():
         zipped.writestr('client-overrides/options.txt', client_options())
         for name, contents in client_defaults.payloads(WORK, LOCK['minecraft_protocol']).items():
             zipped.writestr('client-overrides/' + name, contents)
-        zipped.writestr('client-overrides/Chronicle-THIRD-PARTY.txt', hud.notices(hud_mods))
+        zipped.writestr('client-overrides/Chronicle-THIRD-PARTY.txt', hud.notices(hud_mods) + '\n\n' + sound_credits)
         for jar in jars:
             zipped.write(jar, 'overrides/mods/' + jar.name)
     hud.verify_pack(target, hud_mods, jars)

@@ -1,6 +1,6 @@
 # M18 / CF24 - Bundled custom event sounds
 
-1 November 2026. **Requested for future implementation; not implemented.** The organizer chooses audio bundled with the mod. This milestone is queued separately from the implementation already in progress.
+4 November 2026. **Implemented in dev67; human audible review remains.** Eight organizer-selected Freesound clips are bundled with audited credits, strict assets/catalog validation, matching-client handshake and the existing Event picker/private preview. Native clients decoded all eight and verified private/live recipients. See [sources and licences](QUIET_BELOW_AUDIO_SOURCES.md), [setup guide](FINAL_DEFAULTS_GUIDE.md), and [results](FINAL_DEFAULTS_RESULTS.md). The original ordered design below remains the contract.
 
 ## Outcome and scope
 
@@ -29,17 +29,17 @@ These slices are small and should be implemented serially unless independent ass
 
 Keep IDs stable once referenced by saved Events; avoid silently renaming/removing them. Existing Events, vanilla sound selections, schemas and immutable historical encodings must remain readable. Missing definitions/assets must produce actionable validation or compatibility feedback rather than a successful-delivery claim. Server packet emission alone does not prove that a client decoded or audibly played a recording.
 
-No new world migration or Event delivery guarantee is intended. Do not rewrite receipts or retry completed/uncertain Events to repair an asset problem. A pack update requires matching client distribution; preserve the current review installation and use the established saving-stop/backup procedure for any later deployment. No deployment is part of this planning update.
+Audio does not rewrite receipts or retry completed/uncertain Events. A pack update requires matching client distribution. Dev67 uses the established stopped-world backup procedure and a separate fresh defaults review world; existing organizer profiles retain their content and progress.
 
 ## Acceptance and validation
 
-- [ ] A supplied bundled Ogg Vorbis sound has a stable registered ID and complete `sounds.json`/audio entries in the remapped campaign JAR and generated client pack.
-- [ ] The dedicated server starts without client-only class loading; matching clients resolve and decode the sound without missing-asset errors.
-- [ ] The existing Event picker finds the bundled sound, private preview reaches only the requesting GM, and saving/reopening/restarting retains the selection. Existing registered sounds still work.
-- [ ] Live manual and automatic Event paths deliver to the configured eligible audience and retain existing completion/recovery semantics. No registration, save or preview fires an Event.
-- [ ] Portable scenario export/import preserves the sound ID while excluding audio bytes and local paths. Existing scenario/world data stays compatible.
-- [ ] Focused asset/catalog tests, relevant Core/campaign tests and `python scripts/workspace.py build` pass. Run the current native Event/editor smoke entry points identified at implementation time, sequentially in disposable worlds, and record exact commands/results in `TEST_PLAN.md`.
+- [x] A supplied bundled Ogg Vorbis sound has a stable registered ID and complete `sounds.json`/audio entries in the remapped campaign JAR and generated client pack.
+- [x] The dedicated server starts without client-only class loading; matching clients resolve and decode the sound without missing-asset errors.
+- [x] The existing Event picker finds the bundled sound, private preview reaches only the requesting GM, and saving/reopening/restarting retains the selection. Existing registered sounds still work.
+- [x] Live manual and automatic Event paths deliver to the configured eligible audience and retain existing completion/recovery semantics. No registration, save or preview fires an Event.
+- [x] Portable scenario export/import preserves the sound ID while excluding audio bytes and local paths. Existing scenario/world data stays compatible.
+- [x] Focused asset/catalog tests, relevant Core/campaign tests and the full offline Gradle build pass. Native Event/editor checks ran sequentially in disposable worlds; see exact commands/results in `TEST_PLAN.md`.
 - [ ] A human confirms actual playback, recording quality and useful volume alongside vanilla audio. Muted automated clients cannot complete this check.
-- [ ] Asset preparation, supported format, attribution, packaging and client-update instructions are documented. Final audio content and map/group review remain separate from code completion.
+- [x] Asset preparation, supported format, attribution, packaging and client-update instructions are documented. Final audio content and map/group review remain separate from code completion.
 
-Current planning verification: documentation diff and relative-link checks only. All implementation acceptance items remain open.
+Implementation evidence is recorded in [the dev67 results](FINAL_DEFAULTS_RESULTS.md). The unchecked human playback/volume gate remains separate from muted automated decoding.

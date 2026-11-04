@@ -1,10 +1,10 @@
 # Chronicle
 
-**Current dev59:** [Create custom loot tables](docs/LOOT_TABLE_CREATION.md) from the Loot Tables page, then populate them with the shared item/book picker.
+**Current dev67:** Quiet Below now includes the supplied six roles, nine books, four loot tables and nine optional Event templates, with bundled custom audio. Core adds recurring/first-player cues and automatic quiet-period history archival. See the [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [verification results](docs/FINAL_DEFAULTS_RESULTS.md).
 
 **Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
 
-The matching [dev59 review pack](../client/Chronicle-M9-1.21.10.mrpack) is ready at **127.0.0.1:25589**. Existing world/configuration and your ended session4 are retained. See [verification and limits](docs/TEST_PLAN.md).
+Use the [matching dev67 review pack](../client/Chronicle-0.1.0-dev.67-1.21.10.mrpack) and join **127.0.0.1:25591** for fresh defaults. The existing review at **25589** and custom authoring server at **25590** retain their worlds/configuration. All three addresses are included in the pack. Human sound/content review and handcrafted-map/group testing remain. Earlier dated checkpoints below describe historical builds.
 
 ## Historical development checkpoints
 

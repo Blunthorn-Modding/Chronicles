@@ -22,6 +22,11 @@ class WorkspaceTests(unittest.TestCase):
                 with zipfile.ZipFile(jar, 'w') as zipped:
                     zipped.writestr('fabric.mod.json', json.dumps({'id': mod_id, 'version': 'test',
                         'depends': {'minecraft': workspace.LOCK['minecraft']}}))
+                    if mod_id == 'quiet_below':
+                        resources = workspace.REPO / 'campaigns/quiet-below/src/main/resources'
+                        for path in resources.rglob('*'):
+                            if path.is_file() and path.name != 'fabric.mod.json':
+                                zipped.write(path, path.relative_to(resources).as_posix())
                 built.append(jar)
             with patch.object(workspace, 'WORK', root), patch.object(workspace, 'artifacts', return_value=built):
                 workspace.pack()

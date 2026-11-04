@@ -39,6 +39,11 @@ class HudDependenciesTests(unittest.TestCase):
                 with zipfile.ZipFile(jar, 'w') as archive:
                     archive.writestr('fabric.mod.json', json.dumps({'id': identifier, 'version': 'test',
                                       'depends': {'minecraft': hud.w.LOCK['minecraft']}}))
+                    if identifier == 'quiet_below':
+                        resources = hud.w.REPO / 'campaigns/quiet-below/src/main/resources'
+                        for path in resources.rglob('*'):
+                            if path.is_file() and path.name != 'fabric.mod.json':
+                                archive.write(path, path.relative_to(resources).as_posix())
                 artifacts.append(jar)
             with patch.object(hud.w, 'WORK', root), patch.object(hud.w, 'artifacts', return_value=artifacts):
                 target = hud.pack()

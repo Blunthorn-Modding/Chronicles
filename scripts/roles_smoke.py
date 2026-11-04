@@ -53,6 +53,21 @@ def run(build: bool = True) -> None:
     launch=json.loads((w.REPO / "campaigns/quiet-below/build/smoke/client-launch.json").read_text(encoding="utf-8"))
     root=fabric_smoke._stage(w); root.joinpath(".player-roles-fixture").write_text("Disposable CF19 Player Roles fixture\n",encoding="utf-8")
     config=root / "config" / "chronicle"; config.mkdir(parents=True,exist_ok=True)
+    # Runtime portability fixtures must not depend on provisional campaign roles.
+    (config / 'player-roles.yaml').write_text('''schemaVersion: 1
+roles:
+  - id: quiet_below:island_resident
+    name: Fixture resident
+    description: Disposable role entitlement proof.
+    selectable: true
+    capacity: 32
+    starting: null
+    respawn: null
+    items:
+      - '{"id":"minecraft:bread","count":4}'
+      - '{"id":"minecraft:torch","count":8}'
+    books: []
+''',encoding='utf-8')
     (config / "books.json").write_text(json.dumps({"schemaVersion":1,"books":[{"id":"test:role_intro","title":"Personal introduction","author":"Fixture","description":"Personal role entitlement","pages":["A private first-entry note."],"rule":"OFF"}]}),encoding="utf-8")
     reports=w.REPORTS / ("player-roles-" + root.name); reports.mkdir(parents=True)
     result=reports / "desktop.json"; log=(reports / "server.log").open("w",encoding="utf-8"); server=None; clients=[]
