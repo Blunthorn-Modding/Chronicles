@@ -1,0 +1,2 @@
+# Preserve the supplied brief bytes and its intentional Markdown hard breaks.
+docs/THE_LAST_COUNCIL_EVENT_BRIEF.md -text whitespace=-blank-at-eol

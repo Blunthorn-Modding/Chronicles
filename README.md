@@ -1,5 +1,7 @@
 # Chronicle
 
+**Last Council development worktree:** the separate [work-package tree](docs/work-packages/last-council/README.md) starts from the prepared alpha below. It covers the new political campaign and its optional Core services; gameplay implementation has not started. The [source brief](docs/THE_LAST_COUNCIL_EVENT_BRIEF.md) is preserved as supplied. This worktree does not replace the Quiet Below release package.
+
 **Current 0.1.0-alpha.1:** the two remaining native default-Event checks pass, including ACTIVE promotion across restart and editing/saving an incomplete default through the real editor. Renaming a default preserves its ID. Original Chronicle code/assets are MIT, with separate third-party notices. See the [release package and upload guide](docs/releases/0.1.0-alpha.1/PUBLISHING.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [remaining work](docs/OUTSTANDING_WORK.md).
 
 **Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.

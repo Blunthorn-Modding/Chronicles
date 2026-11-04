@@ -1,5 +1,7 @@
 # Chronicle campaign formats
 
+**4 November:** The Last Council is now the next concrete **Intrigue** campaign in a separate worktree. See [its work-package tree](work-packages/last-council/README.md). This promotes a demonstrated campaign need, not a universal politics engine or compulsory voting for other formats. The dated design discussion below remains historical; Quiet Below's remaining map/group gates are separate.
+
 Design direction, updated 20 October 2026. The operator and co-organizer identified four formats for Chronicle. “Werewolf” means the wider family of hidden-faction games, including Vampire SMP-style experiences; voting and round structure are optional. Two additional candidates are proposed below at the operator's invitation. This is a planning taxonomy, not six implemented game modes or a request to build six engines now.
 
 Use **campaign format** for the structure of an organized experience. Use **session** for one play meeting and **event/action** for something within it, such as a sound, discovery, horde arrival or vote. This avoids confusing a Werewolf game with the small named actions already registered through Core's `CampaignEvent` API.
