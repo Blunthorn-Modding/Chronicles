@@ -117,6 +117,8 @@ Bind/rebind uses the looked-at supported container. `chests inspect <binding-id>
 
 ## Events and game tools
 
+Scenario defaults appear automatically under Events and Flags. An incomplete map-dependent Event shows `!` and a setup reason; preview still samples its message/sound privately. Command completion includes these unresolved defaults, and `events check cue` reports what is missing. Saved map configuration and progress take precedence over packaged defaults. See [automatic defaults](AUTOMATIC_SCENARIO_DEFAULTS.md).
+
 The Events menu provides Create/Edit with **Basics → When → Requirements → Delay → What happens**. Choose a trigger, select any required flags, then add outcomes to one list: text, sound, Region saved states and flag updates. All required flags must be On. Silent Events that only update flags are supported. Private previews sample only text/sound; they never apply Region or flag changes. Command completion includes custom Event IDs and campaign defaults. See [progression and recovery notes](CF23_IMPLEMENTATION.md).
 
 The top filters separate **Game Events** (including composed Events that change Regions) from **Region Changes** (direct saved Start/End state actions). **Flags** remains its own Advanced catalogue and manual override: creation requires non-active Editing and saves Off; Turn On/Off is an explicitly confirmed live control. Events set these saved campaign facts through their outcomes. No prerequisites means no flag gate.

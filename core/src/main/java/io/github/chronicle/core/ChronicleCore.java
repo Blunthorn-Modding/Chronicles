@@ -120,8 +120,10 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.CompletionEventSources.register();
         io.github.chronicle.core.server.EntitySpawnEventSources.register();
         io.github.chronicle.core.server.ScenarioContentRuntime.register();
+        io.github.chronicle.core.server.ScenarioDefaultEvents.register();
         io.github.chronicle.core.network.BundledSoundHandshake.register();
         io.github.chronicle.core.server.FoundationVerificationTrial.register();
+        io.github.chronicle.core.server.ScenarioDefaultsTrial.register();
         io.github.chronicle.core.server.EventHistoryTools.register();
         io.github.chronicle.core.server.Departures.register();
         io.github.chronicle.core.server.SiteSubtypes.registerBuiltins();

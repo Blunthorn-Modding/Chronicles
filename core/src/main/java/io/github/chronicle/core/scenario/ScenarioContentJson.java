@@ -28,9 +28,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-/** Strict, deterministic schema-3 portable content codec; schemas 1 and 2 remain readable. */
+/** Strict, deterministic schema-4 portable content codec; schemas 1 through 3 remain readable. */
 public final class ScenarioContentJson {
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
     public static final int MAX_BYTES = 16 * 1024 * 1024;
     private static final int MAX_DEPTH = 32;
     private ScenarioContentJson() { }
@@ -42,19 +42,21 @@ public final class ScenarioContentJson {
         JsonArray loot = new JsonArray(); for (LootType value : content.lootTables().values()) loot.add(JsonParser.parseString(LootTableDraftJson.encode(value)));
         root.add("lootTables", loot); JsonArray events = new JsonArray(); for (EventTemplate value : content.events().values()) events.add(event(value)); root.add("events", events);
         JsonArray groups = new JsonArray(); for (EncounterGroup value : content.encounterGroups().values()) groups.add(group(value)); root.add("encounterGroups", groups);
+        JsonObject flags = new JsonObject(); content.flags().forEach(flags::addProperty); root.add("flags", flags);
         String result = root.toString(); bound(result); if (!decode(result).equals(content)) throw new IllegalStateException("scenario content failed strict round trip"); return result;
     }
     public static ScenarioContent decode(String source) {
         bound(source); strict(source); JsonObject root = object(parse(source), "root"); int version = integer(required(root, "schemaVersion"), "schemaVersion");
-        if (version != 1 && version != 2 && version != SCHEMA_VERSION) throw new IllegalArgumentException("unsupported scenario content schema version");
-        exact(root, version == 1 ? Set.of("schemaVersion", "scenarioId", "rolesYaml", "books", "lootTables", "events") : Set.of("schemaVersion", "scenarioId", "rolesYaml", "books", "lootTables", "events", "encounterGroups"), "root");
+        if (version != 1 && version != 2 && version != 3 && version != SCHEMA_VERSION) throw new IllegalArgumentException("unsupported scenario content schema version");
+        exact(root, version == 1 ? Set.of("schemaVersion", "scenarioId", "rolesYaml", "books", "lootTables", "events") : version < 4 ? Set.of("schemaVersion", "scenarioId", "rolesYaml", "books", "lootTables", "events", "encounterGroups") : Set.of("schemaVersion", "scenarioId", "rolesYaml", "books", "lootTables", "events", "encounterGroups", "flags"), "root");
         Map<String, PlayerRole> roles = PlayerRoleConfig.decode(string(required(root, "rolesYaml"), "rolesYaml"));
         JsonObject bookRoot = new JsonObject(); bookRoot.addProperty("schemaVersion", BookConfig.SCHEMA_VERSION); bookRoot.add("books", required(root, "books"));
         var books = BookConfig.decode(bookRoot.toString()); TreeMap<String, LootType> loot = new TreeMap<>();
         for (JsonElement element : array(required(root, "lootTables"), "lootTables")) { LootType value = LootTableDraftJson.decode(element.toString()); if (loot.putIfAbsent(value.id(), value) != null) throw new IllegalArgumentException("duplicate loot table ID"); }
         TreeMap<String, EventTemplate> events = new TreeMap<>(); for (JsonElement element : array(required(root, "events"), "events")) { EventTemplate value = event(object(element, "event"), version); if (events.putIfAbsent(value.id(), value) != null) throw new IllegalArgumentException("duplicate event ID"); }
         TreeMap<String, EncounterGroup> groups = new TreeMap<>(); if (version >= 2) for (JsonElement element : array(required(root, "encounterGroups"), "encounterGroups")) { EncounterGroup value = group(object(element, "encounter group")); if (groups.putIfAbsent(value.id(), value) != null) throw new IllegalArgumentException("duplicate encounter group ID"); }
-        return new ScenarioContent(string(required(root, "scenarioId"), "scenarioId"), roles, books, loot, events, groups);
+        TreeMap<String, Boolean> flags = new TreeMap<>(); if (version >= 4) object(required(root, "flags"), "flags").entrySet().forEach(entry -> flags.put(entry.getKey(), bool(entry.getValue(), "flag default")));
+        return new ScenarioContent(string(required(root, "scenarioId"), "scenarioId"), roles, books, loot, events, groups, flags);
     }
     private static JsonObject event(EventTemplate value) {
         JsonObject result = new JsonObject(); result.addProperty("id", value.id()); result.addProperty("label", value.label()); result.addProperty("description", value.description()); result.addProperty("text", value.text()); result.addProperty("sound", value.sound()); result.addProperty("audience", value.audience().name()); result.addProperty("audienceReference", value.audienceReference()); result.addProperty("mode", value.mode().name()); result.addProperty("triggerReference", value.triggerReference()); result.addProperty("delayTicks", value.delayTicks());

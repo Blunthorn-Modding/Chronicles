@@ -30,6 +30,32 @@ class CampaignServiceTest {
     Path temporaryDirectory;
 
     @Test
+    void defaultFlagsPreserveActiveSavedValuesAndNoopWithoutAudit() throws IOException {
+        CampaignService service = service(new CampaignEvents());
+        service.ensureDefaultFlags(GM, Map.of("test:a", false));
+        service.start(GM, null);
+        service.setFlag(GM, "test:a", true);
+        service.ensureDefaultFlags(GM, Map.of("test:a", false, "test:b", true));
+        assertEquals(Map.of("test:a", true, "test:b", true), service.state().flags());
+        CampaignState before = service.state();
+        service.ensureDefaultFlags(GM, Map.of("test:a", false, "test:b", false));
+        assertEquals(before, service.state());
+        assertThrows(IllegalArgumentException.class, () -> service.ensureDefaultFlags(GM, Map.of("invalid", true)));
+        assertEquals(before, service.state());
+        assertEquals(before, service(new CampaignEvents()).state());
+    }
+
+    @Test
+    void failedDefaultFlagSaveDoesNotPublishBatch() throws IOException {
+        Path blockedParent = temporaryDirectory.resolve("blocked-defaults");
+        CampaignService service = new CampaignService(new CampaignStore(blockedParent.resolve("state.json")), new CampaignEvents(), CLOCK);
+        Files.writeString(blockedParent, "not a directory");
+        CampaignState before = service.state();
+        assertThrows(IOException.class, () -> service.ensureDefaultFlags(GM, Map.of("test:a", true, "test:b", false)));
+        assertEquals(before, service.state());
+    }
+
+    @Test
     void flagDefinitionsPersistAcrossNonActivePhasesAndNeverOverwrite() throws IOException {
         CampaignService service = service(new CampaignEvents());
         service.defineFlag(GM, "quiet:before");

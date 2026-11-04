@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "scenarioId": "quiet_below:scenario",
   "rolesYaml": "# Final starting roles from A Quite Below.docx. Map Points remain world-owned.\nschemaVersion: 1\nroles:\n  - id: quiet_below:hermit\n    name: \"Hermit\"\n    description: \"You live just outside the village by yourself; why is up to you.\"\n    selectable: true\n    capacity: 1\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:stone_sword\",\"count\":1}'\n      - '{\"id\":\"minecraft:fishing_rod\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n    books: [\"quiet_below:a_tale_of_the_past\"]\n  - id: quiet_below:farmer\n    name: \"Farmer\"\n    description: \"You take care of supplying vegetables and bread to the villagers.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:hay_block\",\"count\":64}'\n      - '{\"id\":\"minecraft:iron_hoe\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":64}'\n      - '{\"id\":\"minecraft:bread\",\"count\":64}'\n      - '{\"id\":\"minecraft:potato\",\"count\":64}'\n      - '{\"id\":\"minecraft:carrot\",\"count\":64}'\n    books: []\n  - id: quiet_below:woodcutter\n    name: \"Woodcutter\"\n    description: \"You keep the houses warm and supply the wood for the mineshaft.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:oak_sapling\",\"count\":16}'\n      - '{\"id\":\"minecraft:spruce_sapling\",\"count\":16}'\n      - '{\"id\":\"minecraft:oak_log\",\"count\":32}'\n      - '{\"id\":\"minecraft:spruce_log\",\"count\":32}'\n    books: []\n  - id: quiet_below:carpenter\n    name: \"Carpenter\"\n    description: \"You keep the houses standing and help with the mineshaft extension.\"\n    selectable: true\n    capacity: 1\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_shovel\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:torch\",\"count\":32}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:oak_planks\",\"count\":64}'\n      - '{\"id\":\"minecraft:spruce_planks\",\"count\":64}'\n      - '{\"id\":\"minecraft:crafting_table\",\"count\":1}'\n    books: [\"quiet_below:weird_building_plans\"]\n  - id: quiet_below:miner\n    name: \"Miner\"\n    description: \"You gather resources from the mountain and supply them to the village and beyond.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:spruce_fence\",\"count\":64}'\n      - '{\"id\":\"minecraft:torch\",\"count\":64}'\n      - '{\"id\":\"minecraft:torch\",\"count\":64}'\n    books: []\n  - id: quiet_below:fisher\n    name: \"Fisher\"\n    description: \"You fish for food and take the small sailboat to the bigger cities beyond for trade. The iron from this island seems to be of particular purity.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:fishing_rod\",\"count\":1}'\n      - '{\"id\":\"minecraft:fishing_rod\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_sword\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:cod\",\"count\":64}'\n      - '{\"id\":\"minecraft:compass\",\"count\":1}'\n    books: []\n",
   "books": [
@@ -515,8 +515,16 @@
       "triggerReference": "",
       "delayTicks": 36000,
       "requiredFlags": [],
-      "flagOutcomes": {},
-      "regionOutcomes": [],
+      "flagOutcomes": {
+        "quiet_below:sinkholes_opened": true
+      },
+      "regionOutcomes": [
+        {
+          "regionId": "quiet_below:sinkhole",
+          "areaId": "quiet_below:sinkhole",
+          "state": "END"
+        }
+      ],
       "source": {
         "type": "",
         "target": "",
@@ -536,8 +544,12 @@
       "mode": "SYSTEM",
       "triggerReference": "",
       "delayTicks": 18000,
-      "requiredFlags": [],
-      "flagOutcomes": {},
+      "requiredFlags": [
+        "quiet_below:sinkholes_opened"
+      ],
+      "flagOutcomes": {
+        "quiet_below:sculk_awakened": true
+      },
       "regionOutcomes": [],
       "source": {
         "type": "chronicle_core:event_completed",
@@ -581,7 +593,9 @@
       "triggerReference": "quiet_below:ancient_city",
       "delayTicks": 0,
       "requiredFlags": [],
-      "flagOutcomes": {},
+      "flagOutcomes": {
+        "quiet_below:city_discovered": true
+      },
       "regionOutcomes": [],
       "source": {
         "type": "",
@@ -669,7 +683,9 @@
       "triggerReference": "",
       "delayTicks": 0,
       "requiredFlags": [],
-      "flagOutcomes": {},
+      "flagOutcomes": {
+        "quiet_below:heart_destroyed": true
+      },
       "regionOutcomes": [],
       "source": {
         "type": "quiet_below:heart_destroyed",
@@ -702,5 +718,11 @@
       "occurrencePolicy": "ONCE"
     }
   ],
-  "encounterGroups": []
+  "encounterGroups": [],
+  "flags": {
+    "quiet_below:sinkholes_opened": false,
+    "quiet_below:sculk_awakened": false,
+    "quiet_below:city_discovered": false,
+    "quiet_below:heart_destroyed": false
+  }
 }

@@ -48,7 +48,7 @@ public final class ScenarioContentRuntime {
         catch(RuntimeException exception){return visible.entrySet().stream().map(entry->new ScenarioExportPreview(entry.getKey(),entry.getValue(),0,0,0,0,0,"",false,shortText(exception.getMessage()))).toList();}
     }
     private static int eventCount(MinecraftServer server) {
-        var ids=new HashSet<>(ScenarioEventTemplates.templates().keySet());
+        var ids=new HashSet<>(PlayRuntime.service(server).state().scenarioDrafts());
         ids.addAll(EventRuntime.configurations(server).keySet());
         return ids.size();
     }
@@ -68,10 +68,12 @@ public final class ScenarioContentRuntime {
         return store.export(pinned.content()).toString();
     }
     private static Pinned capture(MinecraftServer server,String id,String title) {
-        var result=ScenarioContentCapture.capture(id,PlayerRoles.definitions(server),BookRuntime.books(server),TypedChestLoot.types(server),EventRuntime.configurations(server),Encounters.groups(server));
+        var result=ScenarioContentCapture.capture(id,PlayerRoles.definitions(server),BookRuntime.books(server),TypedChestLoot.types(server),EventRuntime.configurations(server),Encounters.groups(server),ChronicleRuntime.service(server).state().flags());
         var captured=result.content();
-        var events=new TreeMap<>(ScenarioEventTemplates.templates());events.putAll(captured.events());
-        var content=new ScenarioContent(captured.scenarioId(),captured.roles(),captured.books(),captured.lootTables(),events,captured.encounterGroups());
+        var events=new TreeMap<String,EventTemplate>();
+        for(String draft:PlayRuntime.service(server).state().scenarioDrafts())events.put(draft,ScenarioEventTemplates.get(draft).orElseThrow(()->new IllegalStateException("Restore the scenario mod defining Event "+draft+" before exporting.")));
+        events.putAll(captured.events());
+        var content=new ScenarioContent(captured.scenarioId(),captured.roles(),captured.books(),captured.lootTables(),events,captured.encounterGroups(),captured.flags());
         String digest=digest(ScenarioContentJson.encode(content));
         return new Pinned(new ScenarioExportPreview(id,title,content.roles().size(),content.books().size(),content.lootTables().size(),content.events().size(),result.strippedRoleBindings().size(),digest,true,"",content.encounterGroups().size()),content);
     }

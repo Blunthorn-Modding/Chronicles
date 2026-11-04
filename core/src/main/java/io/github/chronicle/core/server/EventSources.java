@@ -132,6 +132,11 @@ public final class EventSources {
     }
     public static List<Occurrence> facts(MinecraftServer server,EventSource source) {
         Runtime r=runtime(server);try{reconcile(server,r);}catch(RuntimeException failure){fail(server,failure);throw new Unavailable("Event source authority could not be reconciled",failure);}
+        return observedFacts(server,source);
+    }
+    /** Read-only projection for setup diagnostics; never reconciles or writes a receipt. */
+    public static List<Occurrence> observedFacts(MinecraftServer server,EventSource source) {
+        Runtime r=runtime(server);
         return r.ledger.receipts().values().stream().filter(e->e.stage()==SourceLedger.Stage.COMMITTED&&matches(source,e))
                 .map(e->new Occurrence(e.id(),e.type(),e.target(),e.activity(),e.actor(),e.activeOrigin(),e.flags(),e.authority())).toList();
     }

@@ -54,12 +54,23 @@ public final class EventRuntime {
         String id=form.id();if(creating&&id.isBlank())id="chronicle_core:event_"+UUID.randomUUID().toString().replace("-","");
         if(creating&&(configurations(server).containsKey(id)||configurations(server).size()>=ObservationCatalog.MAX_DEFINITIONS))throw new IllegalStateException("That Event already exists, or the Event limit has been reached.");
         if(!creating){var current=configuration(server,id);if(current.definition().revision()!=form.revision())throw new IllegalStateException("The Event changed; reopen it.");}
+        var configuration=resolveForm(server,id,form);
+        if(configuration.occurrencePolicy()!=EventOccurrencePolicy.ONCE||(expected!=null&&expected.occurrencePolicy()!=EventOccurrencePolicy.ONCE))EventOccurrenceRuntime.requireNoPending(server,id);
+        write(server,()->service.putEvent(configuration,expected,creating));
+        write(server,()->EventProgressRuntime.arm(server,configuration));
+        return configuration.definition().id();
+    }
+    /** Shared map resolution for the editor and first-use defaults; never saves or runs an Event. */
+    static EventConfiguration resolveForm(MinecraftServer server,String id,EventEditorForm form){
+        var service=PlayRuntime.service(server);
         var mode=PlayState.Mode.valueOf(form.mode());
         var occurrencePolicy=EventOccurrencePolicy.valueOf(form.occurrencePolicy());
         boolean progressOnly=form.message().isBlank()&&form.sound().isEmpty()&&form.changes().isEmpty()&&form.encounterActions().isEmpty()&&!form.flagChanges().isEmpty();
         var audienceType=progressOnly?ObservationCatalog.Audience.PARTICIPANTS:ObservationCatalog.Audience.valueOf(form.audience());
         Optional<EventRegionReference> audience=audienceType==ObservationCatalog.Audience.REGION?pin(server,form.audienceRegion(),form.audienceRegionRevision()):Optional.empty();
         Optional<EventRegionReference> trigger=mode==PlayState.Mode.ENTRY?pin(server,form.triggerRegion(),form.triggerRegionRevision()):Optional.empty();
+        if(audienceType==ObservationCatalog.Audience.REGION&&audience.isEmpty())throw new IllegalArgumentException("Choose the audience Region.");
+        if(mode==PlayState.Mode.ENTRY&&trigger.isEmpty())throw new IllegalArgumentException("Choose the entry Region.");
         List<EventRegionChange> changes=new ArrayList<>();
         for(var choice:form.changes()){
             var area=AreaChanges.forRegion(server,choice.regionId()).orElseThrow(()->new IllegalStateException("Saved states are missing for Region "+choice.regionId()));
@@ -83,10 +94,8 @@ public final class EventRuntime {
         var configuration=occurrencePolicy==EventOccurrencePolicy.ONCE
                 ?new EventConfiguration(definition,mode,trigger,service.elapsedTicks(),delay,form.requiredFlags(),true,mode==PlayState.Mode.SYSTEM?form.source():EventSource.empty())
                 :new EventConfiguration(definition,mode,trigger,service.elapsedTicks(),delay,form.requiredFlags(),true,form.source(),occurrencePolicy);
-        if(occurrencePolicy!=EventOccurrencePolicy.ONCE||(expected!=null&&expected.occurrencePolicy()!=EventOccurrencePolicy.ONCE))EventOccurrenceRuntime.requireNoPending(server,id);
-        write(server,()->service.putEvent(configuration,expected,creating));
-        write(server,()->EventProgressRuntime.arm(server,configuration));
-        return definition.id();
+        validateSetup(server,configuration);
+        return configuration;
     }
     public static void delete(ServerPlayerEntity player,String id,EventConfiguration expected)throws IOException{
         requireEditing(player);var server=server(player);if(ChronicleCore.observations().get(id).isPresent())throw new IllegalStateException("Default Events retain their registered definition; remove their configuration instead.");
@@ -94,6 +103,7 @@ public final class EventRuntime {
         write(server,()->PlayRuntime.service(server).deleteEvent(id,expected));
         write(server,()->EventProgressRuntime.remove(server,id));
     }
+    public static void discardDraft(ServerPlayerEntity player,String id)throws IOException{requireEditing(player);write(server(player),()->PlayRuntime.service(server(player)).discardScenarioDraft(id));}
     public static void disableAutomatic(ServerPlayerEntity player,String id)throws IOException{changeEnabled(player,id,true);}
     public static void removeConfiguration(ServerPlayerEntity player,String id)throws IOException{
         requireEditing(player);var server=server(player);
@@ -113,7 +123,7 @@ public final class EventRuntime {
     }
 
     public static void previewMedia(ServerPlayerEntity player,EventEditorForm form){requireOperator(player);media(player,form.message(),sound(form.sound()));}
-    public static void previewMedia(ServerPlayerEntity player,String id){requireOperator(player);var d=configuration(server(player),id).definition();media(player,d.text(),sound(d.sound()));}
+    public static void previewMedia(ServerPlayerEntity player,String id){requireOperator(player);if(ScenarioDefaultEvents.draft(server(player),id)){var t=io.github.chronicle.core.scenario.ScenarioEventTemplates.get(id).orElseThrow(()->new IllegalStateException("Restore the scenario mod before previewing this Event."));media(player,t.text(),sound(t.sound()));return;}var d=configuration(server(player),id).definition();media(player,d.text(),sound(d.sound()));}
     public static void showBounds(ServerPlayerEntity player,String regionId,String state){
         requireOperator(player);var server=server(player);var area=AreaChanges.forRegion(server,regionId).orElseThrow(()->new IllegalStateException("That Region has no saved states."));
         area.requireSnapshot(AreaState.valueOf(state));if(!area.bounds().matches(AreaChanges.currentRegion(server,area)))throw new IllegalStateException("That Region moved; recapture its saved states.");
@@ -368,7 +378,13 @@ public final class EventRuntime {
     }
     private static void validate(MinecraftServer server,EventConfiguration c){
         if(!c.enabled())throw new IllegalStateException("Configure this Event before running it.");
-        if(stored(server,c.definition().id())==null){var old=ChronicleCore.observations().get(c.definition().id()).orElseThrow();PlayRuntime.service(server).validate(old,AuthoringRuntime.get(server).service().state(),c.definition().id());}
+        if(stored(server,c.definition().id())==null&&ChronicleCore.observations().get(c.definition().id()).isPresent()){var old=ChronicleCore.observations().get(c.definition().id()).orElseThrow();PlayRuntime.service(server).validate(old,AuthoringRuntime.get(server).service().state(),c.definition().id());}
+        validateSetup(server,c);
+    }
+    /** Setup validation deliberately ignores enabled state and current flag values. */
+    static void validateSetup(MinecraftServer server,EventConfiguration c){
+        if(c.definition().audience()==ObservationCatalog.Audience.REGION&&c.definition().audienceRegion().isEmpty())throw new IllegalArgumentException("Choose the audience Region.");
+        if(c.mode()==PlayState.Mode.ENTRY&&c.triggerRegion().isEmpty())throw new IllegalArgumentException("Choose the entry Region.");
         c.definition().audienceRegion().ifPresent(p->region(server,p));c.triggerRegion().ifPresent(p->region(server,p));sound(c.definition().sound());for(String flag:c.requiredFlags())validateFlag(server,flag);
         for(String flag:c.definition().flagChanges().keySet())validateFlag(server,flag);
         Encounters.validate(server,c.definition().encounterActions());
@@ -377,7 +393,7 @@ public final class EventRuntime {
             try{EventSources.validate(server,c.source());}
             catch(IllegalArgumentException unavailable){
                 var progress=EventProgressRuntime.entry(server,c);
-                if(progress==null||!progress.activeOrigin()||EventSources.facts(server,c.source()).stream().noneMatch(f->f.id().equals(progress.occurrence())))throw unavailable;
+                if(progress==null||!progress.activeOrigin()||EventSources.observedFacts(server,c.source()).stream().noneMatch(f->f.id().equals(progress.occurrence())))throw unavailable;
             }
         }
         for(var change:c.definition().changes()){

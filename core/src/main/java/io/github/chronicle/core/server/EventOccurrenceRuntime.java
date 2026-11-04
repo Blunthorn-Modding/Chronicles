@@ -112,6 +112,12 @@ public final class EventOccurrenceRuntime {
 
     static int liveClaims(MinecraftServer server) { return runtime(server).state.claims().size(); }
     static int liveActors(MinecraftServer server) { return runtime(server).state.actors().size(); }
+    static Set<String> reservedEventIds(MinecraftServer server){
+        var state=runtime(server).state;var ids=new TreeSet<String>();
+        state.claims().values().forEach(claim->ids.add(claim.eventId()));
+        state.actors().values().forEach(actor->ids.add(actor.eventId()));
+        return Set.copyOf(ids);
+    }
     public static boolean onlyBackpressureHold(MinecraftServer server) {
         Runtime runtime=WORLDS.get(server);
         return runtime!=null&&runtime.pressureHeld&&!RuntimeHolds.heldByOther(server,BACKPRESSURE);

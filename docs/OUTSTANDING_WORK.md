@@ -1,5 +1,7 @@
 # Outstanding work
 
+**4 November dev68:** the organizer accepted the default content and audible sounds. Default Events/flags now load automatically; incomplete map-dependent entries show `!`. Prepared worlds preserve their Event bindings and progress. Reusable content/settings remain in the mod/server configuration; no configuration relocation is part of this change. See [automatic defaults](AUTOMATIC_SCENARIO_DEFAULTS.md).
+
 **4 November dev67:** the final Word content is imported as six roles, nine books, nine disabled Event templates and four editable loot tables. Automatic quiet-period history archival and bundled custom audio are implemented; first-player/recurring cues and relative completion timers are verified. Native editor, custom authoring and copied-map/export checks pass. See [current guide](FINAL_DEFAULTS_GUIDE.md) and [results](FINAL_DEFAULTS_RESULTS.md). Human audio/content review and the map/group gates remain.
 
 3 November: the organizer **passed the dev66 combined review**, confirming recovery and encounter spawning, the Altar, custom authoring, export and import. The export refusal wording is corrected to distinguish paused/stopped play from enabled Editing. Manual scenario switching through server/configuration setup is accepted. See [results](DEV66_FEEDBACK_RESULTS.md) and [scenario workflow](SCENARIO_CONTENT_EXPORT.md). The map/content/group gates below remain separate.
@@ -19,7 +21,7 @@ The corrected 1 November three-hour measurement passed all original runtime limi
 
 ## Deferred implementation, separate from those gates
 
-- **M18 / CF24 human playback review:** implementation is complete, including bundled clips/credits, searchable IDs, private preview and client compatibility. A human still needs to judge actual sound and volume. New audio remains a mod/pack update; no runtime uploader or server resource pack.
+- **M18 / CF24:** implementation and the organizer's initial audible review are complete. Map/group audibility remains part of the eventual playtest. New audio remains a mod/pack update; no runtime uploader or server resource pack.
 - Automatic quiet-period Event/source history archival is implemented. Its default waits 60 consecutive non-active seconds with zero online players and at least 300 seconds between attempts. Manual maintenance remains available; both preserve exact archives and refuse unresolved operations. The sculk journal's maintenance remains separate.
 - Dedicated Survival, Journey and hidden-faction engines. These are future Chronicle formats, outside the current Quiet Below completion focus. Voting is optional for hidden-faction games.
 

@@ -191,6 +191,6 @@ public final class CoreMenuCommands {
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> gameToolVerbs(String toolId, SuggestionsBuilder builder) {
         return CommandSource.suggestMatching(GameSetupTools.get(toolId).map(GameSetupTools.Tool::verbs).orElse(List.of()).stream().map(GameSetupTools.Verb::id), builder);
     }
-    private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> cues(ServerCommandSource source,SuggestionsBuilder builder) { return CommandSource.suggestMatching(EventRuntime.configurations(source.getServer()).keySet(), builder); }
+    private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> cues(ServerCommandSource source,SuggestionsBuilder builder) {var ids=new java.util.TreeSet<>(EventRuntime.configurations(source.getServer()).keySet());ids.addAll(PlayRuntime.service(source.getServer()).state().scenarioDrafts());return CommandSource.suggestMatching(ids,builder);}
     private static CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> stateActions(SuggestionsBuilder builder) { return CommandSource.suggestMatching(ChronicleCore.events().events().stream().map(e -> e.id()), builder); }
 }

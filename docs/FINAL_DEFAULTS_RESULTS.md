@@ -1,5 +1,7 @@
 # Dev67 final defaults and Event foundations
 
+The organizer subsequently accepted the content and audible sounds on 4 November. [Dev68](AUTOMATIC_SCENARIO_DEFAULTS_RESULTS.md) replaces manual Event adoption with automatic defaults and visible map-setup warnings. The checks below remain the historical dev67 evidence.
+
 4 November 2026. Branch `feat/quiet-below-final-defaults`. This completes the deferred automatic history scheduler and bundled-audio implementation, then imports the organizer's final Word content. The [starting-content guide](FINAL_DEFAULTS_GUIDE.md) explains adoption and map setup; [audio provenance](QUIET_BELOW_AUDIO_SOURCES.md) records each recording and its licence.
 
 ## Delivered behavior

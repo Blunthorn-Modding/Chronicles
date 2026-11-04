@@ -17,12 +17,13 @@ import java.util.regex.Pattern;
 public record PlayState(long revision, long elapsedTicks, Set<UUID> participants,
                         Map<String, Binding> bindings, Map<String, Delivery> deliveries,
                         Map<String, EventConfiguration> events,
-                        Map<String, EventExecution> executions) {
+                        Map<String, EventExecution> executions, Set<String> scenarioDefaults, Set<String> scenarioDrafts) {
     public static final int MAX_PARTICIPANTS = 512;
     public static final int MAX_BINDINGS = 128;
     public static final int MAX_DELIVERIES = 512;
     public static final int MAX_EVENTS = 128;
     public static final int MAX_EXECUTIONS = 128;
+    public static final int MAX_SCENARIO_DEFAULTS = 1024;
     private static final Pattern FINGERPRINT = Pattern.compile("[0-9a-f]{64}");
 
     public PlayState {
@@ -33,6 +34,22 @@ public record PlayState(long revision, long elapsedTicks, Set<UUID> participants
         deliveries = deliveries(deliveries, elapsedTicks);
         events = events(events, revision, elapsedTicks);
         executions = executions(executions, revision, elapsedTicks);
+        scenarioDefaults = scenarioIds(scenarioDefaults);
+        scenarioDrafts = scenarioIds(scenarioDrafts);
+        if (!scenarioDefaults.containsAll(scenarioDrafts)) throw new IllegalArgumentException("scenario drafts must be seen defaults");
+    }
+
+    public PlayState(long revision, long elapsedTicks, Set<UUID> participants,
+                     Map<String, Binding> bindings, Map<String, Delivery> deliveries,
+                     Map<String, EventConfiguration> events, Map<String, EventExecution> executions) {
+        this(revision, elapsedTicks, participants, bindings, deliveries, events, executions, Set.of(), Set.of());
+    }
+
+    private static Set<String> scenarioIds(Set<String> source) {
+        if (source == null || source.size() > MAX_SCENARIO_DEFAULTS) throw new IllegalArgumentException("too many scenario default IDs");
+        TreeSet<String> ordered = new TreeSet<>();
+        for (String id : source) { ObservationCatalog.requireIdentifier(id, "scenario default ID"); ordered.add(id); }
+        return Collections.unmodifiableSet(new LinkedHashSet<>(ordered));
     }
 
     /** Backward-compatible constructor for callers that have not yet adopted unified Events. */

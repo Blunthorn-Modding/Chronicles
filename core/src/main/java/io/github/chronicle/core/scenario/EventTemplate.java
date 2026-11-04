@@ -79,7 +79,7 @@ public record EventTemplate(String id, String label, String description, String 
                 configuration.triggerRegion().map(reference -> reference.id()).orElse(""), configuration.delayTicks(), configuration.requiredFlags(),
                 definition.flagChanges(), outcomes, portableSource(configuration.source()), encounters,configuration.occurrencePolicy());
     }
-    /** Portable imports always require an explicit target-map review before they can be enabled. */
+    /** Templates carry no live enablement; Core resolves map readiness before initialization. */
     public boolean enabled() { return false; }
     private static EventSource portableSource(EventSource source) { return source.target().matches("managed:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}") ? new EventSource(source.type(), "", source.activity()) : source; }
     private static List<String> ids(List<String> values, int max, String field) { if (values == null || values.size() > max) throw new IllegalArgumentException(field + " are invalid"); TreeMap<String, Boolean> sorted = new TreeMap<>(); for (String value : values) { requireId(value, field); if (sorted.put(value, Boolean.TRUE) != null) throw new IllegalArgumentException(field + " must be distinct"); } return List.copyOf(sorted.keySet()); }

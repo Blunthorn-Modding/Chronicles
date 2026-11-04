@@ -28,7 +28,7 @@ public final class QuietBelowScenarioDefaults {
             return Optional.of(content);
         } catch (IOException exception) { throw new IllegalStateException("Unable to load packaged Quiet Below scenario content", exception); }
     }
-    /** Startup-only registration; it never enables Events or applies content to a map/world. */
+    /** Register reusable defaults. Core resolves their map dependencies during world startup. */
     public static void register(ScenarioContent content) {
         if (content == null || !SCENARIO_ID.equals(content.scenarioId())) throw new IllegalArgumentException("Quiet Below scenario content identity is required");
         if (content.roles().values().stream().anyMatch(role -> role.starting() != null || role.respawn() != null)) throw new IllegalArgumentException("Quiet Below scenario roles must not contain map bindings");
@@ -40,6 +40,7 @@ public final class QuietBelowScenarioDefaults {
         content.books().values().forEach(ChronicleCore.books()::register);
         content.lootTables().values().forEach(ChronicleCore.chestTypes()::register);
         Encounters.registerDefaults(content.encounterGroups().values());
+        ScenarioEventTemplates.registerFlags(content.flags());
         content.events().values().forEach(ScenarioEventTemplates::register);
     }
     private static String strictUtf8(byte[] bytes) throws CharacterCodingException { return StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString(); }

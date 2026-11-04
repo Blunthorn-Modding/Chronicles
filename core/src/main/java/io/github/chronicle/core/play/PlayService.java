@@ -218,6 +218,53 @@ public final class PlayService {
     /** The caller pins this revision while resolving current Region and snapshot references. */
     public synchronized long nextEventRevision() { return nextRevision(); }
 
+    /** Install each previously unseen scenario default at most once, without disturbing saved state. */
+    public synchronized Set<String> bootstrapScenarioEvents(Map<String, EventConfiguration> ready, Set<String> defaultIds,
+                                                            Set<String> reservedIds) throws IOException {
+        if (ready == null || defaultIds == null || reservedIds == null || defaultIds.size() > PlayState.MAX_SCENARIO_DEFAULTS
+                || reservedIds.size() > PlayState.MAX_SCENARIO_DEFAULTS || ready.size() > PlayState.MAX_SCENARIO_DEFAULTS)
+            throw new IllegalArgumentException("scenario defaults are missing or exceed capacity");
+        for (String id : defaultIds) requireId(id);
+        for (String id : reservedIds) requireId(id);
+        for (var entry : ready.entrySet()) {
+            requireId(entry.getKey());
+            if (!defaultIds.contains(entry.getKey()) || entry.getValue() == null || !entry.getKey().equals(entry.getValue().definition().id()))
+                throw new IllegalArgumentException("ready Event must match a scenario default ID");
+        }
+        Set<String> seen = new LinkedHashSet<>(current.scenarioDefaults());
+        Set<String> drafts = new LinkedHashSet<>(current.scenarioDrafts());
+        Map<String, EventConfiguration> events = new LinkedHashMap<>(current.events());
+        Set<String> installed = new LinkedHashSet<>();
+        long revision = 0;
+        for (String id : new java.util.TreeSet<>(defaultIds)) {
+            boolean fresh = seen.add(id);
+            if (!fresh && !drafts.contains(id)) continue;
+            if (reservedIds.contains(id) || current.bindings().containsKey(id) || current.deliveries().containsKey(id)
+                    || current.executions().containsKey(id) || events.containsKey(id)) { drafts.remove(id); continue; }
+            EventConfiguration template = ready.get(id);
+            if (template == null || events.size() >= PlayState.MAX_EVENTS) { drafts.add(id); continue; }
+            if (revision == 0) revision = nextRevision();
+            drafts.remove(id);
+            events.put(id, revised(template, revision, liveTicks, template.mode(), template.enabled()));
+            installed.add(id);
+        }
+        if (seen.equals(current.scenarioDefaults()) && drafts.equals(current.scenarioDrafts()) && installed.isEmpty()) return Set.of();
+        if (revision == 0) revision = nextRevision();
+        commit(revision, current.participants(), current.bindings(), current.deliveries(), events, current.executions(), seen, drafts);
+        return Set.copyOf(installed);
+    }
+
+    /** Discard an incomplete default while retaining its tombstone. */
+    public synchronized void discardScenarioDraft(String id) throws IOException {
+        requireId(id);
+        if (!current.scenarioDrafts().contains(id) || current.events().containsKey(id) || current.bindings().containsKey(id)
+                || current.deliveries().containsKey(id) || current.executions().containsKey(id))
+            throw new IllegalStateException("Scenario draft is unavailable or has live state.");
+        Set<String> drafts = new LinkedHashSet<>(current.scenarioDrafts());
+        drafts.remove(id);
+        commit(nextRevision(), current.participants(), current.bindings(), current.deliveries(), current.events(), current.executions(), current.scenarioDefaults(), drafts);
+    }
+
     /** One whole-event save; replacing a legacy cue migrates only that setup, preserving its receipts. */
     public synchronized void putEvent(EventConfiguration event, EventConfiguration expected, boolean creating) throws IOException {
         if (event == null) throw new IllegalArgumentException("Event configuration is required.");
@@ -234,7 +281,9 @@ public final class PlayService {
         events.put(id, event);
         Map<String, PlayState.Binding> bindings = new LinkedHashMap<>(current.bindings());
         bindings.remove(id);
-        commit(revision, current.participants(), bindings, current.deliveries(), events, current.executions());
+        Set<String> drafts = new LinkedHashSet<>(current.scenarioDrafts());
+        drafts.remove(id);
+        commit(revision, current.participants(), bindings, current.deliveries(), events, current.executions(), current.scenarioDefaults(), drafts);
     }
 
     /** Removes a custom definition, retaining legacy delivery evidence and an immutable final run archive. */
@@ -361,7 +410,7 @@ public final class PlayService {
     private static EventConfiguration revised(EventConfiguration event, long revision, long armedAt, PlayState.Mode mode, boolean enabled) {
         EventDefinition d = event.definition();
         EventDefinition next = new EventDefinition(d.id(), revision, d.label(), d.description(), d.text(), d.sound(), d.audience(), d.audienceRegion(), d.changes(), d.flagChanges(), d.encounterActions(), d.formatVersion());
-        return new EventConfiguration(next, mode, event.triggerRegion(), armedAt, event.delayTicks(), event.requiredFlags(), enabled, event.source(), event.formatVersion());
+        return new EventConfiguration(next, mode, event.triggerRegion(), armedAt, event.delayTicks(), event.requiredFlags(), enabled, event.source(), event.formatVersion(), event.occurrencePolicy());
     }
 
     private static boolean transitionAllowed(EventExecution.Phase from, EventExecution.Phase to) {
@@ -398,7 +447,13 @@ public final class PlayService {
     private void commit(long revision, Set<UUID> participants, Map<String, PlayState.Binding> bindings,
                         Map<String, PlayState.Delivery> deliveries, Map<String, EventConfiguration> events,
                         Map<String, EventExecution> executions) throws IOException {
-        PlayState candidate = new PlayState(revision, liveTicks, participants, bindings, deliveries, events, executions);
+        commit(revision, participants, bindings, deliveries, events, executions, current.scenarioDefaults(), current.scenarioDrafts());
+    }
+
+    private void commit(long revision, Set<UUID> participants, Map<String, PlayState.Binding> bindings,
+                        Map<String, PlayState.Delivery> deliveries, Map<String, EventConfiguration> events,
+                        Map<String, EventExecution> executions, Set<String> defaults, Set<String> drafts) throws IOException {
+        PlayState candidate = new PlayState(revision, liveTicks, participants, bindings, deliveries, events, executions, defaults, drafts);
         repository.save(candidate);
         current = candidate;
     }

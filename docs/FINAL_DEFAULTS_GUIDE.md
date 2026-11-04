@@ -1,10 +1,10 @@
 # Quiet Below starting content
 
-The dev67 source contains the organizer's `A Quite Below.docx`: six roles, nine named books, nine Event templates and four loot tables. The original Word file is unchanged. `scripts/prepare_quiet_below_defaults.py check` verifies the reviewed source hash and generated resources; regeneration is an explicit source operation, not an in-game import or server mutation.
+The source contains the organizer's `A Quite Below.docx`: six roles, nine named books, nine default Events and four loot tables. Dev68 automatically lists the Events and initializes their four progression flags. The original Word file is unchanged. `scripts/prepare_quiet_below_defaults.py check` verifies the reviewed source hash and generated resources; regeneration is an explicit source operation, not an in-game import or server mutation.
 
 ## Installing and retaining map work
 
-Use matching dev67 Core, Quiet Below and client pack. The editor protocol is v13 and a configuration-stage sound catalogue check rejects missing or mismatched client audio. The packaged clips play locally; no Freesound/SoundCloud connection is needed during play. See [audio sources and credits](QUIET_BELOW_AUDIO_SOURCES.md).
+Use matching dev68 Core, Quiet Below and client pack. The editor protocol remains v13; scenario content and Play state now use schema4. Older schemas load, but rollback to an older mod requires its stopped-world backup. A configuration-stage sound catalogue check rejects missing or mismatched client audio. The packaged clips play locally; no Freesound/SoundCloud connection is needed during play. See [audio sources and credits](QUIET_BELOW_AUDIO_SOURCES.md).
 
 Existing initialized world/server configuration remains authoritative. Installing new defaults does not replace edited roles, books, loot or live Event records. An intentionally empty custom authoring profile stays empty while retaining the installed mechanics. Regions, Locations, chest bindings and role destinations stay with the map; reusable scenario content still uses the [export/build workflow](SCENARIO_CONTENT_BUILD.md).
 
@@ -40,7 +40,7 @@ Entries roll independently and remain editable under **Loot Tables**. Periodic r
 
 ## Event setup on the map
 
-All nine Events are **disabled portable templates** under **Events → Create from scenario…**. Adopt and review them before play. Saving an adopted Event enables its reviewed configuration; merely loading the mod does not run it. Add actual sinkhole Region End-state actions and choose the city entry/audience Region in the editor.
+All nine defaults appear directly under **Events**, with their required flags under **Flags**. Ready Events are enabled automatically; incomplete ones show **!** and explain the missing setup. On a fresh map the sinkhole needs an End-state Region, the city discovery needs its Region, and awakening waits for the sinkhole Event to be configured. Edit these entries using the normal editor. The default sinkhole target is `quiet_below:sinkhole` and city target is `quiet_below:ancient_city`; select other map Regions if preferred. Merely loading or previewing an Event does not fire it.
 
 | Template | Initial trigger |
 | --- | --- |
@@ -54,7 +54,9 @@ All nine Events are **disabled portable templates** under **Events → Create fr
 | Heart Destroyed | Durable destruction of the bound Relic Heart |
 | First Warden spawned | First actual fresh Warden spawn; vanilla emergence sound |
 
-Adopt Sinkhole Opening before Sculk Awakening so its completion target exists. The timers share occupied active play; pauses, empty-server time and downtime do not advance them, and session boundaries do not reset the story. Growth cues retain a high-water history: cutting and regrowing already-counted sculk does not repeat old milestones. Station readiness and growth receipts travel with world progress. Loading a saved entity is not a fresh spawn.
+Configure Sinkhole Opening before Sculk Awakening so its completion target exists. Never-configured defaults can become ready automatically when their expected map bindings are supplied, during non-active, unheld play. Existing saved Events are not silently rebound or rearmed. The timers share occupied active play; pauses, empty-server time and downtime do not advance them, and session boundaries do not reset the story. Growth cues retain a high-water history: cutting and regrowing already-counted sculk does not repeat old milestones. Station readiness and growth receipts travel with world progress. Loading a saved entity is not a fresh spawn.
+
+The initial flags `quiet_below:sinkholes_opened`, `quiet_below:sculk_awakened`, `quiet_below:city_discovered` and `quiet_below:heart_destroyed` start Off and are updated by their corresponding once-only Events. Existing saved values are preserved. Off is normal; `!` identifies incomplete updater setup. Export includes flag definitions reset to Off, never current campaign progress. A prepared world plus its matching scenario mod retains the configured Events, pins, flag values and completions without another setup pass. Reusable content/server overrides keep their existing storage homes.
 
 **How often** supports Once per campaign, Once per player and Each matching activity. The two repeat policies currently support source-triggered immediate text/sound only, with the existing flag prerequisites. Terrain, encounter and flag-changing Events remain once per campaign. Triggering-player audience requires a player-capable provider; ecology and entity-spawn sources have no player actor. Event-completion triggers are once per campaign to prevent repeating completion loops.
 
@@ -70,10 +72,10 @@ Per-player cue history belongs to the stable Event ID, so editing its words does
 
 Archival waits for consecutive non-active play with **zero online players** and no unresolved operations. It uses the same guarded archive path as manual maintenance. Progress, first-player identities and exact retry evidence remain in immutable world archives; no chunks are loaded for maintenance. A malformed policy is preserved and disables automation with a log message. Repair it and select **Reload automatic policy**. A storage/audit failure also stops automation and reports whether archival had already completed. Manual maintenance remains available when its normal guards permit it.
 
-The handcrafted map, map-specific book bindings, sinkhole states, audible clip volume/feel and multiplayer balance still need organizer review. Automated decoding cannot certify how the recordings sound to players.
+The organizer accepted the default content and audible clips on 4 November. Handcrafted-map bindings, sinkhole states, discovery placement and multiplayer balance remain map/group work.
 
 ## Current review
 
-Install `../client/Chronicle-0.1.0-dev.67-1.21.10.mrpack` and join **127.0.0.1:25591** for the fresh defaults world. It is paused, with an Altar, Forge and supplies near spawn. Review the catalogues under **Player Roles**, **Books & Lore**, **Loot Tables**, and **Events → Create from scenario…**. The nine templates remain optional; choose their map bindings and review them before enabling play. In Events, use **Preview privately** to judge the new audio without firing world outcomes.
+Install `../client/Chronicle-0.1.0-dev.68-1.21.10.mrpack` and join **127.0.0.1:25591** for the defaults review world. It is paused, with an Altar, Forge and supplies near spawn. Review **Player Roles**, **Books & Lore**, **Loot Tables**, **Events** and **Flags**. Events are already listed; use entries marked `!` to finish map setup. **Preview privately** plays the message/sound without applying world outcomes, including for an incomplete Event.
 
 The previous review remains at **127.0.0.1:25589** and the separate custom authoring profile at **127.0.0.1:25590**. Installing defaults preserves their existing content, so they are not substitutes for the fresh defaults review. All three addresses are included in the pack.

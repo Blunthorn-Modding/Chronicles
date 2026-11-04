@@ -20,9 +20,14 @@ public final class ScenarioContentCapture {
     }
     public static Result capture(String scenarioId, Map<String, PlayerRole> roles, Map<String, BookDefinition> books,
                                  Map<String, LootType> loot, Map<String, EventConfiguration> events, Map<String, EncounterGroup> encounterGroups) {
+        return capture(scenarioId, roles, books, loot, events, encounterGroups, Map.of());
+    }
+    public static Result capture(String scenarioId, Map<String, PlayerRole> roles, Map<String, BookDefinition> books,
+                                 Map<String, LootType> loot, Map<String, EventConfiguration> events, Map<String, EncounterGroup> encounterGroups, Map<String, Boolean> flags) {
+        TreeMap<String, Boolean> initialFlags = new TreeMap<>(); flags.forEach((id, value) -> { if (id == null || value == null) throw new IllegalArgumentException("flags require non-null IDs and values"); initialFlags.put(id, false); });
         TreeMap<String, PlayerRole> portableRoles = new TreeMap<>(); List<String> stripped = new ArrayList<>();
         roles.forEach((id, role) -> { if (role.starting() != null) stripped.add(id + ":starting"); if (role.respawn() != null) stripped.add(id + ":respawn"); portableRoles.put(id, new PlayerRole(role.id(), role.name(), role.description(), role.selectable(), role.capacity(), null, null, role.items(), role.books())); });
         TreeMap<String, EventTemplate> templates = new TreeMap<>(); events.forEach((id, event) -> templates.put(id, EventTemplate.from(event)));
-        return new Result(new ScenarioContent(scenarioId, portableRoles, books, loot, templates, encounterGroups), stripped);
+        return new Result(new ScenarioContent(scenarioId, portableRoles, books, loot, templates, encounterGroups, initialFlags), stripped);
     }
 }

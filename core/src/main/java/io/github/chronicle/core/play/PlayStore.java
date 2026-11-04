@@ -30,10 +30,11 @@ import java.util.UUID;
 
 /** Strict, bounded, atomic storage for the independent play and unified Event runtime. */
 public final class PlayStore implements PlayRepository {
-    public static final int SCHEMA_VERSION = 3;
+    public static final int SCHEMA_VERSION = 4;
     public static final long MAX_FILE_BYTES = 16L * 1024 * 1024;
     private static final Set<String> ROOT_FIELDS_V1 = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries");
     private static final Set<String> ROOT_FIELDS_V2 = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries", "events", "executions");
+    private static final Set<String> ROOT_FIELDS_V4 = Set.of("schemaVersion", "revision", "elapsedTicks", "participants", "bindings", "deliveries", "events", "executions", "scenarioDefaults", "scenarioDrafts");
     private static final Set<String> BINDING_FIELDS = Set.of("id", "revision", "definitionFingerprint", "mode", "regionId", "regionRevision", "armedAtTicks", "delayTicks", "requiredFlag");
     private static final Set<String> DELIVERY_FIELDS = Set.of("id", "status", "source", "actor", "session", "elapsedTicks", "recipients");
 
@@ -156,7 +157,8 @@ public final class PlayStore implements PlayRepository {
         JsonObject root = PlayJson.object(json, "play runtime JSON");
         int schema = PlayJson.integer(PlayJson.required(root, "schemaVersion"), "schemaVersion");
         if (schema == 1) PlayJson.fields(root, ROOT_FIELDS_V1, "play runtime root");
-        else if (schema == 2 || schema == SCHEMA_VERSION) PlayJson.fields(root, ROOT_FIELDS_V2, "play runtime root");
+        else if (schema == 2 || schema == 3) PlayJson.fields(root, ROOT_FIELDS_V2, "play runtime root");
+        else if (schema == SCHEMA_VERSION) PlayJson.fields(root, ROOT_FIELDS_V4, "play runtime root");
         else throw new IllegalArgumentException("unsupported play runtime schema version");
         long revision = PlayJson.number(PlayJson.required(root, "revision"), "play revision");
         long elapsedTicks = PlayJson.number(PlayJson.required(root, "elapsedTicks"), "elapsed play ticks");
@@ -230,7 +232,19 @@ public final class PlayStore implements PlayRepository {
                 }
             }
         }
-        return new PlayState(revision, elapsedTicks, participants, bindings, deliveries, events, executions);
+        return new PlayState(revision, elapsedTicks, participants, bindings, deliveries, events, executions,
+                schema >= 4 ? scenarioIds(root, "scenarioDefaults") : Set.of(), schema >= 4 ? scenarioIds(root, "scenarioDrafts") : Set.of());
+    }
+
+    private static Set<String> scenarioIds(JsonObject root, String field) {
+        JsonArray values = PlayJson.array(PlayJson.required(root, field), field);
+        if (values.size() > PlayState.MAX_SCENARIO_DEFAULTS) throw new IllegalArgumentException("too many " + field);
+        Set<String> result = new LinkedHashSet<>();
+        for (JsonElement value : values) {
+            String id = PlayJson.string(value, field);
+            if (!result.add(id)) throw new IllegalArgumentException("duplicate " + field + ": " + id);
+        }
+        return result;
     }
 
     private static String encode(PlayState state) {
@@ -282,6 +296,8 @@ public final class PlayStore implements PlayRepository {
         JsonArray executions = new JsonArray();
         state.executions().values().forEach(execution -> executions.add(EventJson.encodeExecution(execution)));
         root.add("executions", executions);
+        JsonArray defaults = new JsonArray(); state.scenarioDefaults().forEach(defaults::add); root.add("scenarioDefaults", defaults);
+        JsonArray drafts = new JsonArray(); state.scenarioDrafts().forEach(drafts::add); root.add("scenarioDrafts", drafts);
         return root.toString();
     }
 

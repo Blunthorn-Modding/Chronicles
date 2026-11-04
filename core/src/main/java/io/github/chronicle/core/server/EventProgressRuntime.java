@@ -54,6 +54,7 @@ public final class EventProgressRuntime {
         var e=runtime.state.entries().get(c.definition().id());return e!=null&&e.fingerprint().equals(c.fingerprint())?e:null;
     }
     public static long revision(MinecraftServer server){var r=WORLDS.get(server);return r==null?0:r.state.revision();}
+    static Set<String> reservedEventIds(MinecraftServer server){return Set.copyOf(runtime(server).state.entries().keySet());}
 
     public static void arm(MinecraftServer server,EventConfiguration c)throws IOException {
         var facts=c.mode()==PlayState.Mode.SYSTEM?EventSources.facts(server,c.source()):List.<EventSources.Occurrence>of();

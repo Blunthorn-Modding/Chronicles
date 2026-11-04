@@ -66,7 +66,29 @@ class ScenarioContentTest {
     }
     @Test void readsLegacySchemaOneAndWritesCurrentSchema() {
         ScenarioContent original = new ScenarioContent("example:legacy", Map.of(), Map.of(), Map.of(), Map.of());
-        var root = JsonParser.parseString(ScenarioContentJson.encode(original)).getAsJsonObject(); root.addProperty("schemaVersion", 1); root.remove("encounterGroups");
+        var root = JsonParser.parseString(ScenarioContentJson.encode(original)).getAsJsonObject(); root.addProperty("schemaVersion", 1); root.remove("encounterGroups"); root.remove("flags");
         assertEquals(original, ScenarioContentJson.decode(root.toString())); assertTrue(ScenarioContentJson.encode(original).contains("\"schemaVersion\":" + ScenarioContentJson.SCHEMA_VERSION));
     }
+    @Test void flagDefaultsRoundTripAndLegacySchemasRemainReadable() {
+        var content = new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of("example:ready", true));
+        var root = JsonParser.parseString(ScenarioContentJson.encode(content)).getAsJsonObject();
+        assertEquals(content, ScenarioContentJson.decode(root.toString()));
+        for (int version = 1; version <= 3; version++) {
+            var legacy = root.deepCopy(); legacy.addProperty("schemaVersion", version); legacy.remove("flags"); if (version == 1) legacy.remove("encounterGroups");
+            assertTrue(ScenarioContentJson.decode(legacy.toString()).flags().isEmpty());
+        }
+        assertThrows(IllegalArgumentException.class, () -> new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of("invalid", false)));
+        var tooMany = new java.util.HashMap<String, Boolean>(); for (int i = 0; i < 257; i++) tooMany.put("example:flag_" + i, false);
+        assertThrows(IllegalArgumentException.class, () -> new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), tooMany));
+        var nullValue = new java.util.HashMap<String, Boolean>(); nullValue.put("example:flag", null);
+        assertThrows(IllegalArgumentException.class, () -> new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), nullValue));
+        nullValue.clear(); nullValue.put(null, false);
+        assertThrows(IllegalArgumentException.class, () -> new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), nullValue));
+        assertThrows(IllegalArgumentException.class, () -> new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of("example:" + "a".repeat(ObservationCatalog.MAX_ID_LENGTH), false)));
+        var invalidJson = root.deepCopy(); invalidJson.getAsJsonObject("flags").addProperty("example:ready", "true");
+        assertThrows(IllegalArgumentException.class, () -> ScenarioContentJson.decode(invalidJson.toString()));
+        var captured = ScenarioContentCapture.capture("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of("example:ready", true));
+        assertEquals(Map.of("example:ready", false), captured.content().flags());
+    }
+
 }

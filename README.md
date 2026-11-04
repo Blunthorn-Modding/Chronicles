@@ -1,10 +1,10 @@
 # Chronicle
 
-**Current dev67:** Quiet Below now includes the supplied six roles, nine books, four loot tables and nine optional Event templates, with bundled custom audio. Core adds recurring/first-player cues and automatic quiet-period history archival. See the [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [verification results](docs/FINAL_DEFAULTS_RESULTS.md).
+**Current dev68:** scenario Events and flags appear automatically. Incomplete map setup shows `!` with a reason; prepared worlds retain their saved configurations, bindings, flag values and completions. The existing split between world setup and reusable mod/server content is unchanged. See the [automatic-defaults contract](docs/AUTOMATIC_SCENARIO_DEFAULTS.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [verification results](docs/AUTOMATIC_SCENARIO_DEFAULTS_RESULTS.md).
 
 **Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
 
-Use the [matching dev67 review pack](../client/Chronicle-0.1.0-dev.67-1.21.10.mrpack) and join **127.0.0.1:25591** for fresh defaults. The existing review at **25589** and custom authoring server at **25590** retain their worlds/configuration. All three addresses are included in the pack. Human sound/content review and handcrafted-map/group testing remain. Earlier dated checkpoints below describe historical builds.
+Use the [matching dev68 review pack](../client/Chronicle-0.1.0-dev.68-1.21.10.mrpack) and join **127.0.0.1:25591**. The existing review at **25589** and custom authoring server at **25590** retain their worlds/configuration. All three addresses are included in the pack. The organizer accepted the default content and sounds; handcrafted-map/group testing remains. Earlier dated checkpoints below describe historical builds.
 
 ## Historical development checkpoints
 

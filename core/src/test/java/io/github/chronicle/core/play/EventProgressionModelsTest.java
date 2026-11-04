@@ -121,7 +121,7 @@ class EventProgressionModelsTest {
                 EventExecution.Phase.EVENT_OUTCOME, PlayState.DeliverySource.TIMER, null, 1, 10, List.of(), "", ""));
     }
 
-    @Test void schemaTwoLoadsAndThreeWritesPreserveLegacyPins() throws Exception {
+    @Test void schemaTwoLoadsAndFourWritesPreserveLegacyPins() throws Exception {
         Path file = directory.resolve("play.json");
         Files.writeString(file, "{\"schemaVersion\":2,\"revision\":1,\"elapsedTicks\":10,\"participants\":[],\"bindings\":[],\"deliveries\":[],\"events\":["
                 + LEGACY_CONFIGURATION + "],\"executions\":[]}");
@@ -129,7 +129,7 @@ class EventProgressionModelsTest {
         PlayState state = store.load();
         assertEquals(1, state.events().get("test:event").formatVersion());
         store.save(state);
-        assertTrue(Files.readString(file).contains("\"schemaVersion\":3"));
+        assertTrue(Files.readString(file).contains("\"schemaVersion\":4"));
         assertEquals(state, new PlayStore(file).load());
         assertEquals(LEGACY_CONFIGURATION, EventJson.encodeConfiguration(state.events().get("test:event")).toString());
     }

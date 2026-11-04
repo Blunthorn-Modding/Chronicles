@@ -1,6 +1,6 @@
 # M18 / CF24 - Bundled custom event sounds
 
-4 November 2026. **Implemented in dev67; human audible review remains.** Eight organizer-selected Freesound clips are bundled with audited credits, strict assets/catalog validation, matching-client handshake and the existing Event picker/private preview. Native clients decoded all eight and verified private/live recipients. See [sources and licences](QUIET_BELOW_AUDIO_SOURCES.md), [setup guide](FINAL_DEFAULTS_GUIDE.md), and [results](FINAL_DEFAULTS_RESULTS.md). The original ordered design below remains the contract.
+4 November 2026. **Implemented in dev67; organizer audible review passed.** Eight organizer-selected Freesound clips are bundled with audited credits, strict assets/catalog validation, matching-client handshake and the existing Event picker/private preview. Native clients decoded all eight and verified private/live recipients; the organizer then confirmed the sounds are good. See [sources and licences](QUIET_BELOW_AUDIO_SOURCES.md), [setup guide](FINAL_DEFAULTS_GUIDE.md), and [results](FINAL_DEFAULTS_RESULTS.md). The original ordered design below remains the contract.
 
 ## Outcome and scope
 
@@ -39,7 +39,7 @@ Audio does not rewrite receipts or retry completed/uncertain Events. A pack upda
 - [x] Live manual and automatic Event paths deliver to the configured eligible audience and retain existing completion/recovery semantics. No registration, save or preview fires an Event.
 - [x] Portable scenario export/import preserves the sound ID while excluding audio bytes and local paths. Existing scenario/world data stays compatible.
 - [x] Focused asset/catalog tests, relevant Core/campaign tests and the full offline Gradle build pass. Native Event/editor checks ran sequentially in disposable worlds; see exact commands/results in `TEST_PLAN.md`.
-- [ ] A human confirms actual playback, recording quality and useful volume alongside vanilla audio. Muted automated clients cannot complete this check.
+- [x] The organizer confirmed the supplied sounds during the 4 November review. This is human acceptance, separate from the muted automated decoder checks.
 - [x] Asset preparation, supported format, attribution, packaging and client-update instructions are documented. Final audio content and map/group review remain separate from code completion.
 
-Implementation evidence is recorded in [the dev67 results](FINAL_DEFAULTS_RESULTS.md). The unchecked human playback/volume gate remains separate from muted automated decoding.
+Implementation evidence is recorded in [the dev67 results](FINAL_DEFAULTS_RESULTS.md). The later organizer acceptance completes the initial audible review; map-specific/group audibility remains part of the eventual playtest.

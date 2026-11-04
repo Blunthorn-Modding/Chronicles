@@ -43,15 +43,18 @@ final class CoreEventMenu {
     }
 
     static List<Entry> entries(MinecraftServer server) {
-        return EventRuntime.configurations(server).values().stream()
+        var entries=new ArrayList<>(EventRuntime.configurations(server).values().stream()
                 .map(configuration -> {
                     var definition = configuration.definition();
                     String summary = definition.description().isBlank() ? definition.text() : definition.description();
-                    return entry("cue:" + definition.id(), definition.label(), summary,
+                    var problem=ScenarioDefaultEvents.issue(server,definition.id());
+                    return entry("cue:" + definition.id(), (problem.isPresent()?"! ":"")+definition.label(), problem.map(p->"Needs setup: "+p).orElse(summary),
                             "CUE", definition.id(), definition.revision());
                 })
                 .sorted(Comparator.comparing(Entry::label).thenComparing(Entry::id))
-                .toList();
+                .toList());
+        for(String id:PlayRuntime.service(server).state().scenarioDrafts())entries.add(entry("cue:"+id,"! "+ScenarioDefaultEvents.label(server,id),"Needs setup: "+ScenarioDefaultEvents.issue(server,id).orElse("Review this Event's map setup."),"CUE",id,0));
+        entries.sort(Comparator.comparing(Entry::label).thenComparing(Entry::id));return List.copyOf(entries);
     }
 
     static EventEditorForm emptyForm() {
@@ -61,6 +64,7 @@ final class CoreEventMenu {
     }
 
     static EventEditorForm form(MinecraftServer server, String id) {
+        if(ScenarioDefaultEvents.draft(server,id))return templateForm(server,id);
         EventConfiguration configuration = EventRuntime.configuration(server, id);
         var definition = configuration.definition();
         Optional<io.github.chronicle.core.play.EventRegionReference> audience = definition.audienceRegion();
@@ -114,15 +118,20 @@ final class CoreEventMenu {
         controls.add(control(Action.EVENT_NEW, "Create new event", canEdit && !held(server) && room,
                 !room ? "The Event limit has been reached." : held(server) ? "Finish pending operations first." : editReason,
                 false, ""));
-        boolean templates=ScenarioEventTemplates.templates().keySet().stream().anyMatch(id->!EventRuntime.configurations(server).containsKey(id));
-        controls.add(control(Action.EVENT_TEMPLATE_NEW,"Create from scenario…",canEdit&&room&&templates,
-                !templates?"No unadopted scenario Event templates are available.":!room?"The Event limit has been reached.":editReason,false,"EVENT_TEMPLATE"));
         if (selected == null || selected.isBlank()) {
             return new Detail("", "Events", "Choose when Events run, their required flags, and their text, sound, saved Region, encounter-spawn, or flag outcomes.",
                     facts, controls, null, null, null);
         }
         String id = raw(selected);
+        if(ScenarioDefaultEvents.draft(server,id)){
+            controls.add(control(Action.EVENT_EDIT,"Edit event",canEdit&&room&&ScenarioEventTemplates.get(id).isPresent(),editReason,false,""));
+            var template=ScenarioEventTemplates.get(id);
+            if(template.isPresent()&&(!template.get().text().isBlank()||!template.get().sound().isEmpty()))controls.add(control(Action.EVENT_PREVIEW,"Preview privately",true,"",false,""));
+            controls.add(control(Action.EVENT_DELETE,"Delete event",canEdit,editReason,true,""));
+            return new Detail(selected,ScenarioDefaultEvents.label(server,id),"Needs setup: "+ScenarioDefaultEvents.issue(server,id).orElse("Review the map bindings.")+template.map(t->" "+t.description()).orElse(""),facts,controls,null,null,null);
+        }
         EventConfiguration configuration = EventRuntime.configuration(server, id);
+        var setupIssue=ScenarioDefaultEvents.issue(server,id);
         var definition = configuration.definition();
         PlayState play = PlayRuntime.service(server).state();
         EventExecution execution = play.executions().get(id);
@@ -179,10 +188,10 @@ final class CoreEventMenu {
             controls.add(control(Action.EVENT_PREVIEW, "Preview privately", true, "", false, ""));
         }
         controls.add(control(Action.EVENT_CHECK, "Check audience", true, "", false, ""));
-        controls.add(control(Action.EVENT_REVIEW, "Review run", active && !held(server) && configuration.enabled() && available,
+        controls.add(control(Action.EVENT_REVIEW, "Review run", active && !held(server) && configuration.enabled() && available && setupIssue.isEmpty(),
                 !active ? "Start play before running an Event." : held(server) ? "Resolve the current operation first."
                         : !configuration.enabled() ? "Configure this Event before running it."
-                        : !available ? "Allow the Event again after its current run is resolved." : "",
+                        : !available ? "Allow the Event again after its current run is resolved." : setupIssue.map(p->"Needs setup: "+p).orElse(""),
                 false, ""));
         if (reviewed) controls.add(control(Action.EVENT_RUN, "Run event", true, "", true, ""));
         if (configuration.enabled() && configuration.mode() != PlayState.Mode.MANUAL) {
@@ -214,6 +223,7 @@ final class CoreEventMenu {
         }
         if(execution!=null&&execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS&&encounterReview.isEmpty()&&EventRuntime.failureReason(server).isPresent())description="Encounter planning needs recovery: "+EventRuntime.failureReason(server).orElseThrow()+". No new encounter claim was made. Clear the target Region, then retry its new plan.";
         if(EventProgressRuntime.legacyReviewRequired(configuration))description+=" Review and save this timer to enable its flag-based countdown.";
+        if(setupIssue.isPresent())description="Needs setup: "+setupIssue.get()+" "+description;
         return new Detail(selected, definition.label(), description, facts, controls, null, null, null);
     }
 
@@ -283,6 +293,7 @@ final class CoreEventMenu {
 
     private static EventEditorForm.Change templateChange(MinecraftServer server,EventTemplate.RegionOutcome outcome){
         AreaChange area=AreaChanges.catalog(server).areas().get(outcome.areaId());
+        if(area==null)area=AreaChanges.forRegion(server,outcome.regionId()).orElse(null);
         if(area==null)return new EventEditorForm.Change(outcome.regionId(),outcome.regionId()+" - "+outcome.state(),outcome.state(),0,"","",false,"Saved states are missing for this scenario Region.");
         try{
             AreaState state=AreaState.valueOf(outcome.state());var snapshot=area.requireSnapshot(state);

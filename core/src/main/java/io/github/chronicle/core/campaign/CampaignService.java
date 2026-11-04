@@ -71,6 +71,17 @@ public final class CampaignService {
         commit(SessionPhase.ENDED, current.sessionNumber(), current.flags(), current.completedEvents(), actor, "session.end", "session", Map.of());
     }
 
+    /** Trusted boot initialization inserts missing scenario flags without resetting saved values. */
+    public synchronized void ensureDefaultFlags(Actor actor, Map<String, Boolean> defaults) throws IOException {
+        requireActor(actor);
+        CampaignValidation.flagMap(defaults, "default flags");
+        Map<String, Boolean> flags = new LinkedHashMap<>(current.flags());
+        defaults.forEach(flags::putIfAbsent);
+        CampaignValidation.flagMap(flags, "campaign flags");
+        if (flags.equals(current.flags())) return;
+        commit(current.phase(), current.sessionNumber(), flags, current.completedEvents(), actor, "flag.defaults", "scenario", Map.of());
+    }
+
     public synchronized void defineFlag(Actor actor, String id) throws IOException {
         requireActor(actor);
         CampaignValidation.identifier(id, "flag ID");

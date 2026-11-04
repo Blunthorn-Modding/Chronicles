@@ -16,8 +16,8 @@ final class CoreFlagMenu {
     static List<Entry> entries(net.minecraft.server.MinecraftServer server) {
         return ChronicleRuntime.service(server).state().flags().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .map(flag -> new Entry("flag:" + flag.getKey(), flag.getKey(),
-                        "Current value: " + (flag.getValue() ? "On" : "Off"), "FLAG", flag.getKey(), 0))
+                .map(flag -> {var problem=ScenarioDefaultEvents.flagIssue(server,flag.getKey());return new Entry("flag:" + flag.getKey(), (problem.isPresent()?"! ":"")+flag.getKey(),
+                        problem.map(p->"Needs setup: "+p).orElse("Current value: " + (flag.getValue() ? "On" : "Off")), "FLAG", flag.getKey(), 0);})
                 .toList();
     }
 
@@ -43,8 +43,9 @@ final class CoreFlagMenu {
         boolean live = state.phase() == SessionPhase.ACTIVE && (free||EventOccurrenceRuntime.onlyBackpressureHold(server));
         controls.add(new Control(Action.CONDITION_SET, value ? "Turn Off" : "Turn On", live,
                 live ? "" : !free ? "Finish pending operations before changing flags." : "Start or resume play to change this flag.", true, value ? "FLAG_OFF" : "FLAG_ON"));
+        var problem=ScenarioDefaultEvents.flagIssue(server,id);
         return new Detail("flag:" + id, id,
-                "Current value: " + (value ? "On" : "Off") + ". An Event requiring this flag can trigger when it is On.",
+                problem.map(p->"Needs setup: "+p+" ").orElse("")+"Current value: " + (value ? "On" : "Off") + ". An Event requiring this flag can trigger when it is On.",
                 List.of(new Fact("Flag ID", id), new Fact("Stored value", value.toString())), controls, null, null, null);
     }
 

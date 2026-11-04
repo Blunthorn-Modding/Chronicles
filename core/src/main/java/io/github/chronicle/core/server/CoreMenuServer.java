@@ -346,6 +346,7 @@ public final class CoreMenuServer {
             }
             case EVENT_CHECK,EVENT_REVIEW -> {
                 if(id.startsWith("world:")){requireAreaOperator(player);String result=AreaWorldEvents.review(player,id);if(request.action()==Action.EVENT_REVIEW){c.reviewId=id;c.reviewFrame=frame(player);c.reviewTime=System.nanoTime();}return result;}
+                if(id.startsWith("cue:")&&ScenarioDefaultEvents.draft(server,raw(id))){String reason="Needs setup: "+ScenarioDefaultEvents.issue(server,raw(id)).orElse("Review the map bindings.");if(request.action()==Action.EVENT_REVIEW)throw new IllegalStateException(reason);return reason;}
                 String result;
                 if(id.startsWith("cue:")){var review=EventRuntime.review(server,raw(id));result=review.description();if(request.action()==Action.EVENT_REVIEW)c.eventReview=review;}
                 else {result=ChronicleRuntime.service(server).preview(raw(id));if(!result.equals("Ready."))throw new IllegalStateException(result);if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the active operation hold first.");}
@@ -369,7 +370,7 @@ public final class CoreMenuServer {
             }
             case EVENT_DRAFT_PREVIEW -> {var form=EventEditorJson.decode(arg);try{EventRuntime.previewMedia(player,form);return "Draft message and sound previewed only to you. Nothing was saved or completed.";}finally{c.selected=c.eventSelection;}}
             case EVENT_SHOW_BOUNDS -> {try{EventRuntime.showBounds(player,id,arg);return "Private saved-state bounds shown. No Region state was applied.";}finally{c.selected=c.eventSelection;}}
-            case EVENT_DELETE -> {String eventId=raw(id);var expected=EventRuntime.stored(server,eventId);if(expected==null)throw new IllegalStateException("Only a custom Event can be deleted.");EventRuntime.delete(player,eventId,expected);c.selected="";c.eventEditor=null;c.expectedEvent=null;return "Custom Event deleted. Immutable execution history is retained.";}
+            case EVENT_DELETE -> {String eventId=raw(id);if(ScenarioDefaultEvents.draft(server,eventId))EventRuntime.discardDraft(player,eventId);else{var expected=EventRuntime.stored(server,eventId);if(expected==null)throw new IllegalStateException("Only a custom Event can be deleted.");EventRuntime.delete(player,eventId,expected);}c.selected="";c.eventEditor=null;c.expectedEvent=null;return "Event deleted. Saved progress and immutable execution history are retained.";}
             case EVENT_SAVE -> {throw new IllegalStateException("Open Edit event to change this Event's complete definition and trigger.");}
             case EVENT_DISABLE_AUTO -> {EventRuntime.disableAutomatic(player,raw(id));return "Automatic triggering disabled. Manual review remains available.";}
             case EVENT_REMOVE -> {EventRuntime.removeConfiguration(player,raw(id));return "Event configuration removed. Its definition and completion history remain.";}

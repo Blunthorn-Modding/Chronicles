@@ -15,6 +15,11 @@ class QuietBelowFinalDefaultsTest {
         content.events().values().forEach(event -> assertFalse(event.enabled()));
         assertEquals(EventOccurrencePolicy.ONCE_PER_ACTOR, content.events().get("quiet_below:altar_offering").occurrencePolicy());
         assertEquals(EventOccurrencePolicy.PER_SOURCE_OCCURRENCE, content.events().get("quiet_below:sculk_growth").occurrencePolicy());
+        assertEquals(java.util.Map.of("quiet_below:sinkholes_opened", false, "quiet_below:sculk_awakened", false, "quiet_below:city_discovered", false, "quiet_below:heart_destroyed", false), content.flags());
+        for (var pair : java.util.Map.of("sinkhole_opening", "sinkholes_opened", "sculk_awakening", "sculk_awakened", "city_discovery", "city_discovered", "heart_destroyed", "heart_destroyed").entrySet())
+            assertEquals(java.util.Map.of("quiet_below:" + pair.getValue(), true), content.events().get("quiet_below:" + pair.getKey()).flagOutcomes());
+        assertEquals(java.util.List.of("quiet_below:sinkholes_opened"), content.events().get("quiet_below:sculk_awakening").requiredFlags());
+        assertEquals(java.util.List.of(new io.github.chronicle.core.scenario.EventTemplate.RegionOutcome("quiet_below:sinkhole", "quiet_below:sinkhole", "END")), content.events().get("quiet_below:sinkhole_opening").regionOutcomes());
         var city = content.lootTables().get("quiet_below:ancient_city"); assertEquals(28, city.entries().size());
         assertTrue(city.entries().stream().noneMatch(entry -> entry.item().equals("minecraft:enchanted_book")));
         assertTrue(city.entries().stream().anyMatch(entry -> entry.item().equals("minecraft:book")));

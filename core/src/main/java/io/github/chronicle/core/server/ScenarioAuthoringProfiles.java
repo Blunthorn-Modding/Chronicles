@@ -37,11 +37,12 @@ public final class ScenarioAuthoringProfiles {
                 if(current==null){if(Files.exists(chronicleConfig().resolve("profile-content"),LinkOption.NOFOLLOW_LINKS))throw new IOException("This configuration contains custom scenario catalogs but its profile is missing.");return;}
                 if(!server.isDedicated())throw new IOException("Custom authoring profiles require a separate dedicated server and configuration.");
                 ScenarioContentRuntime.requireCompatibleMechanics(current.mechanics());
-                if(!ChronicleCore.books().books().isEmpty()||!ChronicleCore.chestTypes().types().isEmpty()||!ChronicleCore.playerRoles().roles().isEmpty()||!ChronicleCore.observations().definitions().isEmpty()||!ScenarioEventTemplates.templates().isEmpty())throw new IOException("An installed scenario registered reusable defaults despite custom profile mode. Its mechanics need profile support before using this setup.");
+                if(!ChronicleCore.books().books().isEmpty()||!ChronicleCore.chestTypes().types().isEmpty()||!ChronicleCore.playerRoles().roles().isEmpty()||!ChronicleCore.observations().definitions().isEmpty()||!ScenarioEventTemplates.templates().isEmpty()||!ScenarioEventTemplates.flags().isEmpty())throw new IOException("An installed scenario registered reusable defaults despite custom profile mode. Its mechanics need profile support before using this setup.");
                 new ScenarioProfileContentStore(chronicleConfig()).initialize(current);
                 ScenarioProfileContentStore.bindWorld(world,current);
                 current.content().roles().values().forEach(ChronicleCore.playerRoles()::register);
                 Encounters.registerDefaults(current.content().encounterGroups().values());
+                ScenarioEventTemplates.registerFlags(current.content().flags());
                 current.content().events().values().forEach(ScenarioEventTemplates::register);
                 ChronicleCore.LOGGER.info("Custom scenario profile ready: {} ({}) with installed mechanics {}",current.title(),current.content().scenarioId(),current.mechanics());
             }catch(IOException|RuntimeException error){throw new IllegalStateException("Custom scenario startup refused; existing world/configuration was preserved.",error);}

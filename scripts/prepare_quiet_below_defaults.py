@@ -156,7 +156,7 @@ def source(kind,target,activity=''):return {'type':kind,'target':target,'activit
 
 def events():
     sound=lambda name:'quiet_below:event.'+name
-    return [
+    result = [
         event('sinkhole_opening','Sinkhole Opening','The Earth quakes beneath your feet and you feel the entire island shift',sound('sinkhole_opening'),'TIMER',delay=36000,description='Enable before first play. Add the map sinkhole Region End-state actions; GM manual start remains available.'),
         event('sculk_awakening','Sculk Awakening','Something has awakened…..',sound('sculk_awakening'),source=source('chronicle_core:event_completed','quiet_below:sinkhole_opening'),delay=18000,description='Fifteen occupied active minutes after Sinkhole Opening completes.'),
         event('whisper_from_below','Whisper from Below','Something is whispering in the dark below….',sound('whisper_from_below'),'MANUAL',description='Optional GM nudge when needed.'),
@@ -167,11 +167,17 @@ def events():
         event('heart_destroyed','Heart Destroyed','Something vast ends…',sound('heart_destroyed'),source=source('quiet_below:heart_destroyed','network'),description='Durable Heart destruction; a GM may also deliberately run this before ending play.'),
         event('first_warden','First Warden spawned','An ancient creature rises from the ground…','minecraft:entity.warden.emerge',source=source('chronicle_core:entity_spawned','minecraft:warden'),description='First actual Warden spawn during active occupied play; loading a saved Warden is not a new spawn.'),
     ]
+    by_id = {item['id']: item for item in result}
+    for event_id, flag_id in [('sinkhole_opening', 'sinkholes_opened'), ('sculk_awakening', 'sculk_awakened'), ('city_discovery', 'city_discovered'), ('heart_destroyed', 'heart_destroyed')]:
+        by_id['quiet_below:' + event_id]['flagOutcomes']['quiet_below:' + flag_id] = True
+    by_id['quiet_below:sculk_awakening']['requiredFlags'] = ['quiet_below:sinkholes_opened']
+    by_id['quiet_below:sinkhole_opening']['regionOutcomes'] = [{'regionId':'quiet_below:sinkhole','areaId':'quiet_below:sinkhole','state':'END'}]
+    return result
 
 
 def generate(document,server):
     values=paragraphs(document);loot,digest=loot_tables(server)
-    content={'schemaVersion':3,'scenarioId':'quiet_below:scenario','rolesYaml':role_yaml(),'books':books(values),'lootTables':loot,'events':events(),'encounterGroups':[]}
+    content={'schemaVersion':4,'scenarioId':'quiet_below:scenario','rolesYaml':role_yaml(),'books':books(values),'lootTables':loot,'events':events(),'encounterGroups':[],'flags':{f'quiet_below:{name}':False for name in ['sinkholes_opened','sculk_awakened','city_discovered','heart_destroyed']}}
     return content,{'sourceSha256':SOURCE_SHA,'vanillaAncientCitySha256':digest,'books':len(content['books']),'roles':len(ROLES),'events':len(content['events']),'lootTables':len(loot)}
 
 
