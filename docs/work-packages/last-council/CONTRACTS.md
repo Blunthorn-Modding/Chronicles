@@ -4,6 +4,8 @@ Source: [The Last Council brief](../../THE_LAST_COUNCIL_EVENT_BRIEF.md), revisio
 
 The user's later [card/randomizer and Event-flow clarification](FRAMEWORK_INTEGRATION.md) takes precedence over fixed-cast assumptions: use existing cards, interconnected randomized book content and Event-led gatherings, followed by manual GM procedure. Chancellor and GM are the same authority.
 
+Further feedback: secret knowledge is a random subset with no coverage guarantee or owner-visible exposure count. Reuse genuine mechanics where appropriate; shared UI/helper code is not an existing gameplay mechanic. Complications belong in Events, banquet is new scenario gameplay, and treaties start as a Last Council feature rather than a mandatory generic Core agreement framework. [LC-10](LC-10-room-voice.md) investigates room audio separately from palace access.
+
 ## Library versus scenario
 
 | Area | Chronicle Core | The Last Council |
@@ -11,17 +13,18 @@ The user's later [card/randomizer and Event-flow clarification](FRAMEWORK_INTEGR
 | Characters | Existing roles/cards, assignment, starting gear/private lore; new optional pools, draw/template binding and stable delivery | Pool content and house/fact/goal/knowledge relationships; thin political metadata linked to existing cards |
 | Voting | Opt-in ballot lifecycle, immutable electorate snapshots, counting, private/public projections and durable receipts | Which houses may vote, Council agenda, thresholds by motion type, one succession ballot per meeting |
 | Succession | No monarchy or candidate-elimination assumptions | Slate lock, elimination, recorded tied-last draw, confirmation, crown/vacancy/unresolved outcomes |
-| Agreements | Opt-in document revisions, scoped visibility, explicit party consent, signing/breach history | Treaty categories, realm ratification and political consequences |
+| Treaties | No existing agreement mechanic; shared implementation utilities only where they help | New terms/party/signature/status/history workflow and political consequences; extract a Core service only when justified |
 | Conflict | Existing audit/recovery/notification primitives | Houses, foreign counterparts, conflict sides, civil-war classification, rebellion/reinstatement |
 | Map access | Opt-in server-authoritative Region access policy with safe destinations and bounded recovery | Palace restrictions derived from house standing and supervised visit exceptions |
+| Room audio | Existing Region geometry; optional new Simple Voice Chat integration after an acoustics prototype | Palace/private-room configuration; independent of guards, house status and ordinary participation |
 | Banquet | Reuse existing item, clock and effect helpers where suitable | Drink/poison/antidote items, information boundaries and illness rules; no generic thirst engine |
 | Events/content | Existing Event execution, flags, source receipts, books and scenario export | Council-call occurrences, host-directed meeting/agenda flow, complications and replayable content pools |
 
 Intended new content module: `campaigns/last-council`, mod ID `last_council`, depending on `chronicle_core`, Fabric API and the supported game/loader. It must not depend on or import `quiet_below`. Add only this demonstrated campaign, not empty modules for every possible format.
 
-Core ballots and agreements use opaque stable party/elector IDs with server-owned authorization. The scenario maps a player to the current house; a client-supplied house ID is not authority. There is no need to introduce a second character/group/faction engine just to model eight houses.
+Core ballots and Last Council treaty operations use stable party/elector IDs with server-owned authorization. The scenario maps a player to the current house; a client-supplied house ID is not authority. There is no need to introduce a second character/group/faction engine just to model eight houses.
 
-The existing public card contains name/pronouns/description; it is not a private dossier. Keep secrets in privately delivered books/bundles. Current roles have fixed book-ID lists; optional pool assignments and per-draw rendering require explicit Core schema/delivery extensions that preserve those fixed assignments. Generate facts first, then knowledge links to those facts. Persist committed draw state in the world, keep reusable pool definitions in mod/server content, and exclude live selections/seeds from exports.
+The existing public card contains name/pronouns/description; it is not a private dossier. Keep secrets in privately delivered books/bundles. Current roles have fixed book-ID lists; optional pool assignments and per-draw rendering require explicit Core schema/delivery extensions that preserve those fixed assignments. Generate facts first, then independently roll knowledge links: zero, one or several other houses may know a secret, without telling its owner. Persist committed draw state in the world, keep reusable pool definitions in mod/server content, and exclude live selections/seeds from exports.
 
 ## Existing extension points
 
@@ -31,6 +34,8 @@ The existing public card contains name/pronouns/description; it is not a private
 - `EventSources.registerProvider/registerAuthority`: expose **completed** political operations as source receipts. Opening a menu, retrying a completed request or previewing a complication does not produce another source.
 - `ScenarioContentRuntime.registerScenario`, `ScenarioProfile` and export: package content without copying player data, vote choices or political progress into defaults.
 - `CoreMenuScreen`, shared picker/popups and existing confirmation patterns: reuse controls and authority checks while keeping a dedicated participant Council surface separate from the operator editor.
+
+The last item concerns shared UI implementation only. Confirmation widgets and the ordinary participant flag do not implement treaties or rebellion. A rebel stays an ordinary participant; their political rights are new Last Council state. Complications use Events; a physical book letter uses Books & Lore only when that item presentation is wanted, and Event-driven book delivery would need an explicit new action.
 
 Council gatherings begin with configured Event text/sound; the GM then opens a meeting, chooses motions and opens/closes votes one by one. No separate Chancellor player/delegation mechanism is needed. Repeated calls use authorized source receipts and the existing recurring-media path, whose current constraints exclude repeated terrain/flag changes and delays. Do not reset Event completion history or add a competing sound scheduler to ring the bell again.
 

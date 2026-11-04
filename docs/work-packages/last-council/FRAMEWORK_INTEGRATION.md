@@ -4,6 +4,8 @@ User clarifications, 4 November 2026. These amend the implementation interpretat
 
 This remains a design/implementation plan. No randomizer, Council controls or political mechanics have been implemented yet.
 
+Further clarification on 4 November: cross-house secret exposure is independently random, with no requirement that every secret be known by someone else. Reuse refers to genuinely shared workflows or services, not a reason to describe every new mechanic as an existing feature. Room acoustics through Simple Voice Chat is a new shared integration to investigate in [LC-10](LC-10-room-voice.md).
+
 ## Character cards and randomized lore
 
 Keep Core's existing character card as the public character surface and Player Roles for assignment, starting gear and destinations where needed. Add reusable assignment pools to the existing book/role workflow, supporting card-bound handout delivery when no role is assigned. Do not require an organizer to fill out a second house dossier, create a separate role solely to hold each randomized house, or maintain another character catalogue.
@@ -17,10 +19,10 @@ Proposed preparation flow:
 1. Select the participating characters through the existing assignment tools. Keep stable assignment/house identifiers behind the cards for political authority.
 2. Draw compatible public house information and facts/secrets for those assignments.
 3. Draw goals against the actual participating houses and configured political options. Opposing goals between players are desirable; validation checks that a target/mechanic exists, not that everyone can win together.
-4. Draw knowledge links to **facts already assigned to another house**. Resolve names/references from that same draw. By default, an entry described as knowledge of a secret is true of its target; deliberately uncertain rumors must be authored as such.
+4. Independently roll whether other eligible houses learn each secret, using configurable chances. **Zero, one or several other houses may know it.** Do not impose full secret coverage, reciprocal knowledge, or minimum book quotas that indirectly force someone to know every secret. Successful knowledge draws refer to facts actually assigned to their targets; deliberately uncertain rumors must be authored as such.
 5. Build each character's private book bundle from existing Books & Lore templates and the resolved bindings. Review the entire draft as GM, then commit and privately deliver through the existing starting-lore/inventory operation.
 
-Example: House Blackwood receives the fact "has been smuggling royal silver." Another house receives "Your contact saw Blackwood agents moving royal silver." That knowledge book refers to the same stored fact. A different cast draw may assign the fact and observer to different houses.
+Example: House Blackwood receives the fact "has been smuggling royal silver." Independent knowledge rolls may tell no other house, one house or several. Anyone who does learn it receives text referring to that same stored fact. Blackwood receives no indication of whether anyone knows, who knows or how many know. A different cast draw may assign different facts and observers.
 
 The shared Core part manages pools/templates, explicit variable bindings, draw identity, rendering limits, review/commit and durable book delivery. Last Council supplies the fact/goal/knowledge vocabulary, pool content and political compatibility rules. Prefer bounded selection with a scenario validation hook over a new universal rule language.
 
@@ -56,13 +58,17 @@ Use the existing GM/operator authority for Chancellor controls. No separate role
 | Meeting alarm and announcements | Event editor, text/sound executor, occurrence receipts | Last Council's authorized call source and meeting reference; no second cue engine |
 | Agenda and votes | Core session authority, active clock, shared forms/pickers, recovery patterns | Optional Core ballot service; Last Council motions, sponsorship and GM sequencing |
 | Ruler election | The same ballot service and meeting records | Last Council's candidate lock, majority/elimination rules and recorded draw; no automatic immediate runoff |
-| Treaties | Shared document/book display, confirmation UI and audit/recovery patterns | Optional Core revision/consent primitives; Last Council treaty types, signatures and ratification rules |
+| Treaties | No existing treaty mechanic; ordinary shared UI/storage code only where it fits | New Last Council agreement workflow: terms, parties, explicit signatures, active/broken status and permitted history; no generic Core agreement framework required upfront |
 | House/civil/foreign wars | Ballot outcomes, treaty records and existing Event/flag notifications | Last Council political conflict state; no combat, troops or economic simulation |
-| Rebellion and reinstatement | Existing confirmations, player participation, Regions/Points and formal vote outcomes | Last Council rights changes plus optional Core guarded-Region enforcement; rebels remain players |
+| Rebellion and reinstatement | Existing Region geometry and, once implemented, ballot outcomes | New Last Council political rights/standing and Core guarded-Region enforcement. A confirmation is just UI; ordinary participation tracking is not the rebellion system |
 | Palace setup | Current Region selection, subtypes and safe Point binding | Guarded access subtype/policy, not a separate area registry or map-authoring workflow |
-| Drinks, poison and antidote | Existing starting gear/chest loot, vanilla items/effects and Core pause/clock rules | Last Council's optional consumption/contamination/delayed illness logic; no thirst or separate stock manager |
-| Complications and private letters | Events, flags, Books & Lore, existing delivery and loot tools | Last Council content and links to completed political operations |
+| Room acoustics | Existing Regions plus Simple Voice Chat's documented APIs; evaluate Sound Physics Remastered first | New optional shared room-voice integration if existing physical acoustics is insufficient; decide hard isolation versus audible muffling after a prototype |
+| Drinks, poison and antidote | No existing banquet mechanic; vanilla item/effect facilities and Core pause/clock behavior are implementation foundations | New Last Council drinks, contamination, delayed illness and antidote interactions. Starting gear and chest loot are not dependencies of the banquet |
+| Complications | Existing Events with text/sound/flags | Author crises as Events; add a specific political action only when required and reviewed |
+| Letters | Event text for a narrative message; Books & Lore only when an actual book item is wanted | A letter is content of a complication/communication, not a separate mechanics category. Event-driven physical book delivery would require a new explicit action; it does not exist today |
 | Political history and ending | Durable operation records, existing notices/text presentation | Last Council aggregate view of laws, treaties/conflicts and crown state, with permitted visibility |
 | Authoring and portability | Existing editor, separate authoring profile, export/import and world-bound map setup | Explicit support for new reusable pools/rules; no duplicate editor or export of live secrets/ballots |
 
 Typed political actions such as signing a treaty or closing a ballot go through their own consent/validation. Existing Events can observe committed outcomes and update flags or deliver cues; they do not become a way to force signatures, disclose secret choices or overwrite political results.
+
+For treaties, the proposed player experience is concrete: House A writes a non-aggression proposal naming House B; B reads the exact terms and signs; it becomes active only when all named parties accept. Either party can later break it, leaving a record. It does not force votes or automatically enlist allies. This is a new Last Council feature with a reviewed treaty interface, not Books & Lore repurposed as a treaty engine.

@@ -8,6 +8,8 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 
 **Clarified direction:** use existing character cards with randomized, connected lore/goal/house-information pools. Existing Events call the Council; the **Chancellor is the GM** and manually sequences discussion and votes, ending with succession when relevant. See [the clarified framework integration](FRAMEWORK_INTEGRATION.md), which supersedes fixed-cast assumptions from the original interpretation without editing the brief.
 
+**Further clarification:** secrets may be known by zero, one or several other houses; the owner gets no indication of exposure. Complications are Events; banquet and treaties are new scenario mechanics, not starting-gear/book systems. Shared UI utilities are not gameplay reuse. Room voice/acoustics has its own LC-10 investigation, with existing mod support evaluated before custom routing.
+
 ## Package order and dependencies
 
 | Package | Deliverable | Depends on | Status |
@@ -15,14 +17,17 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 | [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | Planned; split into foundation and draw slices |
 | [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | Planned; UI design review required |
 | [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | Planned |
-| [LC-04](LC-04-treaties.md) | Optional Core agreements; treaties, consent and visibility | LC-01A; LC-02 for realm ratification | Planned; UI design review required |
+| [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Planned; gameplay/UI flow review required |
 | [LC-05](LC-05-conflicts.md) | House/civil/external wars and political settlements | LC-02, LC-04 | Planned |
 | [LC-06](LC-06-rebellion-access.md) | Optional guarded Regions; rebellion and formal reinstatement | LC-01, LC-02, LC-03; LC-04/05 integration | Planned; confirmation/access review required |
 | [LC-07](LC-07-banquet.md) | Optional drinks, delayed illness and antidote | LC-01, existing Core clocks/items | Planned; can progress independently of LC-03/04/05 |
 | [LC-08](LC-08-content-events.md) | Replayable content pools, host complications and Event/flag sources | LC-01B/C for draws; integrate each delivered political operation | Planned; content review required |
-| [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08; LC-07 when enabled | Planned |
+| [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08, chosen LC-10 voice behavior; LC-07 when enabled | Planned |
+| [LC-10](LC-10-room-voice.md) | Shared room-voice/acoustics investigation using Regions and Simple Voice Chat | Existing Regions/voice setup | Investigate early; implementation choice needs prototype review |
 
 The political critical path is LC-01A → LC-02 → LC-03, then settlement/access integration and LC-09. LC-01B/C add the randomizer and Last Council bindings; they must be complete before randomized handout delivery/content review, but need not block the ballot-domain work. Treaties and banquet work need not wait for succession. Packages describe coherent deliverables, not instructions to implement everything concurrently.
+
+LC-10 can be investigated early and independently. Its later ID does not mean room acoustics waits until after release. Reuse existing physical-acoustics support if it satisfies the map; build custom Region routing/filtering only after reviewing the demonstrated gap.
 
 ## What is already available
 
@@ -52,5 +57,6 @@ Keep builds/native clients serialized where they share class directories or test
 - **LC-06:** define the narrow supervised-visit exception and the separate crowned-ruler abdication/deposition procedure before exposing those controls.
 - **LC-07:** review dose counts, onset/duration, symptoms and antidote strength; the brief deliberately leaves those numbers open. Banquet poisoning remains optional.
 - **LC-01B/LC-08:** review pool content, draw quantities, repetition policies and compatibility rules for replayable characters. Cross-house knowledge must resolve to the same draw's assigned facts. The brief's fixed eight-house example is illustrative, not final canon.
+- **LC-10:** compare natural wall/door attenuation with hard room privacy or boundary muffling. Automatic group membership is a possible implementation, not a substitute for choosing and testing the acoustic behavior.
 
 These are tracked design decisions, not reasons to delay the work-package tree or invent new rules now. The source brief remains authoritative where it already gives an answer.

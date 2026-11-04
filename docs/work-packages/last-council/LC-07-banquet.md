@@ -6,6 +6,8 @@ Status: planned, optional mechanic. Depends on LC-01 and existing Core item/cloc
 
 Last Council supplies drinks consumable at full hunger, limited poison doses, delayed non-lethal symptoms and antidote. Reuse suitable Core mechanisms; do not build a compulsory thirst/survival system or expose poison status to uninformed players.
 
+This is a new gameplay mechanic, independent of Player Roles, starting gear and loot tables. Those may optionally place supplies on an authored map, but are not its implementation or prerequisites. The relevant existing foundations are vanilla item/effect APIs and the framework's pause/active-clock behavior.
+
 ## Work
 
 1. Review symptom/delay/duration/stock/antidote settings and die/reconnect semantics before implementing effects. Poisoned and ordinary drinks have identical normal appearance, labels and tooltips.

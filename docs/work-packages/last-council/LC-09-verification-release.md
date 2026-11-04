@@ -1,6 +1,6 @@
 # LC-09 — Integrated rehearsal, map gates and release
 
-Status: planned. Depends on LC-01–06/08 and LC-07 if enabled. Brief: §§11–16.
+Status: planned. Depends on LC-01–06/08, the chosen LC-10 voice behavior, and LC-07 if enabled. Brief: §§11–16 plus the user's room-acoustics clarification.
 
 ## Outcome
 
@@ -9,12 +9,13 @@ Deliver a coherent one-evening political campaign with recoverable procedures an
 ## Work and evidence
 
 1. Add a reusable `scripts/last_council_smoke.py` native runner with explicit named suites, bounded disposable worlds, real player/GM packets and compact reports. This runner is planned, not currently available.
-   Include randomized card-bound handout generation, consistent cross-house knowledge and restart-safe private delivery, preserving old fixed assignments.
+   Include randomized card-bound handout generation, zero/one/multiple secret observers with no owner exposure marker, consistent actual knowledge and restart-safe private delivery, preserving old fixed assignments.
 2. Drive the brief's §14 scenarios through real interfaces: sponsorship/agenda, public and secret votes, changing a vote, later-meeting succession, treaties, house/civil/foreign wars, rebellion/exile and formal reinstatement.
    Start gatherings through existing Event text/sound, test repeated calls with distinct receipts, and let the same GM/Chancellor sequence small motions before an optional ruler vote. No separate delegated Chancellor role or automated escalation.
 3. Include two or more native ordinary players and a GM; add forged/stale request, disconnect, open-ballot restart, interrupted outcome, duplicate close/draw/signature and missing map binding checks. A secret-vote leak or changed closed tally blocks delivery.
 4. Verify map/profile/export portability and Core-only/Quiet Below-only/Last Council-only/deliberate dual-mod isolation. Run relevant existing Core and Quiet Below regressions when shared services change.
 5. Rehearse on the author's palace map with6–12 people: simultaneous proximity conversations, access paths, restrained UI/status messaging, understandable voting and meaningful rebel play. Sample counts are adjustable; tests must not hard-code8 as the only playable size.
+   Include LC-10's selected room behavior, adjacent rooms, outside/inside audibility and door state where applicable; access permission and audio policy remain independent.
 6. Profile representative operation/UI/history loads. Use a long soak only for a demonstrated capacity/recovery risk; do not automatically create another three-hour run or preserve large worlds/profilers.
 7. Review the ending report: enacted laws, permitted treaty/conflict history, rebellions and crowned/vacant/unresolved succession. Never invent a military winner or reveal private ballots.
 8. Choose separate new release versions/dependencies, license/asset notices and Modrinth metadata. Keep original alpha artifacts/checksums intact; publication requires its own confirmed ownership/upload path.

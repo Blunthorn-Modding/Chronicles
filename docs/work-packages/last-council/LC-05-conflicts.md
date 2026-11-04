@@ -4,7 +4,7 @@ Status: planned. Depends on LC-02 and LC-04. Brief: §§5.4, 8.1–8.3, 10–12,
 
 ## Outcome and ownership
 
-Last Council tracks house wars, sides, civil-war classification and realm-level foreign diplomacy. Core contributes only existing ballot/agreement, audit, source-receipt and notification services. There is no military simulation.
+Last Council tracks house wars, sides, civil-war classification and realm-level foreign diplomacy, using its treaty records from LC-04 and the planned Core ballots from LC-02. Existing audit/source/notification infrastructure can support implementation; it is not an existing political-conflict mechanic. There is no military simulation.
 
 ## Work
 

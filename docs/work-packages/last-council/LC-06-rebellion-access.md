@@ -6,6 +6,8 @@ Status: planned. Depends on LC-01/02/03; integrate LC-04/05. Brief: §§3, 5.3, 
 
 Core gains an optional guarded-Region access policy with a safe exit Point and server-authoritative movement handling. Last Council supplies the palace eligibility policy and political rebellion/reinstatement operations. Use existing Region subtypes and Point pickers, not another Areas/Locations registry.
 
+Rebellion itself is new Last Council political state. Core's ordinary participant tracking is not used to represent it: a rebel remains a participant throughout. A confirmation dialog is just a UI safeguard, not a reused rebellion mechanic. Room audio from LC-10 is an independent Region capability, not a consequence of palace permission or Council status.
+
 ## Work
 
 1. Design/review declare/join rebellion confirmations that explicitly list loss of seat, proposals/sponsorship, candidacy and palace access. One house is enough to found a rebellion; multiple rebellions have stable identities.
