@@ -2,22 +2,26 @@
 
 Source: [The Last Council brief](../../THE_LAST_COUNCIL_EVENT_BRIEF.md), revision 1.1. These are implementation boundaries and test obligations, not additional story rules.
 
+The user's later [card/randomizer and Event-flow clarification](FRAMEWORK_INTEGRATION.md) takes precedence over fixed-cast assumptions: use existing cards, interconnected randomized book content and Event-led gatherings, followed by manual GM procedure. Chancellor and GM are the same authority.
+
 ## Library versus scenario
 
 | Area | Chronicle Core | The Last Council |
 |---|---|---|
-| Characters | Existing roles/cards, assignment, starting gear and private lore delivery | House definitions and role-to-house links; ambitions remain existing role/lore content |
+| Characters | Existing roles/cards, assignment, starting gear/private lore; new optional pools, draw/template binding and stable delivery | Pool content and house/fact/goal/knowledge relationships; thin political metadata linked to existing cards |
 | Voting | Opt-in ballot lifecycle, immutable electorate snapshots, counting, private/public projections and durable receipts | Which houses may vote, Council agenda, thresholds by motion type, one succession ballot per meeting |
 | Succession | No monarchy or candidate-elimination assumptions | Slate lock, elimination, recorded tied-last draw, confirmation, crown/vacancy/unresolved outcomes |
 | Agreements | Opt-in document revisions, scoped visibility, explicit party consent, signing/breach history | Treaty categories, realm ratification and political consequences |
 | Conflict | Existing audit/recovery/notification primitives | Houses, foreign counterparts, conflict sides, civil-war classification, rebellion/reinstatement |
 | Map access | Opt-in server-authoritative Region access policy with safe destinations and bounded recovery | Palace restrictions derived from house standing and supervised visit exceptions |
 | Banquet | Reuse existing item, clock and effect helpers where suitable | Drink/poison/antidote items, information boundaries and illness rules; no generic thirst engine |
-| Events/content | Existing Event execution, flags, source receipts, books and scenario export | Complications, political-operation source providers and default content |
+| Events/content | Existing Event execution, flags, source receipts, books and scenario export | Council-call occurrences, host-directed meeting/agenda flow, complications and replayable content pools |
 
 Intended new content module: `campaigns/last-council`, mod ID `last_council`, depending on `chronicle_core`, Fabric API and the supported game/loader. It must not depend on or import `quiet_below`. Add only this demonstrated campaign, not empty modules for every possible format.
 
 Core ballots and agreements use opaque stable party/elector IDs with server-owned authorization. The scenario maps a player to the current house; a client-supplied house ID is not authority. There is no need to introduce a second character/group/faction engine just to model eight houses.
+
+The existing public card contains name/pronouns/description; it is not a private dossier. Keep secrets in privately delivered books/bundles. Current roles have fixed book-ID lists; optional pool assignments and per-draw rendering require explicit Core schema/delivery extensions that preserve those fixed assignments. Generate facts first, then knowledge links to those facts. Persist committed draw state in the world, keep reusable pool definitions in mod/server content, and exclude live selections/seeds from exports.
 
 ## Existing extension points
 
@@ -27,6 +31,8 @@ Core ballots and agreements use opaque stable party/elector IDs with server-owne
 - `EventSources.registerProvider/registerAuthority`: expose **completed** political operations as source receipts. Opening a menu, retrying a completed request or previewing a complication does not produce another source.
 - `ScenarioContentRuntime.registerScenario`, `ScenarioProfile` and export: package content without copying player data, vote choices or political progress into defaults.
 - `CoreMenuScreen`, shared picker/popups and existing confirmation patterns: reuse controls and authority checks while keeping a dedicated participant Council surface separate from the operator editor.
+
+Council gatherings begin with configured Event text/sound; the GM then opens a meeting, chooses motions and opens/closes votes one by one. No separate Chancellor player/delegation mechanism is needed. Repeated calls use authorized source receipts and the existing recurring-media path, whose current constraints exclude repeated terrain/flag changes and delays. Do not reset Event completion history or add a competing sound scheduler to ring the bell again.
 
 These APIs need focused integration work; their existence does not mean ballots, treaties or palace exclusion are already implemented. The current root `build.gradle` explicitly configures two modules, so adding Last Council also requires extending that shared build configuration.
 
@@ -62,7 +68,7 @@ Private treaty terms are visible to signatories and the GM; secret ballot choice
 
 ## State, release and scope
 
-World: house membership/standing, meetings, motions, ballots, signatures/conflicts, source receipts, live illness and map bindings. Defaults/configuration: reusable houses/settings/content using existing scenario mechanisms; extend that schema deliberately only for genuinely portable political defaults. Never move unrelated Quiet Below configuration.
+World: committed randomized character/knowledge bundles and their seed, house membership/standing, meetings, motions, ballots, signatures/conflicts, source receipts, live illness and map bindings. Defaults/configuration: reusable pools/templates/settings/content using existing scenario mechanisms; extend that schema deliberately for portable pool/political defaults, preserving old fixed-role book lists. Never move unrelated Quiet Below configuration.
 
 Selecting installed scenario mechanics needs explicit isolation tests: Core alone; Core+Quiet Below; Core+Last Council; both content mods with a deliberate profile selection. If no unambiguous scenario is selected, refuse setup clearly rather than mixing both sets of defaults.
 

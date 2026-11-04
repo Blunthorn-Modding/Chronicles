@@ -6,27 +6,29 @@ Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, base
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 
+**Clarified direction:** use existing character cards with randomized, connected lore/goal/house-information pools. Existing Events call the Council; the **Chancellor is the GM** and manually sequences discussion and votes, ending with succession when relevant. See [the clarified framework integration](FRAMEWORK_INTEGRATION.md), which supersedes fixed-cast assumptions from the original interpretation without editing the brief.
+
 ## Package order and dependencies
 
 | Package | Deliverable | Depends on | Status |
 |---|---|---|---|
-| [LC-01](LC-01-foundation.md) | Scenario isolation, house roster and character links | Existing Core | Planned; first implementation slice |
-| [LC-02](LC-02-council-ballots.md) | Optional Core ballots; Council meetings, motions and private/public voting | LC-01 | Planned; UI design review required |
+| [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | Planned; split into foundation and draw slices |
+| [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | Planned; UI design review required |
 | [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | Planned |
-| [LC-04](LC-04-treaties.md) | Optional Core agreements; treaties, consent and visibility | LC-01; LC-02 for realm ratification | Planned; UI design review required |
+| [LC-04](LC-04-treaties.md) | Optional Core agreements; treaties, consent and visibility | LC-01A; LC-02 for realm ratification | Planned; UI design review required |
 | [LC-05](LC-05-conflicts.md) | House/civil/external wars and political settlements | LC-02, LC-04 | Planned |
 | [LC-06](LC-06-rebellion-access.md) | Optional guarded Regions; rebellion and formal reinstatement | LC-01, LC-02, LC-03; LC-04/05 integration | Planned; confirmation/access review required |
 | [LC-07](LC-07-banquet.md) | Optional drinks, delayed illness and antidote | LC-01, existing Core clocks/items | Planned; can progress independently of LC-03/04/05 |
-| [LC-08](LC-08-content-events.md) | Starting content, host complications and Event/flag sources | LC-01 onward; integrate each delivered political operation | Planned; content review required |
+| [LC-08](LC-08-content-events.md) | Replayable content pools, host complications and Event/flag sources | LC-01B/C for draws; integrate each delivered political operation | Planned; content review required |
 | [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08; LC-07 when enabled | Planned |
 
-The critical path is LC-01 → LC-02 → LC-03, then political settlement/access integration and LC-09. Treaties and banquet work need not wait for succession. Packages describe coherent deliverables, not instructions to implement everything concurrently.
+The political critical path is LC-01A → LC-02 → LC-03, then settlement/access integration and LC-09. LC-01B/C add the randomizer and Last Council bindings; they must be complete before randomized handout delivery/content review, but need not block the ballot-domain work. Treaties and banquet work need not wait for succession. Packages describe coherent deliverables, not instructions to implement everything concurrently.
 
 ## What is already available
 
 Reuse Core's Player Roles, private role-issued books, character cards, Regions/Points/Block sites, shared picker and confirmation widgets, session/Building Mode, active-play clocks, Event/flag execution, scenario profiles/export and audited recovery patterns. Keep the existing storage split: map bindings and live progress belong to the world; reusable defaults and server configuration retain their current homes.
 
-The repository does **not** currently implement a house roster, electorate snapshots, ballots, treaties, conflict/rebellion state or access-control Regions. A manual Event or a boolean flag is not a replacement for those systems. Quiet Below's sculk and stations are not dependencies of this campaign.
+The repository does **not** currently implement connected randomized lore assignments, electorate snapshots, ballots, treaties, conflict/rebellion state or access-control Regions. Small house/seat metadata attaches to existing character assignments; it does not require another house dossier/catalogue. Existing Events supply the gathering/announcement flow, while the new political services preserve vote/consent state. Quiet Below's sculk and stations are not dependencies of this campaign.
 
 Read [integration boundaries and rule contracts](CONTRACTS.md) before implementation. Each package lists acceptance evidence and its review gate. Never mark a package delivered based only on its model classes or a screenshot.
 
@@ -49,6 +51,6 @@ Keep builds/native clients serialized where they share class directories or test
 - **LC-04:** confirm treaty amendment/signature-expiry rules and which public record accompanies breaking or revealing a private treaty. Never disclose private terms merely because a public war was declared.
 - **LC-06:** define the narrow supervised-visit exception and the separate crowned-ruler abdication/deposition procedure before exposing those controls.
 - **LC-07:** review dose counts, onset/duration, symptoms and antidote strength; the brief deliberately leaves those numbers open. Banquet poisoning remains optional.
-- **LC-08:** review the playable cast and final letters/objectives. The brief's eight-house example is illustrative, not final canon.
+- **LC-01B/LC-08:** review pool content, draw quantities, repetition policies and compatibility rules for replayable characters. Cross-house knowledge must resolve to the same draw's assigned facts. The brief's fixed eight-house example is illustrative, not final canon.
 
 These are tracked design decisions, not reasons to delay the work-package tree or invent new rules now. The source brief remains authoritative where it already gives an answer.
