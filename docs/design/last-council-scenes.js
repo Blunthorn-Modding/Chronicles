@@ -2,22 +2,25 @@
 // UI proposal only: sample state, no storage/network/world integration.
 const $=q=>document.querySelector(q);
 const houses=['House Ash','House Rowan','House Vale','House Reed'];
+const votingHouses=houses.concat('House Elm','House Flint','House Mere','House Thorn');
 const actorHouse=()=>({ash:'House Ash',rowan:'House Rowan',vale:'House Vale',reed:'House Reed'}[$('#actor').value]||null);
 const gm=()=>$('#actor').value==='gm';
 const isRebel=h=>state.rebels.includes(h);
-const seats=()=>8-state.rebels.length;
+const presentElectorate=()=>votingHouses.filter(h=>state.regionHouses.includes(h)&&!isRebel(h));
+const insideRegion=()=>state.regionHouses.includes(actorHouse());
+function ballotSnapshot(definition){const electorate=Object.freeze(presentElectorate());if(!electorate.length)return null;const twoThirds=['Foreign war','Reinstatement'].includes(definition.kind);return {...definition,electorate,seats:electorate.length,required:twoThirds?Math.ceil(2*electorate.length/3):Math.floor(electorate.length/2)+1};}
 // One assigned fact supplies both the owner's private information and any leaked knowledge.
 const grainFact={owner:'House Vale',capacity:3};
 const grainReport=()=>`House Vale can reliably supply wheat to ${grainFact.capacity} other houses. Further promises exceed its reliable reserves.`;
 const houseContent={
-  'House Ash':{reputation:'Wardens of the northern roads',public:'House Ash controls the old stone roads through the northern hills. Merchants rely on its bridges, toll posts and timber yards to reach the capital.',interests:'Public interests: safe trade routes, bridge repairs and recognition of the northern towns.',goal:'Secure Council support for rebuilding the northern bridge.',personalGoal:'Keep the unpaid family toll debt out of the royal archive.',private:'The family toll debt was never paid. The original account survives in the archive.'},
-  'House Rowan':{reputation:'The river merchants',public:'House Rowan commands a network of river barges and market warehouses. Its influence comes from moving other houses’ goods and arranging access to the ports.',interests:'Public interests: open river markets, favorable duties and dependable trading partners.',goal:'Secure a trade agreement with another house without surrendering river toll rights.',personalGoal:'Prevent the granary decree from undermining the river merchants’ bargaining position.',private:'Several guild captains have promised their support only if the toll charter remains intact.'},
-  'House Vale':{reputation:'A major exporter of wheat',public:'House Vale’s broad valley farms and old granaries make it one of the kingdom’s best-known wheat exporters. Other lords often seek its support before a harsh winter.',interests:'Public interests: agricultural influence, dependable roads and political allies for the valley towns.',goal:'Use wheat agreements to secure public backing from other houses.',personalGoal:'Preserve the appearance of abundant reserves while winning the strongest promises in return.',private:null},
-  'House Reed':{reputation:'Keepers of the coastal archives',public:'House Reed maintains coastal chart rooms, old legal records and a respected school of scribes. Its seals and witnesses give weight to disputed titles and agreements.',interests:'Public interests: recognition of historic rights, reliable treaties and protection of the archives.',goal:'Persuade the Council to recognize the authority of the coastal archives.',personalGoal:'Ensure the new ruler owes your house a public favor.',private:'An unregistered copy of an old charter is still in your family’s keeping.'}
+  'House Ash':{reputation:'Wardens of the northern roads',public:'House Ash controls the old stone roads through the northern hills. Merchants rely on its bridges, toll posts and timber yards to reach the capital.',interests:'Public interests: safe trade routes, bridge repairs and recognition of the northern towns.',goal:'Secure Council support for rebuilding the northern bridge.',private:'The family toll debt was never paid. The original account survives in the archive.'},
+  'House Rowan':{reputation:'The river merchants',public:'House Rowan commands a network of river barges and market warehouses. Its influence comes from moving other houses’ goods and arranging access to the ports.',interests:'Public interests: open river markets, favorable duties and dependable trading partners.',goal:'Secure a trade agreement with another house without surrendering river toll rights.',private:'Several guild captains have promised their support only if the toll charter remains intact.'},
+  'House Vale':{reputation:'A major exporter of wheat',public:'House Vale’s broad valley farms and old granaries make it one of the kingdom’s best-known wheat exporters. Other lords often seek its support before a harsh winter.',interests:'Public interests: agricultural influence, dependable roads and political allies for the valley towns.',goal:'Use wheat agreements to secure public backing from other houses.',private:null},
+  'House Reed':{reputation:'Keepers of the coastal archives',public:'House Reed maintains coastal chart rooms, old legal records and a respected school of scribes. Its seals and witnesses give weight to disputed titles and agreements.',interests:'Public interests: recognition of historic rights, reliable treaties and protection of the archives.',goal:'Persuade the Council to recognize the authority of the coastal archives.',private:'An unregistered copy of an old charter is still in your family’s keeping.'}
 };
-const fresh=()=>({personalTab:'Character',house:'House Ash',name:'Elian Ash',pronouns:'they / them',description:'A representative of the northern road towns.',
+const fresh=()=>({personalTab:'Character',houseSection:'House information',house:'House Ash',name:'Elian Ash',pronouns:'they / them',description:'A representative of the northern road towns.',
   scene:'personal',rebels:[],profiles:{'House Ash':{name:'Elian Ash',pronouns:'they / them',description:'A representative of the northern road towns.'},'House Rowan':{name:'Mara Rowan',pronouns:'she / her',description:'An envoy of the river merchants.'},'House Vale':{name:'Oren Vale',pronouns:'he / him',description:'A representative of the valley farms.'},'House Reed':{name:'Sera Reed',pronouns:'she / her',description:'A representative of the coastal archives.'}},debug:false,meeting:'Discussion',meetingNumber:1,regencyUsed:false,complicationDelivered:false,
-  ballot:null,choices:{},closedBallot:null,selectedMotion:0,motionFilter:'Upcoming',
+  ballot:null,choices:{},closedBallot:null,selectedMotion:0,motionFilter:'Upcoming',regionHouses:houses.concat('House Elm'),
   motions:[{title:'Open the winter granaries',text:'Release the royal grain reserve to the market towns before winter.',house:'House Vale',sponsored:true,visibility:'Public',kind:'Policy / decree'},
     {title:'Repair the northern bridge',text:'Merchants will fund half of the repairs.',house:'House Rowan',sponsored:false,visibility:'Public',kind:'Policy / decree'}],
   treaties:[{id:1,name:'Northern road pact',terms:'Neither house will declare war on the other while the northern road is being repaired.',parties:['House Ash','House Rowan'],visibility:'Private',signed:[],status:'Draft'}],selectedTreaty:1,nextTreaty:2,
@@ -47,7 +50,8 @@ function render(){
   const entries={personal:'Open the personal menu',motions:'Interact with the bound motion lectern in the Council hall',treaty:'Interact with the separate treaty lectern',challenge:'Use a challenge interaction on the character standing in front of you',chancellor:'Open the Chancellor’s proceedings controls',authoring:'Existing Chronicle editor · proposed bindings',ballot:'The Chancellor has opened a vote',world:'Back in the world'};
   $('#entry').textContent=entries[state.scene];
   $('#treaty-examples').hidden=state.scene!=='treaty';$('#challenge-example').hidden=state.scene!=='challenge';$('#voting-example').hidden=state.scene!=='ballot'||!actorHouse();
-  $('#electorate-note').hidden=!['ballot','chancellor'].includes(state.scene);
+  $('#region-example').hidden=state.scene!=='chancellor';$('#voter-inside').checked=insideRegion();
+  document.querySelectorAll('.region-user').forEach(e=>e.checked=state.regionHouses.includes(e.value));
   document.querySelectorAll('.lectern-user').forEach(e=>e.checked=state.lecternUsers.includes(e.value));
   if(state.scene==='personal')personal();else if(state.scene==='motions')motions();else if(state.scene==='treaty')treaty();else if(state.scene==='challenge')challenge();else if(state.scene==='chancellor')chancellor();else if(state.scene==='ballot')ballot();else if(state.scene==='authoring')authoring();else world();
 }
@@ -60,9 +64,17 @@ function personal(){
   }
   if(state.personalTab==='My house'){
     if(!own){$('#screen').append(p('The Chancellor has no house assignment in this example.','muted'));return;}
-    const content=houseContent[own];$('#screen').append(node('h2',own),p(content.reputation,'tag'),p(content.public),panel('Goals',p('For your house: '+content.goal),p('For your character: '+content.personalGoal)),panel('Private house papers',actions(button('Read private facts',()=>readBook('Private facts · '+own,own===grainFact.owner?grainReport():content.private)),button('Read goals',()=>readBook('Goals · '+own,content.goal+'\n\n'+content.personalGoal)))));
-    // This illustrative committed draw gives Rowan one report, without promising coverage in other draws.
-    if(own==='House Rowan')$('#screen').append(panel('Information in your papers',actions(button('Report about House Vale',()=>readBook('A report from the valley',grainReport())))));
+    const content=houseContent[own],layout=node('div',undefined,'split'),list=node('div',undefined,'list'),detail=node('div');
+    $('#screen').append(node('h2',own));
+    ['House information','Secrets','Goals',"Other houses' secrets"].forEach(section=>list.append(button(section,()=>{state.houseSection=section;render();},false,state.houseSection===section?'selected':'')));
+    detail.append(node('h2',state.houseSection==="Other houses' secrets"?'Secrets about other houses':state.houseSection));
+    if(state.houseSection==='House information')detail.append(p(content.reputation,'tag'),p(content.public),p(content.interests));
+    else if(state.houseSection==='Secrets')detail.append(p(own===grainFact.owner?grainReport():content.private));
+    else if(state.houseSection==='Goals')detail.append(p(content.goal));
+    // This sample draw assigns Rowan one report. Other draws may expose a secret to nobody.
+    else if(own==='House Rowan')detail.append(node('h3','House Vale'),p(grainReport()));
+    else detail.append(p('Your papers contain no secrets about other houses.','muted'));
+    layout.append(list,detail);$('#screen').append(layout);
     $('#screen').append(actions(button('Agreements & declarations',()=>records(true))));
     if(!isRebel(own))$('#screen').append(actions(button('Declare rebellion…',rebellion,!!state.ballot,'danger')));else $('#screen').append(p('In rebellion. Reinstatement requires a Council settlement.','muted'));
     if(state.ballot&&!isRebel(own))$('#screen').append(p('Membership changes must wait until the open ballot closes.','warning'));return;
@@ -101,29 +113,31 @@ function motionForm(host){popup(host?'Prepare motion':'Propose motion',m=>{
 });}
 function ballot(){
   const b=state.ballot,house=actorHouse();if(!b){world();return;}if(!house||isRebel(house)){screenHeader('Council notice');$('#screen').append(p(!house?'The ballot is open. Close it from the Chancellor’s proceedings controls.':'Your house has no Council vote.'),actions(button('Return to world',()=>scene('world'))));return;}
-  if(!$('#voter-inside').checked){screenHeader('Council vote');$('#screen').append(p('You are outside the voting Region. You cannot vote from here.','warning'));return;}
+  if(!b.electorate.includes(house)){screenHeader('Council vote');$('#screen').append(p('Your house was not in the voting Region when this ballot opened. You cannot join this vote.','warning'));return;}
+  if(!insideRegion()){screenHeader('Council vote');$('#screen').append(p('You are outside the voting Region. You cannot vote from here.','warning'),p('This ballot still requires '+b.required+' of its original '+b.seats+' houses.','muted'));return;}
   screenHeader(b.title,()=>{say('Example: ballot dismissed, not an abstention. An active-vote reminder lets you return.');scene('world');});
-  $('#screen').append(p(b.text),p(b.visibility+' ballot','tag'));
-  const submitted=Object.hasOwn(state.choices,house),choices=node('div',undefined,'choices');b.options.forEach(x=>choices.append(button(x,()=>confirm('Vote '+x+'?', 'This records '+house+'’s final choice. Once confirmed, it cannot be changed for this ballot.','Confirm final vote',()=>{if(state.ballot!==b||Object.hasOwn(state.choices,house)||!$('#voter-inside').checked)return;state.choices[house]=x;say('Your final vote was recorded.');}),submitted,state.choices[house]===x?'selected':'')));$('#screen').append(choices);
+  $('#screen').append(p(b.text),p(b.visibility+' ballot · '+b.required+' of '+b.seats+' houses required','tag'));
+  const submitted=Object.hasOwn(state.choices,house),choices=node('div',undefined,'choices');b.options.forEach(x=>choices.append(button(x,()=>confirm('Vote '+x+'?', 'This records '+house+'’s final choice. Once confirmed, it cannot be changed for this ballot.','Confirm final vote',()=>{if(state.ballot!==b||Object.hasOwn(state.choices,house)||!insideRegion()||!b.electorate.includes(house))return;state.choices[house]=x;say('Your final vote was recorded.');}),submitted,state.choices[house]===x?'selected':'')));$('#screen').append(choices);
   $('#screen').append(p(submitted?'Your final vote: '+state.choices[house]:'Choose one option.','success'));
   if(b.visibility==='Secret')$('#screen').append(p('No live totals or other houses’ choices are shown.','muted'));else $('#screen').append(p('Public votes: '+Object.entries(state.choices).map(([h,x])=>h+' — '+x).join('; '),'muted'));
 }
 function openVote(regency=false){
   if(!gm()||state.ballot||state.meeting!=='Discussion'||regency&&state.regencyUsed)return;
+  if(!presentElectorate().length){say('No eligible representatives are in the voting Region. No ballot was opened.');return;}
   if(regency&&$('#due').checked&&!state.complicationDelivered){state.complicationDelivered=true;state.meeting='Recess';say('A messenger arrives: the northern crossing has fallen. Proceedings enter recess.');render();return;}
-  const motion=state.motions[state.selectedMotion],n=seats();
-  state.ballot={title:regency?'The regency':motion.title,text:regency?'Choose a ruler for the kingdom.':motion.text,visibility:regency?'Secret':motion.visibility,options:regency?houses.filter(h=>!isRebel(h)):['Yes','No','Abstain'],seats:n,required:Math.floor(n/2)+1,regency};
+  const motion=state.motions[state.selectedMotion];
+  state.ballot=ballotSnapshot({title:regency?'The regency':motion.title,text:regency?'Choose a ruler for the kingdom.':motion.text,visibility:regency?'Secret':motion.visibility,options:regency?houses.filter(h=>!isRebel(h)):['Yes','No','Abstain'],kind:regency?'Regency':motion.kind,regency});
   if(regency){state.ballot.options.push('Abstain');state.regencyUsed=true;}state.choices={};say('The ballot has opened. Eligible players receive only the standalone motion screen. Switch View as to inspect their popup.');render();
 }
 function world(){
   screenHeader('In the world');$('#screen').append(p('Move, talk and interact with the people and lecterns around you.','empty'));
-  if(state.ballot&&actorHouse()&&!isRebel(actorHouse()))$('#screen').append(actions(button('Return to open vote',()=>scene('ballot'))),p('Example reminder while this ballot is open. The exact dismissal/reopen policy still needs review.','muted'));
+  if(state.ballot&&state.ballot.electorate.includes(actorHouse()))$('#screen').append(actions(button('Return to open vote',()=>scene('ballot'))),p('Example reminder while this ballot is open. The exact dismissal/reopen policy still needs review.','muted'));
 }
 function chancellor(){
   screenHeader('Council proceedings');if(!gm()){$('#screen').append(p('Only the Chancellor manages proceedings. Use the review toolbar to inspect that viewpoint.','warning'));return;}
   $('#screen').append(actions(button('Call meeting',()=>confirm('Call the houses to meeting?','Play the configured Council call Event. This does not open a vote.','Sound the call',()=>{if(state.meeting==='Between meetings')state.meeting='Gathering';say('Sample meeting call: bell and announcement.');}))));
   $('#screen').append(p('Council '+state.meetingNumber+' · '+state.meeting,'tag'));
-  if(state.ballot){$('#screen').append(panel('Vote open',p(state.ballot.title),p(state.ballot.visibility+' ballot'),actions(button('Close vote…',()=>confirm('Close the vote?','The real game computes the result. This sample has no other connected voters and only records that voting closed.','Close vote',()=>{state.records.push({text:state.ballot.title+' — ballot closed (sample; no simulated tally).'});state.ballot=null;say('Sample vote closed. No winner was invented.');})))));return;}
+  if(state.ballot){$('#screen').append(panel('Vote open',p(state.ballot.title),p(state.ballot.visibility+' · '+state.ballot.required+' of '+state.ballot.seats+' houses required'),p('Electorate fixed when voting opened.','muted'),actions(button('Close vote…',()=>confirm('Close the vote?','The real game computes the result. This sample has no other connected voters and only records that voting closed.','Close vote',()=>{state.records.push({text:state.ballot.title+' — ballot closed (sample; no simulated tally).'});state.ballot=null;say('Sample vote closed. No winner was invented.');})))));return;}
   if(state.meeting==='Recess'){$('#screen').append(panel('Proceedings in recess',p(state.complicationDelivered?'The northern crossing has fallen.':'The Chancellor has called a recess.')),actions(button('Resume proceedings',()=>{state.meeting='Discussion';say('Proceedings resumed. No vote opened.');render();},false,'primary')));return;}
   if(state.meeting!=='Discussion'){$('#screen').append(actions(button('Open proceedings',()=>{state.meeting='Discussion';state.regencyUsed=false;render();})));return;}
   if(!state.motions[state.selectedMotion]?.sponsored)state.selectedMotion=state.motions.findIndex(m=>m.sponsored);
@@ -184,11 +198,14 @@ function authoring(){
   screenHeader('Map bindings');$('#screen').append(p('Use the existing Chronicle editor to bind the places on your map.','muted'),panel('Locations → Block sites',p('Motion lectern\nTreaty lectern'),actions(button('Preview binding popup…',()=>popup('Block site subtype',m=>m.append(select('Subtype',['Motion lectern','Treaty lectern'],'Motion lectern'),p('Bind the block you are looking at using the existing Locations workflow.','muted'),actions(button('Close',closePopup))))))),panel('Regions & Points',p('Council voting Region\nPalace access Region\nSafe outside Point')),p('Assigning a connected player to a character and house is a separate GM roster task, not a map binding.','muted'));
 }
 $('#scene').onchange=()=>{say('');scene($('#scene').value);};
-$('#actor').onchange=()=>{const own=actorHouse();if(state.scene==='personal')state.house=own||'House Ash';if(state.scene==='treaty'&&own&&!state.lecternUsers.includes(own))state.lecternUsers.push(own);if(state.ballot&&own&&!isRebel(own))state.scene='ballot';render();};
+$('#actor').onchange=()=>{const own=actorHouse();if(state.scene==='personal')state.house=own||'House Ash';if(state.scene==='treaty'&&own&&!state.lecternUsers.includes(own))state.lecternUsers.push(own);if(state.ballot&&own&&state.ballot.electorate.includes(own)&&insideRegion())state.scene='ballot';render();};
 document.querySelectorAll('.lectern-user').forEach(e=>e.onchange=()=>{state.lecternUsers=e.checked?[...new Set(state.lecternUsers.concat(e.value))]:state.lecternUsers.filter(h=>h!==e.value);render();});
-$('#witness').onchange=()=>render();$('#target-nearby').onchange=()=>render();$('#voter-inside').onchange=()=>render();
+$('#witness').onchange=()=>render();$('#target-nearby').onchange=()=>render();
+function setRegionPresence(house,present){state.regionHouses=present?[...new Set(state.regionHouses.concat(house))]:state.regionHouses.filter(h=>h!==house);render();}
+$('#voter-inside').onchange=()=>{if(actorHouse())setRegionPresence(actorHouse(),$('#voter-inside').checked);};
+votingHouses.forEach(h=>{const label=node('label'),input=node('input');input.type='checkbox';input.value=h;input.className='region-user';input.onchange=()=>setRegionPresence(h,input.checked);label.append(input,document.createTextNode(' '+h));$('#region-users').append(label);});
 $('#due').onchange=()=>say('Review condition changed. The game never shows future complication timing.');
-$('#simulate').onclick=()=>{state.ballot={title:'Open the winter granaries',text:'Release the royal grain reserve to the market towns before winter.',visibility:'Public',options:['Yes','No','Abstain'],seats:seats(),required:Math.floor(seats()/2)+1};state.choices={};scene('ballot');};
+$('#simulate').onclick=()=>{if(state.ballot){scene('ballot');return;}state.ballot=ballotSnapshot({title:'Open the winter granaries',text:'Release the royal grain reserve to the market towns before winter.',visibility:'Public',options:['Yes','No','Abstain']});if(!state.ballot){say('No eligible representatives are in the voting Region. No ballot was opened.');return;}state.choices={};scene('ballot');};
 $('#reset').onclick=()=>{state=fresh();$('#actor').value='ash';$('#scene').value='personal';$('#witness').checked=true;$('#target-nearby').checked=true;$('#voter-inside').checked=true;$('#due').checked=false;say('Sample data reset.');render();};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#overlay').firstChild){e.preventDefault();closePopup();}if(e.key==='Tab'&&$('#overlay').firstChild){const items=[...$('#overlay').querySelectorAll('input,textarea,select,button:not(:disabled)')],first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 render();
