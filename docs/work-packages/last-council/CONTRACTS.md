@@ -8,7 +8,7 @@ Further feedback: secret knowledge is a random subset with no coverage guarantee
 
 Latest [random-complication rule](RANDOM_COMPLICATIONS.md): reusable Event pools, hidden live selection/arrival even from the GM, configurable total across the evening and delivery only during Council meetings before that meeting's regency vote. A late arrival creates a Council recess, keeping Core play active for RP; it is not a global technical pause. The original brief's manual host-selected complication timing is superseded by this user clarification.
 
-Latest [UI/interaction clarification](UI_SCENES_FLOW.md): reject a combined political menu. Personal Character/Houses, standalone ballot after the GM opens voting, bound motion lectern, separate in-person treaty lectern with Chancellor sanctification, and a unilateral in-person house-war challenge. Gesture and presence/re-entry policies need review. These are gameplay entry requirements, not merely styling: alternate packets/commands must not bypass the chosen authority/presence checks.
+Latest [UI/interaction clarification](UI_SCENES_FLOW.md): personal Character / My house / Other houses; rich public house profiles, private goals/facts and independently assigned knowledge. Standalone immutable vote after GM opening, bound motion lectern, separate treaty lectern with Create treaty from two or more representatives using that same lectern and GM sanctification, unilateral in-person war challenge. Voting Region presence is separate from treaty attendance; no waiting for tardy representatives. Majority denominator/late-arrival policy awaits owner clarification. Gesture and presence/re-entry policies need review. Alternate packets/commands must not bypass the chosen authority/presence checks.
 
 ## Library versus scenario
 
@@ -53,7 +53,7 @@ Registration also has finite budgets: `SiteSubtypes` currently allows twelve def
 
 - Freeze the eligible house set when opening each ballot. Abstentions, missing votes and disconnects remain in its denominator.
 - Absolute majority is `floor(N / 2) + 1`; two-thirds is `ceil(2N / 3)`. Handle no eligible houses explicitly, not as an automatic pass.
-- One final choice per eligible house; changes replace the prior choice only while open. Authorize on the server and reject stale ballot revisions.
+- One confirmed, immutable choice per eligible house. The first accepted submission wins; duplicates/reconnect/stale requests cannot replace it. This 5 November correction supersedes the brief's changeable-vote rule. Authorize on the server and reject stale ballot revisions.
 - Suspend membership/candidacy changes while a ballot is open. Do not silently queue an unconfirmed rebellion to execute later.
 - Public ballots may show named choices. Secret ballots show only the current player's acknowledgement and final aggregate totals. No live secret totals, other players' choices or host reveal-all control.
 - Secret choices must not leak through menu packets, history/Event payloads, debug views, suggestions, ordinary logs or reusable content exports. Trusted filesystem administrators are outside this normal-interface secrecy guarantee.

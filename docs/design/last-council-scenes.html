@@ -15,7 +15,13 @@
     <button id="reset">Reset</button>
   </aside>
   <aside class="review examples" aria-label="Example conditions">
-    <label><input id="present" type="checkbox" checked> All required people present</label>
+    <p id="electorate-note" hidden>Review question pending: how absent houses affect the majority. Vote-count thresholds are omitted until that is settled.</p>
+    <div id="treaty-examples" hidden>
+      <strong>Review example: players using this treaty lectern</strong>
+      <div class="attendees"><label><input class="lectern-user" value="House Ash" type="checkbox" checked> Ash</label><label><input class="lectern-user" value="House Rowan" type="checkbox" checked> Rowan</label><label><input class="lectern-user" value="House Vale" type="checkbox"> Vale</label><label><input class="lectern-user" value="House Reed" type="checkbox"> Reed</label><label><input id="witness" type="checkbox" checked> Chancellor nearby</label></div>
+    </div>
+    <label id="challenge-example" hidden><input id="target-nearby" type="checkbox" checked> Challenge target nearby</label>
+    <label id="voting-example" hidden><input id="voter-inside" type="checkbox" checked> Current representative inside voting Region</label>
     <label><input id="due" type="checkbox"> Example: complication due before regency</label>
     <button id="simulate">Simulate Chancellor opening a vote</button>
   </aside>
@@ -25,7 +31,7 @@
     <div id="notice" class="notice" role="status" aria-live="polite"></div>
   </div>
   <div id="overlay"></div>
-  <footer class="review-foot">Design only. The old mockup stays at <a href="last-council.html">its original address</a> while review continues. Presence boundaries, signature retention, the challenge gesture/item and ballot dismissal/reopening policy are still proposals. No voice policy is selected.</footer>
+  <footer class="review-foot">Design only. The old mockup stays at <a href="last-council.html">its original address</a>. Treaty attendance, challenge proximity and voting Region presence are separate examples. Signature retention, the challenge gesture/item and ballot arrival/dismissal policies remain proposals. No voice policy is selected.</footer>
   <script src="last-council-scenes.js"></script>
 </body>
 </html>

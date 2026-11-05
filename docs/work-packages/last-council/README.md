@@ -41,7 +41,7 @@ Read [integration boundaries and rule contracts](CONTRACTS.md) before implementa
 
 ## Review and verification workflow
 
-**5 November direction:** UI design precedes gameplay. The first combined menu was rejected; continue with [smaller screens and physical interaction entry points](UI_SCENES_FLOW.md): personal Character/Houses, standalone ballot, bound motion/treaty lecterns, in-person war challenge and focused Chancellor controls. Its separate prototype preserves the old page while verbal review continues. Native work remains gated on approved flows and marked open policies.
+**5 November direction:** UI design precedes gameplay. Continue with [smaller screens and physical interaction entry points](UI_SCENES_FLOW.md): Character / My house / Other houses, rich public profiles and private goals/facts, final confirmed votes, same-lectern treaty creation, physical challenge and focused Chancellor controls with Call meeting. The old combined page remains archived. Voting Region majority/late-arrival policy awaits clarification; native work stays gated on approved flows.
 
 1. After UI review, start LC-01 with domain/state and module isolation; retain the existing release baseline.
 2. Before each new player/GM screen, design the actual flow and review the mockup. Reuse the established vanilla-style components and shared popups. Do not replace approval of the flow with a finished native screen.
