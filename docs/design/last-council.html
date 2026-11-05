@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="last-council.css">
+  <title>The Last Council — UI review</title>
+</head>
+<body>
+  <aside class="review-tools" aria-label="Prototype controls">
+    <div><strong>UI review · The Last Council</strong><span>Interactive sample data. Nothing is saved to Minecraft.</span></div>
+    <label>View <select id="context"><option>Player</option><option>Chancellor</option><option>Editor</option></select></label>
+    <label>Example <select id="example"><option value="normal">Discussion</option><option value="gathering">New gathering</option><option value="public">Public vote</option><option value="secret">Secret regency vote</option><option value="recess">Late complication / recess</option><option value="rebel">Rebel player</option><option value="recovery">Interrupted operation</option><option value="empty">Incomplete setup</option></select></label>
+    <button id="reset">Reset demo</button>
+  </aside>
+  <main class="frame" id="app">
+    <header class="titlebar"><div><strong id="title">The Last Council</strong><span id="subtitle"></span></div><button id="debug">Debug: Off</button><button id="editing" hidden>Editing: On</button></header>
+    <div class="layout"><nav id="nav" aria-label="Sections"></nav><section id="list" aria-label="Items"></section><section id="detail" aria-label="Selected item"></section></div>
+    <footer id="notice" role="status" aria-live="polite">Choose a section. The controls above this frame are for reviewing examples only.</footer>
+  </main>
+  <div id="overlay"></div>
+  <p class="review-note">Design proposal, not a released feature. Entries and numbers are illustrative. Existing Chronicle screens are retained; proposed extensions are marked. Voice policy, exceptional ballot recovery, treaty disclosure and banquet tuning still need decisions.</p>
+  <script src="last-council.js"></script>
+</body>
+</html>

@@ -41,7 +41,9 @@ Read [integration boundaries and rule contracts](CONTRACTS.md) before implementa
 
 ## Review and verification workflow
 
-1. Start LC-01 with domain/state and module isolation; retain the existing release baseline.
+**5 November direction:** the owner wants UI design before gameplay implementation. Start with [the interactive UI proposal and review routes](UI_DESIGN.md), then resolve its marked secondary forms. Native work remains gated on the relevant approved flows.
+
+1. After UI review, start LC-01 with domain/state and module isolation; retain the existing release baseline.
 2. Before each new player/GM screen, design the actual flow and review the mockup. Reuse the established vanilla-style components and shared popups. Do not replace approval of the flow with a finished native screen.
 3. Implement one bounded package at a time; independently review changes that affect secret votes, consent, cross-store operations or guarded movement.
 4. Run focused domain tests, then relevant module tests and native interaction/restart tests. Core changes also require Quiet Below regression evidence proportional to their surface.
