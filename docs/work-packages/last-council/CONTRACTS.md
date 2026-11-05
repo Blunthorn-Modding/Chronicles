@@ -8,6 +8,8 @@ Further feedback: secret knowledge is a random subset with no coverage guarantee
 
 Latest [random-complication rule](RANDOM_COMPLICATIONS.md): reusable Event pools, hidden live selection/arrival even from the GM, configurable total across the evening and delivery only during Council meetings before that meeting's regency vote. A late arrival creates a Council recess, keeping Core play active for RP; it is not a global technical pause. The original brief's manual host-selected complication timing is superseded by this user clarification.
 
+Latest [UI/interaction clarification](UI_SCENES_FLOW.md): reject a combined political menu. Personal Character/Houses, standalone ballot after the GM opens voting, bound motion lectern, separate in-person treaty lectern with Chancellor sanctification, and a unilateral in-person house-war challenge. Gesture and presence/re-entry policies need review. These are gameplay entry requirements, not merely styling: alternate packets/commands must not bypass the chosen authority/presence checks.
+
 ## Library versus scenario
 
 | Area | Chronicle Core | The Last Council |
@@ -35,7 +37,7 @@ The existing public card contains name/pronouns/description; it is not a private
 - `SessionGameplay` and the campaign clock: distinguish ACTIVE play, technical pause and Building Mode from political meetings. No political countdown advances during a technical pause.
 - `EventSources.registerProvider/registerAuthority`: expose **completed** political operations as source receipts. Opening a menu, retrying a completed request or previewing a complication does not produce another source.
 - `ScenarioContentRuntime.registerScenario`, `ScenarioProfile` and export: package content without copying player data, vote choices or political progress into defaults.
-- `CoreMenuScreen`, shared picker/popups and existing confirmation patterns: reuse controls and authority checks while keeping a dedicated participant Council surface separate from the operator editor.
+- `CoreMenuScreen`, shared picker/popups and existing confirmation patterns: reuse small controls and authority checks, not one universal navigation shell. Personal information, standalone ballots and world-interaction screens are separate from the operator editor. Bind scenario lectern purposes through existing Block sites.
 
 The last item concerns shared UI implementation only. Confirmation widgets and the ordinary participant flag do not implement treaties or rebellion. A rebel stays an ordinary participant; their political rights are new Last Council state. Complications use Events; a physical book letter uses Books & Lore only when that item presentation is wanted, and Event-driven book delivery would need an explicit new action.
 
@@ -67,9 +69,9 @@ Meetings continue for ordinary business after a crown decision. A planned schedu
 
 ## Consent, consequences and privacy
 
-Every treaty party reads the exact revision being signed and explicitly consents. Term edits invalidate prior pending signatures. No ordinary player/GM action signs for someone else or mechanically forces a secret vote. Mutual defense notifies allies, never auto-enlists them.
+Every treaty party reads the exact revision being signed and explicitly consents at the bound treaty lectern. All required parties and the Chancellor must be present for sanctification; all signatures alone do not activate a house agreement. Required realm ratification remains additional. Term edits invalidate prior pending signatures. No player/GM action signs for someone else or mechanically forces a secret vote. Mutual defense notifies allies, never auto-enlists them. Review proximity/continuous attendance/signature retention before implementation; missing attendance cannot be treated as success.
 
-House war, civil-war classification, external war and rebellion are separate domain facts. War does not remove palace access or enable PvP. Rebellion requires a clear confirmation and removes Council rights/candidacy/access while keeping the player an active participant. Never reuse Quiet Below's Spectator departure outcome for rebels.
+House war, civil-war classification, external war and rebellion are separate domain facts. The in-person challenge identifies the actual opposing representative; the initiator confirms unilaterally, without a target consent/veto. Gesture/item and presence checks need review. War does not remove palace access or enable PvP. Rebellion requires a clear confirmation and removes Council rights/candidacy/access while keeping the player an active participant. Never reuse Quiet Below's Spectator departure outcome for rebels.
 
 Model rebellion/reinstatement, treaty breaches and political outcomes with operation receipts so a partial write cannot grant a seat twice, omit a breach or apply a result repeatedly. Preflight required map destinations; interrupted operations are held/recovered transparently, not silently converted into success.
 

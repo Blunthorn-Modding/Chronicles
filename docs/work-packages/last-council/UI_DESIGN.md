@@ -1,5 +1,7 @@
 # Last Council UI design pass
 
+**Superseded navigation, 5 November:** the owner rejected the combined player/Chancellor dashboard after clicking through it. Continue with [smaller interfaces tied to the scene](UI_SCENES_FLOW.md) and its separate prototype. This first pass is retained unchanged below as review history; its 66 checks prove only the former mockup's behavior, not owner acceptance or current UI approval.
+
 Status: **first interactive proposal, awaiting owner review**. Dated 5 November 2026. No Last Council gameplay, native screens, protocol, scenario defaults or commands have been implemented.
 
 Open [the local prototype](../../design/last-council.html), or serve `docs/design` on loopback and visit `http://127.0.0.1:8925/last-council.html`. HTML, CSS and JavaScript are local files with no external dependencies. All sample changes are in memory. Refresh/Reset discards them. This prototype follows the [framework decisions](FRAMEWORK_INTEGRATION.md), [complication rules](RANDOM_COMPLICATIONS.md) and package contracts; it does not replace those rules with an implemented simulator.

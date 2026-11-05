@@ -6,6 +6,8 @@ Status: planned; first implementation slice. Depends on existing Core. Brief: §
 
 Add the Last Council content module using existing character cards, with randomized lore/goal/house-information bundles and small authoritative house/seat links behind them. Default one representative per house. Do not introduce a second house dossier or require a separate hand-authored Player Role for every randomized house.
 
+Latest [UI direction](UI_SCENES_FLOW.md): the personal menu has Character and Houses. All displayed card fields, including pronouns, are editable through the existing card workflow. Houses shows public representatives/candidacy; private handouts sit under the owner's own house only. There is no separate House standing panel or unified political-action menu.
+
 Core owns optional reusable book-pool/template/draw and delivery extensions alongside the existing card/role/book services. Last Council owns political metadata, pool content and house/fact/goal/knowledge rules. Touch `settings.gradle`, shared `build.gradle`, new `campaigns/last-council` and focused Core services; Quiet Below gameplay is outside this package. Read [the clarified flow](FRAMEWORK_INTEGRATION.md).
 
 ## Work

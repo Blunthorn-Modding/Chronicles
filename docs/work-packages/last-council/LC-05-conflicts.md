@@ -8,7 +8,7 @@ Last Council tracks house wars, sides, civil-war classification and realm-level 
 
 ## Work
 
-1. House war declaration: validated initiator/target/reason and explicit confirmation. A Council vote is not required. Participants join one side only, with voluntary changes/withdrawals and recorded peace/ceasefire.
+1. House war declaration begins with an in-person challenge interaction on the other representative, followed by target/reason/consequence confirmation; see [the latest UI direction](UI_SCENES_FLOW.md). Gesture/item and presence boundary are not yet chosen. Revalidate initiator authority, actual target character/house and presence before commitment. Declaration is unilateral: no target veto or Council vote. No remote target-list/command bypass. Participants join one side only, with voluntary changes/withdrawals and recorded peace/ceasefire.
 2. Classify civil war at the configured total-house threshold across opposing sides; recompute on membership changes without converting participants to rebels.
 3. Identify a breached active non-aggression pact when war is committed; coordinate declaration and breach receipts. Do not leak private treaty terms to outsiders.
 4. Foreign war/peace targets a host-defined realm. Apply the appropriate successful Council motion once; a failed motion changes no diplomatic state.
