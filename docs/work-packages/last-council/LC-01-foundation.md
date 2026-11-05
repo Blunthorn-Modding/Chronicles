@@ -1,6 +1,6 @@
 # LC-01 — Scenario foundation and randomized character handouts
 
-Status: planned; first implementation slice. Depends on existing Core. Brief: §§1–4, 11–12, 16.
+Status: in progress; LC-01A and the first private cast projection implemented, verification ongoing. LC-01B physical grants, pool editor/export and the complete delivery review remain pending. Depends on existing Core. Brief: §§1–4, 11–12, 16.
 
 ## Outcome and ownership
 

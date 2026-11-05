@@ -28,7 +28,7 @@ public final class CoreMenuModel {
         FLAG_CREATE, EVENT_SOURCE_REVIEW, EVENT_SOURCE_COMPLETE, EVENT_SOURCE_CANCEL, EVENT_SOURCE_RELOAD,
         SCENARIO_CONTENT_OPEN, SCENARIO_CONTENT_EXPORT, SCENARIO_CONTENT_CREATE,
         ENCOUNTER_NEW, ENCOUNTER_EDIT, ENCOUNTER_CREATE, ENCOUNTER_SAVE, ENCOUNTER_DELETE, EVENT_TEMPLATE_NEW,
-        EVENT_ENCOUNTER_REVIEW, EVENT_ENCOUNTER_ACCEPT
+        EVENT_ENCOUNTER_REVIEW, EVENT_ENCOUNTER_ACCEPT, PLAYER_EXTENSION
     }
     public record Entry(String id, String label, String description, String kind, String reference, long revision) {
         public Entry { text(id,320);text(label,160);text(description,2048);text(kind,32);text(reference,160);if(revision<0)throw new IllegalArgumentException("Invalid revision"); }

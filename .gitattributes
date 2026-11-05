@@ -1,2 +1,5 @@
 # Preserve the supplied brief bytes and its intentional Markdown hard breaks.
 docs/THE_LAST_COUNCIL_EVENT_BRIEF.md -text whitespace=-blank-at-eol
+
+# This third-party licence has a reviewed byte hash in the dependency lock.
+core/src/main/resources/META-INF/licenses/snakeyaml-engine-LICENSE.txt text eol=lf

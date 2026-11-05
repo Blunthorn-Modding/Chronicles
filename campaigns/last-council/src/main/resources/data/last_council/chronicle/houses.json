@@ -1,0 +1,351 @@
+{
+  "schema": 1,
+  "note": "Illustrative sample content, not canonical setting material.",
+  "houses": {
+    "last_council:ash": {
+      "id": "last_council:ash",
+      "title": "House Ash",
+      "reputation": "Wardens of the northern roads",
+      "description": "House Ash controls old stone roads, bridges, toll posts and timber yards in the northern hills.",
+      "interests": "Safe trade routes, bridge repairs and recognition for northern towns.",
+      "defaultCandidate": true
+    },
+    "last_council:rowan": {
+      "id": "last_council:rowan",
+      "title": "House Rowan",
+      "reputation": "The river merchants",
+      "description": "House Rowan moves goods through river barges and market warehouses, connecting the ports.",
+      "interests": "Open river markets, favorable duties and dependable trading partners.",
+      "defaultCandidate": true
+    },
+    "last_council:vale": {
+      "id": "last_council:vale",
+      "title": "House Vale",
+      "reputation": "A major exporter of wheat",
+      "description": "House Vale?s valley farms and granaries make it a leading wheat exporter.",
+      "interests": "Agricultural influence, dependable roads and allies for valley towns.",
+      "defaultCandidate": true
+    },
+    "last_council:reed": {
+      "id": "last_council:reed",
+      "title": "House Reed",
+      "reputation": "Keepers of the river crossings",
+      "description": "House Reed holds the ferries and granaries along the lower river. Its boatmen move grain and passengers between inland estates and the coast.",
+      "interests": "Open waterways, affordable river tolls and protection for the ferry towns.",
+      "defaultCandidate": true
+    },
+    "last_council:elm": {
+      "id": "last_council:elm",
+      "title": "House Elm",
+      "reputation": "Patrons of the orchard towns",
+      "description": "House Elm governs sheltered orchards and market towns in the southern valleys. Its cider presses and seasonal fairs bring merchants from across the realm.",
+      "interests": "Reliable harvest trade, peaceful markets and a strong voice for the southern towns.",
+      "defaultCandidate": true
+    },
+    "last_council:flint": {
+      "id": "last_council:flint",
+      "title": "House Flint",
+      "reputation": "Masters of the western quarries",
+      "description": "House Flint owns the western quarries and iron workings. Its masons and smiths supply building stone, tools and fittings for the realm's roads and fortifications.",
+      "interests": "Mining charters, payment for public works and dependable overland trade.",
+      "defaultCandidate": true
+    },
+    "last_council:mere": {
+      "id": "last_council:mere",
+      "title": "House Mere",
+      "reputation": "Guardians of the lake ports",
+      "description": "House Mere commands the lake ports and their fishing fleets. Its pilots know the narrow channels linking remote settlements with the main trading routes.",
+      "interests": "Safe harbours, fishing rights and a Council that listens to the lake settlements.",
+      "defaultCandidate": true
+    },
+    "last_council:thorn": {
+      "id": "last_council:thorn",
+      "title": "House Thorn",
+      "reputation": "Lords of the border marches",
+      "description": "House Thorn holds scattered keeps and grazing lands along the border. Its riders escort merchants through exposed passes and maintain the remote watch posts.",
+      "interests": "Funding for border defence, secure trade passes and recognition for the marches.",
+      "defaultCandidate": true
+    }
+  },
+  "secrets": [
+    {
+      "id": "ash_one",
+      "weight": 1,
+      "text": "The family toll debt was never paid; the original account survives in the archive.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:ash"
+      ]
+    },
+    {
+      "id": "ash_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:ash"
+      ]
+    },
+    {
+      "id": "rowan_one",
+      "weight": 1,
+      "text": "Several guild captains have pledged support only if the toll charter remains intact.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:rowan"
+      ]
+    },
+    {
+      "id": "rowan_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:rowan"
+      ]
+    },
+    {
+      "id": "vale_one",
+      "weight": 1,
+      "text": "House Vale can reliably supply wheat to ${fact.capacity} other houses. Further promises exceed its reliable reserves.",
+      "facts": {
+        "fact.capacity": "three"
+      },
+      "applicableHouseIds": [
+        "last_council:vale"
+      ]
+    },
+    {
+      "id": "vale_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:vale"
+      ]
+    },
+    {
+      "id": "reed_one",
+      "weight": 1,
+      "text": "An unregistered copy of an old charter remains in House Reed?s keeping.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:reed"
+      ]
+    },
+    {
+      "id": "reed_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:reed"
+      ]
+    },
+    {
+      "id": "elm_one",
+      "weight": 1,
+      "text": "${house.title} holds an unpublished family correspondence.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:elm"
+      ]
+    },
+    {
+      "id": "elm_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:elm"
+      ]
+    },
+    {
+      "id": "flint_one",
+      "weight": 1,
+      "text": "${house.title} holds an unpublished family correspondence.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:flint"
+      ]
+    },
+    {
+      "id": "flint_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:flint"
+      ]
+    },
+    {
+      "id": "mere_one",
+      "weight": 1,
+      "text": "${house.title} holds an unpublished family correspondence.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:mere"
+      ]
+    },
+    {
+      "id": "mere_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:mere"
+      ]
+    },
+    {
+      "id": "thorn_one",
+      "weight": 1,
+      "text": "${house.title} holds an unpublished family correspondence.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:thorn"
+      ]
+    },
+    {
+      "id": "thorn_two",
+      "weight": 1,
+      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "facts": {},
+      "applicableHouseIds": [
+        "last_council:thorn"
+      ]
+    }
+  ],
+  "goals": [
+    {
+      "id": "ash_one",
+      "weight": 1,
+      "text": "Secure support for rebuilding the northern bridge.",
+      "applicableHouseIds": [
+        "last_council:ash"
+      ]
+    },
+    {
+      "id": "ash_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:ash"
+      ]
+    },
+    {
+      "id": "rowan_one",
+      "weight": 1,
+      "text": "Secure a trade agreement while retaining river toll rights.",
+      "applicableHouseIds": [
+        "last_council:rowan"
+      ]
+    },
+    {
+      "id": "rowan_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:rowan"
+      ]
+    },
+    {
+      "id": "vale_one",
+      "weight": 1,
+      "text": "Use wheat agreements to secure public backing.",
+      "applicableHouseIds": [
+        "last_council:vale"
+      ]
+    },
+    {
+      "id": "vale_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:vale"
+      ]
+    },
+    {
+      "id": "reed_one",
+      "weight": 1,
+      "text": "Win recognition for the coastal archives.",
+      "applicableHouseIds": [
+        "last_council:reed"
+      ]
+    },
+    {
+      "id": "reed_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:reed"
+      ]
+    },
+    {
+      "id": "elm_one",
+      "weight": 1,
+      "text": "${house.title} seeks support for its interests.",
+      "applicableHouseIds": [
+        "last_council:elm"
+      ]
+    },
+    {
+      "id": "elm_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:elm"
+      ]
+    },
+    {
+      "id": "flint_one",
+      "weight": 1,
+      "text": "${house.title} seeks support for its interests.",
+      "applicableHouseIds": [
+        "last_council:flint"
+      ]
+    },
+    {
+      "id": "flint_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:flint"
+      ]
+    },
+    {
+      "id": "mere_one",
+      "weight": 1,
+      "text": "${house.title} seeks support for its interests.",
+      "applicableHouseIds": [
+        "last_council:mere"
+      ]
+    },
+    {
+      "id": "mere_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:mere"
+      ]
+    },
+    {
+      "id": "thorn_one",
+      "weight": 1,
+      "text": "${house.title} seeks support for its interests.",
+      "applicableHouseIds": [
+        "last_council:thorn"
+      ]
+    },
+    {
+      "id": "thorn_two",
+      "weight": 1,
+      "text": "${house.title} seeks a lasting alliance.",
+      "applicableHouseIds": [
+        "last_council:thorn"
+      ]
+    }
+  ],
+  "secretsPerHouse": 1,
+  "goalsPerHouse": 1,
+  "knowledgeChancePercent": 30
+}

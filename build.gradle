@@ -7,7 +7,7 @@ allprojects {
     version = mod_version
 }
 
-configure([project(':core'), project(':campaigns:quiet-below')]) {
+configure([project(':core'), project(':campaigns:quiet-below'), project(':campaigns:last-council')]) {
     apply plugin: 'fabric-loom'
 
     repositories {

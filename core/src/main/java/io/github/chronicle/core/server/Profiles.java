@@ -37,6 +37,13 @@ public final class Profiles {
 
     public static void start(MinecraftServer server) { SERVICES.put(server, new Profiles(server)); }
     public static void stop(MinecraftServer server) { SERVICES.remove(server); }
+    /** Public fields only, also usable for an offline character already linked by a scenario. */
+    public static CharacterProfile publicCard(MinecraftServer server, UUID owner, String fallbackName) throws IOException {
+        if (!server.isOnThread()) throw new IllegalStateException("Character cards require the server thread.");
+        var profiles = SERVICES.get(server);
+        if (profiles == null) throw new IllegalStateException("Character cards are unavailable.");
+        return profiles.service.get(owner, fallbackName);
+    }
     public static void disconnected(ServerPlayerEntity player) {
         Profiles profiles = SERVICES.get(player.getEntityWorld().getServer());
         if (profiles != null) {

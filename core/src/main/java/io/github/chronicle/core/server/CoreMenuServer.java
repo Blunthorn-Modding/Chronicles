@@ -119,6 +119,7 @@ public final class CoreMenuServer {
             Frame current=frame(player);
             if(eventRead&&(request.token()!=context.token||!Objects.equals(current,context.frame))){invalidate(context);send(player,context,"Server state changed. Reopen the Event editor before previewing.",false,false,false);return;}
             if(!read&&(request.token()!=context.token||!Objects.equals(current,context.frame))){invalidate(context);send(player,context,"Server state changed. Review the refreshed selection before retrying.",false,false,false);return;}
+            if(request.action()==Action.PLAYER_EXTENSION && (!context.visible || context.page!=Page.PLAYERS || request.page()!=Page.PLAYERS || !context.selected.equals(request.id())))throw new IllegalStateException("Select the player again before opening this extension.");
             if(!Objects.equals(current,context.frame))invalidate(context);
             if(request.action()==Action.OPEN){invalidate(context);context.roleReview=null;context.roleReviewAt=0;context.roleTarget="";context.token=0;context.visible=true;context.keepBook="";context.keepTable="";clearGive(context);}
             String priorSelection=context.selected;
@@ -329,6 +330,10 @@ public final class CoreMenuServer {
                 UUID owner=UUID.fromString(id);if(!source.hasPermissionLevel(2)&&!owner.equals(player.getUuid()))throw new IllegalArgumentException("Choose your own card.");
                 var target=server.getPlayerManager().getPlayer(owner);if(target==null)throw new IllegalStateException("This account is offline; its saved public card remains available through the profile service.");
                 return command(source,"chronicle players card "+target.getName().getString());
+            }
+            case PLAYER_EXTENSION -> {
+                if(c.page!=Page.PLAYERS)throw new IllegalArgumentException("Choose a player first.");
+                PlayerMenuExtensions.open(player,UUID.fromString(c.selected),arg);return "";
             }
             case STARTING_SET,RESPAWN_SET -> {MenuPlayerDestinations.set(source,UUID.fromString(id),arg,request.action()==Action.STARTING_SET);return "Destination saved for this player. No player moved now; existing claim history is retained.";}
             case STARTING_OFF,RESPAWN_OFF -> {AutomaticPlayerSpawns.disable(source,UUID.fromString(id),request.action()==Action.STARTING_OFF);return "Automatic destination disabled. Existing placement history and vanilla respawn are retained.";}
@@ -700,6 +705,7 @@ public final class CoreMenuServer {
                     controls.add(control(Action.ROLE_CHOICE_OPEN,gm?"Assign player role…":"Choose my role…",gm?roleAssignment.canAssign():roleAssignment.canChoose(),"Role selection is available before first entry; GM reassignment requires no operation hold.",false,"ROLE_CHOICE"));
                 }
                 if(gm) {
+                    for(var extension:PlayerMenuExtensions.visibleEntries(player,uuid))controls.add(control(Action.PLAYER_EXTENSION,extension.label(),true,"",false,"PLAYER_EXTENSION:"+extension.id()));
                     var state=AutomaticPlayerSpawns.available(server);var policy=state==null?null:state.policies().get(uuid);var attempt=state==null?null:state.arrivals().get(uuid);
                     var assignedRole=PlayerRoles.roleFor(server,uuid);boolean startOff=PlayerRoles.ready(server)&&PlayerRoles.assignments(server).startingDisabled().contains(uuid),respawnOff=PlayerRoles.ready(server)&&PlayerRoles.assignments(server).respawnDisabled().contains(uuid);
                     facts.add(new Fact("Starting position",policy!=null&&policy.arrival()!=null?"Manual: "+destination(server,policy.arrival().purpose()):!startOff&&assignedRole!=null&&assignedRole.starting()!=null?"Role default: "+assignedRole.starting().locationId():"Off / vanilla starting position"));

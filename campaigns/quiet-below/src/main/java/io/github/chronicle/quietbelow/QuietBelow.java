@@ -93,9 +93,9 @@ public final class QuietBelow implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        io.github.chronicle.quietbelow.content.QuietBelowEventSounds.register();
         io.github.chronicle.core.server.ScenarioContentRuntime.registerScenario("quiet_below:scenario", "The Quiet Below","quiet_below:mechanics");
-        boolean custom=io.github.chronicle.core.server.ScenarioAuthoringProfiles.active().isPresent();
+        io.github.chronicle.quietbelow.content.QuietBelowEventSounds.register();
+        boolean custom=!io.github.chronicle.core.server.PackagedScenarios.defaultsFor("quiet_below:scenario");
         var scenarioDefaults = custom?java.util.Optional.of(new io.github.chronicle.core.scenario.ScenarioContent("quiet_below:scenario",Map.of(),Map.of(),Map.of(),Map.of())):io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults.loadOptional();
         scenarioDefaults.ifPresent(io.github.chronicle.quietbelow.content.QuietBelowScenarioDefaults::register);
         if (scenarioDefaults.isEmpty()) {
@@ -117,7 +117,7 @@ public final class QuietBelow implements ModInitializer {
         io.github.chronicle.quietbelow.ecology.EradicationRecoveryTrial.register();
         io.github.chronicle.quietbelow.ecology.testing.CanonicalAuthoringTrial.register();
         io.github.chronicle.quietbelow.content.ForgeNotesTrial.register();
-        io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
+        if(io.github.chronicle.core.server.PackagedScenarios.mechanicsFor("quiet_below:scenario", "quiet_below:mechanics"))io.github.chronicle.core.server.EnchantmentCapRuntime.recommendDefaults(MOD_ID,
                 new io.github.chronicle.core.enchanting.EnchantmentCaps(true,1,java.util.Map.of()));
         io.github.chronicle.quietbelow.content.SculkAppearanceHandshake.register();
         // Optional public cues. Registering definitions arms no triggers or story timetable.

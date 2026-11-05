@@ -10,3 +10,4 @@ rootProject.name = 'chronicle'
 
 include 'core'
 include 'campaigns:quiet-below'
+include 'campaigns:last-council'

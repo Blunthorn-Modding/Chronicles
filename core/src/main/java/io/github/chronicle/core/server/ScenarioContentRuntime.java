@@ -43,7 +43,7 @@ public final class ScenarioContentRuntime {
     public static synchronized void register(){ServerLifecycleEvents.SERVER_STARTED.register(server->freezeRegistrations());}
     private static synchronized void freezeRegistrations(){frozen=true;}
     static synchronized List<ScenarioExportPreview> previews(MinecraftServer server) {
-        Map<String,String> visible=ScenarioAuthoringProfiles.active().map(p->Map.of(p.content().scenarioId(),p.title())).orElseGet(()->Map.copyOf(PROVIDERS));
+        Map<String,String> visible=ScenarioAuthoringProfiles.active().map(p->Map.of(p.content().scenarioId(),p.title())).orElseGet(()->{var result=new TreeMap<String,String>();PackagedScenarios.selected().ifPresent(id->{if(PROVIDERS.containsKey(id))result.put(id,PROVIDERS.get(id));});return result;});
         try {int roles=PlayerRoles.definitions(server).size(),books=BookRuntime.books(server).size(),loot=TypedChestLoot.types(server).size(),events=eventCount(server),groups=Encounters.groups(server).size();return visible.entrySet().stream().map(entry->new ScenarioExportPreview(entry.getKey(),entry.getValue(),roles,books,loot,events,0,"",true,"",groups)).toList();}
         catch(RuntimeException exception){return visible.entrySet().stream().map(entry->new ScenarioExportPreview(entry.getKey(),entry.getValue(),0,0,0,0,0,"",false,shortText(exception.getMessage()))).toList();}
     }
@@ -54,7 +54,7 @@ public final class ScenarioContentRuntime {
     }
     static synchronized Pinned open(MinecraftServer server,String providerId) {
         var custom=ScenarioAuthoringProfiles.active();if(custom.isPresent()){if(!custom.get().content().scenarioId().equals(providerId))throw new IllegalArgumentException("Choose the active custom scenario.");return capture(server,providerId,custom.get().title());}
-        String title=PROVIDERS.get(providerId);if(title==null)throw new IllegalArgumentException("Choose a registered scenario content provider.");
+        String title=PROVIDERS.get(providerId);if(title==null||PackagedScenarios.selected().filter(providerId::equals).isEmpty())throw new IllegalArgumentException("Choose the active scenario content provider.");
         return capture(server,providerId,title);
     }
     static String export(MinecraftServer server,Pinned pinned) throws IOException {

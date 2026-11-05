@@ -88,6 +88,9 @@ public final class ChronicleCoreClient implements ClientModInitializer {
         if (profile.saved()) {
             return;
         }
+        if (OwnCardScreens.open(client, profile)) {
+            return;
+        }
         client.setScreen(new DossierScreen(profile));
     }
 

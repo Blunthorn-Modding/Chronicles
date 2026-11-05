@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 5 November: Last Council foundation development slice
+
+Read [implementation evidence](work-packages/last-council/IMPLEMENTATION.md). Matching `0.2.0-dev.1` Core/Last Council compile and remap; all-module Java suites pass802tests (795passed/sevenexisting Windows symlink skips); Python131PASS. Two real clients verify authenticated private papers, public separation, pronoun save, normal Players extension, compact layouts and restart with unchanged cast bytes. Server-only selection matrix covers Core, each content mod, both explicit choices, missing-choice refusal and world-identity mismatch. The reviewed native report is `../reports/last-council-20261105T193634428841Z/report.json`; matrix limitations are explicit in the implementation document. Completed disposable roots were deleted, preserving compact evidence. No full LC-01 delivery, political gameplay, human/group review, long soak, release or alpha artifact change is claimed.
+
 ## 4 November: initial alpha and final default-Event checks
 
 Both former native coverage gaps are closed: the exact `0.1.0-alpha.1` JARs pass the six-phase defaults proof in `../reports/scenario-defaults-20261104T204641530535Z/report.json`, including real ACTIVE restart deferral/non-active promotion and actual incomplete-default editor save/restart. The test exposed template renaming replacing its ID; the client now preserves supplied IDs. The ordinary editor regression passes 40 checks at320x240, including new-name ID generation and manual-ID preservation (`event-editor-smoke-20261104T205100218008Z`). Independent source review is clear.

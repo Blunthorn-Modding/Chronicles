@@ -24,6 +24,7 @@ public final class DossierScreen extends Screen {
     private static final int SAVE_TIMEOUT_TICKS = 20 * 10;
 
     private ProfilePayloads.View profile;
+    private final Screen parent;
     private String name;
     private String pronouns;
     private String description;
@@ -37,8 +38,13 @@ public final class DossierScreen extends Screen {
     private boolean draftsDirty;
 
     public DossierScreen(ProfilePayloads.View profile) {
+        this(profile, null);
+    }
+
+    public DossierScreen(ProfilePayloads.View profile, Screen parent) {
         super(Text.translatable("screen.chronicle.profile.title"));
         this.profile = profile;
+        this.parent = parent;
         this.name = profile.name();
         this.pronouns = profile.pronouns();
         this.description = profile.description();
@@ -48,6 +54,8 @@ public final class DossierScreen extends Screen {
     public UUID owner() {
         return profile.owner();
     }
+    /** Canonical public fields for a parent presentation after this editor closes. */
+    public ProfilePayloads.View snapshot() { return profile; }
 
     /** Updates the card using canonical server data and retains owner drafts until a save succeeds. */
     public void accept(ProfilePayloads.View updated) {
@@ -237,6 +245,13 @@ public final class DossierScreen extends Screen {
                     noticeKey.startsWith("chronicle.profile.error") ? 0xFFFF7777 : 0xFF77FF77);
         }
         super.render(context, mouseX, mouseY, deltaTicks);
+    }
+
+    @Override
+    public void close() {
+        if (client != null) {
+            client.setScreen(client.player != null && client.world != null ? parent : null);
+        }
     }
 
     @Override

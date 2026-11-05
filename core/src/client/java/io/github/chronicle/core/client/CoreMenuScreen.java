@@ -933,6 +933,10 @@ public final class CoreMenuScreen extends Screen {
         }
         if (control.action() == Action.CHEST_BOOK_SET) { beginPicker(new PendingPicker(Action.CHEST_BOOK_SET, detailId(), "BOOKS")); return; }
         String input = control.input();
+        if (control.action() == Action.PLAYER_EXTENSION && input.startsWith("PLAYER_EXTENSION:")) {
+            request(control.action(), Page.PLAYERS, detailId(), input.substring("PLAYER_EXTENSION:".length()), state.index(), state.filter(), "", false);
+            return;
+        }
         if (input.isBlank()) { applyControl(control, detailId(), ""); return; }
         if (input.startsWith("TOOL:")) { applyControl(control, detailId(), ""); return; }
         if (input.equals("LOOT_DRAFT")) { saveLoot(); return; }

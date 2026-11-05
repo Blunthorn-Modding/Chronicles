@@ -1,6 +1,6 @@
 # Last Council: smaller interfaces tied to the scene
 
-Status: **scene-based UI proposal, revised after owner review**. 5 November 2026. Replaces the combined-menu direction in [the first pass](UI_DESIGN.md); its HTML remains unchanged. No native gameplay implementation is authorized yet. Current corrections: distinct My house information/secrets/house goals/known-other-house secrets, no generated personal goals or duplicate read controls; confirmed votes are final; the electorate is only eligible houses present at opening and stays fixed. Treaty creation and Call meeting remain as reviewed.
+Status: **scene-based UI proposal, revised after owner review**. 5 November 2026. Replaces the combined-menu direction in [the first pass](UI_DESIGN.md); its HTML remains unchanged. The owner has approved this design and authorized native implementation. Current corrections: distinct My house information/secrets/house goals/known-other-house secrets, no generated personal goals or duplicate read controls; confirmed votes are final; the electorate is only eligible houses present at opening and stays fixed. Treaty creation and Call meeting remain as reviewed.
 
 Active prototype: [last-council-scenes.html](../../design/last-council-scenes.html), served at `http://127.0.0.1:8925/last-council-scenes.html`. The external toolbar simulates approaching blocks, interacting with a character, opening a vote and switching people. These are review controls, not an in-game dashboard or permission switch. Changes are local sample data and are discarded by Reset/refresh.
 

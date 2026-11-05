@@ -45,7 +45,7 @@ Council gatherings begin with configured Event text/sound; the GM then opens a m
 
 Random pool dispatch is also a new Core capability, not permission to ignore those executor constraints. The Last Council service must gate every normal regency-opening path on this meeting's due complications/recess state. Meeting-close checks cover meetings without regency. Core's technical pause remains separate; live RP and other gameplay continue through a normal Council recess. Pending/delivered counts and hidden allocation are world progress, never reusable exports or normal spoiler-visible previews.
 
-These APIs need focused integration work; their existence does not mean ballots, treaties or palace exclusion are already implemented. The current root `build.gradle` explicitly configures two modules, so adding Last Council also requires extending that shared build configuration.
+These APIs need focused integration work; their existence does not mean ballots, treaties or palace exclusion are already implemented. The root `build.gradle` now configures Core, Quiet Below and Last Council; the new module remains independent of Quiet Below.
 
 Registration also has finite budgets: `SiteSubtypes` currently allows twelve definitions and `EventSources` thirty-two providers. Audit the combined Core/Quiet Below/Last Council set before adding providers; do not silently drop late registrations or expand limits without bounded projection/tests.
 

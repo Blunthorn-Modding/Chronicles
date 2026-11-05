@@ -2,7 +2,7 @@
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
-Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below currently remain **0.1.0-alpha.1**, Minecraft **1.21.10**. The Last Council has no implemented or released mod version yet. This planning pass changes no runtime, release JAR, server or world.
+Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.1**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 
@@ -16,7 +16,7 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 
 | Package | Deliverable | Depends on | Status |
 |---|---|---|---|
-| [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | Planned; split into foundation and draw slices |
+| [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | In progress: assignments/private cast screens; physical grants and pool authoring pending |
 | [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | Planned; UI design review required |
 | [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | Planned |
 | [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Planned; gameplay/UI flow review required |
@@ -35,13 +35,13 @@ LC-10 can be investigated early and independently. Its later ID does not mean ro
 
 Reuse Core's Player Roles, private role-issued books, character cards, Regions/Points/Block sites, shared picker and confirmation widgets, session/Building Mode, active-play clocks, Event/flag execution, scenario profiles/export and audited recovery patterns. Keep the existing storage split: map bindings and live progress belong to the world; reusable defaults and server configuration retain their current homes.
 
-The repository does **not** currently implement connected randomized lore assignments, electorate snapshots, ballots, treaties, conflict/rebellion state or access-control Regions. Small house/seat metadata attaches to existing character assignments; it does not require another house dossier/catalogue. Existing Events supply the gathering/announcement flow, while the new political services preserve vote/consent state. Quiet Below's sculk and stations are not dependencies of this campaign.
+The current slice implements connected private lore draws and unique house assignments. Electorate snapshots, ballots, treaties, conflict/rebellion state and access-control Regions remain pending. Small house/seat metadata attaches to existing character assignments; it does not require another house dossier/catalogue. Existing Events supply the gathering/announcement flow, while the new political services preserve vote/consent state. Quiet Below's sculk and stations are not dependencies of this campaign.
 
 Read [integration boundaries and rule contracts](CONTRACTS.md) before implementation. Each package lists acceptance evidence and its review gate. Never mark a package delivered based only on its model classes or a screenshot.
 
 ## Review and verification workflow
 
-**5 November direction:** UI design precedes gameplay. Continue with [small screens and physical interaction points](UI_SCENES_FLOW.md). My house separates information, secrets, assigned house goals and known other-house secrets; personal goals are player-defined and omitted. Votes are final once confirmed. Only online eligible houses inside the voting Region **at opening** form the fixed electorate; five present means three required, with no late entrants or threshold changes on departure. Same-lectern treaty creation, physical challenge and focused Chancellor controls remain. Native work stays gated on approved flows.
+**5 November direction:** UI design precedes gameplay. Continue with [small screens and physical interaction points](UI_SCENES_FLOW.md). My house separates information, secrets, assigned house goals and known other-house secrets; personal goals are player-defined and omitted. Votes are final once confirmed. Only online eligible houses inside the voting Region **at opening** form the fixed electorate; five present means three required, with no late entrants or threshold changes on departure. Same-lectern treaty creation, physical challenge and focused Chancellor controls remain. The owner has approved these flows and authorized implementation; new or materially changed flows still need their own design review.
 
 1. After UI review, start LC-01 with domain/state and module isolation; retain the existing release baseline.
 2. Before each new player/GM screen, design the actual flow and review the mockup. Reuse the established vanilla-style components and shared popups. Do not replace approval of the flow with a finished native screen.
@@ -49,7 +49,7 @@ Read [integration boundaries and rule contracts](CONTRACTS.md) before implementa
 4. Run focused domain tests, then relevant module tests and native interaction/restart tests. Core changes also require Quiet Below regression evidence proportional to their surface.
 5. Bundle human reviews when independent work can continue. Stop for decisions or reviews that would materially change the next implementation, rather than after every small feature.
 
-The current docs-only checks are `git diff --check`, local Markdown-link validation and the source-brief hash comparison. After LC-01 adds the module, focused Gradle targets will be `:core:test` and `:campaigns:last-council:test`, using the existing workspace toolchain environment. `python scripts/workspace.py build` remains the current full-build entry point. LC-09 adds the named native runner; no Council test command exists yet.
+The current docs-only checks are `git diff --check`, local Markdown-link validation and the source-brief hash comparison. After LC-01 adds the module, focused Gradle targets will be `:core:test` and `:campaigns:last-council:test`, using the existing workspace toolchain environment. `python scripts/workspace.py build` remains the current full-build entry point. The first dedicated native foundation runner is `python scripts/last_council_smoke.py`, after building its matching JARs and `:campaigns:last-council:writeSmokeClientLaunch`. It does not verify later political gameplay.
 
 Keep builds/native clients serialized where they share class directories or test ports. Use small disposable fixtures, retain compact results, then delete successful worlds. No review server, production map generator or long soak is authorized by this planning pass.
 
