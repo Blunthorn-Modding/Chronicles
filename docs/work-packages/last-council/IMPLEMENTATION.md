@@ -1,6 +1,6 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.1`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.2`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
 
 ## Current slice
@@ -31,7 +31,7 @@ Open the existing Players menu, select a character and choose House & papers. `/
 
 ## Still pending
 
-This is not all of LC-01. Core pool authoring/export and recipient-specific physical book grants, their inventory-full/interruption recovery, and the polished full cast-preview workflow remain pending. Fixed Player Role books are unchanged. No ballot, motion lectern, treaty, war, rebellion, banquet or complication gameplay is claimed yet. Voice/acoustics remains a separate review.
+This is not all of LC-01. Core pool authoring/export and recipient-specific physical book grants, their inventory-full/interruption recovery, and the polished full cast-preview workflow remain pending. Fixed Player Role books are unchanged. LC02 adds ballots, motion lecterns and proceedings as described below. Treaty, war, rebellion, banquet and complication gameplay remain pending. Voice/acoustics remains a separate review.
 
 ## Verification
 
@@ -45,6 +45,23 @@ Commands use `scripts/workspace.py`'s child-process-only Java/Gradle environment
 - Independent source review checked private projection, roster uniqueness, permission/revision/token guards and stores. It found the post-publication cleanup failure, now fixed and fault-tested, and correctly identified physical delivery as unfinished.
 - `git diff --check` passes. Original brief SHA256 remains `df20a7c1a8ff73f81b9f7dc1265666b4131ce62b260b79904180ea32fca5a44a`.
 
-No released alpha artifact, production map or existing player world was changed. Successful disposable test roots are removed after verification; reports and screenshots remain. No long performance soak or human/group review is claimed. Ballot recovery has a pending owner decision about an audited void-and-replace action; do not silently choose its policy.
+No released alpha artifact, production map or existing player world was changed. Successful disposable test roots are removed after verification; reports and screenshots remain. No long performance soak or human/group review is claimed. The owner has since confirmed audited void-and-replace for open ballots, configurable hotkey/command access and same-meeting regency replacement after a technical void.
 
 Final cleanup removed10 stopped disposable fixtures (1.6GiB), preserving reports/screenshots; `../reports/last-council-foundation-cleanup.json` lists the exact roots. Unrelated acoustics work is unchanged.
+
+
+## Council meetings and ballots (LC02)
+
+The second slice adds the optional Core ballot engine and Last Council proceedings. Bind a Region's **Council voting** subtype and a lectern Block site's **Council motions** subtype through the existing editor. No alternate geometry registry or new editor tab is required.
+
+The Chancellor uses `/chronicle council proceedings` to call the gathering, open a meeting, prepare/admit/defer motions, open and close individual ballots, recess and finish. Other eligible houses propose or sponsor at the physically bound lectern. Public motion reading is available near that lectern without a political seat, including author inspection in Building Mode; mutations require eligible active play. The normal paused-interaction gate still applies.
+
+Opening captures the representatives then inside the voting Region. The roster, threshold and geometry stay fixed through disconnects and restarts. Each house's first confirmed choice is final. Secret open/void ballots expose no other choices or partial totals, even to the Chancellor; closed secret ballots expose aggregates only. Server authorization/presence checks apply equally to UI and packets. Default **R** (rebindable in Controls) or `/chronicle council vote` opens the current ballot; a notice does not replace a workstation screen. Dismissal never abstains.
+
+Open ballots can be voided for a required public reason; the archive retains their original immutable choices. Replacement uses a new ID and electorate. A completed political result cannot be rolled back with this action. Core ballots and scenario proceedings have separate observed-byte journals; saved intents make opening/closing/void recovery reuse the same operation, rather than recapture the electorate. Failed persistence holds operations and exposes Recover. Recovery cannot dismiss an external edit.
+
+The packaged Council-call Event uses the existing per-source-occurrence message/bell delivery. A new authorized call is a new occurrence; a retry/restart cannot replay the same one. Pending source cancellation uses proof from the fully loaded, unchanged producer journal. Ordinary meetings are independent of Chronicle play-session boundaries and technical pause.
+
+Current omissions: actual hidden complication-pool timing/progression gate (LC08), succession integration (LC03), full native authoring of the two subtype bindings, physical treaty ceremony and later political systems. Native ballot fixtures inject valid authoring bindings, so their successful vote proof does not establish the subtype-picker flow. No multiplayer human review or long performance soak is claimed.
+
+LC02 evidence is recorded in `BALLOTS_VERIFICATION.md`; initial LC01 evidence above remains historical. The new Core service has no global gameplay initializer, so unused campaigns do not gain ballot rules or menus.

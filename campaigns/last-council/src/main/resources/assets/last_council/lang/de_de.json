@@ -1,0 +1,6 @@
+{
+  "key.last_council.ballot.open": "Aktuelle Abstimmung öffnen",
+  "message.last_council.ballot.open": "Ratsabstimmung offen: %1$s. Drücke %2$s oder nutze %3$s.",
+  "message.last_council.ballot.command": "Ratsabstimmung offen: %1$s. Nutze %2$s.",
+  "message.last_council.ballot.check": "Nutze %1$s, um nach einer aktuellen Abstimmung zu sehen."
+}

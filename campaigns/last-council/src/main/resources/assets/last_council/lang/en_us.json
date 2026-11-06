@@ -1,0 +1,6 @@
+{
+  "key.last_council.ballot.open": "Open current ballot",
+  "message.last_council.ballot.open": "Council ballot open: %1$s. Press %2$s or use %3$s.",
+  "message.last_council.ballot.command": "Council ballot open: %1$s. Use %2$s.",
+  "message.last_council.ballot.check": "To check for a current ballot, use %1$s."
+}

@@ -11,9 +11,9 @@ def run():
     import workspace as w
     w.require_eula(); w.validate_server_runtime(); w.validate_managed_mod_names()
     launch = json.loads((w.REPO / 'campaigns/last-council/build/smoke/client-launch.json').read_text(encoding='utf-8'))
-    jars = list((w.REPO / 'campaigns/last-council/build/libs').glob('last_council-*.jar'))
-    jars = [p for p in jars if not any(s in p.name for s in ('-sources.jar', '-dev.jar', '-javadoc.jar'))]
-    if len(jars) != 1: raise RuntimeError('Expected exactly one remapped Last Council jar')
+    properties = dict(line.split('=',1) for line in (w.REPO / 'gradle.properties').read_text().splitlines() if '=' in line)
+    jars = [w.REPO / 'campaigns/last-council/build/libs' / ('last_council-' + properties['mod_version'] + '.jar')]
+    if not jars[0].is_file(): raise RuntimeError('Build the matching Last Council jar first')
     w.validate_mod_target(jars[0])
     root = fabric_smoke._stage(w)
     (root / '.last-council-fixture').write_text('Disposable Last Council native smoke\n', encoding='utf-8')

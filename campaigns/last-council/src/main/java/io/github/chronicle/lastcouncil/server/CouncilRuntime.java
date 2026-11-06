@@ -42,6 +42,14 @@ public final class CouncilRuntime {
             .executes(c->{var player=c.getSource().getPlayer();if(player==null)return 0;return openPersonal(player);})
             .then(literal("characters").requires(s->s.hasPermissionLevel(2)).executes(c->{var player=c.getSource().getPlayer();if(player==null)return 0;openAdmin(player,player.getUuid());return 1;})))));
     }
+    public static HouseRoster roster(MinecraftServer server) {
+        if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House assignments unavailable.");
+        return WORLDS.get(server).roster.snapshot();
+    }
+    public static Map<String,HouseDefinition> houses(MinecraftServer server) {
+        if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
+        return WORLDS.get(server).content.houses();
+    }
     public static boolean active(){return PackagedScenarios.mechanicsFor(LastCouncil.SCENARIO,LastCouncil.MECHANICS);}
     private static void start(MinecraftServer server){
         try{
@@ -118,6 +126,7 @@ public final class CouncilRuntime {
     }
     private static void operator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2))throw new IllegalStateException("Only the Chancellor can manage house assignments.");}
     private static String editReason(ServerPlayerEntity player,State state){
+        if(ProceedingsRuntime.ballotOpen(player.getEntityWorld().getServer()))return "Close or void the current ballot before changing the cast.";
         if(state.cast!=null)return "The cast is committed. Character-to-house assignments are fixed for this experience.";
         if(!AuthoringRuntime.editable(player.getEntityWorld().getServer())||!AuthoringRuntime.isAuthor(player))return "Pause play and enable editing before changing the cast.";
         if(RuntimeHolds.heldByOther(player.getEntityWorld().getServer(),HOLD))return "Resolve the active Chronicle operation hold first.";

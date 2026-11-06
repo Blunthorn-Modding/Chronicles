@@ -2,7 +2,7 @@
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
-Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.1**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
+Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.2**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 
@@ -17,7 +17,7 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 | Package | Deliverable | Depends on | Status |
 |---|---|---|---|
 | [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | In progress: assignments/private cast screens; physical grants and pool authoring pending |
-| [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | Planned; UI design review required |
+| [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | In implementation: approved scenes, Core ballots, motions/proceedings; complication gate pending |
 | [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | Planned |
 | [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Planned; gameplay/UI flow review required |
 | [LC-05](LC-05-conflicts.md) | House/civil/external wars and political settlements | LC-02, LC-04 | Planned |
@@ -35,7 +35,7 @@ LC-10 can be investigated early and independently. Its later ID does not mean ro
 
 Reuse Core's Player Roles, private role-issued books, character cards, Regions/Points/Block sites, shared picker and confirmation widgets, session/Building Mode, active-play clocks, Event/flag execution, scenario profiles/export and audited recovery patterns. Keep the existing storage split: map bindings and live progress belong to the world; reusable defaults and server configuration retain their current homes.
 
-The current slice implements connected private lore draws and unique house assignments. Electorate snapshots, ballots, treaties, conflict/rebellion state and access-control Regions remain pending. Small house/seat metadata attaches to existing character assignments; it does not require another house dossier/catalogue. Existing Events supply the gathering/announcement flow, while the new political services preserve vote/consent state. Quiet Below's sculk and stations are not dependencies of this campaign.
+The current slice implements connected private lore draws and unique house assignments. Electorate snapshots, ballots and motion/proceedings screens are implemented in LC02; treaties, conflict/rebellion state and access-control Regions remain pending. Small house/seat metadata attaches to existing character assignments; it does not require another house dossier/catalogue. Existing Events supply the gathering/announcement flow, while the new political services preserve vote/consent state. Quiet Below's sculk and stations are not dependencies of this campaign.
 
 Read [integration boundaries and rule contracts](CONTRACTS.md) before implementation. Each package lists acceptance evidence and its review gate. Never mark a package delivered based only on its model classes or a screenshot.
 
@@ -56,7 +56,7 @@ Keep builds/native clients serialized where they share class directories or test
 ## Decisions to settle at the relevant package gate
 
 - **LC-01:** first release uses one representative per house, matching the brief's default. If multiple simultaneous representatives are required, decide delegation before implementing casting/signature authority; there is still only one vote per house.
-- **LC-02:** decide technical void/reopen procedure and zero-support advisory outcomes. Recovery must resume the same ballot without secretly changing its electorate or freeing another succession slot.
+- **LC-02:** technical void with a public reason and a new replacement ballot is confirmed. Confirmed access uses a configurable hotkey and command. Voided regency permits same-meeting replacement; only completed regency consumes that meeting slot. Recovery resumes the same saved attempt without a fresh snapshot.
 - **LC-04:** confirm treaty amendment/signature-expiry rules and which public record accompanies breaking or revealing a private treaty. Never disclose private terms merely because a public war was declared.
 - **LC-06:** define the narrow supervised-visit exception and the separate crowned-ruler abdication/deposition procedure before exposing those controls.
 - **LC-07:** review dose counts, onset/duration, symptoms and antidote strength; the brief deliberately leaves those numbers open. Banquet poisoning remains optional.
