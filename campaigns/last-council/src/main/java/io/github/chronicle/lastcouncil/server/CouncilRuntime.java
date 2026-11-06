@@ -91,7 +91,7 @@ public final class CouncilRuntime {
         for(var house:state.content.houses().values().stream().sorted(Comparator.comparing(HouseDefinition::title).thenComparing(HouseDefinition::id)).toList()){
             var assignment=state.roster.snapshot().assignments().values().stream().filter(a->a.houseId().equals(house.id())).findFirst().orElse(null);
             String representative="";if(assignment!=null){var online=server.getPlayerManager().getPlayer(assignment.owner());representative=Profiles.publicCard(server,assignment.owner(),online==null?"Assigned character":online.getName().getString()).name();}
-            result.add(new PublicHouse(house.id(),house.title(),house.reputation(),house.description(),house.interests(),representative,assignment!=null&&assignment.councilMember(),assignment!=null&&assignment.candidate(),house.defaultCandidate()));
+            result.add(new PublicHouse(house.id(),house.title(),house.reputation(),house.description(),house.interests(),representative,assignment!=null&&assignment.councilMember(),assignment!=null&&ProceedingsRuntime.candidate(server,house.id(),assignment.candidate()),house.defaultCandidate()));
         }
         return result;
     }
@@ -127,6 +127,7 @@ public final class CouncilRuntime {
     private static void operator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2))throw new IllegalStateException("Only the Chancellor can manage house assignments.");}
     private static String editReason(ServerPlayerEntity player,State state){
         if(ProceedingsRuntime.ballotOpen(player.getEntityWorld().getServer()))return "Close or void the current ballot before changing the cast.";
+        if(ProceedingsRuntime.successionStarted(player.getEntityWorld().getServer()))return "The succession slate is locked. House setup cannot reset an election.";
         if(state.cast!=null)return "The cast is committed. Character-to-house assignments are fixed for this experience.";
         if(!AuthoringRuntime.editable(player.getEntityWorld().getServer())||!AuthoringRuntime.isAuthor(player))return "Pause play and enable editing before changing the cast.";
         if(RuntimeHolds.heldByOther(player.getEntityWorld().getServer(),HOLD))return "Resolve the active Chronicle operation hold first.";

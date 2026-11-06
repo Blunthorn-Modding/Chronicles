@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 6 November: Council ballots and succession development slices
+
+Read [ballot evidence](work-packages/last-council/BALLOTS_VERIFICATION.md), [succession evidence](work-packages/last-council/SUCCESSION_VERIFICATION.md) and the [combined review guide](work-packages/last-council/REVIEW_COUNCIL.md). Development0.2.0-dev.3:846Java tests (839passed/seven existing Windows skips), Python131PASS, final three-client ordinary-ballot and succession suites each PASS across actual restart. Save-failure and malformed-history tests cover fixed snapshots, reasoned void/replacement and persisted elimination draws. Actual LC08 pool/gate and other listed political controls remain pending; no full LC03/scenario completion is claimed. One authenticated loopback review at25589 is running. Nine stopped Council fixtures were removed, retaining compact reports. Alpha artifacts, source brief and unrelated acoustics work are unchanged.
+
 ## 5 November: Last Council foundation development slice
 
 Read [implementation evidence](work-packages/last-council/IMPLEMENTATION.md). Matching `0.2.0-dev.1` Core/Last Council compile and remap; all-module Java suites pass802tests (795passed/sevenexisting Windows symlink skips); Python131PASS. Two real clients verify authenticated private papers, public separation, pronoun save, normal Players extension, compact layouts and restart with unchanged cast bytes. Server-only selection matrix covers Core, each content mod, both explicit choices, missing-choice refusal and world-identity mismatch. The reviewed native report is `../reports/last-council-20261105T193634428841Z/report.json`; matrix limitations are explicit in the implementation document. Completed disposable roots were deleted, preserving compact evidence. No full LC-01 delivery, political gameplay, human/group review, long soak, release or alpha artifact change is claimed.

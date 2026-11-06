@@ -41,7 +41,7 @@ public final class ProceedingsStore implements ProceedingsRepository {
         if (!loaded) throw new IOException("Load proceedings before saving");
         try {
             JsonObject root = new JsonObject();
-            root.addProperty("schemaVersion", 1);
+            root.addProperty("schemaVersion", 2);
             root.add("state", JSON.toJsonTree(Objects.requireNonNull(state)));
             byte[] bytes = encodeUtf8(root + "\n");
             if (bytes.length > MAX_BYTES || !decode(decodeUtf8(bytes)).equals(state))
@@ -56,8 +56,18 @@ public final class ProceedingsStore implements ProceedingsRepository {
         JsonObject root = BookConfig.strictObject(text);
         if (!root.keySet().equals(Set.of("schemaVersion", "state"))) throw new IllegalArgumentException("Unexpected root fields");
         JsonElement version = root.get("schemaVersion");
-        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !version.getAsString().equals("1"))
+        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !Set.of("1","2").contains(version.getAsString()))
             throw new IllegalArgumentException("Unsupported schema version");
+        if(version.getAsString().equals("1")) {
+            JsonObject state=root.getAsJsonObject("state");
+            if(state.has("succession"))throw new IllegalArgumentException("Unexpected legacy succession field");
+            state.add("succession",JSON.toJsonTree(SuccessionState.empty()));
+            JsonElement pending=state.get("pending");
+            if(pending!=null&&!pending.isJsonNull()) {
+                if(pending.getAsJsonObject().has("result"))throw new IllegalArgumentException("Unexpected legacy result field");
+                pending.getAsJsonObject().add("result",JsonNull.INSTANCE);
+            }
+        }
         validate(root.get("state"), ProceedingsState.class, 0);
         return Objects.requireNonNull(JSON.fromJson(root.get("state"), ProceedingsState.class));
     }

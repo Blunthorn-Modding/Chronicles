@@ -1,6 +1,6 @@
 # LC-03 — Succession and constitutional outcomes
 
-Status: planned. Depends on LC-02. Brief: §§3.3, 4, 6, 12, 14–15.
+Status: in implementation. Pure rules, durable regency intents/history and native proceedings integration are implemented; native verification and actual LC08 progression integration are tracked separately. Depends on LC-02. Brief: §§3.3, 4, 6, 12, 14–15.
 
 ## Outcome and ownership
 
@@ -9,7 +9,7 @@ Last Council adds succession state on top of Core ballots. Core must not acquire
 ## Work
 
 1. Configure candidates before the first ballot; lock the initial slate at opening. Store election and meeting identities separately from Chronicle sessions.
-2. Enforce secret succession votes and at most one succession ballot per meeting on the server, including stale clients and retries.
+2. A technical void may be replaced in the same Council meeting, preserving its candidate slate and complication history. Only a completed regency consumes the meeting slot; replacement uses a new ballot ID and electorate. Enforce secret succession votes and at most one succession ballot per meeting on the server, including stale clients and retries.
 3. On majority: crown once. On no majority with >2 candidates: eliminate exactly one lowest candidate. Persist tied-last draw input/outcome before announcement; recovery cannot reroll.
 4. On two candidates with no majority: vacancy. On one candidate after withdrawal/rebellion: a later Yes/No/Abstain majority confirmation. On zero candidates/seats: vacancy. An early evening end records unresolved, never a plurality winner.
 5. Warn about insufficient scheduled succession meetings (`C-1` opportunities for an unchanged initial slate), without changing rules or interrupting scenes automatically.
@@ -28,3 +28,10 @@ Add a real late-complication/recess → resumed regency proof, including racing/
 ## Review gate
 
 Review constitutional results and result/history wording before proceeding to rebellion integration. UI shows required majority, remaining candidates and recorded eliminations without secret individual choices or a misleading total of votes cast.
+
+
+## Current engineering boundary
+
+See [LC03 implementation slices](LC03_IMPLEMENTATION_PLAN.md). Succession uses the existing proceedings journal, schema2, preserving schema1 ordinary ballot history on load. A tied-last result is saved in the close intent before Core closes its ballot, then applied with the round finalization. Chronological replay validates every slate and removal, including withdrawal order, terminal outcomes and meeting bounds. The initial slate currently supports2?15 candidates (Core's bounded sixteen-option ballot includes Abstain); larger configuration refuses explicitly.
+
+The approved Request regency scene and public outcome text are implemented. Pure withdrawal/unfinished-ending APIs are tested but deliberately have no new player/GM control pending their detailed flow review. There is no election reset or post-crown rollback. Actual rebellion/zero-political-seat integration, schedule-capacity warnings and the LC08 hidden complication pool/gate remain pending. Empty Region attendance refuses a ballot and never declares the throne vacant. The default progression hook means no configured complications in this development slice; it is not evidence of integrated random complications.

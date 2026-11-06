@@ -1,6 +1,6 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.2`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.3`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
 
 ## Current slice
@@ -65,3 +65,14 @@ The packaged Council-call Event uses the existing per-source-occurrence message/
 Current omissions: actual hidden complication-pool timing/progression gate (LC08), succession integration (LC03), full native authoring of the two subtype bindings, physical treaty ceremony and later political systems. Native ballot fixtures inject valid authoring bindings, so their successful vote proof does not establish the subtype-picker flow. No multiplayer human review or long performance soak is claimed.
 
 LC02 evidence is recorded in `BALLOTS_VERIFICATION.md`; initial LC01 evidence above remains historical. The new Core service has no global gameplay initializer, so unused campaigns do not gain ballot rules or menus.
+
+
+## Succession (LC03 in progress)
+
+The Chancellor's existing proceedings screen now has **Request regency vote** and public succession status. Candidate setup still uses the existing house-assignment popup before the first opening. Opening locks the initial slate; a completed ballot either crowns on majority, removes exactly one lowest candidate (persisted draw for a tie), or leaves the throne vacant after an unsuccessful two-candidate/confirmation vote. Elimination does not remove a Council vote. Later rounds need a later Council meeting. A technical void preserves the slate and permits a new same-meeting ballot; it never retallies or changes the old votes.
+
+The scenario's election state shares the proceedings journal, now strict schema2 with schema1 migration. A result, including a drawn tied-last house, is committed in the pending-close intent before closing Core's ballot. Recovery applies that same result without another random draw. Chronological validation prevents revived/omitted candidates and outcomes after an election ends. All secret choices remain in Core's ledger; public result text contains only the constitutional outcome and any announced elimination draw.
+
+The LC08 gate and other explicitly deferred LC03 items are listed in `LC-03-succession.md`; this is not a claim that the whole package or scenario is complete. Never expose reset/withdrawal/political rollback controls merely because pure domain methods exist.
+
+The final source checks and native proofs for this slice are in [succession verification](SUCCESSION_VERIFICATION.md); the current human checklist is [Council review](REVIEW_COUNCIL.md).

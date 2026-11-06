@@ -12,6 +12,7 @@ public final class LastCouncilClient implements ClientModInitializer {
     @Override public void onInitializeClient(){
         CouncilSmoke.register();
         CouncilBallotsSmoke.register();
+        CouncilSuccessionSmoke.register();
         BallotAccess.register(()->active);
         OwnCardScreens.register("last_council:personal",()->active,(client,card)->{
             if(client.currentScreen instanceof PersonalScreen screen)screen.acceptCard(card);
@@ -21,20 +22,20 @@ public final class LastCouncilClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(CouncilPayloads.Capability.ID,(view,context)->context.client().execute(()->active=view.active()));
         ClientPlayNetworking.registerGlobalReceiver(CouncilPayloads.PersonalView.ID,(view,context)->context.client().execute(()->{CouncilSmoke.personal(view);if(context.client().currentScreen instanceof PersonalScreen screen)screen.accept(view);}));
         ClientPlayNetworking.registerGlobalReceiver(CouncilPayloads.AdminView.ID,(view,context)->context.client().execute(()->{
-            CouncilSmoke.admin(view);CouncilBallotsSmoke.admin(view);var client=context.client();if(view.opening())client.setScreen(new HouseSetupScreen(view));else if(client.currentScreen instanceof HouseSetupScreen screen)screen.accept(view);
+            CouncilSmoke.admin(view);CouncilBallotsSmoke.admin(view);CouncilSuccessionSmoke.admin(view);var client=context.client();if(view.opening())client.setScreen(new HouseSetupScreen(view));else if(client.currentScreen instanceof HouseSetupScreen screen)screen.accept(view);
         }));
         ClientPlayNetworking.registerGlobalReceiver(ProceedingsPayloads.View.ID,(view,context)->context.client().execute(()->{
-            CouncilBallotsSmoke.view(view);var client=context.client();
+            CouncilBallotsSmoke.view(view);CouncilSuccessionSmoke.view(view);var client=context.client();
             if(view.opening())client.setScreen(new CouncilBusinessScreen(view,null));
             else if(client.currentScreen instanceof CouncilBusinessScreen screen)screen.accept(view);
         }));
         ClientPlayNetworking.registerGlobalReceiver(ProceedingsPayloads.Vote.ID,(view,context)->context.client().execute(()->{
-            CouncilBallotsSmoke.vote(view);var client=context.client();
+            CouncilBallotsSmoke.vote(view);CouncilSuccessionSmoke.vote(view);var client=context.client();
             if(view.opening())BallotAccess.openResponse(view,client);
             else if(client.currentScreen instanceof BallotScreen screen)screen.accept(view);
         }));
         ClientPlayNetworking.registerGlobalReceiver(CouncilPayloads.Notice.ID,(notice,context)->context.client().execute(()->{
-            CouncilSmoke.notice(notice);CouncilBallotsSmoke.notice(notice);if(context.client().currentScreen instanceof PersonalScreen screen)screen.notice(notice);
+            CouncilSmoke.notice(notice);CouncilBallotsSmoke.notice(notice);CouncilSuccessionSmoke.notice(notice);if(context.client().currentScreen instanceof PersonalScreen screen)screen.notice(notice);
             else if(context.client().currentScreen instanceof HouseSetupScreen screen)screen.notice(notice);
             else if(context.client().currentScreen instanceof CouncilBusinessScreen screen)screen.notice(notice);
             else if(context.client().currentScreen instanceof BallotScreen screen)screen.notice(notice);

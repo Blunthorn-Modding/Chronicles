@@ -83,13 +83,14 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         var d=view.detail();
         String summary=view.mode()==Mode.PROCEEDINGS?"Meeting "+view.meeting()+" - "+label(view.phase()):"Council motions";
         if(!view.problem().isBlank())summary+="\n"+view.problem();
+        if(view.mode()==Mode.PROCEEDINGS)summary+="\n\n"+view.regency().summary()+(view.regency().candidates().isEmpty()?"":"\nCandidates: "+String.join(", ",view.regency().candidates()));
         if(d!=null)summary+="\n\n"+d.title()+"\n\n"+d.text()+"\n\nProposed by "+d.proposer()
                 +" - "+label(d.status())+"\n"+label(d.visibility())+"; "+label(d.threshold())
                 +"\nSponsors: "+String.join(", ",d.sponsors())
                 +(!d.notes().isEmpty()?"\n\nNotes: "+String.join("; ",d.notes()):"");
         else summary+="\n\nChoose a motion to read its details.";
         int bottom=top+panelHeight-30;
-        int rows=view.mode()==Mode.PROCEEDINGS?4:view.operator()?3:2;
+        int rows=view.mode()==Mode.PROCEEDINGS?5:view.operator()?3:2;
         int bodyHeight=Math.max(32,bottom-y-rows*24);
         body(summary,x,y,w,bodyHeight);
         y+=bodyHeight+2;
@@ -100,6 +101,9 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             String phaseLabel=phaseAction==Action.RECESS?"Recess":phaseAction==Action.RESUME?"Resume":"Open meeting";
             button("Call meeting",x,y,half,()->send(Action.CALL)).active=view.playing()&&!view.recoverable();
             button(phaseLabel,x+half+gap,y,half,()->send(phaseAction)).active=view.playing()&&!active&&!view.recoverable();
+            y+=24;
+            button("Request regency vote...",x,y,w,()->confirm("Open the regency ballot?",
+                    "The electorate is fixed at opening. A completed regency vote uses this meeting's succession slot.",()->send(Action.OPEN_REGENCY,CouncilPayloads.NONE))).active=view.regency().canOpen();
             y+=24;
             button("Prepare motion...",x,y,half,()->draft(Action.PREPARE));
             button("Recorded ballots...",x+half+gap,y,half,()->choose("Recorded ballots",

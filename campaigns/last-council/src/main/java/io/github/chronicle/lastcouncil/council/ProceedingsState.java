@@ -7,14 +7,14 @@ import java.util.*;
 /** Public Council business and pinned opening intents; secret choices live only in Core's ledger. */
 public record ProceedingsState(long revision, int meeting, Phase phase, String votingRegion,
         Set<String> lecterns, Map<UUID, Motion> motions, Map<UUID, Attempt> attempts,
-        UUID activeBallot, Pending pending, Map<UUID, Call> calls) {
+        UUID activeBallot, Pending pending, Map<UUID, Call> calls, SuccessionState succession) {
     public enum Phase { BETWEEN, GATHERING, DISCUSSION, RECESS }
     public enum MotionStatus { SUBMITTED, AGENDA, VOTING, RECORDED, WITHDRAWN }
     public enum Threshold { MAJORITY, TWO_THIRDS }
     public enum Operation { OPEN, CLOSE, VOID }
     public ProceedingsState {
         if (revision < 0 || meeting < 0) throw new IllegalArgumentException("Invalid Council revision or meeting.");
-        Objects.requireNonNull(phase); Objects.requireNonNull(votingRegion);
+        Objects.requireNonNull(phase); Objects.requireNonNull(votingRegion); Objects.requireNonNull(succession);
         if (!votingRegion.isEmpty()) siteId(votingRegion);
         lecterns = Set.copyOf(lecterns); motions = Map.copyOf(motions);
         attempts = Map.copyOf(attempts); calls = Map.copyOf(calls);
@@ -25,7 +25,7 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
         motions.forEach((id,m) -> { if (!id.equals(m.id())) throw new IllegalArgumentException("Motion identity mismatch."); });
         attempts.forEach((id,a) -> {
             Motion m = fixedMotions.get(a.motion());
-            if (!id.equals(a.definition().id()) || m == null || !m.ballots().contains(id)
+            if (a.meeting()>meeting || !id.equals(a.definition().id()) || m == null || !m.ballots().contains(id)
                     || !a.definition().purpose().equals(m.id().toString()) || !a.definition().title().equals(m.title()))
                 throw new IllegalArgumentException("Ballot attempt does not match its motion.");
         });
@@ -41,7 +41,25 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
         long voting = motions.values().stream().filter(m -> m.status() == MotionStatus.VOTING).count();
         if (voting != (activeBallot == null ? 0 : 1)) throw new IllegalArgumentException("Conflicting voting motions.");
         if (pending != null && !pending.ballot().equals(activeBallot)) throw new IllegalArgumentException("Pending ballot changed.");
-        calls.forEach((id,c) -> { if (!id.equals(c.id())) throw new IllegalArgumentException("Call identity mismatch."); });
+        calls.forEach((id,c) -> { if (c.meeting()>meeting || !id.equals(c.id())) throw new IllegalArgumentException("Call identity or meeting mismatch."); });
+        if(succession.withdrawals().stream().anyMatch(w->w.meeting()>meeting))throw new IllegalArgumentException("Withdrawal belongs to a future meeting.");
+        for(var entry:succession.rounds().entrySet()) {
+            Attempt a=attempts.get(entry.getKey());SuccessionState.Round round=entry.getValue();
+            if(a==null||a.meeting()!=round.meeting()||a.definition().visibility()!=BallotVisibility.SECRET
+                    ||a.definition().threshold()!=BallotDefinition.majority(a.definition().electorate().size()))
+                throw new IllegalArgumentException("Invalid regency ballot snapshot.");
+            Set<String> expected=round.slate().size()==1?Set.of("yes","no","abstain"):new HashSet<>(round.slate());
+            if(round.slate().size()>1)expected.add("abstain");
+            if(!a.definition().options().stream().map(BallotOption::id).collect(java.util.stream.Collectors.toSet()).equals(expected))
+                throw new IllegalArgumentException("Regency options differ from its locked slate.");
+            if((round.status()==BallotStatus.OPEN)!=entry.getKey().equals(activeBallot))throw new IllegalArgumentException("Regency round state differs.");
+        }
+        if(pending!=null&&(pending.result()!=null)!=(pending.operation()==Operation.CLOSE&&succession.rounds().containsKey(pending.ballot())))
+            throw new IllegalArgumentException("Pending regency result differs.");
+    }
+    public ProceedingsState(long revision,int meeting,Phase phase,String votingRegion,Set<String> lecterns,
+            Map<UUID,Motion> motions,Map<UUID,Attempt> attempts,UUID activeBallot,Pending pending,Map<UUID,Call> calls) {
+        this(revision,meeting,phase,votingRegion,lecterns,motions,attempts,activeBallot,pending,calls,SuccessionState.empty());
     }
     public static ProceedingsState empty() {
         return new ProceedingsState(0,0,Phase.BETWEEN,"",Set.of(),Map.of(),Map.of(),null,null,Map.of());
@@ -74,10 +92,12 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
             Objects.requireNonNull(openedBy); if(meeting<1)throw new IllegalArgumentException("Invalid meeting.");
         }
     }
-    public record Pending(Operation operation, UUID ballot, UUID actor, String reason) {
+    public record Pending(Operation operation, UUID ballot, UUID actor, String reason, SuccessionRules.Result result) {
+        public Pending(Operation operation,UUID ballot,UUID actor,String reason){this(operation,ballot,actor,reason,null);}
         public Pending {
             Objects.requireNonNull(operation); Objects.requireNonNull(ballot); Objects.requireNonNull(actor);
             Objects.requireNonNull(reason);
+            if(result!=null&&operation!=Operation.CLOSE)throw new IllegalArgumentException("Only a regency close has a result.");
             if(operation==Operation.VOID)validText(reason,512,true);
             else if(!reason.isEmpty())throw new IllegalArgumentException("Only a void has a reason.");
         }

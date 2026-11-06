@@ -1,4 +1,4 @@
-# Chronicle commands (dev66)
+# Chronicle commands (Core/Last Council0.2.0-dev.3)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored.
 
@@ -159,3 +159,17 @@ These remain for existing saved data and recovery, not as duplicate editor pages
 - `game quiet-below zone define` and `stage preview|apply|status|undo|resume`: retained scenario terrain-stage operations, with their original active-play and token guards.
 
 The native subtype fixture checks the actual merged dispatcher, removed roots, operator/nonoperator gates and representative syntax, and exports its full executable command inventory to `canonical-command-tree.json` in its disposable test server. No test-only roots are enabled on the review server.
+
+
+## Last Council (selected scenario only)
+
+| Command | Purpose | Access |
+| --- | --- | --- |
+| `/chronicle council` | Existing character card with My house / Other houses | Own card and own private papers; public house directory |
+| `/chronicle council characters` | House assignment and private-cast preparation, also available through Players | Operator level2; mutations non-active Editing before cast/slate lock |
+| `/chronicle council proceedings` | Call/open meetings, agenda, individual ballots, regency, recess and archived results | Chancellor (operator level2); most mutations active play |
+| `/chronicle council vote` | Deliberately open the current ballot | Captured representative or read-only Chancellor; cast still needs eligibility and Region presence |
+
+**R** is the default configurable Open current ballot keyboard binding. A notice does not replace another screen. The hotkey suspends a pure editor without discarding its draft, closes containers normally, and ignores text entry/confirmations. Dismissal is not abstention. Each house's first accepted confirmed vote is final.
+
+Council voting uses an existing Region subtype; motion proposals/sponsorship use an existing lectern Block-site subtype and physical proximity. These commands do not bypass the corresponding authoring, participation, phase or hold rules. A technical void needs a public reason; replacement is a new ballot. For regency, a void permits same-meeting replacement with the same slate; only a completed ballot consumes that meeting's regency slot. Closed outcomes are not reversible through Void. New political setup/reset/withdrawal controls and actual random complication integration remain pending.

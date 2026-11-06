@@ -14,7 +14,7 @@ import net.minecraft.util.Identifier;
 public final class ProceedingsPayloads {
     private static final Gson JSON=new Gson();
     public enum Action { STATE, MOTIONS, PREPARE, PROPOSE, SPONSOR, WITHDRAW, ADMIT, DEFER,
-        CALL, START, RECESS, RESUME, FINISH, OPEN_BALLOT, CLOSE_BALLOT, VOID_BALLOT, RECOVER, BALLOT, CAST, EXIT }
+        CALL, START, RECESS, RESUME, FINISH, OPEN_BALLOT, CLOSE_BALLOT, VOID_BALLOT, RECOVER, BALLOT, CAST, EXIT, OPEN_REGENCY }
     public enum Mode { PROCEEDINGS, MOTIONS }
     private ProceedingsPayloads() { }
     public static void register() {
@@ -39,9 +39,12 @@ public final class ProceedingsPayloads {
             List<String> sponsors,List<String> notes,boolean canSponsor,boolean canWithdraw,boolean canAdmit,boolean canOpen) {
         public Detail { sponsors=List.copyOf(sponsors);notes=List.copyOf(notes);if(sponsors.size()>31||notes.size()>32)throw new IllegalArgumentException("Motion detail exceeds bounds");bounded(title,320);bounded(text,8192); }
     }
+    public record Regency(String status,List<String> candidates,String summary,boolean canOpen) {
+        public Regency {candidates=List.copyOf(candidates);if(candidates.size()>32)throw new IllegalArgumentException("Candidate list exceeds bounds");bounded(summary,8192);}
+    }
     public record View(UUID request,boolean opening,Mode mode,String site,long revision,int meeting,String phase,List<Row> motions,
-            Detail detail,List<History> history,UUID activeBallot,boolean operator,boolean playing,boolean recoverable,String problem,String message) implements CustomPayload {
-        public View { bounded(site,128);motions=List.copyOf(motions);history=List.copyOf(history);if(motions.size()>128||history.size()>256)throw new IllegalArgumentException("Council view exceeds bounds");bounded(problem,1024);bounded(message,1024); }
+            Detail detail,List<History> history,UUID activeBallot,boolean operator,boolean playing,boolean recoverable,String problem,String message,Regency regency) implements CustomPayload {
+        public View { Objects.requireNonNull(regency);bounded(site,128);motions=List.copyOf(motions);history=List.copyOf(history);if(motions.size()>128||history.size()>256)throw new IllegalArgumentException("Council view exceeds bounds");bounded(problem,1024);bounded(message,1024); }
         public static final Id<View> ID=id("proceedings_view");
         public static final PacketCodec<RegistryByteBuf,View> CODEC=json(View.class,327000);
         public Id<View> getId(){return ID;}

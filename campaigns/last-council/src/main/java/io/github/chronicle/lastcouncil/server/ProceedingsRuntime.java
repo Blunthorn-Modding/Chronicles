@@ -101,6 +101,10 @@ public final class ProceedingsRuntime {
         }catch(EventSources.Unavailable sourceOwned){RuntimeHolds.release(server,HOLD);}
         catch(Exception failure){hold(server,failure);}
     }
+    public static boolean successionStarted(MinecraftServer server){Runtime r=WORLDS.get(server);return r!=null&&r.service.state().succession().started();}
+    public static boolean candidate(MinecraftServer server,String house,boolean configured) {
+        Runtime r=WORLDS.get(server);return r!=null&&r.service.state().succession().started()?r.service.state().succession().stage()==SuccessionState.Stage.CONTESTED&&r.service.state().succession().remaining().contains(house):configured;
+    }
     public static boolean ballotOpen(MinecraftServer server){Runtime r=WORLDS.get(server);return r!=null&&r.service.state().activeBallot()!=null;}
     private static Runtime runtime(ServerPlayerEntity player) {
         MinecraftServer server=player.getEntityWorld().getServer();
@@ -157,7 +161,7 @@ public final class ProceedingsRuntime {
                 case RECESS -> {r.service.recess();message="Proceedings in recess.";}
                 case RESUME -> {r.service.resumeMeeting();message="Proceedings resumed.";}
                 case FINISH -> {r.service.closeMeeting();message="Meeting closed. Roleplay continues.";}
-                case OPEN_BALLOT -> {
+                case OPEN_BALLOT,OPEN_REGENCY -> {
                     AuthoringSite.Region region=votingRegion(player.getEntityWorld().getServer(),r);
                     Map<String,BallotElector> electorate=new LinkedHashMap<>();
                     for(ServerPlayerEntity voter:PlayRuntime.eligiblePlayers(player.getEntityWorld().getServer())) {
@@ -165,7 +169,8 @@ public final class ProceedingsRuntime {
                         if(a!=null&&a.councilMember()&&inside(voter,region))electorate.put(a.houseId(),new BallotElector(voter.getUuid(),house(player.getEntityWorld().getServer(),a.houseId())));
                     }
                     if(electorate.isEmpty())throw new IllegalStateException("No eligible representatives are inside the voting Region. No ballot was opened.");
-                    Ballot b=r.service.open(q.reference(),player.getUuid(),region,electorate);
+                    Ballot b=q.action()==Action.OPEN_REGENCY?r.service.openRegency(player.getUuid(),region,electorate,candidates(player.getEntityWorld().getServer()))
+                            :r.service.open(q.reference(),player.getUuid(),region,electorate);
                     signalOpen(player.getEntityWorld().getServer(),r,b.definition().id());
                     message="Ballot opened. Its electorate is fixed.";
                 }
@@ -239,7 +244,10 @@ public final class ProceedingsRuntime {
         if(projection.status()==BallotStatus.OPEN&&!captured&&!operator(p))throw new IllegalStateException("Your house was not present when this ballot opened.");
         if(!operator(p)&&!captured)member(p,false);
         String reason=voteRefusal(p,r,id);
-        Vote packet=new Vote(request,opening,projection,r.service.state().motions().get(attempt.motion()).text(),reason.isBlank(),reason);
+        String description=r.service.state().motions().get(attempt.motion()).text();
+        var regency=r.service.state().succession().rounds().get(id);
+        if(regency!=null&&regency.result()!=null)description+="\n\n"+regencyOutcome(p.getEntityWorld().getServer(),regency.result());
+        Vote packet=new Vote(request,opening,projection,description,reason.isBlank(),reason);
         r.voters.put(p.getUuid(),id);r.sentVotes.put(p.getUuid(),packet);
         ServerPlayNetworking.send(p,packet);
     }
@@ -247,7 +255,7 @@ public final class ProceedingsRuntime {
         MinecraftServer server=p.getEntityWorld().getServer();boolean gm=operator(p);
         if(!ServerPlayNetworking.canSend(p,View.ID))throw new IllegalStateException("Install the matching Last Council client to read Council business.");
         if(mode==Mode.PROCEEDINGS&&!gm)throw new IllegalStateException("Only the Chancellor controls proceedings.");
-        var state=r.service.state();var all=state.motions().values().stream().sorted(Comparator.comparing(Motion::title).thenComparing(Motion::id)).toList();
+        var state=r.service.state();var all=state.motions().values().stream().filter(m->state.succession().rounds().keySet().stream().noneMatch(id->state.attempts().get(id).motion().equals(m.id()))).sorted(Comparator.comparing(Motion::title).thenComparing(Motion::id)).toList();
         List<Row> rows=all.stream().map(m->new Row(m.id(),shortLabel(m.title(),48),m.status().name(),m.hostPrepared()?"Chancellor":shortLabel(house(server,m.proposerHouse()),24),m.ready(1))).toList();
         Motion motion=selected==null?null:state.motions().get(selected);Detail detail=null;
         HouseAssignment own=CouncilRuntime.roster(server).assignments().get(p.getUuid());boolean eligible=PlayRuntime.eligiblePlayers(server).contains(p)&&playing(server);
@@ -263,7 +271,7 @@ public final class ProceedingsRuntime {
         String problem=state.pending()!=null?"A saved Council operation needs recovery.":r.failed?"Council records need recovery.":RuntimeHolds.reason(server)!=null?"A Chronicle operation hold is active.":playing(server)?"":"Play is paused or stopped.";
         if(mode==Mode.PROCEEDINGS)r.gm.add(p.getUuid());else r.gm.remove(p.getUuid());
         r.selected.put(p.getUuid(),selected);
-        ServerPlayNetworking.send(p,new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message));
+        ServerPlayNetworking.send(p,new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regencyView(server,r)));
     }
     private static void refresh(MinecraftServer server,Runtime r) {
         for(ServerPlayerEntity p:server.getPlayerManager().getPlayerList()) {
@@ -291,11 +299,48 @@ public final class ProceedingsRuntime {
     }
     private static void announce(MinecraftServer server,Runtime r,UUID id) {
         BallotView view=r.service.view(id,CouncilPayloads.NONE);
-        String text=view.status()==BallotStatus.VOID?"Ballot voided: "+view.title()+". Reason: "+view.reason():"Ballot recorded: "+view.title()+". "+(view.passedOptions().isEmpty()?"The motion did not pass.":"The motion passed.");
+        var round=r.service.state().succession().rounds().get(id);
+        String text=round!=null&&round.result()!=null?regencyOutcome(server,round.result()):view.status()==BallotStatus.VOID?"Ballot voided: "+view.title()+". Reason: "+view.reason():"Ballot recorded: "+view.title()+". "+(view.passedOptions().isEmpty()?"The motion did not pass.":"The motion passed.");
         for(ServerPlayerEntity p:server.getPlayerManager().getPlayerList()) {
             if(ServerPlayNetworking.canSend(p,Signal.ID))ServerPlayNetworking.send(p,new Signal(id,view.title(),false));
             p.sendMessage(Text.literal(text),false);
         }
+    }
+    private static Map<String,String> candidates(MinecraftServer server) {
+        Map<String,String> result=new TreeMap<>();
+        CouncilRuntime.roster(server).assignments().values().stream().filter(a->a.councilMember()&&a.candidate())
+                .forEach(a->result.put(a.houseId(),house(server,a.houseId())));
+        // Labels of eliminated or withdrawn initial houses remain available in archived outcomes.
+        return result;
+    }
+    private static Regency regencyView(MinecraftServer server,Runtime r) {
+        var election=r.service.state().succession();
+        Set<String> slate=election.started()?election.remaining():candidates(server).keySet();
+        List<String> labels=election.stage()==SuccessionState.Stage.NOT_STARTED||election.stage()==SuccessionState.Stage.CONTESTED?slate.stream().sorted().map(id->house(server,id)).toList():List.of();
+        String summary=switch(election.stage()) {
+            case NOT_STARTED -> "The candidate slate locks when the first regency ballot opens.";
+            case CONTESTED -> "The crown remains undecided.";
+            case CROWNED -> house(server,election.crowned())+" was crowned.";
+            case VACANT -> "The throne remains vacant.";
+            case UNRESOLVED -> "Succession ended unresolved; no monarch was elected.";
+        };
+        var latest=election.rounds().values().stream().filter(round->round.result()!=null)
+                .max(Comparator.comparingInt(SuccessionState.Round::meeting));
+        if(latest.isPresent()&&election.stage()==SuccessionState.Stage.CONTESTED)summary+="\n"+regencyOutcome(server,latest.get().result());
+        if(!election.started()&&(slate.size()<2||slate.size()>15))summary+="\nChoose two to fifteen crown candidates in house setup.";
+        boolean open=(election.stage()==SuccessionState.Stage.NOT_STARTED||election.stage()==SuccessionState.Stage.CONTESTED)
+                &&r.service.state().meeting()>election.lastCompletedMeeting()&&r.service.state().phase()==Phase.DISCUSSION
+                &&r.service.state().activeBallot()==null&&r.service.state().pending()==null&&!r.failed&&playing(server)
+                &&(election.started()||slate.size()>=2&&slate.size()<=15);
+        return new Regency(election.stage().name(),labels,summary,open);
+    }
+    private static String regencyOutcome(MinecraftServer server,SuccessionRules.Result result) {
+        return switch(result.decision()) {
+            case CROWNED -> "The Council crowns "+house(server,result.house())+".";
+            case VACANT -> "No candidate secured the required majority. The throne remains vacant.";
+            case ELIMINATED -> (result.tiedLast().isEmpty()?"":"A draw among "+String.join(", ",result.tiedLast().stream().map(id->house(server,id)).toList())+" selected "+house(server,result.house())+". ")
+                    +house(server,result.house())+" leaves the crown slate and retains its Council vote. The next regency ballot requires a later meeting.";
+        };
     }
     private static boolean rate(Runtime r,ServerPlayerEntity p){int tick=p.getEntityWorld().getServer().getTicks()/20;int[] value=r.limits.computeIfAbsent(p.getUuid(),id->new int[]{tick,0});if(value[0]!=tick){value[0]=tick;value[1]=0;}return ++value[1]<=20;}
     private static boolean operator(ServerPlayerEntity p){return p.getCommandSource().hasPermissionLevel(2);}

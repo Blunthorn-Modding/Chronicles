@@ -1,0 +1,14 @@
+# Succession implementation slices
+
+Confirmed direction, 6 November 2026. The scene prototype remains the UI authority.
+
+1. Add a pure scenario-owned tally calculation, then persist election state in the existing proceedings journal. Core stays an optional generic ballot service. New proceedings schema2 accepts schema1 by adding an empty succession history; never rewrite a failed decode.
+2. Opening the first regency ballot locks a two-to-fifteen candidate slate from the existing house assignments. Future ballots use the remaining slate. Each attempt has a new Core ID, secret visibility, the fixed Region/electorate and majority threshold. A void does not remove a candidate or use the meeting's completed-regency slot. Replacement retains the slate and complication history and captures a new electorate.
+3. Before closing a regency ballot, calculate and save the exact result in the same pending intent used for Core close. For a tied-last elimination this includes the sorted tied set and drawn house. Casts are blocked once the intent exists. Retry/restart completes this same saved result; it cannot draw again. Apply the result and finalize the attempt atomically in proceedings. Announcements follow persistence.
+4. Add Request regency vote to the approved Chancellor proceedings scene, using the same standalone Ballot screen. Show public succession status, remaining slate and recorded outcomes without secret individual choices. Ordinary motion meetings continue after crown/vacancy. Technical void remains available; completed political outcomes are not reversible through it.
+5. Add candidate withdrawal and end-unresolved only as explicit operations with confirmation/reason/history, preserving ballots and political seats. An election reset needs its own reviewed history-preserving flow; no implicit reset or replacement of the archive. Rebellion/eligibility integration comes in LC06.
+6. Use a single progression contract before regency and meeting-close. LC08 supplies the real hidden complication gate. The LC03 domain may be verified first, but integrated succession is not marked complete without the actual Event-pool/recess proof. No interface or recovery path may silently skip a configured gate.
+
+Failure cases: malformed/external journal edits hold operations; incomplete opening recovers the same snapshot; incomplete close reuses its result; an empty physically present electorate refuses opening and does not mean that all Council seats vanished. New/empty setup does not auto-declare vacancy.
+
+Validation: pure brief examples and invalid counts; schema1 migration; save failures before/after Core open/close; tied-last recovery without RNG; immutable candidate slate, void/replacement same meeting, completed-round later-meeting guard; no secret projections; actual native secret regency casting and later meeting/restart. A human review of constitutional result wording is required before rebellion uses these outcomes.

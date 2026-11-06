@@ -1,12 +1,12 @@
 # Chronicle
 
-**Last Council development worktree:** the separate [work-package tree](docs/work-packages/last-council/README.md) starts from the prepared alpha below. It covers the new political campaign and its optional Core services; gameplay implementation has not started. The [source brief](docs/THE_LAST_COUNCIL_EVENT_BRIEF.md) is preserved as supplied. This worktree does not replace the Quiet Below release package.
+**Last Council development worktree:** the separate [work-package tree](docs/work-packages/last-council/README.md) starts from the prepared alpha below. It covers the new political campaign and its optional Core services; the approved implementation is in progress on0.2.0-dev.3, with private house papers, Council proceedings/ballots and the first succession slice. See the [combined review](docs/work-packages/last-council/REVIEW_COUNCIL.md). The [source brief](docs/THE_LAST_COUNCIL_EVENT_BRIEF.md) is preserved as supplied. This worktree does not replace the Quiet Below release package.
 
 **Current 0.1.0-alpha.1:** the two remaining native default-Event checks pass, including ACTIVE promotion across restart and editing/saving an incomplete default through the real editor. Renaming a default preserves its ID. Original Chronicle code/assets are MIT, with separate third-party notices. See the [release package and upload guide](docs/releases/0.1.0-alpha.1/PUBLISHING.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [remaining work](docs/OUTSTANDING_WORK.md).
 
 **Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
 
-The [alpha client pack](../client/Chronicle-0.1.0-alpha.1-1.21.10.mrpack) has no retired server addresses. All review servers, old generated worlds and backups were removed at the owner's request; no review is running. The owner will create the two Modrinth projects and upload the prepared files in `../releases/0.1.0-alpha.1`. Handcrafted-map/group testing remains. See [storage policy](docs/WORKSPACE_STORAGE.md). Earlier dated checkpoints below describe historical builds.
+The [alpha client pack](../client/Chronicle-0.1.0-alpha.1-1.21.10.mrpack) has no retired server addresses. Old review servers, generated worlds and backups were removed at the owner's request. A single new Last Council review is running for the current development checkpoint; its matching pack and address are in the review guide above. The owner will create the two Modrinth projects and upload the prepared files in `../releases/0.1.0-alpha.1`. Handcrafted-map/group testing remains. See [storage policy](docs/WORKSPACE_STORAGE.md). Earlier dated checkpoints below describe historical builds.
 
 ## Historical development checkpoints
 
