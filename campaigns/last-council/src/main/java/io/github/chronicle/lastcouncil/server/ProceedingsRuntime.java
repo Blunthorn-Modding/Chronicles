@@ -53,7 +53,7 @@ public final class ProceedingsRuntime {
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
         ServerTickEvents.END_SERVER_TICK.register(ProceedingsRuntime::tick);
         ServerPlayConnectionEvents.JOIN.register((handler,sender,server)-> {
-            Runtime r=WORLDS.get(server);if(r!=null&&(captured(r,handler.player)||operator(handler.player)))signal(handler.player,r.service.state().activeBallot(),r);
+            Runtime r=WORLDS.get(server);if(r!=null&&(captured(r,handler.player)||chancellor(handler.player)))signal(handler.player,r.service.state().activeBallot(),r);
         });
         ServerDisconnects.register((handler,server)->{Runtime r=WORLDS.get(server);if(r!=null){UUID id=handler.player.getUuid();r.readers.remove(id);r.gm.remove(id);r.voters.remove(id);r.sentVotes.remove(id);r.limits.remove(id);r.selected.remove(id);}});
         ServerPlayNetworking.registerGlobalReceiver(Request.ID,(request,context)->context.server().execute(()->request(context.player(),request)));
@@ -71,7 +71,7 @@ public final class ProceedingsRuntime {
             return ActionResult.SUCCESS;
         });
         CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("chronicle").then(literal("council")
-            .then(literal("proceedings").requires(s->s.hasPermissionLevel(2)).executes(c->{ServerPlayerEntity p=c.getSource().getPlayerOrThrow();openProceedings(p);return 1;}))
+            .then(literal("proceedings").requires(s->s.getPlayer()!=null&&CouncilRuntime.isChancellor(s.getServer(),s.getPlayer().getUuid())).executes(c->{ServerPlayerEntity p=c.getSource().getPlayerOrThrow();openProceedings(p);return 1;}))
             .then(literal("vote").executes(c->{ServerPlayerEntity p=c.getSource().getPlayerOrThrow();openVote(p);return 1;})))));
     }
     private static void subtype(String id,String label,String description,SiteSubtypes.Kind kind) {
@@ -112,7 +112,7 @@ public final class ProceedingsRuntime {
         Runtime r=WORLDS.get(server);if(r==null||!CouncilRuntime.active())throw new IllegalStateException("Council proceedings are unavailable. Inspect the server log.");return r;
     }
     public static void openProceedings(ServerPlayerEntity player) {
-        try{if(!operator(player))throw new IllegalStateException("Only the Chancellor controls proceedings.");Runtime r=runtime(player);r.gm.add(player.getUuid());sendView(player,r,CouncilPayloads.NONE,true,Mode.PROCEEDINGS,null,"");}
+        try{if(!chancellor(player))throw new IllegalStateException("Only the Chancellor controls proceedings.");Runtime r=runtime(player);r.gm.add(player.getUuid());sendView(player,r,CouncilPayloads.NONE,true,Mode.PROCEEDINGS,null,"");}
         catch(Exception failure){notice(player,CouncilPayloads.NONE,failure);}
     }
     public static void openVote(ServerPlayerEntity player) {
@@ -129,8 +129,8 @@ public final class ProceedingsRuntime {
                 r.service.cast(q.reference(),player.getUuid(),q.text());sendVote(player,r,q.request(),q.reference(),false);return;
             }
             boolean host=q.action()!=Action.MOTIONS&&q.action()!=Action.PROPOSE&&q.action()!=Action.SPONSOR&&q.action()!=Action.WITHDRAW;
-            if(host){if(!operator(player))throw new IllegalStateException("Only the Chancellor controls proceedings.");}else requireLectern(player,r,q.site());
-            if(q.action()==Action.STATE){r.gm.add(player.getUuid());sendView(player,r,q.request(),false,Mode.PROCEEDINGS,none(q.reference()),"");return;}
+            if(host){if(!chancellor(player))throw new IllegalStateException("Only the Chancellor controls proceedings.");}else requireLectern(player,r,q.site());
+            if(q.action()==Action.STATE){r.gm.add(player.getUuid());sendView(player,r,q.request(),q.site().equals("open"),Mode.PROCEEDINGS,none(q.reference()),"");return;}
             if(q.action()==Action.MOTIONS){sendView(player,r,q.request(),false,Mode.MOTIONS,none(q.reference()),"");return;}
             if(q.action()==Action.RECOVER) {
                 // Metadata-only completion of the exact saved intent; no fresh electorate or world effects.
@@ -166,7 +166,7 @@ public final class ProceedingsRuntime {
                     Map<String,BallotElector> electorate=new LinkedHashMap<>();
                     for(ServerPlayerEntity voter:PlayRuntime.eligiblePlayers(player.getEntityWorld().getServer())) {
                         HouseAssignment a=CouncilRuntime.roster(player.getEntityWorld().getServer()).assignments().get(voter.getUuid());
-                        if(a!=null&&a.councilMember()&&inside(voter,region))electorate.put(a.houseId(),new BallotElector(voter.getUuid(),house(player.getEntityWorld().getServer(),a.houseId())));
+                        if(a!=null&&a.councilMember()&&!chancellor(voter)&&inside(voter,region))electorate.put(a.houseId(),new BallotElector(voter.getUuid(),Profiles.publicCard(player.getEntityWorld().getServer(),voter.getUuid(),voter.getName().getString()).name()));
                     }
                     if(electorate.isEmpty())throw new IllegalStateException("No eligible representatives are inside the voting Region. No ballot was opened.");
                     Ballot b=q.action()==Action.OPEN_REGENCY?r.service.openRegency(player.getUuid(),region,electorate,candidates(player.getEntityWorld().getServer()))
@@ -219,6 +219,7 @@ public final class ProceedingsRuntime {
         if(chunk==null||!chunk.getBlockState(new BlockPos(anchor.position().x(),anchor.position().y(),anchor.position().z())).isOf(Blocks.LECTERN))throw new IllegalStateException("The bound lectern is no longer here.");
     }
     private static HouseAssignment member(ServerPlayerEntity p,boolean eligible) {
+        if(chancellor(p))throw new IllegalStateException("The Chancellor cannot participate as a house.");
         HouseAssignment a=CouncilRuntime.roster(p.getEntityWorld().getServer()).assignments().get(p.getUuid());
         if(a==null||!a.councilMember())throw new IllegalStateException("Your house has no Council seat.");
         if(eligible&&!PlayRuntime.eligiblePlayers(p.getEntityWorld().getServer()).contains(p))throw new IllegalStateException("Join participation and leave editing or spectator mode first.");return a;
@@ -241,41 +242,45 @@ public final class ProceedingsRuntime {
         if(r.service.state().pending()!=null&&r.service.state().pending().ballot().equals(id))throw new IllegalStateException("Recover this ballot operation first.");
         BallotView projection=r.service.view(id,p.getUuid());
         boolean captured=attempt.definition().electorate().values().stream().anyMatch(e->e.actor().equals(p.getUuid()));
-        if(projection.status()==BallotStatus.OPEN&&!captured&&!operator(p))throw new IllegalStateException("Your house was not present when this ballot opened.");
-        if(!operator(p)&&!captured)member(p,false);
+        if(projection.status()==BallotStatus.OPEN&&!captured&&!chancellor(p))throw new IllegalStateException("Your house was not present when this ballot opened.");
+        if(!chancellor(p)&&!captured)member(p,false);
         String reason=voteRefusal(p,r,id);
         String description=r.service.state().motions().get(attempt.motion()).text();
         var regency=r.service.state().succession().rounds().get(id);
         if(regency!=null&&regency.result()!=null)description+="\n\n"+regencyOutcome(p.getEntityWorld().getServer(),regency.result());
-        Vote packet=new Vote(request,opening,projection,description,reason.isBlank(),reason);
+        List<Voter> voters=attempt.definition().electorate().entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e->new Voter(e.getKey(),e.getValue().actor(),e.getValue().label())).toList();
+        Vote packet=new Vote(request,opening,projection,description,reason.isBlank(),reason,voters);
         r.voters.put(p.getUuid(),id);r.sentVotes.put(p.getUuid(),packet);
         ServerPlayNetworking.send(p,packet);
     }
     private static void sendView(ServerPlayerEntity p,Runtime r,UUID request,boolean opening,Mode mode,UUID selected,String message) {
-        MinecraftServer server=p.getEntityWorld().getServer();boolean gm=operator(p);
+        MinecraftServer server=p.getEntityWorld().getServer();boolean gm=chancellor(p);
         if(!ServerPlayNetworking.canSend(p,View.ID))throw new IllegalStateException("Install the matching Last Council client to read Council business.");
         if(mode==Mode.PROCEEDINGS&&!gm)throw new IllegalStateException("Only the Chancellor controls proceedings.");
         var state=r.service.state();var all=state.motions().values().stream().filter(m->state.succession().rounds().keySet().stream().noneMatch(id->state.attempts().get(id).motion().equals(m.id()))).sorted(Comparator.comparing(Motion::title).thenComparing(Motion::id)).toList();
-        List<Row> rows=all.stream().map(m->new Row(m.id(),shortLabel(m.title(),48),m.status().name(),m.hostPrepared()?"Chancellor":shortLabel(house(server,m.proposerHouse()),24),m.ready(1))).toList();
+        List<Row> rows=all.stream().map(m->new Row(m.id(),shortLabel(m.title(),48),(r.service.deferredThisMeeting(m.id())?"DEFERRED":m.status().name()),m.hostPrepared()?"Chancellor":shortLabel(house(server,m.proposerHouse()),24),m.ready(1))).toList();
+        if(mode==Mode.PROCEEDINGS&&state.activeBallot()!=null)selected=state.attempts().get(state.activeBallot()).motion();
         Motion motion=selected==null?null:state.motions().get(selected);Detail detail=null;
         HouseAssignment own=CouncilRuntime.roster(server).assignments().get(p.getUuid());boolean eligible=PlayRuntime.eligiblePlayers(server).contains(p)&&playing(server);
         if(motion!=null){
-            boolean awaiting=motion.status()==MotionStatus.SUBMITTED;boolean seated=own!=null&&own.councilMember();
-            detail=new Detail(motion.id(),motion.title(),motion.text(),motion.hostPrepared()?"Chancellor":house(server,motion.proposerHouse()),motion.status().name(),motion.visibility().name(),motion.threshold().name(),
+            boolean deferred=r.service.deferredThisMeeting(motion.id());boolean awaiting=motion.status()==MotionStatus.SUBMITTED&&!deferred;boolean seated=own!=null&&own.councilMember();
+            detail=new Detail(motion.id(),motion.title(),motion.text(),motion.hostPrepared()?"Chancellor":house(server,motion.proposerHouse()),deferred?"DEFERRED":motion.status().name(),motion.visibility().name(),motion.threshold().name(),
                     motion.sponsors().stream().map(id->house(server,id)).sorted().toList(),motion.notes(),
                     seated&&eligible&&awaiting&&!motion.proposerHouse().equals(own.houseId())&&!motion.sponsors().contains(own.houseId()),
                     seated&&eligible&&motion.ballots().isEmpty()&&motion.status()!=MotionStatus.WITHDRAWN&&motion.proposerHouse().equals(own.houseId()),
-                    gm&&playing(server)&&awaiting&&motion.ready(1),gm&&playing(server)&&state.phase()==Phase.DISCUSSION&&state.activeBallot()==null&&motion.status()==MotionStatus.AGENDA);
+                    gm&&playing(server)&&awaiting&&motion.ready(1),gm&&playing(server)&&state.phase()==Phase.DISCUSSION&&state.activeBallot()==null&&!deferred&&motion.status()==MotionStatus.AGENDA,
+                    gm&&playing(server)&&state.activeBallot()==null&&!deferred&&(state.phase()==Phase.DISCUSSION||state.phase()==Phase.RECESS)
+                        &&(motion.status()==MotionStatus.SUBMITTED||motion.status()==MotionStatus.AGENDA));
         }
         List<History> history=state.attempts().values().stream().map(a->{BallotView v;try{v=r.service.view(a.definition().id(),p.getUuid());}catch(RuntimeException absent){return null;}return new History(v.id(),shortLabel(v.title(),48),v.status().name());}).filter(Objects::nonNull).sorted(Comparator.comparing(History::title).thenComparing(History::id)).toList();
         String problem=state.pending()!=null?"A saved Council operation needs recovery.":r.failed?"Council records need recovery.":RuntimeHolds.reason(server)!=null?"A Chronicle operation hold is active.":playing(server)?"":"Play is paused or stopped.";
         if(mode==Mode.PROCEEDINGS)r.gm.add(p.getUuid());else r.gm.remove(p.getUuid());
         r.selected.put(p.getUuid(),selected);
-        ServerPlayNetworking.send(p,new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regencyView(server,r)));
+        ServerPlayNetworking.send(p,new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regencyView(server,r),mode==Mode.MOTIONS&&!gm&&own!=null&&own.councilMember()&&eligible));
     }
     private static void refresh(MinecraftServer server,Runtime r) {
         for(ServerPlayerEntity p:server.getPlayerManager().getPlayerList()) {
-            if(r.gm.contains(p.getUuid())&&operator(p))sendView(p,r,CouncilPayloads.NONE,false,Mode.PROCEEDINGS,r.selected.get(p.getUuid()),"");
+            if(r.gm.contains(p.getUuid())&&chancellor(p))sendView(p,r,CouncilPayloads.NONE,false,Mode.PROCEEDINGS,r.selected.get(p.getUuid()),"");
             else if(r.readers.containsKey(p.getUuid()))try{requireLectern(p,r,r.readers.get(p.getUuid()).anchor().id());sendView(p,r,CouncilPayloads.NONE,false,Mode.MOTIONS,r.selected.get(p.getUuid()),"");}catch(RuntimeException ignored){r.readers.remove(p.getUuid());}
         }
     }
@@ -295,7 +300,7 @@ public final class ProceedingsRuntime {
     private static boolean captured(Runtime r,ServerPlayerEntity p){UUID id=r.service.state().activeBallot();return id!=null&&r.service.state().attempts().get(id).definition().electorate().values().stream().anyMatch(e->e.actor().equals(p.getUuid()));}
     private static void signal(ServerPlayerEntity p,UUID id,Runtime r){if(id!=null&&ServerPlayNetworking.canSend(p,Signal.ID))ServerPlayNetworking.send(p,new Signal(id,r.service.state().attempts().get(id).definition().title(),true));}
     private static void signalOpen(MinecraftServer server,Runtime r,UUID id) {
-        for(ServerPlayerEntity p:server.getPlayerManager().getPlayerList())if(captured(r,p)||operator(p))signal(p,id,r);
+        for(ServerPlayerEntity p:server.getPlayerManager().getPlayerList())if(captured(r,p)||chancellor(p))signal(p,id,r);
     }
     private static void announce(MinecraftServer server,Runtime r,UUID id) {
         BallotView view=r.service.view(id,CouncilPayloads.NONE);
@@ -328,10 +333,11 @@ public final class ProceedingsRuntime {
                 .max(Comparator.comparingInt(SuccessionState.Round::meeting));
         if(latest.isPresent()&&election.stage()==SuccessionState.Stage.CONTESTED)summary+="\n"+regencyOutcome(server,latest.get().result());
         if(!election.started()&&(slate.size()<2||slate.size()>15))summary+="\nChoose two to fifteen crown candidates in house setup.";
+        if(!r.service.pendingMotions().isEmpty())summary+="\nVote on or defer "+r.service.pendingMotions().size()+" pending motions first.";
         boolean open=(election.stage()==SuccessionState.Stage.NOT_STARTED||election.stage()==SuccessionState.Stage.CONTESTED)
                 &&r.service.state().meeting()>election.lastCompletedMeeting()&&r.service.state().phase()==Phase.DISCUSSION
                 &&r.service.state().activeBallot()==null&&r.service.state().pending()==null&&!r.failed&&playing(server)
-                &&(election.started()||slate.size()>=2&&slate.size()<=15);
+                &&(election.started()||slate.size()>=2&&slate.size()<=15)&&r.service.pendingMotions().isEmpty();
         return new Regency(election.stage().name(),labels,summary,open);
     }
     private static String regencyOutcome(MinecraftServer server,SuccessionRules.Result result) {
@@ -343,7 +349,7 @@ public final class ProceedingsRuntime {
         };
     }
     private static boolean rate(Runtime r,ServerPlayerEntity p){int tick=p.getEntityWorld().getServer().getTicks()/20;int[] value=r.limits.computeIfAbsent(p.getUuid(),id->new int[]{tick,0});if(value[0]!=tick){value[0]=tick;value[1]=0;}return ++value[1]<=20;}
-    private static boolean operator(ServerPlayerEntity p){return p.getCommandSource().hasPermissionLevel(2);}
+    private static boolean chancellor(ServerPlayerEntity p){return CouncilRuntime.isChancellor(p.getEntityWorld().getServer(),p.getUuid());}
     private static void requirePlaying(MinecraftServer s){if(!playing(s))throw new IllegalStateException("This action needs active play without an operation hold.");}
     private static boolean playing(MinecraftServer s){return ChronicleRuntime.service(s).state().phase()==SessionPhase.ACTIVE&&!SessionBuilding.enabled(s)&&RuntimeHolds.reason(s)==null;}
     private static AuthoringSite site(MinecraftServer s,String id){return AuthoringRuntime.get(s).service().state().sites().get(id);}

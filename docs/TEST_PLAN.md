@@ -1,5 +1,9 @@
 # Bootstrap validation
 
+## 6 November: owner Council UI and authority corrections
+
+Read [correction verification](work-packages/last-council/UI_REVIEW_VERIFICATION.md) and [review guide](work-packages/last-council/REVIEW_COUNCIL.md). Development0.2.0-dev.4 separates explicit Chancellor authority from OP, automatically commits private papers on first active play, uses visible list/detail screens and private/public voter-head projections, and gates Regency behind ordinary motions. Full859Java (852passed/seven existing skips), Python131PASS; final focused Last Council54PASS and both native ballot/succession restart suites PASS, including actual Regency UI confirmation and retained Close/Void controls. Human UI/group review and LC08 remain separate gates. Earlier dated entries are historical.
+
 ## 6 November: Council ballots and succession development slices
 
 Read [ballot evidence](work-packages/last-council/BALLOTS_VERIFICATION.md), [succession evidence](work-packages/last-council/SUCCESSION_VERIFICATION.md) and the [combined review guide](work-packages/last-council/REVIEW_COUNCIL.md). Development0.2.0-dev.3:846Java tests (839passed/seven existing Windows skips), Python131PASS, final three-client ordinary-ballot and succession suites each PASS across actual restart. Save-failure and malformed-history tests cover fixed snapshots, reasoned void/replacement and persisted elimination draws. Actual LC08 pool/gate and other listed political controls remain pending; no full LC03/scenario completion is claimed. One authenticated loopback review at25589 is running. Nine stopped Council fixtures were removed, retaining compact reports. Alpha artifacts, source brief and unrelated acoustics work are unchanged.

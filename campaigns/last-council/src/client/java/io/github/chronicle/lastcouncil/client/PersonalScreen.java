@@ -35,12 +35,18 @@ public final class PersonalScreen extends CouncilScreen {
     private void ownHouse(int x,int y,int w,int h){
         if(view.ownHouse().isBlank()){body(view.message(),x,y,w,h);return;}
         var own=view.houses().stream().filter(v->v.id().equals(view.ownHouse())).findFirst().orElse(null);
-        boolean compact=panelWidth<380||panelHeight<280;int bodyY=y;
-        if(compact){button(sectionName(section),x,y,w,()->choose("House papers",Arrays.stream(Section.values()).map(s->new Choice(s.name(),sectionName(s))).toList(),id->{section=Section.valueOf(id);offset=0;request();}));bodyY+=28;}
-        else {int i=0;for(var option:Section.values()){final var selected=option;button(sectionName(option),x,y+i++*24,126,()->{section=selected;offset=0;request();}).active=option!=section;}x+=136;w-=136;}
+        int list=panelWidth<380?98:126;int bodyY=y;
+        rows("papers",Arrays.stream(Section.values()).map(s->new Choice(s.name(),sectionName(s))).toList(),section.name(),x,y,list,h,id->{section=Section.valueOf(id);offset=0;request();clearAndInit();});
+        x+=list+6;w-=list+6;
         String text=(own==null?"":own.title()+"\n\n")+(view.section()==section?String.join("\n\n",view.paragraphs()):"Reading…");
         if(view.section()==section&&view.paragraphs().isEmpty())text+=view.message().isBlank()?"No information in this section.":view.message();
-        body(text,x,bodyY,w,h-(bodyY-y));
+        if(view.section()==section&&section==Section.INFORMATION&&own!=null)sections("own-house",List.of(
+            new SectionCard("House",own.title()),new SectionCard("Reputation",own.reputation()),
+            new SectionCard("House information",own.description()),new SectionCard("Interests",own.interests())
+        ),x,bodyY,w,h-(bodyY-y));
+        else if(view.section()==section&&!view.paragraphs().isEmpty())sections("papers-"+section,
+            view.paragraphs().stream().map(paragraph->new SectionCard(sectionName(section),paragraph)).toList(),x,bodyY,w,h-(bodyY-y));
+        else body(text,x,bodyY,w,h-(bodyY-y));
         if(view.section()==section){
             if(view.previous())button("Previous",left+12,top+panelHeight-44,80,()->{offset=Math.max(0,view.offset()-8);request();});
             if(view.next())button("Next",left+98,top+panelHeight-44,65,()->{offset=view.offset()+8;request();});
@@ -50,8 +56,15 @@ public final class PersonalScreen extends CouncilScreen {
         var others=view.houses().stream().filter(v->!v.id().equals(view.ownHouse())).toList();
         if(others.isEmpty()){body("No other houses are configured.",x,y,w,h);return;}
         var selected=others.stream().filter(v->v.id().equals(otherHouse)).findFirst().orElse(others.getFirst());otherHouse=selected.id();
-        button(selected.title()+"…",x,y,w,()->choose("Other houses",others.stream().map(v->new Choice(v.id(),v.title())).toList(),id->{otherHouse=id;}));
-        body(selected.reputation()+"\n\n"+selected.description()+"\n\n"+selected.interests()+"\n\nRepresentative: "+(selected.representative().isBlank()?"Not assigned":selected.representative())+(selected.candidate()?"\nCrown candidate":""),x,y+28,w,h-28);
+        int list=panelWidth<380?98:142;
+        rows("houses",others.stream().map(v->new Choice(v.id(),v.title())).toList(),otherHouse,x,y,list,h,id->{otherHouse=id;clearAndInit();});
+        sections("house-detail-"+selected.id(),List.of(
+            new SectionCard("House",selected.title()),
+            new SectionCard("Reputation",selected.reputation()),
+            new SectionCard("House information",selected.description()),
+            new SectionCard("Interests",selected.interests()),
+            new SectionCard("Representative",(selected.representative().isBlank()?"Not assigned":selected.representative())+(selected.candidate()?"\nCrown candidate":""))
+        ),x+list+6,y,w-list-6,h);
     }
     private static String sectionName(Section section){return switch(section){case INFORMATION->"House information";case SECRETS->"Secrets";case GOALS->"Goals";case KNOWN_SECRETS->"Other houses' secrets";};}
     @Override public void tick(){if(pending!=null&&++waitingTicks>200){pending=null;feedback="The server did not answer. Refresh to retry.";}}

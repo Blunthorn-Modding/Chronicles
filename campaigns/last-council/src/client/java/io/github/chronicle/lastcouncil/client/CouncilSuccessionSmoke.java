@@ -14,6 +14,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.AccessibilityOnboardingScreen;
 import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.ConfirmScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.input.MouseInput;
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
@@ -29,7 +32,7 @@ public final class CouncilSuccessionSmoke {
     private final long started = System.nanoTime();
     private boolean connecting, done;
     private int step, wait;
-    private UUID pending, first, replacement, finalBallot;
+    private UUID pending, first, replacement, finalBallot, policy;
     private String houseA, houseB, houseC, titleA, titleB;
     private AdminView admin;
     private View view;
@@ -60,8 +63,9 @@ public final class CouncilSuccessionSmoke {
     private UUID id(String name) throws Exception { return UUID.fromString(read(name)); }
     private void command(MinecraftClient c, String value) { c.player.networkHandler.sendChatCommand(value); }
     private void admin(Operation action, long revision, UUID target, String house) {
+        long officeRevision = admin == null ? -1 : admin.officeRevision();
         pending = UUID.randomUUID(); admin = null; notice = null;
-        ClientPlayNetworking.send(new AdminRequest(pending, action, revision, target, house, true, NONE));
+        ClientPlayNetworking.send(new AdminRequest(pending, action, revision, target, house, true, NONE, officeRevision));
     }
     private void request(Action action, long revision, UUID reference, String text) {
         pending = UUID.randomUUID(); view = null; vote = null; notice = null;
@@ -93,8 +97,9 @@ public final class CouncilSuccessionSmoke {
                 titleA=houses.get(0).title(); titleB=houses.get(1).title();
                 require(Set.of(houseA,houseB,houseC).size()==3,"houses must differ");
                 mark("house-A",houseA); mark("house-B",houseB); mark("house-C",houseC); mark("title-A",titleA); mark("title-B",titleB);
-                admin(Operation.ASSIGN,admin.revision(),offline("ChronicleFabricA"),houseA); step=4; }
-            case 4 -> { noFailure(); if(admin==null)return; admin(Operation.ASSIGN,admin.revision(),offline("ChronicleFabricB"),houseB); step=5; }
+                require(admin.players().stream().anyMatch(p -> p.id().equals(offline("CouncilAbsentCandidate")) && p.houseId().equals(houseA)), "preseeded candidate missing");
+                admin(Operation.APPOINT_CHANCELLOR,admin.revision(),offline("ChronicleFabricA"),""); step=4; }
+            case 4 -> { noFailure(); if(admin==null)return; require(admin.chancellor().equals(offline("ChronicleFabricA")), "appointment missing"); admin(Operation.ASSIGN,admin.revision(),offline("ChronicleFabricB"),houseB); step=5; }
             case 5 -> { noFailure(); if(admin==null)return; admin(Operation.ASSIGN,admin.revision(),offline("ChronicleFabricC"),houseC); step=6; }
             case 6 -> { noFailure(); if(admin==null)return;
                 command(c,"fill -5 64 -5 5 64 5 minecraft:stone"); command(c,"setblock 0 65 4 minecraft:lectern");
@@ -103,7 +108,24 @@ public final class CouncilSuccessionSmoke {
             case 7 -> { if(!has("joined-B")||!has("joined-C"))return; command(c,"chronicle session start"); wait=30; step=8; }
             case 8 -> { request(Action.STATE,0,NONE,""); step=9; }
             case 9 -> { noFailure(); if(view==null)return; request(Action.START,view.revision(),NONE,""); step=10; }
-            case 10 -> { noFailure(); if(view==null)return; require(view.regency().canOpen(),"regency unavailable"); request(Action.OPEN_REGENCY,view.revision(),NONE,""); step=11; }
+            case 10 -> { noFailure(); if(view==null)return; policy=UUID.randomUUID();
+                pending=UUID.randomUUID(); view=null; vote=null; notice=null;
+                ClientPlayNetworking.send(new Request(pending,Action.PREPARE,0,policy,"","Policy awaiting decision","Policy",false,false)); step=30; }
+            case 30 -> { noFailure(); if(view==null)return; require(!view.regency().canOpen(),"pending policy did not block regency"); request(Action.OPEN_REGENCY,view.revision(),NONE,""); step=31; }
+            case 31 -> { if(notice==null)return; request(Action.STATE,0,NONE,""); step=32; }
+            case 32 -> { noFailure(); if(view==null)return; request(Action.DEFER,view.revision(),policy,"Deferred for this meeting"); step=33; }
+            case 33 -> { noFailure(); if(view==null)return; require(view.regency().canOpen(),"deferred policy still blocks regency"); checks.add("pending policy blocked regency until deferred"); c.setScreen(new CouncilBusinessScreen(view,null)); wait=5; step=37; }
+            case 37 -> { require(c.currentScreen instanceof CouncilBusinessScreen,"proceedings screen missing"); press(c,"Regency vote..."); require(c.currentScreen instanceof ConfirmScreen,"regency confirmation missing"); wait=5; step=38; }
+            case 38 -> { press(c,"Yes"); wait=10; step=39; }
+            case 39 -> { require(c.currentScreen instanceof CouncilBusinessScreen,"proceedings did not return after regency");
+                var screen=(CouncilBusinessScreen)c.currentScreen; var updated=screen.snapshot();
+                if(updated.activeBallot()==null||updated.activeBallot().equals(NONE))return;
+                require(updated.detail()!=null,"regency detail missing");
+                var labels=screen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).map(b->b.getMessage().getString()).toList();
+                require(labels.contains("Close ballot...")&&labels.contains("Void ballot..."),"active regency controls missing");
+                require(updated.detail().title().toLowerCase(Locale.ROOT).contains("regency"),"active regency detail not selected");
+                ScreenshotRecorder.saveScreenshot(shared.toFile(),"regency-active-proceedings.png",c.getFramebuffer(),1,ignored->{});
+                checks.add("native Regency sidebar opens confirmation and retains active ballot details/close/void controls"); view=updated; step=11; }
             case 11 -> { noFailure(); if(view==null)return; first=view.activeBallot(); require(first!=null&&!first.equals(NONE),"first ballot missing"); request(Action.BALLOT,0,first,""); step=12; }
             case 12 -> { noFailure(); if(vote==null)return; verifySlate(vote,Set.of(houseA,houseB,houseC)); request(Action.STATE,0,NONE,""); step=13; }
             case 13 -> { noFailure(); if(view==null)return; request(Action.VOID_BALLOT,view.revision(),first,"Incorrect setup"); step=14; }
@@ -119,7 +141,11 @@ public final class CouncilSuccessionSmoke {
             case 23 -> { if(notice==null)return; request(Action.STATE,0,NONE,""); step=24; }
             case 24 -> { noFailure(); if(view==null)return; request(Action.FINISH,view.revision(),NONE,""); step=25; }
             case 25 -> { noFailure(); if(view==null)return; request(Action.START,view.revision(),NONE,""); step=26; }
-            case 26 -> { noFailure(); if(view==null)return; require(view.meeting()==2,"second meeting missing"); request(Action.OPEN_REGENCY,view.revision(),NONE,""); step=27; }
+            case 26 -> { noFailure(); if(view==null)return; require(view.meeting()==2,"second meeting missing");
+                require(!view.regency().canOpen(),"deferred policy did not return next meeting");request(Action.ADMIT,view.revision(),policy,"");step=34; }
+            case 34 -> { noFailure();if(view==null)return;request(Action.OPEN_BALLOT,view.revision(),policy,"");step=35; }
+            case 35 -> { noFailure();if(view==null)return;request(Action.CLOSE_BALLOT,view.revision(),view.activeBallot(),"");step=36; }
+            case 36 -> { noFailure();if(view==null)return;require(view.regency().canOpen(),"recorded policy still blocks regency");request(Action.OPEN_REGENCY,view.revision(),NONE,"");step=27; }
             case 27 -> { noFailure(); if(view==null)return; finalBallot=view.activeBallot(); require(finalBallot!=null&&!finalBallot.equals(replacement),"final ballot identity wrong"); mark("final",finalBallot.toString()); request(Action.BALLOT,0,finalBallot,""); step=28; }
             case 28 -> { noFailure(); if(vote==null)return; verifySlate(vote,Set.of(houseB,houseC)); checks.add("void replacement preserved the three-house slate; unique lowest candidate eliminated and retained Council vote"); mark("initial-complete","ready"); finish(c,null); }
             default -> throw new IllegalStateException("invalid host step");
@@ -149,6 +175,17 @@ public final class CouncilSuccessionSmoke {
             case 40 -> { noFailure();if(admin==null)return;require(admin.houses().stream().noneMatch(PublicHouse::candidate),"public directory retained ended crown candidates");checks.add("public directory clears crown candidates after the election ends");request(Action.OPEN_REGENCY,view.revision(),NONE,"");step=9; }
             case 9 -> { if(notice==null)return; request(Action.STATE,0,NONE,""); step=10; }
             case 10 -> { noFailure(); if(view==null)return; request(Action.FINISH,view.revision(),NONE,""); step=11; }
+            case 37 -> { require(c.currentScreen instanceof CouncilBusinessScreen,"proceedings screen missing"); press(c,"Regency vote..."); require(c.currentScreen instanceof ConfirmScreen,"regency confirmation missing"); wait=5; step=38; }
+            case 38 -> { press(c,"Yes"); wait=10; step=39; }
+            case 39 -> { require(c.currentScreen instanceof CouncilBusinessScreen,"proceedings did not return after regency");
+                var screen=(CouncilBusinessScreen)c.currentScreen; var updated=screen.snapshot();
+                if(updated.activeBallot()==null||updated.activeBallot().equals(NONE))return;
+                require(updated.detail()!=null,"regency detail missing");
+                var labels=screen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).map(b->b.getMessage().getString()).toList();
+                require(labels.contains("Close ballot...")&&labels.contains("Void ballot..."),"active regency controls missing");
+                require(updated.detail().title().toLowerCase(Locale.ROOT).contains("regency"),"active regency detail not selected");
+                ScreenshotRecorder.saveScreenshot(shared.toFile(),"regency-active-proceedings.png",c.getFramebuffer(),1,ignored->{});
+                checks.add("native Regency sidebar opens confirmation and retains active ballot details/close/void controls"); view=updated; step=11; }
             case 11 -> { noFailure(); if(view==null)return; request(Action.START,view.revision(),NONE,""); step=12; }
             case 12 -> { noFailure(); if(view==null)return; require(view.meeting()==3,"ordinary meeting did not continue"); c.getWindow().setWindowedSize(1280,720); command(c,"chronicle council proceedings"); wait=30; step=13; }
             case 13 -> { if(!(c.currentScreen instanceof CouncilBusinessScreen))return; ScreenshotRecorder.saveScreenshot(shared.toFile(),"succession-proceedings.png",c.getFramebuffer(),1,ignored->{}); checks.add("restart preserved fixed electorate and slate; majority crowned the remaining candidate and ordinary meetings continued"); mark("restart-complete","ready"); finish(c,null); }
@@ -170,6 +207,12 @@ public final class CouncilSuccessionSmoke {
         if(done)return; done=true;
         try { var json=new JsonObject(); json.addProperty("result",error==null?"PASS":"FAIL"); json.addProperty("detail",error==null?"Completed":error); json.add("checks",new Gson().toJsonTree(checks)); Files.writeString(output,new Gson().toJson(json),StandardCharsets.UTF_8); } catch(Exception ignored) { }
         c.scheduleStop();
+    }
+    private static void press(MinecraftClient client,String label) {
+        var button=client.currentScreen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast)
+            .filter(b->b.active&&b.getMessage().getString().equals(label)).findFirst()
+            .orElseThrow(()->new IllegalStateException("button unavailable: "+label));
+        button.onPress(new MouseInput(0,0));
     }
     private static void require(boolean condition,String message) { if(!condition)throw new IllegalStateException(message); }
 }

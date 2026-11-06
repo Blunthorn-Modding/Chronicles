@@ -41,7 +41,7 @@ public final class ProceedingsStore implements ProceedingsRepository {
         if (!loaded) throw new IOException("Load proceedings before saving");
         try {
             JsonObject root = new JsonObject();
-            root.addProperty("schemaVersion", 2);
+            root.addProperty("schemaVersion", 3);
             root.add("state", JSON.toJsonTree(Objects.requireNonNull(state)));
             byte[] bytes = encodeUtf8(root + "\n");
             if (bytes.length > MAX_BYTES || !decode(decodeUtf8(bytes)).equals(state))
@@ -56,7 +56,7 @@ public final class ProceedingsStore implements ProceedingsRepository {
         JsonObject root = BookConfig.strictObject(text);
         if (!root.keySet().equals(Set.of("schemaVersion", "state"))) throw new IllegalArgumentException("Unexpected root fields");
         JsonElement version = root.get("schemaVersion");
-        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !Set.of("1","2").contains(version.getAsString()))
+        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !Set.of("1","2","3").contains(version.getAsString()))
             throw new IllegalArgumentException("Unsupported schema version");
         if(version.getAsString().equals("1")) {
             JsonObject state=root.getAsJsonObject("state");
@@ -67,6 +67,11 @@ public final class ProceedingsStore implements ProceedingsRepository {
                 if(pending.getAsJsonObject().has("result"))throw new IllegalArgumentException("Unexpected legacy result field");
                 pending.getAsJsonObject().add("result",JsonNull.INSTANCE);
             }
+        }
+        if(!version.getAsString().equals("3")) {
+            JsonObject state=root.getAsJsonObject("state");
+            if(state.has("deferredAt"))throw new IllegalArgumentException("Unexpected legacy deferral field");
+            state.add("deferredAt",new JsonObject());
         }
         validate(root.get("state"), ProceedingsState.class, 0);
         return Objects.requireNonNull(JSON.fromJson(root.get("state"), ProceedingsState.class));
@@ -119,9 +124,9 @@ public final class ProceedingsStore implements ProceedingsRepository {
             if (c.isEnum() && Arrays.stream(c.getEnumConstants()).noneMatch(v -> ((Enum<?>) v).name().equals(value))) throw new IllegalArgumentException("Invalid enum");
         } else if (c == boolean.class) {
             if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isBoolean()) throw new IllegalArgumentException("Expected boolean");
-        } else if (c == int.class || c == long.class) {
+        } else if (c == int.class || c == long.class || c == Integer.class || c == Long.class) {
             if (!element.isJsonPrimitive() || !element.getAsJsonPrimitive().isNumber() || !element.getAsString().matches("-?(0|[1-9][0-9]*)")) throw new IllegalArgumentException("Expected integer");
-            if (c == int.class) Integer.parseInt(element.getAsString()); else Long.parseLong(element.getAsString());
+            if (c == int.class || c == Integer.class) Integer.parseInt(element.getAsString()); else Long.parseLong(element.getAsString());
         } else throw new IllegalArgumentException("Unsupported record field type: " + c.getName());
     }
 

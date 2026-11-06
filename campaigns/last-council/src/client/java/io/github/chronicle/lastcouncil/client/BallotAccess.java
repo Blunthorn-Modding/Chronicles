@@ -97,7 +97,7 @@ final class BallotAccess {
                 ||currentHint!=null&&!currentHint.equals(vote.ballot().id())))return false;
         client.setScreen(new BallotScreen(vote,client.currentScreen));return true;
     }
-    private static boolean editingText(Screen screen) {
+    static boolean editingText(Screen screen) {
         Element focused=screen==null?null:screen.getFocused();
         for(int depth=0;focused!=null&&depth<16;depth++) {
             if(focused instanceof TextFieldWidget||focused instanceof EditBoxWidget)return true;

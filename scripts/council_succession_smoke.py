@@ -2,6 +2,7 @@
 import json
 import shutil
 import subprocess
+import uuid
 import fabric_smoke
 import menu_smoke
 
@@ -21,6 +22,11 @@ def run():
     root = fabric_smoke._stage(w)
     (root / '.council-succession-fixture').write_text('Disposable Council succession smoke\n', encoding='utf-8')
     _fixture(root)
+    absent=str(uuid.UUID(bytes=__import__('hashlib').md5(b'OfflinePlayer:CouncilAbsentCandidate').digest(),version=3))
+    definition=json.loads((w.REPO/'campaigns/last-council/src/main/resources/data/last_council/chronicle/houses.json').read_text(encoding='utf-8'))
+    first=sorted(definition['houses'].values(),key=lambda h:(h['title'],h['id']))[0]['id']
+    owner={'owner':absent,'houseId':first,'councilMember':True,'candidate':True}
+    (root/'world/chronicle/last-council/roster.json').write_text(json.dumps({'schema':1,'revision':1,'assignments':{absent:owner}})+'\n',encoding='utf-8')
     for prefix in ('quiet_below-', 'last_council-'):
         for jar in (root / 'mods').glob(prefix + '*.jar'):
             jar.unlink()

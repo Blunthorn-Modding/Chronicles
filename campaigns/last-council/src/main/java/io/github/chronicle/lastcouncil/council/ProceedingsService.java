@@ -89,16 +89,25 @@ public final class ProceedingsService {
         Set<String> sponsors=new HashSet<>(m.sponsors());sponsors.add(house);
         publish(d -> d.motions.put(id,m.with(m.status(),sponsors,m.ballots(),m.notes())));
     }
+    public boolean deferredThisMeeting(UUID id){return Objects.equals(state.deferredAt().get(id),state.meeting());}
+    public List<UUID> pendingMotions() {
+        Set<UUID> regency=new HashSet<>();state.succession().rounds().keySet().forEach(id->regency.add(state.attempts().get(id).motion()));
+        return state.motions().values().stream().filter(m->!regency.contains(m.id())&&!deferredThisMeeting(m.id())
+                &&(m.status()==MotionStatus.SUBMITTED||m.status()==MotionStatus.AGENDA||m.status()==MotionStatus.VOTING)).map(Motion::id).sorted().toList();
+    }
     public void admit(UUID id) throws IOException {
         idle();Motion m=motion(id);
+        if(deferredThisMeeting(id))throw new IllegalStateException("This motion is deferred until a later meeting.");
         if(m.status()!=MotionStatus.SUBMITTED||!m.ready(1))throw new IllegalStateException("This proposal needs another house's sponsorship.");
         publish(d -> d.motions.put(id,m.with(MotionStatus.AGENDA,m.sponsors(),m.ballots(),m.notes())));
     }
     public void defer(UUID id,String reason) throws IOException {
         idle();Motion m=motion(id);validText(reason,400,true);
+        if(state.phase()!=Phase.DISCUSSION&&state.phase()!=Phase.RECESS)throw new IllegalStateException("Defer a motion during an open meeting.");
+        if(deferredThisMeeting(id)){repository.verifyUnchanged();return;}
         if(m.status()!=MotionStatus.SUBMITTED&&m.status()!=MotionStatus.AGENDA)throw new IllegalStateException("This motion cannot be deferred.");
         List<String> notes=new ArrayList<>(m.notes());notes.add(clock.instant()+" - Deferred: "+reason);
-        publish(d -> d.motions.put(id,m.with(MotionStatus.SUBMITTED,m.sponsors(),m.ballots(),notes)));
+        publish(d -> {d.motions.put(id,m.with(MotionStatus.SUBMITTED,m.sponsors(),m.ballots(),notes));d.deferredAt.put(id,state.meeting());});
     }
     public void withdraw(UUID id,String house) throws IOException {
         idle();Motion m=motion(id);
@@ -110,7 +119,7 @@ public final class ProceedingsService {
         idle();noBallot();Motion m=motion(motion);
         if(state.succession().rounds().keySet().stream().anyMatch(id->state.attempts().get(id).motion().equals(motion)))
             throw new IllegalStateException("Use Request regency vote for succession, including a replacement.");
-        if(state.phase()!=Phase.DISCUSSION||m.status()!=MotionStatus.AGENDA)throw new IllegalStateException("Bring an agenda motion to open proceedings first.");
+        if(state.phase()!=Phase.DISCUSSION||m.status()!=MotionStatus.AGENDA||deferredThisMeeting(motion))throw new IllegalStateException("Bring an agenda motion to open proceedings first.");
         if(!region.id().equals(state.votingRegion()))throw new IllegalStateException("Choose the configured voting Region.");
         int threshold=m.threshold()==Threshold.MAJORITY?BallotDefinition.majority(electorate.size()):BallotDefinition.twoThirds(electorate.size());
         BallotDefinition definition=new BallotDefinition(UUID.randomUUID(),m.id().toString(),m.title(),
@@ -123,6 +132,7 @@ public final class ProceedingsService {
         idle();noBallot();
         if(state.phase()!=Phase.DISCUSSION||!region.id().equals(state.votingRegion()))
             throw new IllegalStateException("Open discussion in the configured voting Region first.");
+        if(!pendingMotions().isEmpty())throw new IllegalStateException("Vote on or defer every pending motion before requesting regency.");
         // The scenario's complication integration owns this gate, never a client flag.
         progression.beforeRegency(state.meeting());
         Set<String> slate=state.succession().started()?state.succession().remaining():Set.copyOf(configuredCandidates.keySet());
@@ -239,8 +249,8 @@ public final class ProceedingsService {
     }
     private static final class Draft {
         int meeting;Phase phase;String region;Set<String> lecterns;
-        Map<UUID,Motion> motions;Map<UUID,Attempt> attempts;UUID active;Pending pending;Map<UUID,Call> calls;SuccessionState succession;
-        Draft(ProceedingsState s) { meeting=s.meeting();phase=s.phase();region=s.votingRegion();lecterns=new HashSet<>(s.lecterns());motions=new HashMap<>(s.motions());attempts=new HashMap<>(s.attempts());active=s.activeBallot();pending=s.pending();calls=new HashMap<>(s.calls());succession=s.succession(); }
-        ProceedingsState build(long revision) { return new ProceedingsState(revision,meeting,phase,region,lecterns,motions,attempts,active,pending,calls,succession); }
+        Map<UUID,Motion> motions;Map<UUID,Attempt> attempts;UUID active;Pending pending;Map<UUID,Call> calls;SuccessionState succession;Map<UUID,Integer> deferredAt;
+        Draft(ProceedingsState s) { meeting=s.meeting();phase=s.phase();region=s.votingRegion();lecterns=new HashSet<>(s.lecterns());motions=new HashMap<>(s.motions());attempts=new HashMap<>(s.attempts());active=s.activeBallot();pending=s.pending();calls=new HashMap<>(s.calls());succession=s.succession();deferredAt=new HashMap<>(s.deferredAt()); }
+        ProceedingsState build(long revision) { return new ProceedingsState(revision,meeting,phase,region,lecterns,motions,attempts,active,pending,calls,succession,deferredAt); }
     }
 }

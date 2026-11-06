@@ -1,5 +1,7 @@
 # Integration and rule contracts
 
+**6November review correction:** Chancellor is an explicit world assignment, separate from operator privilege. Operators administer setup and may otherwise play a house; the Chancellor cannot also hold a house or vote. Only the appointed Chancellor runs proceedings. First active play automatically publishes the private cast once. Motion/house screens follow visible lists and separate read-only sections; public heads use captured character-card names, secret heads stay neutral without turnout. Ordinary pending motions require a completed ballot or a meeting-specific deferral before regency opens. See [native correction design](UI_REVIEW_CORRECTIONS.md). This supersedes earlier OP-equals-GM setup assumptions.
+
 Source: [The Last Council brief](../../THE_LAST_COUNCIL_EVENT_BRIEF.md), revision 1.1. These are implementation boundaries and test obligations, not additional story rules.
 
 The user's later [card/randomizer and Event-flow clarification](FRAMEWORK_INTEGRATION.md) takes precedence over fixed-cast assumptions: use existing cards, interconnected randomized book content and Event-led gatherings, followed by manual GM procedure. Chancellor and GM are the same authority.

@@ -10,7 +10,7 @@ import net.minecraft.util.Identifier;
 /** Separate public/recipient-private projections. No client chooses whose private papers to read. */
 public final class CouncilPayloads {
     public enum Section { INFORMATION, SECRETS, GOALS, KNOWN_SECRETS }
-    public enum Operation { OPEN, ASSIGN, UNASSIGN, PREVIEW, COMMIT, RELOAD }
+    public enum Operation { OPEN, ASSIGN, UNASSIGN, PREVIEW, COMMIT, RELOAD, APPOINT_CHANCELLOR, CLEAR_CHANCELLOR, RETRY_PAPERS }
     public static final UUID NONE = new UUID(0,0);
     private CouncilPayloads() { }
     public static void register() {
@@ -24,9 +24,10 @@ public final class CouncilPayloads {
     public record PublicHouse(String id,String title,String reputation,String description,String interests,
                               String representative,boolean councilMember,boolean candidate,boolean defaultCandidate) { }
     public record Player(UUID id,String label,String houseId,boolean candidate) { }
-    public record Capability(boolean active) implements CustomPayload {
+    public record Capability(boolean active,boolean chancellor) implements CustomPayload {
+        public Capability(boolean active){this(active,false);}
         public static final Id<Capability> ID=id("capability");
-        public static final PacketCodec<RegistryByteBuf,Capability> CODEC=PacketCodec.ofStatic((b,v)->b.writeBoolean(v.active()),b->new Capability(b.readBoolean()));
+        public static final PacketCodec<RegistryByteBuf,Capability> CODEC=PacketCodec.ofStatic((b,v)->{b.writeBoolean(v.active());b.writeBoolean(v.chancellor());},b->new Capability(b.readBoolean(),b.readBoolean()));
         public Id<Capability> getId(){return ID;}
     }
     public record PersonalRequest(UUID request,Section section,int offset) implements CustomPayload {
@@ -44,19 +45,20 @@ public final class CouncilPayloads {
         public Id<PersonalView> getId(){return ID;}
     }
     public record AdminRequest(UUID request,Operation operation,long revision,UUID target,String houseId,
-                               boolean candidate,UUID preview) implements CustomPayload {
+                               boolean candidate,UUID preview,long officeRevision) implements CustomPayload {
+        public AdminRequest(UUID request,Operation operation,long revision,UUID target,String houseId,boolean candidate,UUID preview){this(request,operation,revision,target,houseId,candidate,preview,-1);}
         public static final Id<AdminRequest> ID=id("admin_request");
-        public static final PacketCodec<RegistryByteBuf,AdminRequest> CODEC=PacketCodec.ofStatic((b,v)->{b.writeUuid(v.request());b.writeEnumConstant(v.operation());b.writeLong(v.revision());b.writeUuid(v.target());b.writeString(v.houseId(),128);b.writeBoolean(v.candidate());b.writeUuid(v.preview());},b->new AdminRequest(b.readUuid(),b.readEnumConstant(Operation.class),b.readLong(),b.readUuid(),b.readString(128),b.readBoolean(),b.readUuid()));
+        public static final PacketCodec<RegistryByteBuf,AdminRequest> CODEC=PacketCodec.ofStatic((b,v)->{b.writeUuid(v.request());b.writeEnumConstant(v.operation());b.writeLong(v.revision());b.writeUuid(v.target());b.writeString(v.houseId(),128);b.writeBoolean(v.candidate());b.writeUuid(v.preview());b.writeLong(v.officeRevision());},b->new AdminRequest(b.readUuid(),b.readEnumConstant(Operation.class),b.readLong(),b.readUuid(),b.readString(128),b.readBoolean(),b.readUuid(),b.readLong()));
         public Id<AdminRequest> getId(){return ID;}
     }
     public record AdminView(UUID request,boolean opening,long revision,UUID target,List<Player> players,
                             List<PublicHouse> houses,boolean editable,String reason,boolean committed,UUID preview,
-                            List<String> previewSecrets,List<String> previewGoals,String message) implements CustomPayload {
+                            List<String> previewSecrets,List<String> previewGoals,String message,UUID chancellor,long officeRevision,boolean officeEditable,String officeReason) implements CustomPayload {
         public AdminView {players=List.copyOf(players);houses=List.copyOf(houses);previewSecrets=List.copyOf(previewSecrets);previewGoals=List.copyOf(previewGoals);if(players.size()>160||houses.size()>32||previewSecrets.size()>4||previewGoals.size()>4)throw new IllegalArgumentException("Admin view exceeds bounds");}
         public static final Id<AdminView> ID=id("admin_view");
         public static final PacketCodec<RegistryByteBuf,AdminView> CODEC=PacketCodec.ofStatic((b,v)->{
-            b.writeUuid(v.request());b.writeBoolean(v.opening());b.writeLong(v.revision());b.writeUuid(v.target());b.writeVarInt(v.players().size());for(var p:v.players()){b.writeUuid(p.id());b.writeString(p.label(),160);b.writeString(p.houseId(),128);b.writeBoolean(p.candidate());}writeHouses(b,v.houses());b.writeBoolean(v.editable());b.writeString(v.reason(),512);b.writeBoolean(v.committed());b.writeUuid(v.preview());writeTexts(b,v.previewSecrets(),4);writeTexts(b,v.previewGoals(),4);b.writeString(v.message(),512);
-        },b->{UUID request=b.readUuid();boolean opening=b.readBoolean();long revision=b.readLong();UUID target=b.readUuid();int count=count(b,160);List<Player> players=new ArrayList<>();for(int i=0;i<count;i++)players.add(new Player(b.readUuid(),b.readString(160),b.readString(128),b.readBoolean()));return new AdminView(request,opening,revision,target,players,readHouses(b),b.readBoolean(),b.readString(512),b.readBoolean(),b.readUuid(),readTexts(b,4),readTexts(b,4),b.readString(512));});
+            b.writeUuid(v.request());b.writeBoolean(v.opening());b.writeLong(v.revision());b.writeUuid(v.target());b.writeVarInt(v.players().size());for(var p:v.players()){b.writeUuid(p.id());b.writeString(p.label(),160);b.writeString(p.houseId(),128);b.writeBoolean(p.candidate());}writeHouses(b,v.houses());b.writeBoolean(v.editable());b.writeString(v.reason(),512);b.writeBoolean(v.committed());b.writeUuid(v.preview());writeTexts(b,v.previewSecrets(),4);writeTexts(b,v.previewGoals(),4);b.writeString(v.message(),512);b.writeUuid(v.chancellor());b.writeLong(v.officeRevision());b.writeBoolean(v.officeEditable());b.writeString(v.officeReason(),512);
+        },b->{UUID request=b.readUuid();boolean opening=b.readBoolean();long revision=b.readLong();UUID target=b.readUuid();int count=count(b,160);List<Player> players=new ArrayList<>();for(int i=0;i<count;i++)players.add(new Player(b.readUuid(),b.readString(160),b.readString(128),b.readBoolean()));return new AdminView(request,opening,revision,target,players,readHouses(b),b.readBoolean(),b.readString(512),b.readBoolean(),b.readUuid(),readTexts(b,4),readTexts(b,4),b.readString(512),b.readUuid(),b.readLong(),b.readBoolean(),b.readString(512));});
         public Id<AdminView> getId(){return ID;}
     }
     public record Notice(UUID request,String message) implements CustomPayload {

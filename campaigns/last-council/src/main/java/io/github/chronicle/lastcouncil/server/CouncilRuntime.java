@@ -6,6 +6,9 @@ import io.github.chronicle.core.server.*;
 import io.github.chronicle.lastcouncil.LastCouncil;
 import io.github.chronicle.lastcouncil.content.*;
 import io.github.chronicle.lastcouncil.house.*;
+import io.github.chronicle.lastcouncil.office.*;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import io.github.chronicle.core.campaign.SessionPhase;
 import io.github.chronicle.lastcouncil.network.CouncilPayloads;
 import io.github.chronicle.lastcouncil.network.CouncilPayloads.*;
 import java.io.IOException;
@@ -31,8 +34,9 @@ public final class CouncilRuntime {
     public static void register(){
         ServerLifecycleEvents.SERVER_STARTED.register(server->{if(active())start(server);});
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
+        ServerTickEvents.START_SERVER_TICK.register(CouncilRuntime::issueAtFirstPlay);
         ServerPlayConnectionEvents.JOIN.register((handler,sender,server)->{
-            if(ServerPlayNetworking.canSend(handler.player,Capability.ID))ServerPlayNetworking.send(handler.player,new Capability(active()));
+            sendCapability(handler.player);
         });
         ServerDisconnects.register((handler,server)->{var state=WORLDS.get(server);if(state!=null){state.pending.remove(handler.player.getUuid());state.limits.remove(handler.player.getUuid());}});
         ServerPlayNetworking.registerGlobalReceiver(PersonalRequest.ID,(request,context)->context.server().execute(()->personal(context.player(),request)));
@@ -42,6 +46,8 @@ public final class CouncilRuntime {
             .executes(c->{var player=c.getSource().getPlayer();if(player==null)return 0;return openPersonal(player);})
             .then(literal("characters").requires(s->s.hasPermissionLevel(2)).executes(c->{var player=c.getSource().getPlayer();if(player==null)return 0;openAdmin(player,player.getUuid());return 1;})))));
     }
+    public static boolean isChancellor(MinecraftServer server,UUID player){State state=WORLDS.get(server);return state!=null&&player.equals(state.office.snapshot().chancellor());}
+    private static void sendCapability(ServerPlayerEntity player){if(ServerPlayNetworking.canSend(player,Capability.ID))ServerPlayNetworking.send(player,new Capability(active(),isChancellor(player.getEntityWorld().getServer(),player.getUuid())));}
     public static HouseRoster roster(MinecraftServer server) {
         if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House assignments unavailable.");
         return WORLDS.get(server).roster.snapshot();
@@ -67,7 +73,13 @@ public final class CouncilRuntime {
             var roster=new HouseRosterService(content.houses(),new HouseRosterStore(root.resolve("roster.json")));
             var castFile=new HouseCastStore(root.resolve("cast.json"));var cast=castFile.load();
             validateCast(roster.snapshot(),cast);
-            WORLDS.put(server,new State(content,file,roster,castFile,cast));RuntimeHolds.release(server,HOLD);
+            var office=new CouncilOfficeService(new CouncilOfficeStore(root.resolve("chancellor.json")));
+            if(office.snapshot().chancellor()!=null&&roster.snapshot().assignments().containsKey(office.snapshot().chancellor()))
+                throw new IllegalStateException("The Chancellor also has a house assignment. Repair the stopped world; neither record was removed.");
+            var issuer=new HouseCastIssuer(root);
+            if(cast!=null&&issuer.hasPending())cast=issuer.ensure(content,roster.snapshot(),()->{throw new IllegalStateException("A committed automatic cast must not be regenerated.");});
+            WORLDS.put(server,new State(content,file,roster,castFile,cast,office,issuer));RuntimeHolds.release(server,HOLD);
+            issueAtFirstPlay(server);
         }catch(IOException|RuntimeException failure){WORLDS.remove(server);io.github.chronicle.core.ChronicleCore.LOGGER.error("Last Council house data unavailable; existing files were preserved",failure);RuntimeHolds.hold(server,HOLD,"Last Council house data is unavailable. Check houses.json and the world roster/cast while stopped.");}
     }
     private static void validateCast(HouseRoster roster,HouseCast cast){
@@ -101,7 +113,7 @@ public final class CouncilRuntime {
             if(request.offset()<0||request.offset()>124||request.offset()%8!=0)throw new IllegalArgumentException("Choose a valid papers page.");
             var assignment=state.roster.snapshot().assignments().get(player.getUuid());String houseId=assignment==null?"":assignment.houseId();
             List<String> all=new ArrayList<>();String message="";
-            if(assignment==null)message="The Chancellor has not assigned your house yet.";
+            if(assignment==null)message=isChancellor(player.getEntityWorld().getServer(),player.getUuid())?"As Chancellor, you do not represent a house.":"Your house has not been assigned yet.";
             else if(request.section()==Section.INFORMATION){var h=state.content.houses().get(houseId);all.add(h.reputation());all.add(h.description());all.add(h.interests());}
             else if(state.cast==null)message="Your house papers have not been issued yet.";
             else{
@@ -124,24 +136,54 @@ public final class CouncilRuntime {
         try{State state=require(player);operator(player);if(!ServerPlayNetworking.canSend(player,AdminView.ID))throw new IllegalStateException("Install the matching Last Council client.");sendAdmin(player,state,CouncilPayloads.NONE,target,true,"");}
         catch(IOException|RuntimeException failure){player.sendMessage(Text.literal(shortMessage(failure)),false);}
     }
-    private static void operator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2))throw new IllegalStateException("Only the Chancellor can manage house assignments.");}
+    private static void operator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2))throw new IllegalStateException("Only an operator can manage Council setup.");}
     private static String editReason(ServerPlayerEntity player,State state){
         if(ProceedingsRuntime.ballotOpen(player.getEntityWorld().getServer()))return "Close or void the current ballot before changing the cast.";
         if(ProceedingsRuntime.successionStarted(player.getEntityWorld().getServer()))return "The succession slate is locked. House setup cannot reset an election.";
+        if(state.issuer.hasPending()&&state.cast==null)return "House papers need issuance recovery before assignments can change.";
         if(state.cast!=null)return "The cast is committed. Character-to-house assignments are fixed for this experience.";
         if(!AuthoringRuntime.editable(player.getEntityWorld().getServer())||!AuthoringRuntime.isAuthor(player))return "Pause play and enable editing before changing the cast.";
         if(RuntimeHolds.heldByOther(player.getEntityWorld().getServer(),HOLD))return "Resolve the active Chronicle operation hold first.";
         return "";
     }
+    private static String officeReason(ServerPlayerEntity player){
+        var server=player.getEntityWorld().getServer();
+        if(ProceedingsRuntime.ballotOpen(server))return "Close or void the current ballot before changing the Chancellor.";
+        if(!AuthoringRuntime.editable(server)||!AuthoringRuntime.isAuthor(player))return "Pause play and enable Editing to change the Chancellor.";
+        if(RuntimeHolds.heldByOther(server,HOLD))return "Resolve the Chronicle operation hold first.";
+        return "";
+    }
+    private static void issueAtFirstPlay(MinecraftServer server){
+        State state=WORLDS.get(server);if(state==null||state.cast!=null||state.issuanceFailed)return;
+        var campaign=ChronicleRuntime.service(server).state();
+        if(campaign.sessionNumber()<1||campaign.phase()!=SessionPhase.ACTIVE||SessionBuilding.enabled(server)||RuntimeHolds.heldByOther(server,HOLD))return;
+        try {state.contentFile.verifyUnchanged();state.cast=state.issuer.ensure(state.content,state.roster.snapshot(),RANDOM::nextLong);state.pending.clear();RuntimeHolds.release(server,HOLD);}
+        catch(IOException|RuntimeException failure){state.issuanceFailed=true;RuntimeHolds.hold(server,HOLD,"House papers need recovery. Pause, enable Editing, then use Retry paper issuance in Players > House & papers.");io.github.chronicle.core.ChronicleCore.LOGGER.error("House paper issuance held; existing cast preserved",failure);}
+    }
     private static void admin(ServerPlayerEntity player,AdminRequest request){
         try{
             State state=require(player);operator(player);if(!allow(state,player))return;
             UUID target=request.target();var server=player.getEntityWorld().getServer();
-            if(request.operation()!=Operation.OPEN){String reason=editReason(player,state);if(!reason.isBlank())throw new IllegalStateException(reason);if(request.revision()!=state.roster.snapshot().revision())throw new IllegalStateException("The roster changed. Review it again.");state.contentFile.verifyUnchanged();}
+            boolean officeAction=request.operation()==Operation.APPOINT_CHANCELLOR||request.operation()==Operation.CLEAR_CHANCELLOR||request.operation()==Operation.RETRY_PAPERS;
+            if(officeAction){String reason=officeReason(player);if(!reason.isBlank())throw new IllegalStateException(reason);
+                if(request.officeRevision()!=state.office.snapshot().revision())throw new IllegalStateException("The Chancellor assignment changed. Reopen setup.");}
+            if(request.operation()!=Operation.OPEN&&!officeAction){String reason=editReason(player,state);if(!reason.isBlank())throw new IllegalStateException(reason);if(request.revision()!=state.roster.snapshot().revision())throw new IllegalStateException("The roster changed. Review it again.");state.contentFile.verifyUnchanged();}
             String message="";
             switch(request.operation()){
                 case OPEN->{ }
+                case APPOINT_CHANCELLOR->{
+                    if(server.getPlayerManager().getPlayer(target)==null)throw new IllegalArgumentException("Choose an online Chancellor.");
+                    state.office.appoint(target,state.roster.snapshot().assignments().keySet());
+                    for(var connected:server.getPlayerManager().getPlayerList()){sendCapability(connected);server.getCommandManager().sendCommandTree(connected);}
+                    message="Chancellor appointed. Operator privileges and house participation remain separate.";
+                }
+                case CLEAR_CHANCELLOR->{state.office.clear();for(var connected:server.getPlayerManager().getPlayerList()){sendCapability(connected);server.getCommandManager().sendCommandTree(connected);}message="Chancellor assignment cleared.";}
+                case RETRY_PAPERS->{
+                    if(ChronicleRuntime.service(server).state().sessionNumber()<1)throw new IllegalStateException("Papers issue automatically when play first starts.");
+                    state.contentFile.verifyUnchanged();state.cast=state.issuer.ensure(state.content,state.roster.snapshot(),RANDOM::nextLong);state.issuanceFailed=false;RuntimeHolds.release(server,HOLD);message="House papers issued.";
+                }
                 case ASSIGN->{
+                    if(isChancellor(server,target))throw new IllegalStateException("The Chancellor cannot also represent a house.");
                     if(server.getPlayerManager().getPlayer(target)==null&&!state.roster.snapshot().assignments().containsKey(target))throw new IllegalArgumentException("Choose an online or already assigned character.");
                     state.roster.assign(request.revision(),new HouseAssignment(target,request.houseId(),true,request.candidate()));state.pending.clear();message="House assigned. Public card and starting supplies are unchanged.";
                 }
@@ -172,14 +214,14 @@ public final class CouncilRuntime {
         var pending=state.pending.get(player.getUuid());if(pending!=null&&System.nanoTime()-pending.createdAt()>300_000_000_000L){state.pending.remove(player.getUuid());pending=null;}
         HouseCast.HousePapers preview=pending==null?null:pending.cast().papers().get(target);
         String reason=editReason(player,state);
-        ServerPlayNetworking.send(player,new AdminView(request,opening,state.roster.snapshot().revision(),target,players,publicHouses(server,state),reason.isBlank(),reason,state.cast!=null,pending==null?CouncilPayloads.NONE:pending.token(),preview==null?List.of():preview.secrets(),preview==null?List.of():preview.goals(),message));
+        ServerPlayNetworking.send(player,new AdminView(request,opening,state.roster.snapshot().revision(),target,players,publicHouses(server,state),reason.isBlank(),reason,state.cast!=null,pending==null?CouncilPayloads.NONE:pending.token(),preview==null?List.of():preview.secrets(),preview==null?List.of():preview.goals(),message,state.office.snapshot().chancellor()==null?CouncilPayloads.NONE:state.office.snapshot().chancellor(),state.office.snapshot().revision(),officeReason(player).isBlank(),officeReason(player)));
     }
     private static void notice(ServerPlayerEntity player,UUID request,Throwable failure){if(ServerPlayNetworking.canSend(player,Notice.ID))ServerPlayNetworking.send(player,new Notice(request,shortMessage(failure)));}
     private static String shortMessage(Throwable failure){String value=failure instanceof IOException?"Data could not be read or saved. Existing authority was preserved; inspect the server configuration and logs.":Objects.toString(failure.getMessage(),"The operation is unavailable.");return value.substring(0,Math.min(512,value.length()));}
     private static final class State {
-        final CouncilContent content;final AtomicDataFile contentFile;final HouseRosterService roster;final HouseCastStore castFile;HouseCast cast;
+        final CouncilContent content;final AtomicDataFile contentFile;final HouseRosterService roster;final HouseCastStore castFile;HouseCast cast;final CouncilOfficeService office;final HouseCastIssuer issuer;boolean issuanceFailed;
         final Map<UUID,Pending> pending=new HashMap<>();final Map<UUID,Limit> limits=new HashMap<>();
-        State(CouncilContent c,AtomicDataFile f,HouseRosterService r,HouseCastStore s,HouseCast cast){content=c;contentFile=f;roster=r;castFile=s;this.cast=cast;}
+        State(CouncilContent c,AtomicDataFile f,HouseRosterService r,HouseCastStore s,HouseCast cast,CouncilOfficeService office,HouseCastIssuer issuer){content=c;contentFile=f;roster=r;castFile=s;this.cast=cast;this.office=office;this.issuer=issuer;}
     }
     private record Pending(UUID token,HouseCast cast,long createdAt) { }
     private record Limit(long window,int count) { }

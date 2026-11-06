@@ -50,9 +50,10 @@ def prepare():
     houses=json.loads((w.REPO/'campaigns/last-council/src/main/resources/data/last_council/chronicle/houses.json').read_text(encoding='utf-8'))['houses']
     ids=sorted(houses)[:3] if isinstance(houses,dict) else [h['id'] for h in houses][:3]
     ops=json.loads((root/'ops.json').read_text(encoding='utf-8'));owner=next(o for o in ops if o['name'].lower()=='schinderrenge')['uuid']
-    owners=[owner,str(uuid.uuid5(uuid.NAMESPACE_URL,'chronicle-review:placeholder-1')),str(uuid.uuid5(uuid.NAMESPACE_URL,'chronicle-review:placeholder-2'))]
+    owners=[str(uuid.uuid5(uuid.NAMESPACE_URL,'chronicle-review:placeholder-1')),str(uuid.uuid5(uuid.NAMESPACE_URL,'chronicle-review:placeholder-2'))]
     assignments={actor:{'owner':actor,'houseId':house,'councilMember':True,'candidate':True} for actor,house in zip(owners,ids)}
     chronicle=root/'world/chronicle/last-council'
+    (chronicle/'chancellor.json').write_text(json.dumps({'schema':1,'revision':1,'chancellor':owner})+'\n',encoding='utf-8')
     (chronicle/'roster.json').write_text(json.dumps({'schema':1,'revision':1,'assignments':assignments})+'\n',encoding='utf-8')
     proceedings=chronicle/'proceedings.json';state=json.loads(proceedings.read_text(encoding='utf-8'));motions={}
     for title,body,visibility in [('The northern road','Provide aid to the northern villages.','PUBLIC'),('The treasury','Release funds from the treasury.','SECRET')]:

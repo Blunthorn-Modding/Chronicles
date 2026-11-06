@@ -7,7 +7,7 @@ import java.util.*;
 /** Public Council business and pinned opening intents; secret choices live only in Core's ledger. */
 public record ProceedingsState(long revision, int meeting, Phase phase, String votingRegion,
         Set<String> lecterns, Map<UUID, Motion> motions, Map<UUID, Attempt> attempts,
-        UUID activeBallot, Pending pending, Map<UUID, Call> calls, SuccessionState succession) {
+        UUID activeBallot, Pending pending, Map<UUID, Call> calls, SuccessionState succession, Map<UUID,Integer> deferredAt) {
     public enum Phase { BETWEEN, GATHERING, DISCUSSION, RECESS }
     public enum MotionStatus { SUBMITTED, AGENDA, VOTING, RECORDED, WITHDRAWN }
     public enum Threshold { MAJORITY, TWO_THIRDS }
@@ -17,7 +17,7 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
         Objects.requireNonNull(phase); Objects.requireNonNull(votingRegion); Objects.requireNonNull(succession);
         if (!votingRegion.isEmpty()) siteId(votingRegion);
         lecterns = Set.copyOf(lecterns); motions = Map.copyOf(motions);
-        attempts = Map.copyOf(attempts); calls = Map.copyOf(calls);
+        attempts = Map.copyOf(attempts); calls = Map.copyOf(calls);deferredAt=Map.copyOf(deferredAt);
         if (lecterns.size() > 32 || motions.size() > 128 || attempts.size() > 256 || calls.size() > 256)
             throw new IllegalArgumentException("Council history is full.");
         lecterns.forEach(ProceedingsState::siteId);
@@ -38,6 +38,8 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
             throw new IllegalArgumentException("Active ballot is not on the floor.");
         if(activeBallot!=null&&(!attempts.get(activeBallot).region().id().equals(votingRegion)||phase!=Phase.DISCUSSION||attempts.get(activeBallot).meeting()!=meeting))
             throw new IllegalArgumentException("Active ballot meeting or Region changed.");
+        for(var entry:deferredAt.entrySet())if(!motions.containsKey(entry.getKey())||entry.getValue()<1||entry.getValue()>meeting)
+            throw new IllegalArgumentException("Invalid meeting deferral.");
         long voting = motions.values().stream().filter(m -> m.status() == MotionStatus.VOTING).count();
         if (voting != (activeBallot == null ? 0 : 1)) throw new IllegalArgumentException("Conflicting voting motions.");
         if (pending != null && !pending.ballot().equals(activeBallot)) throw new IllegalArgumentException("Pending ballot changed.");
@@ -56,6 +58,10 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
         }
         if(pending!=null&&(pending.result()!=null)!=(pending.operation()==Operation.CLOSE&&succession.rounds().containsKey(pending.ballot())))
             throw new IllegalArgumentException("Pending regency result differs.");
+    }
+    public ProceedingsState(long revision,int meeting,Phase phase,String votingRegion,Set<String> lecterns,
+            Map<UUID,Motion> motions,Map<UUID,Attempt> attempts,UUID activeBallot,Pending pending,Map<UUID,Call> calls,SuccessionState succession) {
+        this(revision,meeting,phase,votingRegion,lecterns,motions,attempts,activeBallot,pending,calls,succession,Map.of());
     }
     public ProceedingsState(long revision,int meeting,Phase phase,String votingRegion,Set<String> lecterns,
             Map<UUID,Motion> motions,Map<UUID,Attempt> attempts,UUID activeBallot,Pending pending,Map<UUID,Call> calls) {

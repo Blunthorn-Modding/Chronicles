@@ -1,4 +1,4 @@
-# Chronicle commands (Core/Last Council0.2.0-dev.3)
+# Chronicle commands (Core/Last Council0.2.0-dev.4)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored.
 
@@ -166,9 +166,13 @@ The native subtype fixture checks the actual merged dispatcher, removed roots, o
 | Command | Purpose | Access |
 | --- | --- | --- |
 | `/chronicle council` | Existing character card with My house / Other houses | Own card and own private papers; public house directory |
-| `/chronicle council characters` | House assignment and private-cast preparation, also available through Players | Operator level2; mutations non-active Editing before cast/slate lock |
-| `/chronicle council proceedings` | Call/open meetings, agenda, individual ballots, regency, recess and archived results | Chancellor (operator level2); most mutations active play |
+| `/chronicle council characters` | Council setup: house assignment, explicit Chancellor and papers, also available through Players | Operator level2; non-active Editing; house/cast setup locks after issuance, office changes refused during ballots |
+| `/chronicle council proceedings` | Call/open meetings, agenda, individual ballots, regency, recess and archived results | Explicitly appointed Chancellor; most mutations active play |
 | `/chronicle council vote` | Deliberately open the current ballot | Captured representative or read-only Chancellor; cast still needs eligibility and Region presence |
+
+**I** is the default rebindable Open council proceedings key, available only to the appointed Chancellor. Operator permission alone grants no proceedings authority; the Chancellor cannot also own a house. The lectern has no procedural controls.
+
+All pending ordinary motions must complete a vote or be explicitly deferred before Regency unlocks. Deferrals return next meeting. House papers issue automatically on first active play, using a durable receipt so restart/retry cannot reroll them.
 
 **R** is the default configurable Open current ballot keyboard binding. A notice does not replace another screen. The hotkey suspends a pure editor without discarding its draft, closes containers normally, and ignores text entry/confirmations. Dismissal is not abstention. Each house's first accepted confirmed vote is final.
 

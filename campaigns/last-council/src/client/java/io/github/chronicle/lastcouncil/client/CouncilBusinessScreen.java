@@ -37,6 +37,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             ages.remove(id);
         }
     }
+    View snapshot(){return view;}
     private UUID selected() {
         return view.detail()==null?CouncilPayloads.NONE:view.detail().id();
     }
@@ -74,76 +75,53 @@ public final class CouncilBusinessScreen extends CouncilScreen {
     }
     @Override protected void init() {
         frame();
-        int x=left+12,w=panelWidth-24,y=top+36,gap=4,half=(w-gap)/2;
-        button("Refresh",x,y,half,()->send(view.mode()==Mode.PROCEEDINGS?Action.STATE:Action.MOTIONS));
-        button("Choose motion...",x+half+gap,y,half,()->choose("Motions",
-                view.motions().stream().map(m->new Choice(m.id().toString(),m.title()+" ["+label(m.status())
-                +"]")).toList(),id->send(view.mode()==Mode.PROCEEDINGS?Action.STATE:Action.MOTIONS,UUID.fromString(id))));
-        y+=24;
-        var d=view.detail();
-        String summary=view.mode()==Mode.PROCEEDINGS?"Meeting "+view.meeting()+" - "+label(view.phase()):"Council motions";
-        if(!view.problem().isBlank())summary+="\n"+view.problem();
-        if(view.mode()==Mode.PROCEEDINGS)summary+="\n\n"+view.regency().summary()+(view.regency().candidates().isEmpty()?"":"\nCandidates: "+String.join(", ",view.regency().candidates()));
-        if(d!=null)summary+="\n\n"+d.title()+"\n\n"+d.text()+"\n\nProposed by "+d.proposer()
-                +" - "+label(d.status())+"\n"+label(d.visibility())+"; "+label(d.threshold())
-                +"\nSponsors: "+String.join(", ",d.sponsors())
-                +(!d.notes().isEmpty()?"\n\nNotes: "+String.join("; ",d.notes()):"");
-        else summary+="\n\nChoose a motion to read its details.";
-        int bottom=top+panelHeight-30;
-        int rows=view.mode()==Mode.PROCEEDINGS?5:view.operator()?3:2;
-        int bodyHeight=Math.max(32,bottom-y-rows*24);
-        body(summary,x,y,w,bodyHeight);
-        y+=bodyHeight+2;
-        if(view.mode()==Mode.PROCEEDINGS) {
+        int x=left+10,y=top+32,h=panelHeight-62,w=panelWidth-20;
+        boolean proceedings=view.mode()==Mode.PROCEEDINGS;
+        int nav=proceedings?(panelWidth<380?84:130):0;
+        int list=proceedings?(panelWidth<380?72:105):(panelWidth<380?98:142);
+        int listX=x+(proceedings?nav+4:0), detailX=listX+list+4, detailW=left+panelWidth-10-detailX;
+        if(proceedings) {
             boolean active=view.activeBallot()!=null&&!view.activeBallot().equals(CouncilPayloads.NONE);
             String phase=view.phase().toUpperCase(Locale.ROOT);
             Action phaseAction=phase.equals("DISCUSSION")?Action.RECESS:phase.equals("RECESS")?Action.RESUME:Action.START;
             String phaseLabel=phaseAction==Action.RECESS?"Recess":phaseAction==Action.RESUME?"Resume":"Open meeting";
-            button("Call meeting",x,y,half,()->send(Action.CALL)).active=view.playing()&&!view.recoverable();
-            button(phaseLabel,x+half+gap,y,half,()->send(phaseAction)).active=view.playing()&&!active&&!view.recoverable();
-            y+=24;
-            button("Request regency vote...",x,y,w,()->confirm("Open the regency ballot?",
-                    "The electorate is fixed at opening. A completed regency vote uses this meeting's succession slot.",()->send(Action.OPEN_REGENCY,CouncilPayloads.NONE))).active=view.regency().canOpen();
-            y+=24;
-            button("Prepare motion...",x,y,half,()->draft(Action.PREPARE));
-            button("Recorded ballots...",x+half+gap,y,half,()->choose("Recorded ballots",
-                    view.history().stream().map(h->new Choice(h.id().toString(),h.title()+" ["+label(h.status())
-                    +"]")).toList(),id->send(Action.BALLOT,UUID.fromString(id))));
-            y+=24;
-            if(active)button("View ballot",x,y,half,()->send(Action.BALLOT,view.activeBallot()));
-            else if(d!=null&&d.canOpen())button("Open vote",x,y,half,()->confirm("Open this ballot?",
-                    "The electorate will be fixed when voting opens.",()->send(Action.OPEN_BALLOT)));
-            else button("Admit motion",x,y,half,()->send(Action.ADMIT)).active=d!=null&&d.canAdmit();
-            if(d!=null&&!active)button("Defer motion...",x+half+gap,y,half,()->reason(Action.DEFER,selected(),400));
-            else button("Defer motion...",x+half+gap,y,half,()-> {
-            }).active=false;
-            y+=24;
-            if(view.recoverable())button("Recover operation",x,y,w,()->send(Action.RECOVER));
-            else if(active) {
-                UUID ballot=view.activeBallot();
-                button("Close ballot...",x,y,half,()->confirm("Close ballot?","This records the result.",
-                        ()->send(Action.CLOSE_BALLOT,ballot)));
-                button("Void ballot...",x+half+gap,y,half,()->reason(Action.VOID_BALLOT,ballot,512));
-            }
-            else button("Close meeting",x,y,w,()->confirm("Close meeting?","This closes the current meeting.",
-                    ()->send(Action.FINISH))).active=phase.equals("DISCUSSION")||phase.equals("RECESS");
+            button("Call meeting",x,y,nav,()->send(Action.CALL)).active=view.playing()&&!view.recoverable();
+            button(phaseLabel,x,y+22,nav,()->send(phaseAction)).active=view.playing()&&!active&&!view.recoverable();
+            button("Prepare motion...",x,y+44,nav,()->draft(Action.PREPARE));
+            button("Motions",x,y+66,nav,()->send(Action.STATE,CouncilPayloads.NONE)).active=!active;
+            if(active) button("View ballot",x,y+88,nav,()->send(Action.BALLOT,view.activeBallot()));
+            else if(view.recoverable()) button("Recover",x,y+88,nav,()->send(Action.RECOVER));
+            else button("Ballot history",x,y+88,nav,()->choose("Recorded ballots",view.history().stream().map(v->new Choice(v.id().toString(),v.title())).toList(),id->send(Action.BALLOT,UUID.fromString(id))));
+            var regencyButton=button("Regency vote...",x,y+h-42,nav,()->confirm("Open the regency ballot?","The electorate is fixed at opening.",()->send(Action.OPEN_REGENCY,CouncilPayloads.NONE)));
+            regencyButton.active=view.regency().canOpen();
+            regencyButton.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(Text.literal(view.regency().summary().isBlank()?"Regency":view.regency().summary())));
+            button("Close meeting",x,y+h-20,nav,()->confirm("Close meeting?","This closes the current meeting.",()->send(Action.FINISH))).active=!active&&(phase.equals("DISCUSSION")||phase.equals("RECESS"));
         }
+        String chosen=view.detail()==null?"":view.detail().id().toString();
+        rows("motions",view.motions().stream().map(m->new Choice(m.id().toString(),m.title()+" ["+label(m.status())+"]")).toList(),chosen,listX,y,list,h,!(proceedings&&view.activeBallot()!=null&&!view.activeBallot().equals(CouncilPayloads.NONE)),id->send(proceedings?Action.STATE:Action.MOTIONS,UUID.fromString(id)));
+        var d=view.detail();
+        int actionRows=proceedings?2:view.chancellor()?0:3;
+        int detailHeight=Math.max(20,h-actionRows*22);
+        if(d==null)body("motion-detail",view.problem().isBlank()?(proceedings?"Meeting "+view.meeting()+" | "+label(view.phase())+"\n\n"+view.regency().summary()+"\n\nSelect a motion.":"Select a motion."):view.problem(),detailX,y,detailW,detailHeight);
         else {
-            button("Propose motion...",x,y,half,()->draft(Action.PROPOSE));
-            button("Sponsor",x+half+gap,y,half,()->send(Action.SPONSOR)).active=d!=null&&d.canSponsor();
-            y+=24;
-            button("Withdraw...",x,y,half,()->confirm("Withdraw proposal?","This withdraws the selected proposal.",
-                    ()->send(Action.WITHDRAW))).active=d!=null&&d.canWithdraw();
-            if(view.operator())button("Prepare motion...",x+half+gap,y,half,()->draft(Action.PREPARE));
-            else button("Recorded ballots...",x+half+gap,y,half,()->choose("Recorded ballots",
-                    view.history().stream().filter(h->!h.status().equals("OPEN")).map(h->new Choice(h.id().toString(),h.title()+" ["+label(h.status())+"]")).toList(),id->send(Action.BALLOT,UUID.fromString(id))));
-            y+=24;
-            if(view.operator()) {
-                button("Admit motion",x,y,half,()->send(Action.ADMIT)).active=d!=null&&d.canAdmit();
-                button("Proceedings",x+half+gap,y,half,()-> {
-                    if(client.player!=null)client.player.networkHandler.sendChatCommand("chronicle council proceedings");
-                });
-            }
+            String details="Proposed by "+d.proposer()+"\n"+label(d.status())+" | "+label(d.visibility())+" | "+label(d.threshold())+"\nSponsors: "+String.join(", ",d.sponsors())+(d.notes().isEmpty()?"":"\nNotes: "+String.join("; ",d.notes()));
+            List<SectionCard> cards=new ArrayList<>();
+            cards.add(new SectionCard("Motion",d.title()));
+            if(!view.problem().isBlank())cards.add(new SectionCard("Notice",view.problem()));
+            cards.add(new SectionCard("Description",d.text()));
+            cards.add(new SectionCard("Details",details));
+            sections("motion-detail-"+selected(),cards,detailX,y,detailW,detailHeight);
+        }
+        int ay=y+h-actionRows*22;
+        if(proceedings){
+            boolean active=view.activeBallot()!=null&&!view.activeBallot().equals(CouncilPayloads.NONE);
+            if(active){UUID ballot=view.activeBallot();button("Close ballot...",detailX,ay,detailW,()->confirm("Close ballot?","This records the result.",()->send(Action.CLOSE_BALLOT,ballot)));button("Void ballot...",detailX,ay+22,detailW,()->reason(Action.VOID_BALLOT,ballot,512));}
+            else {button(d!=null&&d.canAdmit()?"Admit motion":"Open vote",detailX,ay,detailW,()->{if(d!=null&&d.canAdmit())send(Action.ADMIT);else confirm("Open this ballot?","The electorate will be fixed when voting opens.",()->send(Action.OPEN_BALLOT));}).active=d!=null&&(d.canAdmit()||d.canOpen());
+                button("Defer...",detailX,ay+22,detailW,()->reason(Action.DEFER,selected(),400)).active=d!=null&&d.canDefer();}
+        } else if(!view.chancellor()) {
+            button("Propose...",detailX,ay,detailW,()->draft(Action.PROPOSE)).active=view.canPropose();
+            button("Sponsor",detailX,ay+22,detailW,()->send(Action.SPONSOR)).active=d!=null&&d.canSponsor();
+            button("Withdraw...",detailX,ay+44,detailW,()->confirm("Withdraw proposal?","This withdraws the selected proposal.",()->send(Action.WITHDRAW))).active=d!=null&&d.canWithdraw();
         }
     }
     private static String label(String text) {
@@ -157,6 +135,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             case "VOTING"->"Vote open";
             case "RECORDED"->"Recorded";
             case "WITHDRAWN"->"Withdrawn";
+            case "DEFERRED"->"Deferred";
             case "TWO_THIRDS"->"Two thirds";
             case "MAJORITY"->"Majority";
             case "PUBLIC"->"Public";

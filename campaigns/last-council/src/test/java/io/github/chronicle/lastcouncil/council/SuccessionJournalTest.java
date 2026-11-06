@@ -108,13 +108,13 @@ class SuccessionJournalTest {
         Ballot b=s.open(id,HOST,REGION,ELECTORS);s.cast(b.definition().id(),A,"yes");
         // Produce a genuine schema-1-shaped pending operation with existing history.
         var tree=JsonParser.parseString(Files.readString(journal)).getAsJsonObject();
-        tree.addProperty("schemaVersion",1);var state=tree.getAsJsonObject("state");state.remove("succession");
+        tree.addProperty("schemaVersion",1);var state=tree.getAsJsonObject("state");state.remove("succession");state.remove("deferredAt");
         var pending=new com.google.gson.JsonObject();pending.addProperty("operation","CLOSE");pending.addProperty("ballot",b.definition().id().toString());pending.addProperty("actor",HOST.toString());pending.addProperty("reason","");state.add("pending",pending);
         Files.writeString(journal,tree.toString());
         var migrated=new ProceedingsService(new ProceedingsStore(journal),new BallotService(new BallotStore(ledger),Clock.systemUTC()),Clock.systemUTC());
         assertEquals(SuccessionState.empty(),migrated.state().succession());assertEquals(1,migrated.state().motions().size());
         assertNull(migrated.state().pending().result());migrated.recover();
-        assertEquals(2,JsonParser.parseString(Files.readString(journal)).getAsJsonObject().get("schemaVersion").getAsInt());
+        assertEquals(3,JsonParser.parseString(Files.readString(journal)).getAsJsonObject().get("schemaVersion").getAsInt());
         var reloaded=new ProceedingsService(new ProceedingsStore(journal),new BallotService(new BallotStore(ledger),Clock.systemUTC()),Clock.systemUTC());
         assertEquals(migrated.state(),reloaded.state());assertEquals(1,reloaded.state().attempts().size());
         assertEquals("yes",reloaded.view(b.definition().id(),A).ownChoice());

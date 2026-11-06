@@ -36,21 +36,25 @@ public final class ProceedingsPayloads {
     public record Row(UUID id,String title,String status,String proposer,boolean ready) { }
     public record History(UUID id,String title,String status) { }
     public record Detail(UUID id,String title,String text,String proposer,String status,String visibility,String threshold,
-            List<String> sponsors,List<String> notes,boolean canSponsor,boolean canWithdraw,boolean canAdmit,boolean canOpen) {
+            List<String> sponsors,List<String> notes,boolean canSponsor,boolean canWithdraw,boolean canAdmit,boolean canOpen,boolean canDefer) {
         public Detail { sponsors=List.copyOf(sponsors);notes=List.copyOf(notes);if(sponsors.size()>31||notes.size()>32)throw new IllegalArgumentException("Motion detail exceeds bounds");bounded(title,320);bounded(text,8192); }
     }
     public record Regency(String status,List<String> candidates,String summary,boolean canOpen) {
         public Regency {candidates=List.copyOf(candidates);if(candidates.size()>32)throw new IllegalArgumentException("Candidate list exceeds bounds");bounded(summary,8192);}
     }
     public record View(UUID request,boolean opening,Mode mode,String site,long revision,int meeting,String phase,List<Row> motions,
-            Detail detail,List<History> history,UUID activeBallot,boolean operator,boolean playing,boolean recoverable,String problem,String message,Regency regency) implements CustomPayload {
+            Detail detail,List<History> history,UUID activeBallot,boolean chancellor,boolean playing,boolean recoverable,String problem,String message,Regency regency,boolean canPropose) implements CustomPayload {
         public View { Objects.requireNonNull(regency);bounded(site,128);motions=List.copyOf(motions);history=List.copyOf(history);if(motions.size()>128||history.size()>256)throw new IllegalArgumentException("Council view exceeds bounds");bounded(problem,1024);bounded(message,1024); }
         public static final Id<View> ID=id("proceedings_view");
         public static final PacketCodec<RegistryByteBuf,View> CODEC=json(View.class,327000);
         public Id<View> getId(){return ID;}
     }
-    public record Vote(UUID request,boolean opening,BallotView ballot,String description,boolean canCast,String reason) implements CustomPayload {
-        public Vote { Objects.requireNonNull(ballot);bounded(description,8192);bounded(reason,1024);if(ballot.electorateLabels().size()>32||ballot.options().size()>16||ballot.totals().size()>16||ballot.namedVotes().size()>32)throw new IllegalArgumentException("Ballot projection exceeds bounds"); }
+    public record Voter(String house,UUID player,String name) {
+        public Voter {Objects.requireNonNull(player);bounded(house,128);bounded(name,256);}
+    }
+    public record Vote(UUID request,boolean opening,BallotView ballot,String description,boolean canCast,String reason,List<Voter> voters) implements CustomPayload {
+        public Vote(UUID request,boolean opening,BallotView ballot,String description,boolean canCast,String reason){this(request,opening,ballot,description,canCast,reason,List.of());}
+        public Vote { voters=List.copyOf(voters);if(voters.size()>32)throw new IllegalArgumentException("Too many voters");Objects.requireNonNull(ballot);bounded(description,8192);bounded(reason,1024);if(ballot.electorateLabels().size()>32||ballot.options().size()>16||ballot.totals().size()>16||ballot.namedVotes().size()>32)throw new IllegalArgumentException("Ballot projection exceeds bounds"); }
         public static final Id<Vote> ID=id("ballot_view");
         public static final PacketCodec<RegistryByteBuf,Vote> CODEC=json(Vote.class,131072);
         public Id<Vote> getId(){return ID;}

@@ -3,6 +3,7 @@ package io.github.chronicle.lastcouncil.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.github.chronicle.core.ballots.BallotStatus;
+import io.github.chronicle.core.client.DossierScreen;
 import io.github.chronicle.lastcouncil.network.CouncilPayloads;
 import io.github.chronicle.lastcouncil.network.CouncilPayloads.AdminRequest;
 import io.github.chronicle.lastcouncil.network.CouncilPayloads.AdminView;
@@ -34,6 +35,11 @@ import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.util.ScreenshotRecorder;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.math.Vec3d;
 
 /** Opt-in native clients exercise only the normal authenticated network API. */
 public final class CouncilBallotsSmoke {
@@ -46,6 +52,7 @@ public final class CouncilBallotsSmoke {
     private int step, wait, callMessages;
     private UUID pending, motion, ballot, secretMotion, secretBallot, replacement;
     private AdminView admin;
+    private CouncilPayloads.PersonalView personal;
     private View view;
     private Vote vote;
     private Notice notice;
@@ -73,6 +80,7 @@ public final class CouncilBallotsSmoke {
         ClientTickEvents.END_CLIENT_TICK.register(instance::tick);
     }
     public static void admin(AdminView value) { if (instance != null && value.request().equals(instance.pending)) instance.admin = value; }
+    public static void personal(CouncilPayloads.PersonalView value) { if (instance != null && value.request().equals(instance.pending)) instance.personal = value; }
     public static void view(View value) { if (instance != null && value.request().equals(instance.pending)) instance.view = value; }
     public static void vote(Vote value) { if (instance != null && value.request().equals(instance.pending)) instance.vote = value; }
     public static void notice(Notice value) { if (instance != null && value.request().equals(instance.pending)) instance.notice = value; }
@@ -83,8 +91,9 @@ public final class CouncilBallotsSmoke {
     private UUID readId(String name) throws Exception { return UUID.fromString(Files.readString(marker(name), StandardCharsets.UTF_8).trim()); }
     private void command(MinecraftClient c, String value) { c.player.networkHandler.sendChatCommand(value); }
     private void admin(Operation action, long revision, UUID target, String house) {
+        long officeRevision = admin == null ? -1 : admin.officeRevision();
         pending = UUID.randomUUID(); admin = null; notice = null;
-        ClientPlayNetworking.send(new AdminRequest(pending, action, revision, target, house, false, NONE));
+        ClientPlayNetworking.send(new AdminRequest(pending, action, revision, target, house, false, NONE, officeRevision));
     }
     private void request(Action action, long revision, UUID reference, String text, String title) {
         pending = UUID.randomUUID(); view = null; vote = null; notice = null;
@@ -120,6 +129,10 @@ public final class CouncilBallotsSmoke {
                 require(admin.editable() && houses.size() >= 2, "two editable Council houses required");
                 houseB = houses.get(0).id(); houseC = houses.get(1).id();
                 require(!houseB.equals(houseC), "houses must differ");
+                require(admin.officeEditable() && admin.chancellor().equals(NONE), "vacant office unavailable");
+                admin(Operation.APPOINT_CHANCELLOR, admin.revision(), offline("ChronicleFabricA"), ""); step = 33; }
+            case 33 -> { noFailure(); if (admin == null) return;
+                require(admin.chancellor().equals(offline("ChronicleFabricA")), "appointment missing");
                 admin(Operation.ASSIGN, admin.revision(), offline("ChronicleFabricB"), houseB); step = 4; }
             case 4 -> { noFailure(); if (admin == null) return;
                 admin(Operation.ASSIGN, admin.revision(), offline("ChronicleFabricC"), houseC); step = 5; }
@@ -127,7 +140,7 @@ public final class CouncilBallotsSmoke {
                 command(c, "fill -5 64 -5 5 64 5 minecraft:stone");
                 command(c, "setblock 0 65 4 minecraft:lectern");
                 command(c, "tp ChronicleFabricB 0 65 0"); command(c, "tp ChronicleFabricC 1 65 0");
-                command(c, "tp ChronicleFabricA 10 65 0"); command(c, "chronicle editing off");
+                command(c, "tp ChronicleFabricA 10 65 0"); command(c, "op ChronicleFabricB"); command(c, "chronicle editing off");
                 wait = 30; mark("initial-join", "ready"); step = 6; }
             case 6 -> { if (!has("initial-joined-B") || !has("initial-joined-C") || !has("initial-denied-B")) return;
                 command(c, "chronicle session start"); wait = 30; step = 7; }
@@ -139,7 +152,15 @@ public final class CouncilBallotsSmoke {
                 request(Action.PREPARE, view.revision(), motion, "Draft", "Council test"); step = 10; }
             case 10 -> { noFailure(); if (view == null) return;
                 require(view.motions().stream().anyMatch(row -> row.id().equals(motion)), "prepared motion missing");
-                request(Action.OPEN_BALLOT, view.revision(), motion, "", ""); step = 11; }
+                mark("motion-prepared", "ready"); step = 34; }
+            case 34 -> { if (!has("lectern-personal-checked-B")) return;
+                command(c, "tp ChronicleFabricA 0 65 1"); wait = 30; step = 36; }
+            case 36 -> { c.interactionManager.interactBlock(c.player, Hand.MAIN_HAND,
+                        new BlockHitResult(new Vec3d(0.5, 65.5, 4.0), Direction.NORTH, new BlockPos(0, 65, 4), false)); step = 37; }
+            case 37 -> { if (!(c.currentScreen instanceof CouncilBusinessScreen screen)) return;
+                checkMotionLectern(screen);require(buttons(screen).stream().noneMatch(b->Set.of("Propose...","Sponsor","Withdraw...").contains(b.getMessage().getString())),"Chancellor received house actions on lectern"); ScreenshotRecorder.saveScreenshot(shared.toFile(), "lectern-chancellor.png", c.getFramebuffer(), 1, ignored -> {});
+                c.currentScreen.close(); command(c, "tp ChronicleFabricA 10 65 0"); wait = 30; step = 38; }
+            case 38 -> { request(Action.OPEN_BALLOT, view.revision(), motion, "", ""); step = 11; }
             case 11 -> { noFailure(); if (view == null) return; ballot = view.activeBallot();
                 require(ballot != null && !ballot.equals(NONE), "ballot missing");
                 mark("ballot-id", ballot.toString()); mark("motion-id", motion.toString());
@@ -149,7 +170,12 @@ public final class CouncilBallotsSmoke {
             case 13 -> { noFailure(); if (vote == null) return;
                 require(vote.ballot().threshold() == 2 && vote.ballot().electorateLabels().size() == 2, "fixed electorate or threshold wrong");
                 require(vote.ballot().namedVotes().size() == 2, "public named votes missing");
-                request(Action.STATE, 0, NONE, "", ""); step = 14; }
+                require(vote.voters().size() == 2 && vote.voters().stream().anyMatch(v -> v.player().equals(offline("ChronicleFabricB")) && v.name().equals("Envoy B"))
+                        && vote.voters().stream().anyMatch(v -> v.player().equals(offline("ChronicleFabricC")) && v.name().equals("ChronicleFabricC")), "captured public card names missing");
+                wait = 260; step = 35; }
+            case 35 -> { require(c.currentScreen instanceof BallotScreen, "public ballot screen missing");
+                ScreenshotRecorder.saveScreenshot(shared.toFile(), "public-ballot-voted.png", c.getFramebuffer(), 1, ignored -> {});
+                c.currentScreen.close(); request(Action.STATE, 0, NONE, "", ""); step = 14; }
             case 14 -> { noFailure(); if (view == null) return; request(Action.CLOSE_BALLOT, view.revision(), ballot, "", ""); step = 15; }
             case 15 -> { noFailure(); if (view == null) return; request(Action.BALLOT, 0, ballot, "", ""); step = 16; }
             case 16 -> { noFailure(); if (vote == null) return;
@@ -204,9 +230,61 @@ public final class CouncilBallotsSmoke {
             case 2 -> { mark("initial-joined-" + role, "ready");
                 if (role.equals("B")) { request(Action.PREPARE, 0, UUID.randomUUID(), "Draft", "Unauthorized"); step = 3; }
                 else step = 4; }
-            case 3 -> { if (notice == null) return; require(notice.message().contains("Chancellor"), "non-operator host request accepted");
-                checks.add("non-operator host action denied"); mark("initial-denied-B", "ready"); step = 4; }
-            case 4 -> { if (!has("initial-open")) return; ballot = readId("ballot-id");
+            case 3 -> { if (notice == null) return; require(notice.message().contains("Chancellor"), "operator house member prepared motion");
+                request(Action.STATE, 0, NONE, "", ""); step = 51; }
+            case 51 -> { if (notice == null) return; require(notice.message().contains("Chancellor"), "operator house member accessed proceedings");
+                checks.add("operator house member cannot prepare or access proceedings"); mark("initial-denied-B", "ready"); step = 42; }
+            case 42 -> { if (!has("motion-prepared")) return;
+                c.getWindow().setWindowedSize(1280, 720);
+                c.interactionManager.interactBlock(c.player, Hand.MAIN_HAND,
+                        new BlockHitResult(new Vec3d(0.5, 65.5, 4.0), Direction.NORTH, new BlockPos(0, 65, 4), false));
+                step = 43; }
+            case 43 -> { if (!(c.currentScreen instanceof CouncilBusinessScreen screen)) return;
+                checkMotionLectern(screen); pressPrefix(screen, "Council test"); wait = 260; step = 44; }
+            case 44 -> { require(c.currentScreen instanceof CouncilBusinessScreen, "lectern closed after selecting motion");
+                checkMotionLectern((CouncilBusinessScreen)c.currentScreen);
+                ScreenshotRecorder.saveScreenshot(shared.toFile(), "lectern-motion-normal.png", c.getFramebuffer(), 1, ignored -> {});
+                c.getWindow().setWindowedSize(640, 480); wait = 30; step = 45; }
+            case 45 -> { require(c.currentScreen instanceof CouncilBusinessScreen, "compact lectern closed");
+                checkMotionLectern((CouncilBusinessScreen)c.currentScreen);
+                ScreenshotRecorder.saveScreenshot(shared.toFile(), "lectern-motion-compact.png", c.getFramebuffer(), 1, ignored -> {});
+                c.currentScreen.close(); c.getWindow().setWindowedSize(1280, 720);
+                command(c, "chronicle council"); step = 46; }
+            case 46 -> { if (!(c.currentScreen instanceof PersonalScreen screen)) return;
+                press(screen, "Other houses"); wait = 30; step = 47; }
+            case 47 -> { if (!(c.currentScreen instanceof PersonalScreen screen)) return;
+                if (personal == null) { // The screen makes its own request; obtain the same public directory for assertions.
+                    pending = UUID.randomUUID(); notice = null;
+                    ClientPlayNetworking.send(new CouncilPayloads.PersonalRequest(pending, CouncilPayloads.Section.INFORMATION, 0)); step = 48;
+                } else step = 48; }
+            case 48 -> { noFailure(); if (personal == null) return;
+                require(c.currentScreen instanceof PersonalScreen, "personal screen closed");
+                checkOtherHouses((PersonalScreen)c.currentScreen, personal); wait = 260; step = 49; }
+            case 49 -> { require(c.currentScreen instanceof PersonalScreen, "personal screen closed");
+                checkOtherHouses((PersonalScreen)c.currentScreen, personal);
+                ScreenshotRecorder.saveScreenshot(shared.toFile(), "other-houses-normal.png", c.getFramebuffer(), 1, ignored -> {});
+                c.getWindow().setWindowedSize(640, 480); wait = 30; step = 50; }
+            case 50 -> { require(c.currentScreen instanceof PersonalScreen, "compact personal screen closed");
+                checkOtherHouses((PersonalScreen)c.currentScreen, personal);
+                ScreenshotRecorder.saveScreenshot(shared.toFile(), "other-houses-compact.png", c.getFramebuffer(), 1, ignored -> {});
+                c.getWindow().setWindowedSize(1280, 720); press(c.currentScreen, "Character"); step = 52; }
+            case 52 -> { if (!(c.currentScreen instanceof PersonalScreen screen)) return;
+                press(screen, "Edit character card\u2026"); step = 53; }
+            case 53 -> { if (!(c.currentScreen instanceof DossierScreen editor)) return;
+                var fields = editor.children().stream().filter(TextFieldWidget.class::isInstance).map(TextFieldWidget.class::cast).toList();
+                require(fields.size() == 3, "character card fields missing"); fields.get(0).setText("Envoy B"); press(editor, "Save"); step = 54; }
+            case 54 -> { if (!(c.currentScreen instanceof DossierScreen editor) || !editor.snapshot().saved()
+                        || !editor.snapshot().name().equals("Envoy B")) return;
+                press(editor, "Done"); step = 55; }
+            case 55 -> { if (!(c.currentScreen instanceof PersonalScreen)) return;
+                c.currentScreen.close(); checks.add("lectern and public house directory show visible lists; public character name saved");
+                mark("lectern-personal-checked-B", "ready"); step = 4; }
+            case 4 -> { if (!has("initial-open")) return;
+                pending = UUID.randomUUID(); personal = null; notice = null;
+                ClientPlayNetworking.send(new CouncilPayloads.PersonalRequest(pending, CouncilPayloads.Section.SECRETS, 0)); step = 24; }
+            case 24 -> { noFailure(); if (personal == null) return;
+                require(!personal.ownHouse().isBlank() && !personal.paragraphs().isEmpty(), "automatic private papers missing");
+                checks.add("automatic house papers available after session start"); ballot = readId("ballot-id");
                 request(Action.BALLOT, 0, NONE, "", ""); step = 5; }
             case 5 -> { noFailure(); if (vote == null) return;
                 require(vote.ballot().id().equals(ballot) && vote.canCast(), "eligible voter cannot cast");
@@ -233,7 +311,7 @@ public final class CouncilBallotsSmoke {
                 secretProjection(screen.snapshot());
                 Vote snapshot=screen.snapshot();UUID delayed=UUID.randomUUID();
                 BallotAccess.expectOpening(delayed,null,secretBallot);
-                Vote late=new Vote(delayed,true,snapshot.ballot(),snapshot.description(),snapshot.canCast(),snapshot.reason());
+                Vote late=new Vote(delayed,true,snapshot.ballot(),snapshot.description(),snapshot.canCast(),snapshot.reason(),snapshot.voters());
                 require(!BallotAccess.openResponse(late,c)&&c.currentScreen==screen,"delayed opening replaced a newer screen");
                 checks.add("delayed ballot response preserves a newer screen");
                 checks.add("ballot signal preserved inventory and rebound key opened the active ballot");
@@ -342,13 +420,22 @@ public final class CouncilBallotsSmoke {
                         && vote.ballot().totals().getOrDefault("yes", 0) == 1
                         && vote.ballot().passedOptions().contains("yes"), "replacement result wrong");
                 checks.add("replacement remained open across restart with fixed one-person electorate and passed");
-                c.getWindow().setWindowedSize(1280, 720); command(c, "chronicle council proceedings"); wait = 30; step = 10; }
-            case 10 -> { if (!(c.currentScreen instanceof CouncilBusinessScreen)) return;
+                c.getWindow().setWindowedSize(1280, 720);
+                if (c.currentScreen != null) c.currentScreen.close();
+                c.setScreen(new InventoryScreen(c.player));
+                ProceedingsAccess.binding().setBoundKey(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_H));
+                KeyBinding.updateKeysByCode();
+                require(!ScreenKeyboardEvents.allowKeyPress(c.currentScreen).invoker().allowKeyPress(c.currentScreen,
+                        new KeyInput(GLFW.GLFW_KEY_H, 0, 0)), "rebound proceedings key was not consumed");
+                wait = 260; step = 10; }
+            case 10 -> { if (!(c.currentScreen instanceof CouncilBusinessScreen screen)) return;
+                checkProceedingsLayout(screen);
                 ScreenshotRecorder.saveScreenshot(shared.toFile(), "proceedings-normal.png", c.getFramebuffer(), 1, ignored -> {});
                 c.getWindow().setWindowedSize(640, 480); wait = 30; step = 11; }
             case 11 -> { require(c.currentScreen instanceof CouncilBusinessScreen, "proceedings screen closed");
+                checkProceedingsLayout((CouncilBusinessScreen)c.currentScreen);
                 ScreenshotRecorder.saveScreenshot(shared.toFile(), "proceedings-compact.png", c.getFramebuffer(), 1, ignored -> {});
-                checks.add("native ballot and proceedings screen screenshots captured in report directory");
+                checks.add("rebound proceedings key opened away from lectern; normal and compact frames captured");
                 mark("restart-complete", "ready"); finish(c, null); }
             case 9 -> { if (!has("restart-complete")) return;
                 require(callMessages == 0, "Council call replayed on restart");
@@ -361,7 +448,9 @@ public final class CouncilBallotsSmoke {
         if(action==Action.BALLOT)BallotAccess.expectOpening(pending,MinecraftClient.getInstance().currentScreen,reference);
         ClientPlayNetworking.send(new Request(pending, action, revision, reference, "", text, title, true, false));
     }
+    private static final Map<UUID,List<Voter>> frozenSecretRosters=new HashMap<>();
     private static void secretProjection(Vote value) {
+        var prior=frozenSecretRosters.putIfAbsent(value.ballot().id(),value.voters());require(prior==null||prior.equals(value.voters()),"secret voter roster disclosed activity or changed");
         require(value.ballot().namedVotes().isEmpty() && value.ballot().totals().isEmpty(), "secret projection exposed aggregate or named votes");
     }
     private void finish(MinecraftClient c, String error) {
@@ -371,6 +460,42 @@ public final class CouncilBallotsSmoke {
             Files.writeString(output, new Gson().toJson(json), StandardCharsets.UTF_8);
         } catch (Exception ignored) { }
         c.scheduleStop();
+    }
+    private static List<ButtonWidget> buttons(Screen screen) {
+        return screen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).toList();
+    }
+    private static void checkFrame(CouncilScreen screen) {
+        for (var b : buttons(screen)) require(b.getX() >= screen.left && b.getY() >= screen.top
+                && b.getX() + b.getWidth() <= screen.left + screen.panelWidth
+                && b.getY() + b.getHeight() <= screen.top + screen.panelHeight, "control outside frame");
+    }
+    private static void checkMotionLectern(CouncilBusinessScreen screen) {
+        var labels = buttons(screen).stream().map(b -> b.getMessage().getString()).toList();
+        require(labels.stream().anyMatch(s -> (s.startsWith("> ")?s.substring(2):s).startsWith("Council test")), "visible motion row missing");
+        require(labels.stream().noneMatch(s -> s.startsWith("Choose motion") || s.startsWith("Prepare")
+                || s.contains("Proceedings") || s.startsWith("Admit") || s.startsWith("Open vote")), "host control on lectern");
+        checkFrame(screen);
+    }
+    private static void checkOtherHouses(PersonalScreen screen, CouncilPayloads.PersonalView view) {
+        var labels = buttons(screen).stream().map(b -> b.getMessage().getString()).toList();
+        require(view.houses().stream().filter(h -> !h.id().equals(view.ownHouse()))
+                .anyMatch(h -> labels.stream().anyMatch(label -> h.title().startsWith(label) && !label.isBlank())), "visible other-house row missing");
+        require(labels.stream().noneMatch(s -> s.startsWith("Choose other")), "house picker remains");
+        require(screen.children().stream().noneMatch(TextFieldWidget.class::isInstance), "house details are editable");
+        checkFrame(screen);
+    }
+    private static void pressPrefix(Screen screen, String prefix) {
+        var button = buttons(screen).stream().filter(b -> b.active && (b.getMessage().getString().startsWith("> ")?b.getMessage().getString().substring(2):b.getMessage().getString()).startsWith(prefix)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("row unavailable: " + prefix));
+        button.onPress(new MouseInput(0, 0));
+    }
+    private static void checkProceedingsLayout(CouncilBusinessScreen screen) {
+        var buttons = screen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).toList();
+        require(buttons.stream().anyMatch(b -> b.getMessage().getString().equals("Motions")), "proceedings navigation missing");
+        require(buttons.stream().noneMatch(b -> b.getMessage().getString().equals("Choose motion")), "motion picker remains");
+        for (var b : buttons) require(b.getX() >= screen.left && b.getY() >= screen.top
+                && b.getX() + b.getWidth() <= screen.left + screen.panelWidth
+                && b.getY() + b.getHeight() <= screen.top + screen.panelHeight, "control outside proceedings frame");
     }
     private static void press(Screen screen, String label) {
         var button = screen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast)

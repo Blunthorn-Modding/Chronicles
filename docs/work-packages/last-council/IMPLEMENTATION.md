@@ -1,9 +1,15 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.3`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.4`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
 
-## Current slice
+## Current review corrections
+
+The owner's 6 November feedback supersedes the earlier operator/Chancellor and manual-issuance assumptions below. Council setup has separate House, Chancellor and Papers tabs; only an explicitly appointed Chancellor controls proceedings, and cannot also own a house. Operators can otherwise play houses. The lectern has only house actions, while I opens the Chancellor's separate proceedings screen. Visible lists and read-only section cards replace motion/house pickers and black text boxes. Public heads use captured character-card names and choice outlines; secret heads expose no turnout. Pending ordinary motions must complete or be deferred before Regency; deferrals return next meeting. First active play automatically publishes a saved private draw through automatic-cast.json and cast.json.
+
+See [correction design](UI_REVIEW_CORRECTIONS.md), [verification](UI_REVIEW_VERIFICATION.md) and [review guide](REVIEW_COUNCIL.md). Proceedings schema3 reads1/2 without inventing old deferrals. Existing casts remain fixed; absent office files appoint nobody. Core remains responsible for generic cards, ballots and drawing primitives; political office, House casting and meeting rules remain Last Council-owned. No released alpha or Quiet Below behavior is changed.
+
+## Original foundation slice (historical)
 
 LC-01A and the first LC-01C cast path are in implementation:
 
@@ -27,7 +33,7 @@ A world identity marker prevents switching an already identified world to anothe
 
 The sample eight-house pool is intentionally illustrative, not final lore. On first startup it creates `config/chronicle/last-council/houses.json` (schema1). Edit only while stopped. Public house IDs, profile fields, candidate defaults, secret/goal weights and scope, draw counts and knowledge percentage live here. Empty custom-authoring starts with empty house content. The world owns `chronicle/last-council/roster.json` and `cast.json`; these private files must not be served as public assets or bundled in reusable definitions.
 
-Open the existing Players menu, select a character and choose House & papers. `/chronicle council characters` is an operator fallback. Pause and enable Editing to assign houses and commit papers. `/chronicle council` (or existing own-card access) opens the personal view. Saving a public character card never changes a house assignment.
+Open the existing Players menu, select a character and choose House & papers. `/chronicle council characters` is an operator fallback. Pause and enable Editing to assign houses and appoint a separate Chancellor. Private papers issue automatically when active play begins; early preview/commit remains optional. `/chronicle council` (or existing own-card access) opens the personal view. Saving a public character card never changes a house assignment.
 
 ## Still pending
 

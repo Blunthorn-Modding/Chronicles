@@ -1,5 +1,7 @@
 # Last Council: smaller interfaces tied to the scene
 
+**6 November native corrections:** [UI review corrections](UI_REVIEW_CORRECTIONS.md) supersede the prototype's operator/Chancellor assumption and Chancellor motion dropdown. Explicit office is separate from operator permission, proceedings uses I, motion/house lists stay visible, and automatic papers issue on first active play. See [current verification](UI_REVIEW_VERIFICATION.md).
+
 Status: **scene-based UI proposal, revised after owner review**. 5 November 2026. Replaces the combined-menu direction in [the first pass](UI_DESIGN.md); its HTML remains unchanged. The owner has approved this design and authorized native implementation. Current corrections: distinct My house information/secrets/house goals/known-other-house secrets, no generated personal goals or duplicate read controls; confirmed votes are final; the electorate is only eligible houses present at opening and stays fixed. Treaty creation and Call meeting remain as reviewed.
 
 Active prototype: [last-council-scenes.html](../../design/last-council-scenes.html), served at `http://127.0.0.1:8925/last-council-scenes.html`. The external toolbar simulates approaching blocks, interacting with a character, opening a vote and switching people. These are review controls, not an in-game dashboard or permission switch. Changes are local sample data and are discarded by Reset/refresh.
