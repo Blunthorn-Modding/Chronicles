@@ -30,10 +30,15 @@ below must not be mistaken for a completed late-assignment implementation.
 - Make full public character names readable. Current fixed-width tiles cut names
   off; a hover-only workaround is insufficient as the normal presentation.
 - Keep public choice outlines and secret-ballot privacy from the prior review.
-- The owner asked what Refresh does. Current `BallotScreen` sends `Action.BALLOT`
-  for the same ballot to retrieve its latest projection; it does not reset a vote,
-  open a new ballot, alter a choice or change the electorate. Review its visibility
-  and wording alongside automatic updates. Removal was not explicitly decided.
+- **Follow-up decision:** remove the Refresh button. Ballot screens must update
+  automatically without manual refreshing. Current `ProceedingsRuntime.tick`
+  already checks subscribed ballots every ten server ticks and pushes changed
+  authorised projections/eligibility (about half a second at normal tick rate).
+  Retain this behaviour and normal reopen/reconnect access; verify public head
+  outlines, the voter's own confirmation, closing/void outcomes and eligibility
+  changes update without a click. Do not expose secret turnout, steal focus or
+  reintroduce button flicker. Refresh previously fetched the same ballot; it did
+  not reset votes, choices or the electorate.
 
 Validate short and long names, one/few/many voters, normal/compact layouts,
 wrapping/paging and a reopened or archived ballot.
