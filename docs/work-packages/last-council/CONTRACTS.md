@@ -1,6 +1,6 @@
 # Integration and rule contracts
 
-**Next review work:** Latest 7 November group feedback is queued for the next development session. It revisits late assignment and present-character Regency choices without changing secret-vote privacy; threshold/slate questions remain explicit. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
+**Next review work:** Latest 7 November group feedback is queued for the next development session. It revisits late assignment and present-character Regency choices. Confirmed turnout exception: only the Chancellor may see an anonymous secret submitted count; no individual participation/choices or new ordinary-player turnout data. Threshold/slate questions remain explicit. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
 
 **6November review correction:** Chancellor is an explicit world assignment, separate from operator privilege. Operators administer setup and may otherwise play a house; the Chancellor cannot also hold a house or vote. Only the appointed Chancellor runs proceedings. First active play automatically publishes the private cast once. Motion/house screens follow visible lists and separate read-only sections; public heads use captured character-card names, secret heads stay neutral without turnout. Ordinary pending motions require a completed ballot or a meeting-specific deferral before regency opens. See [native correction design](UI_REVIEW_CORRECTIONS.md). This supersedes earlier OP-equals-GM setup assumptions.
 

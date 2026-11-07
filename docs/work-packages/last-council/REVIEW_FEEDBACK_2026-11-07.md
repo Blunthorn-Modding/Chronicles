@@ -95,11 +95,15 @@ or standing in the Region. Abstention is a submitted choice; disconnecting does
 not remove an outstanding voter. Progress does not automatically close a ballot
 or change its fixed threshold; closing remains the Chancellor's decision.
 
-**Pending explicit clarification:** the earlier secret-ballot decision hides even
-turnout from the Chancellor. Asked whether the Chancellor should instead receive
-an anonymous submitted count (for example3of5), with identities and choices still
-hidden. Until answered, preserve the prior fully private projection. Do not infer
-authority to expose individual secret participation or choices from this request.
+**Confirmed follow-up:** the Chancellor may see an anonymous submitted count
+for secret ballots, for example **3 of 5 votes submitted**, including an
+all-submitted state. This narrowly supersedes the earlier rule hiding aggregate
+turnout from the Chancellor. Do not reveal who submitted, who remains outstanding,
+submission order/timestamps or individual choices. Secret heads stay neutral;
+ordinary players receive no additional turnout information. Send the count only
+in the authorised Chancellor projection, never raw votes or per-person flags.
+Validate authority changes/reconnects and that no hidden information leaks through
+ordinary views, packet fields or reusable exports. Closed results remain aggregate.
 
 ## 4. Persistent, readable vote history
 
@@ -110,9 +114,10 @@ the captured character names/identities, not current House names that might late
 change. Keep separate attempts and public void reasons; never overwrite an old
 attempt with its replacement.
 
-The previously confirmed **secret** rule remains in force: no named choices or
-turnout disclosure, including for the Chancellor. Closed secret results show
-aggregates only. This request for public history does not revoke that rule.
+For **secret** history, no named choices or individual turnout may be disclosed,
+including to the Chancellor. Closed results show aggregates only. The confirmed
+Chancellor-only anonymous submitted count above is the sole new turnout exception;
+it does not authorise per-person history or disclosure to ordinary players.
 
 Ownership: use Core's existing immutable ballot ledger/projections; Council owns
 motion navigation and its presentation. Extend generic projections only if a
@@ -189,5 +194,5 @@ committed cast receiving a late player without rerolling existing papers, long
 names and centred rosters, public history/secret privacy across restart, absent
 candidate handling without silent elimination, shared formatting with irrelevant
 sections omitted, automatic Chancellor progress against the frozen electorate
-(with secret visibility governed by the explicit answer), and typing I/O/rebound letters in
+(including Chancellor-only anonymous secret counts and no per-person leakage), and typing I/O/rebound letters in
 Creative search without opening or closing another screen.
