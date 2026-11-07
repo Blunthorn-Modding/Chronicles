@@ -1,5 +1,7 @@
 # Succession implementation slices
 
+**Next review work:** The 7 November group review supersedes the all-configured-Houses candidate assumption below. Read the present-character/persistent-slate and threshold clarification before implementing further succession changes. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
+
 Confirmed direction, 6 November 2026. The scene prototype remains the UI authority.
 
 1. Add a pure scenario-owned tally calculation, then persist election state in the existing proceedings journal. Core stays an optional generic ballot service. New proceedings schema2 accepts schema1 by adding an empty succession history; never rewrite a failed decode.

@@ -1,5 +1,7 @@
 # LC-02 — Council meetings, motions and ballots
 
+**Next review work:** The 7 November group review requires clearer ballot/motion fields, full names, centred heads, accessible public vote history and Creative-search hotkey guards. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
+
 Status: in implementation; Core ballots, motion/proceedings runtime and native screens are implemented. LC-08 complication progression remains pending. Depends on LC-01A; randomized handout preparation can progress separately. Brief: §§4–5, 11–12, 14–15. Apply the user's [Event-led Council flow](FRAMEWORK_INTEGRATION.md).
 
 ## Outcome and ownership

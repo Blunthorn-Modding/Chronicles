@@ -1,5 +1,7 @@
 # Last Council: native UI review corrections
 
+**Next review work:** The owner has now supplied a further group review on 7 November. The previous implementation is not final UI acceptance; the linked follow-up is queued for the next development session. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
+
 Status: **implemented; automated evidence in [UI_REVIEW_VERIFICATION.md](UI_REVIEW_VERIFICATION.md); owner review pending**. The primary agent reviewed these corrections against the owner's explicit feedback. This document records the current review corrections to the approved scene prototype. Dimensions below are GUI-scaled pixels, proposed for native implementation; validate against actual font metrics and supported GUI scales before locking them. The existing prototype and its brief remain unchanged.
 
 ## Observed gap

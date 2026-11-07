@@ -1,5 +1,7 @@
 # LC-01 — Scenario foundation and randomized character handouts
 
+**Next review work:** The 7 November group review adds safe late House assignment after cast commitment and an Advanced source-pool catalogue to LC-01B/C. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
+
 Status: in progress; LC-01A and the first private cast projection implemented, verification ongoing. LC-01B physical grants, pool editor/export and the complete delivery review remain pending. Depends on existing Core. Brief: §§1–4, 11–12, 16.
 
 ## Outcome and ownership
