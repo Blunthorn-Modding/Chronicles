@@ -64,6 +64,43 @@ Any sponsorship information that remains must be clearly labelled and relevant.
 Use the same separation on the live voting screen for the question, proposal and
 vote rule; post-vote For/Against history does not belong among live voting choices.
 
+### Follow-up: one presentation system, relevant sections only
+
+Use shared ballot/motion presentation components with the same labels, spacing,
+text hierarchy and formatting everywhere. Reuse the components selectively rather
+than putting every section on every screen or rebuilding each view separately.
+The screen and authoritative ballot state determine which sections are relevant.
+
+| Context | Show | Omit |
+| --- | --- | --- |
+| Motion not yet voted on, viewed at the lectern | Title/question, proposal, status, vote type and decision rule | Empty For/Against lists, result/history panels for a ballot that never existed |
+| Live voting screen | Readable question and rule, centred head roster, applicable choice controls and own final choice | Duplicate For/Against text groups; heads already carry public choice presentation |
+| Recorded public motion at the lectern | Consistent motion fields, outcome and its actual attempts, with named For/Against/Abstain history | Irrelevant live voting controls |
+| Recorded secret motion | The same applicable fields and closed aggregate results | Named secret choices or individual turnout |
+| Chancellor's proceedings during an open ballot | Active motion and permitted vote-completion information, without opening the standalone ballot | A second inconsistent formatting system or a requirement to inspect the voter screen |
+
+Do not show placeholder result sections simply to keep every screen identical.
+A proposed/deferred motion with no prior ballot has no vote result; a motion with
+an earlier voided attempt still retains that real history. Shared formatting does
+not mean hiding relevant prior attempts or presenting an open attempt as closed.
+
+### Chancellor completion visibility
+
+The owner could not tell from proceedings whether everyone had voted. Show
+permitted submission progress directly on the active-ballot workspace and update
+it automatically. For public ballots this can show submitted/required-electorate
+counts, an all-submitted state and the captured representatives still outstanding.
+Use the frozen opening electorate, not whichever players are currently connected
+or standing in the Region. Abstention is a submitted choice; disconnecting does
+not remove an outstanding voter. Progress does not automatically close a ballot
+or change its fixed threshold; closing remains the Chancellor's decision.
+
+**Pending explicit clarification:** the earlier secret-ballot decision hides even
+turnout from the Chancellor. Asked whether the Chancellor should instead receive
+an anonymous submitted count (for example3of5), with identities and choices still
+hidden. Until answered, preserve the prior fully private projection. Do not infer
+authority to expose individual secret participation or choices from this request.
+
 ## 4. Persistent, readable vote history
 
 From the motion lectern, players should be able to see what happened to a motion
@@ -150,5 +187,7 @@ assign people, widen Regions or weaken eligibility as a workaround.
 Acceptance must include actual hosted-LAN multiplayer where relevant, an existing
 committed cast receiving a late player without rerolling existing papers, long
 names and centred rosters, public history/secret privacy across restart, absent
-candidate handling without silent elimination, and typing I/O/rebound letters in
+candidate handling without silent elimination, shared formatting with irrelevant
+sections omitted, automatic Chancellor progress against the frozen electorate
+(with secret visibility governed by the explicit answer), and typing I/O/rebound letters in
 Creative search without opening or closing another screen.
