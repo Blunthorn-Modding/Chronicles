@@ -1,10 +1,10 @@
 # The Last Council work-package tree
 
-**Next development session:** [7 November group-review decisions](REVIEW_FEEDBACK_2026-11-07.md) cover late House assignment, ballot/history readability, present-character Regency choices, the Advanced content catalogue and Creative-search hotkeys. Notes only today; clarification points are recorded before rule changes.
+**Next development session:** dev.5 implements the [7 November group-review decisions](REVIEW_FEEDBACK_2026-11-07.md); evidence is in [group-review verification](GROUP_REVIEW_VERIFICATION.md). Bundle the [8 November ballot/meeting follow-up](LC-02-council-ballots.md#8-november-dev5-review-follow-up--bundle-with-next-milestone) with the next implementation milestone: remove voting-screen explanatory sections and announce Council meeting open/close in chat. No separate review build is requested for these small changes.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
-Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.4**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
+Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.5**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 

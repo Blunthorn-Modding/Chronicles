@@ -38,3 +38,13 @@ Use parameterized counting/lifecycle/privacy tests, forged packet tests and at l
 ## Review gate
 
 UI mockup approval precedes native screen implementation. Independent review of secret projections and close/outcome recovery is required before succession depends on the service. Document exact public/GM data, active-clock behavior and exceptional intervention records.
+
+
+## 8 November dev.5 review follow-up ? bundle with next milestone
+
+The owner requested these small changes with the next implementation milestone, without a separate review build now:
+
+- Remove the **Head outlines**, **Decision rule**, and **Choice** explanatory sections from the live voting screen (including the Choices/Your choice cards). Retain voter heads/outlines, the actual voting buttons and final-choice confirmation. This changes presentation, not tally rules, immutable choices, secret-ballot privacy or the relevant history/proceedings information.
+- Announce successful **Council meeting opening and closing** in player chat. These are political meeting transitions, not Chronicle session start/stop. Send notices after the authoritative transition; refresh, retry, reconnect and restart must not replay a completed announcement.
+
+Acceptance for that bundle: inspect the leaner native ballot, confirm voting still works, and use multiple clients to verify each successful meeting transition announces once while rejected actions and ordinary screen refreshes do not announce it. The dev.5 runtime remains unchanged by this note.
