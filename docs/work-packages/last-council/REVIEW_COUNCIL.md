@@ -1,5 +1,7 @@
 # Council review ? development build 0.2.0-dev.6
 
+**8 November follow-up:** functional review with a friend is pending. The oversized Event-pool editor and clipped bottom action row are queued for tomorrow; see [review notes](REVIEW_FEEDBACK_2026-11-08.md). Future deliveries will contain only e4mc Host and Player packs. Today's build remains unchanged.
+
 Use a fresh import of the matching **e4mc Host** and **Player** packs in `../client`. The Host pack contains a clean review world; the Player pack joins it. Only one person opens the bundled world. Open to LAN with commands disabled for guests and share the e4mc address. Voice chat is omitted. The dedicated authenticated alternative remains `127.0.0.1:25589` with its matching plain review pack.
 
 SchinderRenge is preset as Chancellor, without a House. Operators may otherwise play a House; only the appointed Chancellor controls proceedings. The old world in your existing launcher profile is not overwritten. To retain that played world, update **both** Core and Last Council to matching dev.6 jars after closing Minecraft, removing their older versions first. Back up that profile before testing a development update.
