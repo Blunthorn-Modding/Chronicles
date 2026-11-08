@@ -64,7 +64,7 @@ public record PlayState(long revision, long elapsedTicks, Set<UUID> participants
 
     public enum Mode { MANUAL, ENTRY, TIMER, CONDITION, SYSTEM }
     public enum Status { CLAIMED, DELIVERED }
-    public enum DeliverySource { MANUAL, ENTRY, TIMER, CONDITION, SYSTEM }
+    public enum DeliverySource { MANUAL, ENTRY, TIMER, CONDITION, SYSTEM, POOL }
 
     /** A definition and region-revision-pinned optional trigger armed at shared active time. */
     public record Binding(String id, long revision, String definitionFingerprint, Mode mode,

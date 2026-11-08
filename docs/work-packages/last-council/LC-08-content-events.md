@@ -1,6 +1,6 @@
 # LC-08 — Content, complications and existing Event integration
 
-Status: planned. Depends on LC-01; integrate each delivered operation from LC-02–07. Brief: §§3, 10–13, 15–16.
+Status: LC08A/B implemented in dev.6, native functional review pending. LC08C content, export and additional political source links remain outstanding. See [current implementation evidence](LC08_IMPLEMENTATION.md). Depends on LC-01; integrate each delivered operation from LC-02–07. Brief: §§3, 10–13, 15–16.
 
 ## Outcome and ownership
 

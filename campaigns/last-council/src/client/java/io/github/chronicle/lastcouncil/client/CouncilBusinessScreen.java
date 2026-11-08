@@ -145,8 +145,8 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             var progress=view.progress();
             String text=progress.submitted()==progress.electorate()?"All "+progress.electorate()+" votes submitted":progress.submitted()+" of "+progress.electorate()+" votes submitted";
             if(!progress.outstanding().isEmpty())text+="\nOutstanding: "+String.join(", ",progress.outstanding());
-            sections("active-progress",List.of(new SectionCard("Regency",view.regency().summary()),new SectionCard("Vote progress",text)),detailX,y,detailW,detailHeight);
-        } else if(d==null)body("motion-detail",view.problem().isBlank()?(proceedings?"Meeting "+view.meeting()+" | "+label(view.phase())+"\n\n"+view.regency().summary()+"\n\nSelect a motion.":"Select a motion."):view.problem(),detailX,y,detailW,detailHeight);
+            List<SectionCard> cards=new ArrayList<>(List.of(new SectionCard("Regency",view.regency().summary()),new SectionCard("Vote progress",text)));addComplications(cards);sections("active-progress",cards,detailX,y,detailW,detailHeight);
+        } else if(d==null){List<SectionCard> cards=new ArrayList<>();cards.add(new SectionCard("Meeting",view.problem().isBlank()?(proceedings?label(view.phase())+"\n"+view.regency().summary():"Select a motion."):view.problem()));addComplications(cards);sections("meeting-overview",cards,detailX,y,detailW,detailHeight);}
         else {
             List<SectionCard> cards=new ArrayList<>();
             CouncilBallotSections.motion(cards,d);
@@ -157,7 +157,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
                 if(!progress.outstanding().isEmpty())text+="\nOutstanding: "+String.join(", ",progress.outstanding());
                 cards.add(Math.min(2,cards.size()),new SectionCard("Vote progress",text));
             }
-            sections("motion-detail-"+selected(),cards,detailX,y,detailW,detailHeight);
+            addComplications(cards);sections("motion-detail-"+selected(),cards,detailX,y,detailW,detailHeight);
         }
         int ay=y+h-actionRows*22;
         if(historyPaging) {
@@ -177,6 +177,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             button("Withdraw...",detailX,ay+44,detailW,()->confirm("Withdraw proposal?","This withdraws the selected proposal.",()->send(Action.WITHDRAW))).active=d!=null&&d.canWithdraw();
         }
     }
+    private void addComplications(List<SectionCard> cards){for(var c:view.complications())cards.add(new SectionCard("Council interruption - meeting "+c.meeting()+": "+c.label(),c.message()));}
     private static String label(String text) {
         return switch(text) {
             case "BETWEEN"->"Between meetings";

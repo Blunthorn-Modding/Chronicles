@@ -49,9 +49,10 @@ public final class ProceedingsPayloads {
     public record Regency(String status,List<String> candidates,String summary,boolean canOpen) {
         public Regency {candidates=List.copyOf(candidates);if(candidates.size()>32)throw new IllegalArgumentException("Candidate list exceeds bounds");bounded(summary,8192);}
     }
+    public record RevealedComplication(int meeting,String label,String message) {public RevealedComplication{bounded(label,160);bounded(message,512);}}
     public record View(UUID request,boolean opening,Mode mode,String site,long revision,int meeting,String phase,List<Row> motions,
-            Detail detail,List<History> history,UUID activeBallot,boolean chancellor,boolean playing,boolean recoverable,String problem,String message,Regency regency,boolean canPropose,Progress progress) implements CustomPayload {
-        public View { Objects.requireNonNull(regency);bounded(site,128);motions=List.copyOf(motions);history=List.copyOf(history);if(motions.size()>128||history.size()>256)throw new IllegalArgumentException("Council view exceeds bounds");bounded(problem,1024);bounded(message,1024); }
+            Detail detail,List<History> history,UUID activeBallot,boolean chancellor,boolean playing,boolean recoverable,String problem,String message,Regency regency,boolean canPropose,Progress progress,List<RevealedComplication> complications) implements CustomPayload {
+        public View { complications=List.copyOf(complications);if(complications.size()>32)throw new IllegalArgumentException("Too many revealed complications");Objects.requireNonNull(regency);bounded(site,128);motions=List.copyOf(motions);history=List.copyOf(history);if(motions.size()>128||history.size()>256)throw new IllegalArgumentException("Council view exceeds bounds");bounded(problem,1024);bounded(message,1024); }
         public static final Id<View> ID=id("proceedings_view");
         public static final PacketCodec<RegistryByteBuf,View> CODEC=json(View.class,327000);
         public Id<View> getId(){return ID;}

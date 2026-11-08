@@ -81,6 +81,7 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.testing.PlayerRolesTrial.register();
         io.github.chronicle.core.server.testing.AreaChangesTrial.register();
         io.github.chronicle.core.server.testing.EventActionsTrial.register();
+        io.github.chronicle.core.server.testing.EventPoolTrial.register();
         io.github.chronicle.core.server.testing.EncounterActionsTrial.register();
         io.github.chronicle.core.server.testing.EventRecoveryTrial.register();
         io.github.chronicle.core.server.testing.EventProgressionTrial.register();
@@ -116,6 +117,9 @@ public final class ChronicleCore implements ModInitializer {
         io.github.chronicle.core.server.EventOccurrenceRuntime.register();
         io.github.chronicle.core.server.Encounters.register();
         io.github.chronicle.core.server.EventRuntime.register();
+        io.github.chronicle.core.server.EventPools.register();
+        io.github.chronicle.core.network.EventPoolEditorPayloads.register();
+        io.github.chronicle.core.server.EventPoolCatalogRuntime.register();
         io.github.chronicle.core.server.EventSources.register();
         io.github.chronicle.core.server.RoleEventSources.register();
         io.github.chronicle.core.server.CompletionEventSources.register();

@@ -74,12 +74,8 @@ public final class BallotScreen extends CouncilScreen {
         cards.add(new SectionCard("Question",b.title()));
         cards.add(new SectionCard("Proposal",view.description()));
         cards.add(new SectionCard("Vote type",CouncilBallotSections.label(b.visibility().name())));
-        if(b.visibility().name().equals("PUBLIC"))cards.add(new SectionCard("Head outlines","Grey: not cast; green: For; red: Against; amber: Abstain."));
-        cards.add(new SectionCard("Decision rule",b.threshold()+" of "+b.electorateLabels().size()+" required"));
-        if(b.ownChoice()!=null&&!b.ownChoice().isBlank())cards.add(new SectionCard("Your choice",optionLabel(b.ownChoice())));
         if(captured&&uncast&&!view.reason().isBlank())cards.add(new SectionCard("Eligibility",view.reason()));
         if(b.reason()!=null&&!b.reason().isBlank())cards.add(new SectionCard("Reason",b.reason()));
-        if(showChoices)cards.add(new SectionCard("Choices",String.join("\n",b.options().stream().map(o->o.label()).toList())));
         if(b.status().name().equals("CLOSED")) {
             StringBuilder result=new StringBuilder(b.passedOptions().isEmpty()?"No option passed":"Passed: "+String.join(", ",b.passedOptions().stream().map(this::optionLabel).toList()));
             b.totals().forEach((id,count)->result.append("\n").append(optionLabel(id)).append(": ").append(count));

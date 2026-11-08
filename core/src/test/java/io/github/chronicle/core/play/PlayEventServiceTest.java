@@ -21,6 +21,17 @@ class PlayEventServiceTest {
     private static final UUID OTHER=UUID.fromString("00000000-0000-0000-0000-000000000002");
     private static final String ID="test:event",HASH="a".repeat(64);
 
+    @Test void poolInvocationIsExplicitAndCannotBypassOtherTriggerPolicies()throws Exception {
+        Memory repository=new Memory();PlayService service=new PlayService(repository);service.setParticipant(PLAYER,true);
+        var manual=put(service,List.of(),PlayState.Mode.MANUAL,0);
+        assertThrows(IllegalArgumentException.class,()->service.beginExecution(run(manual,EventExecution.Phase.EVENT_OUTCOME,0,PlayState.DeliverySource.SYSTEM,null)));
+        service.beginExecution(run(manual,EventExecution.Phase.EVENT_OUTCOME,0,PlayState.DeliverySource.POOL,null));
+        assertEquals(PlayState.DeliverySource.POOL,service.state().executions().get(ID).source());
+        Memory other=new Memory();PlayService timed=new PlayService(other);timed.setParticipant(PLAYER,true);
+        var timer=put(timed,List.of(),PlayState.Mode.TIMER,20);
+        assertThrows(IllegalArgumentException.class,()->timed.beginExecution(run(timer,EventExecution.Phase.EVENT_OUTCOME,0,PlayState.DeliverySource.POOL,null)));
+    }
+
     @Test void silentRunUsesExecutionReceiptAndResetPreservesAllCurrentFields() throws Exception {
         Memory repository = new Memory();
         PlayService service = new PlayService(repository);

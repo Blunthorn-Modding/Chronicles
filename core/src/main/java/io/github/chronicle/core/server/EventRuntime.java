@@ -188,6 +188,17 @@ public final class EventRuntime {
         begin(server,c,PlayState.DeliverySource.SYSTEM,claim.source().actor(),claim.recipients(),claim.operationId());
     }
 
+    static void beginPool(MinecraftServer server,io.github.chronicle.core.eventpool.EventPoolDraw draw)throws IOException {
+        var current=review(server,draw.configuration().definition().id());
+        if(!current.configuration().equals(draw.configuration())||current.session()!=draw.session()
+                ||!new HashSet<>(current.recipients()).equals(new HashSet<>(draw.recipients())))
+            throw new IllegalStateException("The selected Event or its audience changed; the saved draw was preserved.");
+        begin(server,draw.configuration(),PlayState.DeliverySource.POOL,draw.actor(),current.recipients(),draw.operationId());
+    }
+    static boolean preparingPool(MinecraftServer server,UUID operation) {
+        Runtime runtime=WORLDS.get(server);return runtime!=null&&operation.equals(runtime.preparing);
+    }
+
     private static void begin(MinecraftServer server,EventConfiguration c,PlayState.DeliverySource source,UUID actor,List<UUID> recipients,UUID operation)throws IOException{
         if(RuntimeHolds.reason(server)!=null)throw new IllegalStateException("Resolve the current operation hold before starting an Event.");
         Runtime r=runtime(server);requireNoPending(server);unclaimed(server,c.definition().id());var campaign=active(server);validate(server,c);requireFlag(c,campaign);

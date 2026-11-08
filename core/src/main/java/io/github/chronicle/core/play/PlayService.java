@@ -325,7 +325,11 @@ public final class PlayService {
                     ? EventExecution.Phase.EVENT_OUTCOME : EventExecution.Phase.ENCOUNTER_EFFECTS
                 : EventExecution.Phase.PREPARED;
         if (execution.phase() != initial) throw new IllegalArgumentException("Invalid initial Event execution phase.");
-        if (execution.source() != PlayState.DeliverySource.MANUAL
+        if (execution.source() == PlayState.DeliverySource.POOL
+                && (execution.configuration().mode() != PlayState.Mode.MANUAL || execution.configuration().delayTicks() != 0
+                    || execution.configuration().occurrencePolicy() != EventOccurrencePolicy.ONCE))
+            throw new IllegalArgumentException("Pool invocations require a once-only manual Event without delay.");
+        if (execution.source() != PlayState.DeliverySource.MANUAL && execution.source() != PlayState.DeliverySource.POOL
                 && !execution.source().name().equals(execution.configuration().mode().name()))
             throw new IllegalArgumentException("Automatic Event source does not match its trigger.");
         if (execution.source() == PlayState.DeliverySource.ENTRY && execution.configuration().formatVersion()==1 && !current.participants().contains(execution.actor()))

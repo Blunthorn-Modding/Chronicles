@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.AccessibilityOnboardingScreen;
@@ -31,7 +32,9 @@ public final class CouncilSuccessionSmoke {
     private final List<String> checks = new ArrayList<>();
     private final long started = System.nanoTime();
     private boolean connecting, done;
-    private int step, wait;
+    private int step, wait, meetingOpened, meetingClosed, complicationMessages;
+    private final boolean gateTrial="1".equals(System.getenv("CHRONICLE_COMPLICATION_GATE_SMOKE"));
+    private boolean gateChecked;
     private UUID pending, first, replacement, finalBallot, policy;
     private String houseA, houseB, houseC, houseD, titleA, titleB, titleC, titleD;
     private long absentRevision;
@@ -52,6 +55,13 @@ public final class CouncilSuccessionSmoke {
     public static void register() {
         String path = System.getenv("CHRONICLE_SUCCESSION_SMOKE"); if (path == null) return;
         instance = new CouncilSuccessionSmoke(path); ClientTickEvents.END_CLIENT_TICK.register(instance::tick);
+        ClientReceiveMessageEvents.GAME.register((message,overlay)->{
+            if(overlay)return;
+            if(io.github.chronicle.lastcouncil.content.CouncilDefaults.complications().stream().anyMatch(e->e.text().equals(message.getString())))instance.complicationMessages++;
+            String text=message.getString();
+            if(text.matches("Council meeting [0-9]+ has opened\\."))instance.meetingOpened++;
+            if(text.matches("Council meeting [0-9]+ has closed\\."))instance.meetingClosed++;
+        });
     }
     public static void admin(AdminView value) { if (instance != null && value.request().equals(instance.pending)) instance.admin = value; }
     public static void view(View value) { if (instance != null && value.request().equals(instance.pending)) instance.view = value; }
@@ -121,6 +131,11 @@ public final class CouncilSuccessionSmoke {
             case 38 -> { press(c,"Yes"); wait=10; step=39; }
             case 39 -> { require(c.currentScreen instanceof CouncilBusinessScreen,"proceedings did not return after regency");
                 var screen=(CouncilBusinessScreen)c.currentScreen; var updated=screen.snapshot();
+                if(gateTrial&&!gateChecked&&updated.phase().equals("RECESS")) {
+                    require(updated.activeBallot()==null&&updated.complications().size()==1,"late complication did not precede Regency");
+                    require(updated.history().isEmpty()&&meetingClosed==0,"gate opened a ballot or closed the meeting");
+                    view=updated;request(Action.OPEN_REGENCY,view.revision(),NONE,"");step=70;return;
+                }
                 if(updated.activeBallot()==null||updated.activeBallot().equals(NONE))return;
                 require(updated.detail()!=null,"regency detail missing");
                 require(updated.motions().stream().anyMatch(row->row.id().equals(updated.detail().id())),"active Regency missing from motion navigation");
@@ -130,6 +145,17 @@ public final class CouncilSuccessionSmoke {
                 require(updated.detail().title().toLowerCase(Locale.ROOT).contains("regency"),"active regency detail not selected");
                 ScreenshotRecorder.saveScreenshot(shared.toFile(),"regency-active-proceedings.png",c.getFramebuffer(),1,ignored->{});
                 checks.add("native Regency sidebar opens confirmation and retains active ballot details/close/void controls"); view=updated; step=11; }
+            case 70 -> {if(notice==null)return;request(Action.STATE,0,NONE,"");step=71;}
+            case 71 -> {noFailure();if(view==null)return;require(view.phase().equals("RECESS")&&view.complications().size()==1,"duplicate gate changed reveal");request(Action.RESUME,view.revision(),NONE,"");step=72;}
+            case 72 -> {noFailure();if(view==null)return;request(Action.FINISH,view.revision(),NONE,"");step=73;}
+            case 73 -> {if(notice==null)return;request(Action.STATE,0,NONE,"");step=74;}
+            case 74 -> {noFailure();if(view==null)return;require(view.phase().equals("RECESS")&&view.activeBallot()==null&&view.complications().size()==2&&meetingClosed==0,"meeting-close gate failed");
+                var campaign=com.google.gson.JsonParser.parseString(Files.readString(root.resolve("world/chronicle/campaign-state.json"))).getAsJsonObject();
+                require(campaign.get("phase").getAsString().equals("ACTIVE"),"Council recess paused Core play");
+                c.setScreen(new CouncilBusinessScreen(view,null));ScreenshotRecorder.saveScreenshot(shared.toFile(),"complication-recess.png",c.getFramebuffer(),1,ignored->{});
+                request(Action.RESUME,view.revision(),NONE,"");step=75;}
+            case 75 -> {noFailure();if(view==null)return;request(Action.OPEN_REGENCY,view.revision(),NONE,"");step=76;}
+            case 76 -> {noFailure();if(view==null)return;gateChecked=true;c.setScreen(new CouncilBusinessScreen(view,null));checks.add("real Event pool gates Regency and meeting close into active-play recess; explicit resume and duplicate refusal conserve two reveals");step=39;}
             case 11 -> { noFailure(); if(view==null)return; first=view.activeBallot(); require(first!=null&&!first.equals(NONE),"first ballot missing"); request(Action.BALLOT,0,first,""); step=12; }
             case 12 -> { noFailure(); if(vote==null)return; verifySlate(vote,Set.of(houseB,houseC,houseD)); verifyNames(vote,Map.of(houseB,titleB,houseC,titleC,houseD,titleD)); request(Action.STATE,0,NONE,""); step=13; }
             case 13 -> { noFailure(); if(view==null)return; request(Action.VOID_BALLOT,view.revision(),first,"Incorrect setup"); step=14; }
@@ -207,7 +233,15 @@ public final class CouncilSuccessionSmoke {
     private static String readHouse(Vote value,String role) { return value.voters().stream().filter(v->v.player().equals(offline("ChronicleFabric"+role))).findFirst().orElseThrow().house(); }
     private static void secret(Vote value) { require(value.ballot().namedVotes().isEmpty()&&value.ballot().totals().isEmpty(),"secret projection exposed votes"); }
     private void finish(MinecraftClient c,String error) {
-        if(done)return; done=true;
+        if(done)return;
+        if(error==null) {
+            int expectedComplications=gateTrial&&phase.equals("initial")?2:0;
+            if(complicationMessages!=expectedComplications)error="Public complication narrative missing or replayed: "+complicationMessages;
+            int opens=phase.equals("initial")?2:1,closes=1;
+            if(meetingOpened!=opens||meetingClosed!=closes)error="Meeting notices missing or duplicated: "+meetingOpened+" opened, "+meetingClosed+" closed";
+            else checks.add("every player receives meeting open/close chat once; polling and refused actions do not replay it");
+        }
+        done=true;
         try { var json=new JsonObject(); json.addProperty("result",error==null?"PASS":"FAIL"); json.addProperty("detail",error==null?"Completed":error); json.add("checks",new Gson().toJsonTree(checks)); Files.writeString(output,new Gson().toJson(json),StandardCharsets.UTF_8); } catch(Exception ignored) { }
         c.scheduleStop();
     }

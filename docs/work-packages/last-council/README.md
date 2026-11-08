@@ -1,10 +1,10 @@
 # The Last Council work-package tree
 
-**Next development session:** dev.5 implements the [7 November group-review decisions](REVIEW_FEEDBACK_2026-11-07.md); evidence is in [group-review verification](GROUP_REVIEW_VERIFICATION.md). Bundle the [8 November ballot/meeting follow-up](LC-02-council-ballots.md#8-november-dev5-review-follow-up--bundle-with-next-milestone) with the next implementation milestone: remove voting-screen explanatory sections and announce Council meeting open/close in chat. No separate review build is requested for these small changes.
+**Current slice:** dev.6 implements Core Event pools, the approved Council complication configuration and durable late-arrival gates, plus the queued ballot/meeting polish. See [LC08 implementation and verification](LC08_IMPLEMENTATION.md). The workflow is approved; native functional review is next. LC08C content/export and the remaining political packages are still outstanding.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
-Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.5**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
+Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.6**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 
@@ -19,13 +19,13 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 | Package | Deliverable | Depends on | Status |
 |---|---|---|---|
 | [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | In progress: assignments/private cast screens; physical grants and pool authoring pending |
-| [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | In implementation: approved scenes, Core ballots, motions/proceedings; complication gate pending |
-| [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | In progress: rules/journal/regency scene; actual LC08 gate and remaining controls pending |
+| [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | In implementation: approved scenes, Core ballots, motions/proceedings; complication gate implemented; native review pending |
+| [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | In progress: rules/journal/regency scene; actual LC08 gate implemented; native review pending |
 | [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Planned; gameplay/UI flow review required |
 | [LC-05](LC-05-conflicts.md) | House/civil/external wars and political settlements | LC-02, LC-04 | Planned |
 | [LC-06](LC-06-rebellion-access.md) | Optional guarded Regions; rebellion and formal reinstatement | LC-01, LC-02, LC-03; LC-04/05 integration | Planned; confirmation/access review required |
 | [LC-07](LC-07-banquet.md) | Optional drinks, delayed illness and antidote | LC-01, existing Core clocks/items | Planned; can progress independently of LC-03/04/05 |
-| [LC-08](LC-08-content-events.md) | Core Event pools; random Council complications, character content and source/flag links | LC-01B/C for handouts; LC-02 progression gate for timing; integrate delivered operations | Planned; pool/timing/content review required |
+| [LC-08](LC-08-content-events.md) | Core Event pools; random Council complications, character content and source/flag links | LC-01B/C for handouts; LC-02 progression gate for timing; integrate delivered operations | In implementation: approved pools/timing/gates; final content and export pending |
 | [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08, chosen LC-10 voice behavior; LC-07 when enabled | Planned |
 | [LC-10](LC-10-room-voice.md) | Shared room-voice/acoustics investigation using Regions and Simple Voice Chat | Existing Regions/voice setup | Investigate early; implementation choice needs prototype review |
 

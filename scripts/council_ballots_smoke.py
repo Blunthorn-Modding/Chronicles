@@ -33,6 +33,12 @@ def run():
     root = fabric_smoke._stage(w)
     (root / '.council-ballots-fixture').write_text('Disposable Council ballot smoke\n', encoding='utf-8')
     _fixture(root)
+    # Two genuine operator editors exercise competing catalogue writes; C stays unprivileged.
+    import uuid
+    operators=json.loads((root/'ops.json').read_text(encoding='utf-8'))
+    operators.append({'uuid':str(uuid.UUID(bytes=__import__('hashlib').md5(b'OfflinePlayer:ChronicleFabricB').digest(),version=3)),
+                      'name':'ChronicleFabricB','level':2,'bypassesPlayerLimit':False})
+    (root/'ops.json').write_text(json.dumps(operators)+'\n',encoding='utf-8')
     # Keep one inert House so the first player's templates can refer to another
     # House before the real third client is deliberately enrolled late.
     import uuid
@@ -53,7 +59,8 @@ def run():
         for phase in ('initial', 'restart'):
             menu_smoke._reserve_ports()
             log = (reports / (phase + '-server.log')).open('w', encoding='utf-8')
-            server = subprocess.Popen(w.server_command(), cwd=root, env=w.env(), stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
+            server_env=w.env();server_env.update({'CHRONICLE_POOL_TRIAL':'1','CHRONICLE_POOL_TRIAL_REPORT':str(reports/('pool-trial-'+phase+'.json'))})
+            server = subprocess.Popen(w.server_command(), cwd=root, env=server_env, stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             menu_smoke._wait_ready(server, reports / (phase + '-server.log'))
             results = [reports / (phase + '-' + role + '.json') for role in ('A', 'B', 'C')]
             for role, result in zip(('A', 'B', 'C'), results):
@@ -69,6 +76,10 @@ def run():
             clients.clear()
             fabric_smoke._stop(server); server = None
             log.close(); log = None
+        disabled=json.loads((root/'world/chronicle/last-council/complications.json').read_text(encoding='utf-8'))['state']
+        if disabled['config']['total']!=0 or disabled['slots']:
+            raise RuntimeError('Disabled evening did not remain a committed zero-budget decision after restart')
+        report['checks'].append('disabled complication budget commits at first Council opening and survives actual restart')
         report['result'] = 'PASS'
         print('PASS Council ballots native smoke:', reports, flush=True)
     finally:

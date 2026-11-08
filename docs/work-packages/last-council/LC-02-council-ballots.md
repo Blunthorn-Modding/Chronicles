@@ -48,3 +48,5 @@ The owner requested these small changes with the next implementation milestone, 
 - Announce successful **Council meeting opening and closing** in player chat. These are political meeting transitions, not Chronicle session start/stop. Send notices after the authoritative transition; refresh, retry, reconnect and restart must not replay a completed announcement.
 
 Acceptance for that bundle: inspect the leaner native ballot, confirm voting still works, and use multiple clients to verify each successful meeting transition announces once while rejected actions and ordinary screen refreshes do not announce it. The dev.5 runtime remains unchanged by this note.
+
+Implementation follow-up: these changes are bundled in dev.6. Native multi-client evidence and the current review gate are in [LC08_IMPLEMENTATION.md](LC08_IMPLEMENTATION.md).

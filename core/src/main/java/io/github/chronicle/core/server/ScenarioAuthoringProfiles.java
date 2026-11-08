@@ -22,7 +22,7 @@ public final class ScenarioAuthoringProfiles {
     public static Path chronicleConfig(){return FabricLoader.getInstance().getConfigDir().resolve("chronicle").toAbsolutePath().normalize();}
     private static Path file(){return chronicleConfig().resolve("scenario-profile.json");}
     public static Path contentFile(String name){
-        if(!Set.of("books.json","chest-loot.json").contains(name))throw new IllegalArgumentException("Unknown portable content catalog.");
+        if(!Set.of("books.json","chest-loot.json","event-pools.json").contains(name))throw new IllegalArgumentException("Unknown portable content catalog.");
         return chronicleConfig().resolve(active().isPresent()?"profile-content/"+name:name);
     }
     public static void register(){

@@ -1,7 +1,11 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.4`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.6`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
+
+## Current LC08 slice
+
+The owner-approved pool editor and Council complication workflow are implemented. Core owns reusable pool definitions, durable private draw pins and dispatch through its existing Event executor. Last Council owns evening allocation, active Council timing, redistribution and the pre-Regency/meeting-close recess gate. See [LC08_IMPLEMENTATION.md](LC08_IMPLEMENTATION.md) for the actual verification and remaining limits. Earlier implementation slices below are historical; their pending complication references are superseded by that evidence.
 
 ## Current review corrections
 

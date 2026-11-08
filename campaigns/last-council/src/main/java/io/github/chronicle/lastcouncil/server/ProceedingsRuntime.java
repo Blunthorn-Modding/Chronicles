@@ -95,12 +95,21 @@ public final class ProceedingsRuntime {
         try {
             var root=server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/last-council");
             var ballots=new BallotService(new BallotStore(root.resolve("ballots.json")),Clock.systemUTC());
-            var service=new ProceedingsService(new ProceedingsStore(root.resolve("proceedings.json")),ballots,Clock.systemUTC());
+            var service=new ProceedingsService(new ProceedingsStore(root.resolve("proceedings.json")),ballots,Clock.systemUTC(),new java.security.SecureRandom()::nextInt,new ProceedingsService.ProgressionGate() {
+                public void beforeRegency(int meeting)throws IOException{ComplicationsRuntime.beforeBoundary(server,meeting);}
+                public void beforeMeetingClose(int meeting)throws IOException{ComplicationsRuntime.beforeBoundary(server,meeting);}
+            });
             Runtime r=new Runtime(service);WORLDS.put(server,r);
             recoverAndNotify(server,r);reconcileCalls(server,r);RuntimeHolds.release(server,HOLD);
         }catch(EventSources.Unavailable sourceOwned){RuntimeHolds.release(server,HOLD);}
         catch(Exception failure){hold(server,failure);}
     }
+    public static ProceedingsState state(MinecraftServer server){var r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Council records unavailable");return r.service.state();}
+    public static void complicationRecess(MinecraftServer server)throws IOException {
+        var r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Council records unavailable");
+        if(r.service.state().phase()==Phase.DISCUSSION)r.service.recess();
+    }
+    public static void complicationChanged(MinecraftServer server){var r=WORLDS.get(server);if(r!=null)refresh(server,r);}
     public static boolean successionStarted(MinecraftServer server){Runtime r=WORLDS.get(server);return r!=null&&r.service.state().succession().started();}
     public static boolean candidate(MinecraftServer server,String house,boolean configured) {
         Runtime r=WORLDS.get(server);return r!=null&&r.service.state().succession().started()?r.service.state().succession().stage()==SuccessionState.Stage.CONTESTED&&r.service.state().succession().remaining().contains(house):configured;
@@ -156,10 +165,10 @@ public final class ProceedingsRuntime {
                     if(!EventSources.activeOperation(player.getEntityWorld().getServer()))throw new IllegalStateException("A gathering call needs participating players during active play.");
                     call(player,r,q.request());message="Council call recorded. Events linked to Council called will play.";
                 }
-                case START -> {r.service.openMeeting();message="Proceedings opened.";}
+                case START -> {ComplicationsRuntime.beforeMeetingOpen(player.getEntityWorld().getServer());r.service.openMeeting();meetingNotice(player.getEntityWorld().getServer(),r.service.state().meeting(),true);try{ComplicationsRuntime.meetingChanged(player.getEntityWorld().getServer());message="Proceedings opened.";}catch(IOException|RuntimeException saved){ComplicationsRuntime.postTransitionFailed(player.getEntityWorld().getServer());message="Proceedings opened. Exact complication records need recovery.";}}
                 case RECESS -> {r.service.recess();message="Proceedings in recess.";}
                 case RESUME -> {r.service.resumeMeeting();message="Proceedings resumed.";}
-                case FINISH -> {r.service.closeMeeting();message="Meeting closed. Roleplay continues.";}
+                case FINISH -> {r.service.closeMeeting();meetingNotice(player.getEntityWorld().getServer(),r.service.state().meeting(),false);try{ComplicationsRuntime.meetingChanged(player.getEntityWorld().getServer());message="Meeting closed. Roleplay continues.";}catch(IOException|RuntimeException saved){ComplicationsRuntime.postTransitionFailed(player.getEntityWorld().getServer());message="Meeting closed. Exact complication records need recovery.";}}
                 case OPEN_BALLOT,OPEN_REGENCY -> {
                     AuthoringSite.Region region=votingRegion(player.getEntityWorld().getServer(),r);
                     Map<String,BallotElector> electorate=electorate(player.getEntityWorld().getServer(),region);
@@ -184,6 +193,10 @@ public final class ProceedingsRuntime {
         }catch(IOException failure){hold(player.getEntityWorld().getServer(),failure);notice(player,q.request(),failure);}
         catch(EventSources.Unavailable failure){Runtime r=WORLDS.get(player.getEntityWorld().getServer());if(r!=null&&r.service.state().pending()==null)try{r.service.verifyUnchanged();r.failed=false;RuntimeHolds.release(player.getEntityWorld().getServer(),HOLD);}catch(IOException invalid){hold(player.getEntityWorld().getServer(),invalid);}notice(player,q.request(),failure);}
         catch(RuntimeException failure){Runtime r=WORLDS.get(player.getEntityWorld().getServer());if(r!=null&&r.service.state().pending()!=null)hold(player.getEntityWorld().getServer(),failure);notice(player,q.request(),failure);}
+    }
+    private static void meetingNotice(MinecraftServer server,int meeting,boolean opening) {
+        Text message=Text.literal("Council meeting "+meeting+(opening?" has opened.":" has closed."));
+        for(ServerPlayerEntity player:server.getPlayerManager().getPlayerList())player.sendMessage(message,false);
     }
     private static void call(ServerPlayerEntity player,Runtime r,UUID id)throws IOException {
         MinecraftServer server=player.getEntityWorld().getServer();if(r.service.state().calls().containsKey(id)){r.service.call(id,player.getUuid());return;}
@@ -282,7 +295,7 @@ public final class ProceedingsRuntime {
         r.selected.put(p.getUuid(),selected);
         Progress progress=mode==Mode.PROCEEDINGS&&gm?progress(r):null;
         Regency regency=regencyView(server,r);
-        View packet=new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regency,mode==Mode.MOTIONS&&!gm&&own!=null&&own.councilMember()&&eligible,progress);
+        View packet=new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regency,mode==Mode.MOTIONS&&!gm&&own!=null&&own.councilMember()&&eligible,progress,mode==Mode.PROCEEDINGS&&gm?ComplicationsRuntime.revealed(server,p.getUuid()).stream().map(c->new RevealedComplication(c.meeting(),c.label(),c.message())).toList():List.of());
         if(!ProceedingsPayloads.fitsView(packet))throw new IllegalStateException("This motion's ballot history is too large to display safely.");
         if(mode==Mode.PROCEEDINGS){r.sentProgress.put(p.getUuid(),progress);r.sentRegency.put(p.getUuid(),regency);}
         ServerPlayNetworking.send(p,packet);

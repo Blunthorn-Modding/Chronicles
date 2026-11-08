@@ -135,8 +135,10 @@ final class CoreEventMenu {
         var definition = configuration.definition();
         PlayState play = PlayRuntime.service(server).state();
         EventExecution execution = play.executions().get(id);
-        Optional<Encounters.Review> encounterReview=Encounters.review(server,id);
-        PlayState.Delivery delivery = play.deliveries().get(id);
+        boolean hidden = execution != null && execution.source() == PlayState.DeliverySource.POOL && execution.phase() != EventExecution.Phase.COMPLETE;
+        if (hidden) execution = null;
+        Optional<Encounters.Review> encounterReview=hidden ? Optional.empty() : Encounters.review(server,id);
+        PlayState.Delivery delivery = hidden ? null : play.deliveries().get(id);
         boolean custom = EventRuntime.stored(server, id) != null && ChronicleCore.observations().get(id).isEmpty();
         boolean unresolved = execution != null && execution.phase() != EventExecution.Phase.COMPLETE;
         boolean available = execution == null && delivery == null;
@@ -153,7 +155,7 @@ final class CoreEventMenu {
         facts.add(new Fact("Trigger", configuration.mode() + triggerSummary(configuration)));
         facts.add(new Fact("Required flags", configuration.requiredFlags().isEmpty()?"None":String.join(", ",configuration.requiredFlags())));
         facts.add(new Fact("Flag updates", definition.flagChanges().toString()));
-        facts.add(new Fact("Progression", EventProgressRuntime.status(server,configuration)));
+        facts.add(new Fact("Progression", configuration.mode() == PlayState.Mode.MANUAL && configuration.occurrencePolicy() == io.github.chronicle.core.play.EventOccurrencePolicy.ONCE && configuration.delayTicks() == 0 ? "Manual Event" : EventProgressRuntime.status(server,configuration)));
         if(configuration.mode()==PlayState.Mode.SYSTEM)facts.add(new Fact("Activity source", configuration.source().toString()));
         facts.add(new Fact("Region changes", definition.changes().isEmpty() ? "None" : definition.changes().stream()
                 .map(change -> change.region().id() + " -> " + change.state()).reduce((left, right) -> left + "; " + right).orElse("None")));
@@ -205,7 +207,7 @@ final class CoreEventMenu {
         } else if (execution != null && !execution.terminal()) {
             controls.add(control(Action.EVENT_RECOVER, execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS?"Retry exact encounter plan":"Recover event", execution.phase()==EventExecution.Phase.ENCOUNTER_EFFECTS||active, "Restore active play before recovery.", true, ""));
         }
-        var progress=EventProgressRuntime.entry(server,configuration);
+        var progress=hidden ? null : EventProgressRuntime.entry(server,configuration);
         if (delivery != null || execution != null && execution.phase() == EventExecution.Phase.COMPLETE || progress!=null&&(progress.skipped()||progress.triggered()&&execution==null)) {
             controls.add(control(Action.EVENT_RESET, execution==null&&delivery==null?"Reset pending trigger":"Allow event again", canEdit, editReason, true, ""));
         }

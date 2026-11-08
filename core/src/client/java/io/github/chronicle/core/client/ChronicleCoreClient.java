@@ -32,6 +32,7 @@ public final class ChronicleCoreClient implements ClientModInitializer {
         AuthoringPreviewRenderer.register();
         AuthoringUiClient.register();
         CoreMenuClient.register();
+        EventPoolEditorClient.register();
         ItemEnchantingClient.register();
         OfferingScreen.register();
         ActionConfirmationScreen.register();

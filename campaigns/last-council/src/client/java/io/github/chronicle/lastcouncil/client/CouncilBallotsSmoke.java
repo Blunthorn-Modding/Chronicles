@@ -48,12 +48,13 @@ public final class CouncilBallotsSmoke {
     private final String role, phase;
     private final List<String> checks = new ArrayList<>();
     private final long started = System.nanoTime();
-    private boolean connecting, done;
-    private int step, wait, callMessages;
+    private boolean connecting, done, competed;
+    private int step, wait, callMessages, poolMessages;
     private UUID pending, motion, ballot, secretMotion, secretBallot, replacement;
     private AdminView admin;
     private io.github.chronicle.lastcouncil.network.CataloguePayloads.View catalogue;
     private CouncilPayloads.PersonalView personal;
+    private io.github.chronicle.lastcouncil.network.ComplicationPayloads.View complicationSettings;
     private View view;
     private Vote vote;
     private Notice notice;
@@ -77,11 +78,13 @@ public final class CouncilBallotsSmoke {
         instance = new CouncilBallotsSmoke(path);
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             if (!overlay && message.getString().equals("The Chancellor calls the houses to Council.")) instance.callMessages++;
+            if(!overlay&&message.getString().equals("A trial bell rings across the council."))instance.poolMessages++;
         });
         ClientTickEvents.END_CLIENT_TICK.register(instance::tick);
     }
     public static void admin(AdminView value) { if (instance != null && value.request().equals(instance.pending)) instance.admin = value; }
     public static void catalogue(io.github.chronicle.lastcouncil.network.CataloguePayloads.View value) { if(instance!=null&&value.request().equals(instance.pending))instance.catalogue=value; }
+    public static void complicationSettings(io.github.chronicle.lastcouncil.network.ComplicationPayloads.View value){if(instance!=null&&value.request().equals(instance.pending))instance.complicationSettings=value;}
     public static void personal(CouncilPayloads.PersonalView value) { if (instance != null && value.request().equals(instance.pending)) instance.personal = value; }
     public static void view(View value) { if (instance != null && value.request().equals(instance.pending)) instance.view = value; }
     public static void vote(Vote value) { if (instance != null && value.request().equals(instance.pending)) instance.vote = value; }
@@ -165,9 +168,44 @@ public final class CouncilBallotsSmoke {
                 c.getWindow().setWindowedSize(640,480);wait=30;step=64; }
             case 64 -> { require(c.currentScreen instanceof CouncilCatalogueScreen,"compact catalogue screen closed");checkFrame((CouncilScreen)c.currentScreen);
                 ScreenshotRecorder.saveScreenshot(shared.toFile(),"source-catalogue-compact.png",c.getFramebuffer(),1,ignored->{});c.currentScreen.close();
-                checks.add("operator reads reusable catalogue with normal/compact native layouts");command(c,"chronicle editing off");command(c,"chronicle session resume");wait=30;step=59; }
+                checks.add("operator reads reusable catalogue with normal/compact native layouts");command(c,"chronicle events");step=80; }
+            case 80 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.CoreMenuScreen))return;
+                if(buttons(c.currentScreen).stream().noneMatch(b->b.active&&b.getMessage().getString().equals("Event pools")))return;
+                var parent=c.currentScreen;press(parent,"Event pools");c.setScreen(new Screen(net.minecraft.text.Text.literal("Unrelated test screen")){});c.setScreen(parent);wait=20;step=93;}
+            case 93 -> {require(c.currentScreen instanceof io.github.chronicle.core.client.CoreMenuScreen,"delayed pool opening replaced returned parent");checks.add("pool open reply is cancelled after navigation, including return to same parent");press(c.currentScreen,"Event pools");step=81;}
+            case 81 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.EventPoolEditorScreen))return;
+                press(c.currentScreen,"Create pool");input(c.currentScreen).setText("Native test pool");press(c.currentScreen,"Create");
+                press(c.currentScreen,"Add existing Event");input(c.currentScreen).setText("broken");press(c.currentScreen,"Find");
+                press(c.currentScreen,"A broken royal seal");press(c.currentScreen,"Add");input(c.currentScreen).setText("2");press(c.currentScreen,"Save pool");wait=30;step=82;}
+            case 82 -> {require(c.currentScreen instanceof io.github.chronicle.core.client.EventPoolEditorScreen,"pool editor closed");
+                var pools=io.github.chronicle.core.eventpool.EventPoolCatalogStore.decode(Files.readAllBytes(root.resolve("config/chronicle/event-pools.json")));
+                require(pools.values().stream().anyMatch(p->p.label().equals("Native test pool")&&p.entries().size()==1&&p.entries().get(0).weight()==2),"native pool Save did not persist entry and weight");
+                c.getWindow().setWindowedSize(1280,720);wait=30;step=83;}
+            case 83 -> {checkWidgets(c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"event-pools-normal.png",c.getFramebuffer(),1,ignored->{});c.getWindow().setWindowedSize(640,480);wait=30;step=84;}
+            case 84 -> {checkWidgets(c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"event-pools-compact.png",c.getFramebuffer(),1,ignored->{});mark("pool-compete","ready");step=90;}
+            case 90 -> {if(!has("pool-competitor-saved"))return;input(c.currentScreen).setText("4");press(c.currentScreen,"Save pool");wait=30;step=91;}
+            case 91 -> {require(buttons(c.currentScreen).stream().anyMatch(b->b.getMessage().getString().equals("Save pool")&&!b.active),"stale save still allows overwrite on retry");
+                require(poolWeight()==3,"stale draft overwrote another operator");press(c.currentScreen,"Back");press(c.currentScreen,"Event pools");step=92;}
+            case 92 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.EventPoolEditorScreen))return;press(c.currentScreen,"Native test pool");
+                require(buttons(c.currentScreen).stream().anyMatch(b->b.getMessage().getString().contains("seal (3)")),"reopen did not reload competing edit");
+                checks.add("two real operator editors preserve the winning save and require reopen after stale revision");press(c.currentScreen,"Delete");press(c.currentScreen,"Delete");wait=30;step=85;}
+            case 85 -> {require(!Files.readString(root.resolve("config/chronicle/event-pools.json")).contains("Native test pool"),"native pool Delete did not persist");
+                checks.add("native pool editor creates, picks an existing Event, edits weight, saves, deletes and fits normal/compact frames");press(c.currentScreen,"Back");command(c,"chronicle setup");step=86;}
+            case 86 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.CoreMenuScreen menu))return;complicationSettings=null;
+                pending=ComplicationSettingsClient.open(menu);c.setScreen(new Screen(net.minecraft.text.Text.literal("Unrelated test screen")){});c.setScreen(menu);wait=20;step=94;}
+            case 94 -> {require(c.currentScreen instanceof io.github.chronicle.core.client.CoreMenuScreen,"delayed settings opening replaced returned parent");checks.add("Council settings reply is cancelled after navigation, including return to same parent");pending=ComplicationSettingsClient.open((io.github.chronicle.core.client.CoreMenuScreen)c.currentScreen);step=87;}
+            case 87 -> {if(!(c.currentScreen instanceof ComplicationSettingsScreen))return;require(complicationSettings!=null&&complicationSettings.editable()&&!complicationSettings.started(),"settings projection unavailable");
+                var settings=complicationSettings.config();require(settings.total()==2&&settings.meetings().equals(List.of(1,2,3))&&settings.earliestTicks()==6000&&settings.latestTicks()==30000&&settings.spacingTicks()==6000,"approved defaults missing");
+                checkFrame((CouncilScreen)c.currentScreen);input(c.currentScreen).setText("0");press(c.currentScreen,"Save settings");wait=30;step=88;}
+            case 88 -> {var settings=com.google.gson.JsonParser.parseString(Files.readString(root.resolve("config/chronicle/last-council-complications.json"))).getAsJsonObject();require(settings.get("total").getAsInt()==0,"native settings Save did not persist");
+                ScreenshotRecorder.saveScreenshot(shared.toFile(),"complication-settings-compact.png",c.getFramebuffer(),1,ignored->{});press(c.currentScreen,"Timing");checkFrame((CouncilScreen)c.currentScreen);press(c.currentScreen,"Meetings");checkFrame((CouncilScreen)c.currentScreen);press(c.currentScreen,"Next >");
+                require(buttons(c.currentScreen).stream().anyMatch(b->b.getMessage().getString().contains("Meeting 9")),"meeting selector page did not move");press(c.currentScreen,"< Previous");c.getWindow().setWindowedSize(1280,720);wait=30;step=89;}
+            case 89 -> {checkFrame((CouncilScreen)c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"complication-settings-normal.png",c.getFramebuffer(),1,ignored->{});c.currentScreen.close();if(c.currentScreen!=null)c.currentScreen.close();c.getWindow().setWindowedSize(640,480);
+                checks.add("native Council settings show approved defaults, save disabled budget and page meeting choices without hidden allocation");command(c,"chronicle_pool_trial prepare");step=66;}
+            case 66 -> {if(!poolTrial("prepare"))return;command(c,"chronicle editing off");command(c,"chronicle session resume");wait=30;step=59;}
             case 59 -> { CouncilCreativeSearchProbe.begin(c);wait=30;step=60; }
-            case 60 -> { CouncilCreativeSearchProbe.finish(c);checks.add("Creative search preserves I/O/R/K and rebound input without opening menus");request(Action.STATE,0,NONE,"","");step=8; }
+            case 60 -> { CouncilCreativeSearchProbe.finish(c);checks.add("Creative search preserves I/O/R/K and rebound input without opening menus");command(c,"chronicle_pool_trial initial");step=67; }
+            case 67 -> {if(!poolTrial("initial"))return;checks.add("native Event pool dispatch pins choice, applies flags/media, and conserves archived completion");request(Action.STATE,0,NONE,"","");step=8;}
             case 8 -> { noFailure(); if (view == null) return; request(Action.CALL, view.revision(), NONE, "", ""); step = 31; }
             case 31 -> { noFailure(); if (view == null) return; request(Action.CALL, view.revision(), NONE, "", ""); step = 32; }
             case 32 -> { noFailure(); if (view == null) return; request(Action.START, view.revision(), NONE, "", ""); step = 9; }
@@ -264,12 +302,16 @@ public final class CouncilBallotsSmoke {
             case 2 -> { mark("initial-joined-" + role, "ready");
                 if (role.equals("B")) { request(Action.PREPARE, 0, UUID.randomUUID(), "Draft", "Unauthorized"); step = 3; }
                 else {pending=UUID.randomUUID();catalogue=null;ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.CataloguePayloads.Request(pending,io.github.chronicle.lastcouncil.network.CataloguePayloads.Category.SECRETS,"",0,0,0));wait=30;step=62;} }
-            case 62 -> { require(catalogue==null,"ordinary House player received source catalogue");checks.add("ordinary participant cannot fetch reusable secret catalogue");step=4; }
+            case 90 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.CoreMenuScreen))return;if(buttons(c.currentScreen).stream().noneMatch(b->b.getMessage().getString().equals("Event pools")))return;press(c.currentScreen,"Event pools");step=91;}
+            case 91 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.EventPoolEditorScreen))return;press(c.currentScreen,"Native test pool");press(c.currentScreen,"A broken royal seal (2)");input(c.currentScreen).setText("3");press(c.currentScreen,"Save pool");wait=30;step=92;}
+            case 92 -> {require(poolWeight()==3,"competing operator Save failed");c.currentScreen.close();if(c.currentScreen!=null)c.currentScreen.close();command(c,"chronicle editing off");competed=true;mark("pool-competitor-saved","ready");step=42;}
+            case 62 -> { require(catalogue==null,"ordinary House player received source catalogue");checks.add("ordinary participant cannot fetch reusable secret catalogue");pending=UUID.randomUUID();complicationSettings=null;ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.ComplicationPayloads.Request(pending,io.github.chronicle.lastcouncil.network.ComplicationPayloads.Action.OPEN,0,null,List.of(),""));wait=30;step=63; }
+            case 63 -> {require(complicationSettings==null,"ordinary player received Council configuration");checks.add("ordinary participant cannot query Council complication setup");step=4;}
             case 3 -> { if (notice == null) return; require(notice.message().contains("Chancellor"), "operator house member prepared motion");
                 request(Action.STATE, 0, NONE, "", ""); step = 51; }
             case 51 -> { if (notice == null) return; require(notice.message().contains("Chancellor"), "operator house member accessed proceedings");
                 checks.add("operator house member cannot prepare or access proceedings"); mark("initial-denied-B", "ready"); step = 42; }
-            case 42 -> { if (!has("motion-prepared")) return;
+            case 42 -> { if(role.equals("B")&&!competed&&has("pool-compete")){command(c,"chronicle editing on");command(c,"chronicle events");step=90;return;} if (!has("motion-prepared")) return;
                 c.getWindow().setWindowedSize(1280, 720);
                 c.interactionManager.interactBlock(c.player, Hand.MAIN_HAND,
                         new BlockHitResult(new Vec3d(0.5, 65.5, 4.0), Direction.NORTH, new BlockPos(0, 65, 4), false));
@@ -424,8 +466,9 @@ public final class CouncilBallotsSmoke {
             case 1 -> { if (role.equals("A") && (!has("restart-ready-B") || !has("restart-ready-C"))) return;
                 ballot = readId("ballot-id"); motion = readId("motion-id");
                 secretBallot = readId("void-id"); replacement = readId("replacement-id");
-                if (role.equals("A")) request(Action.STATE, 0, motion, "", "");
-                else request(Action.BALLOT, 0, secretBallot, "", ""); step = 2; }
+                if (role.equals("A")) {command(c,"chronicle_pool_trial restart");step=68;}
+                else {request(Action.BALLOT, 0, secretBallot, "", "");step=2;} }
+            case 68 -> {if(!poolTrial("restart"))return;checks.add("pool draw survives actual restart and original completion never replays");request(Action.STATE,0,motion,"","");step=2;}
             case 2 -> { noFailure();
                 if (role.equals("A")) { if (view == null) return;
                     require(replacement.equals(view.activeBallot()) && view.motions().stream().anyMatch(row -> row.id().equals(motion)), "open replacement or public motion missing after restart");
@@ -490,8 +533,21 @@ public final class CouncilBallotsSmoke {
         var prior=frozenSecretRosters.putIfAbsent(value.ballot().id(),value.voters());require(prior==null||prior.equals(value.voters()),"secret voter roster disclosed activity or changed");
         require(value.ballot().namedVotes().isEmpty() && value.ballot().totals().isEmpty(), "secret projection exposed aggregate or named votes");
     }
+    private int poolWeight()throws Exception {return io.github.chronicle.core.eventpool.EventPoolCatalogStore.decode(Files.readAllBytes(root.resolve("config/chronicle/event-pools.json"))).values().stream().filter(p->p.label().equals("Native test pool")).findFirst().orElseThrow().entries().get(0).weight();}
+    private boolean poolTrial(String expected)throws Exception {
+        Path path=shared.resolve("pool-trial-"+phase+".json");if(!Files.isRegularFile(path))return false;
+        var data=com.google.gson.JsonParser.parseString(Files.readString(path)).getAsJsonObject();
+        require(data.get("result").getAsString().equals("CHRONICLE_POOL_TRIAL_OK"),"native Event pool trial failed");
+        return data.get("phase").getAsString().equals(expected);
+    }
     private void finish(MinecraftClient c, String error) {
-        if (done) return; done = true;
+        if (done) return;
+        if(error==null) {
+            int expected=phase.equals("initial")&&!role.equals("A")?1:0;
+            if(poolMessages!=expected)error="Pool media was missing, leaked outside audience or replayed: "+poolMessages;
+            else checks.add("actual pool chat reaches only saved recipients once and is not replayed after restart");
+        }
+        done = true;
         try { var json = new JsonObject(); json.addProperty("result", error == null ? "PASS" : "FAIL");
             json.addProperty("detail", error == null ? "Completed" : error); json.add("checks", new Gson().toJsonTree(checks));
             Files.writeString(output, new Gson().toJson(json), StandardCharsets.UTF_8);
@@ -549,6 +605,8 @@ public final class CouncilBallotsSmoke {
                 .orElseThrow(() -> new IllegalStateException("button unavailable: " + label));
         button.onPress(new MouseInput(0, 0));
     }
+    private static net.minecraft.client.gui.widget.TextFieldWidget input(Screen screen){return screen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).findFirst().orElseThrow(()->new IllegalStateException("input field unavailable"));}
+    private static void checkWidgets(Screen screen){for(var child:screen.children())if(child instanceof net.minecraft.client.gui.widget.ClickableWidget w)require(w.getX()>=0&&w.getY()>=0&&w.getX()+w.getWidth()<=screen.width&&w.getY()+w.getHeight()<=screen.height,"widget outside screen");}
     private String worldHash(String name)throws Exception {
         return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(root.resolve("world/chronicle/last-council/"+name))));
     }

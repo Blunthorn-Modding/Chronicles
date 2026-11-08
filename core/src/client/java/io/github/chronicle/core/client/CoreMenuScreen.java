@@ -563,8 +563,9 @@ public final class CoreMenuScreen extends Screen {
 
     private void list(int x, int y, int w, int h) {
         if (state.page() == Page.EVENTS && state.picker() == null) {
-            button("Game Events", x, y, w / 2 - 2, () -> events(CoreMenuFilters.GAME_EVENTS), "Messages, sounds, game actions and composed Region changes", true);
-            button("Region Changes", x + w / 2, y, w / 2 - 2, () -> events(CoreMenuFilters.REGION_CHANGES), "Direct saved Start and End state actions", true);
+            button("Game Events", x, y, w / 3 - 2, () -> events(CoreMenuFilters.GAME_EVENTS), "Messages, sounds, game actions and composed Region changes", true);
+            button("Region Changes", x + w / 3, y, w / 3 - 2, () -> events(CoreMenuFilters.REGION_CHANGES), "Direct saved Start and End state actions", true);
+            button("Event pools", x + 2 * w / 3, y, w - 2 * w / 3, () -> EventPoolEditorClient.open(this), "Reusable weighted Event pools", true);
             y += 20; h -= 20;
         }
         if (state.page() == Page.LOCATIONS && state.picker() == null) {
@@ -1423,7 +1424,7 @@ public final class CoreMenuScreen extends Screen {
             String verb = control.input().substring("TOOL:".length());
             if (verb.isBlank()) { notice = "Game setup tool action is unavailable."; return; }
             Page page = state.page(); int index = state.index(); String filter = state.filter();
-            Runnable send = () -> request(Action.TOOL_ACTION, page, id, verb, index, filter, "", false);
+            Runnable send = () -> { if (!GameSetupClientActions.open(this, id, verb)) request(Action.TOOL_ACTION, page, id, verb, index, filter, "", false); };
             if (!control.confirm()) { send.run(); return; }
             confirmation = new Confirmation(control.label(), "Target: " + blank(state.detail().title(), id) + "\nApply this game setup tool action.", state.token(), send);
             clearAndInit();
@@ -1480,6 +1481,7 @@ public final class CoreMenuScreen extends Screen {
     }
     private void request(Action action, Page page, String id, String argument, long token, int index, String filter, String query, boolean background) {
         if (pending) return;
+        if (!background) { EventPoolEditorClient.cancel(this); GameSetupClientActions.cancel(this); }
         if (!ClientPlayNetworking.canSend(CoreMenuPayloads.Request.ID)) { notice = "Chronicle menu is unavailable; reopen it with the matching client pack."; return; }
         ClientPlayNetworking.send(new CoreMenuPayloads.Request(action, page, id, argument, token, index, filter, query));
         pending = true; refreshPending = background; requestedAction = action; pendingTicks = idleTicks = 0;
@@ -1673,6 +1675,7 @@ public final class CoreMenuScreen extends Screen {
         super.render(context, mouseX, mouseY, deltaTicks);
     }
     @Override public boolean shouldPause() { return false; }
+    @Override public void removed() { EventPoolEditorClient.cancel(this); GameSetupClientActions.cancel(this); super.removed(); }
     @Override public void close() { CoreMenuClient.remember(this); CoreMenuClient.closed(state.token()); super.close(); }
 
     private void setDebug(boolean value) {

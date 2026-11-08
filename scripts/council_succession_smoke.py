@@ -22,6 +22,12 @@ def run():
     root = fabric_smoke._stage(w)
     (root / '.council-succession-fixture').write_text('Disposable Council succession smoke\n', encoding='utf-8')
     _fixture(root)
+    # Baseline suite keeps unrelated random complications disabled; the gate suite opts in explicitly.
+    import os
+    gate_trial=os.environ.get('CHRONICLE_COMPLICATION_GATE_SMOKE')=='1'
+    configuration=root/'config/chronicle/last-council-complications.json';configuration.parent.mkdir(parents=True,exist_ok=True)
+    configuration.write_text(json.dumps({'schema':1,'poolId':'last_council:complications','total':2 if gate_trial else 0,'meetings':[1],
+                                        'earliestTicks':30000,'latestTicks':30000,'spacingTicks':0})+'\n',encoding='utf-8')
     absent=str(uuid.UUID(bytes=__import__('hashlib').md5(b'OfflinePlayer:CouncilAbsentCandidate').digest(),version=3))
     definition=json.loads((w.REPO/'campaigns/last-council/src/main/resources/data/last_council/chronicle/houses.json').read_text(encoding='utf-8'))
     first=sorted(definition['houses'].values(),key=lambda h:(h['title'],h['id']))[0]['id']
@@ -31,7 +37,7 @@ def run():
         for jar in (root / 'mods').glob(prefix + '*.jar'):
             jar.unlink()
     shutil.copy2(jars[0], root / 'mods' / jars[0].name)
-    reports = w.REPORTS / ('council-succession-' + root.name)
+    reports = w.REPORTS / (('council-complications-' if gate_trial else 'council-succession-') + root.name)
     reports.mkdir(parents=True)
     report = {'result': 'FAIL', 'world': str(root), 'checks': []}
     server = log = None
@@ -46,7 +52,7 @@ def run():
             for role, result in zip(('A', 'B', 'C', 'D'), results):
                 clients.append(fabric_smoke._client(w, launch, root, reports, 'ChronicleFabric' + role, phase + '-' + role, {
                     'CHRONICLE_SUCCESSION_SMOKE': str(result), 'CHRONICLE_SUCCESSION_ROOT': str(root),
-                    'CHRONICLE_SUCCESSION_ROLE': role, 'CHRONICLE_SUCCESSION_PHASE': phase,
+                    'CHRONICLE_SUCCESSION_ROLE': role, 'CHRONICLE_SUCCESSION_PHASE': phase,'CHRONICLE_COMPLICATION_GATE_SMOKE':'1' if gate_trial else '0',
                     'CHRONICLE_MENU_WIDTH': '640', 'CHRONICLE_MENU_HEIGHT': '480'}))
             fabric_smoke._await_clients(clients, results, timeout=240)
             for result in results:

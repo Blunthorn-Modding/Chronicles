@@ -11,6 +11,7 @@ public final class LastCouncilClient implements ClientModInitializer {
     private static boolean active,chancellor;
     @Override public void onInitializeClient(){
         CouncilCatalogueClient.register();
+        ComplicationSettingsClient.register();
         CouncilSmoke.register();
         CouncilBallotsSmoke.register();
         CouncilSuccessionSmoke.register();
