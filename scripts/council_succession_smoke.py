@@ -1,4 +1,4 @@
-"""Opt-in disposable three-client Council succession smoke; retains evidence outside world."""
+"""Opt-in disposable four-client Council succession smoke; retains evidence outside world."""
 import json
 import shutil
 import subprocess
@@ -42,8 +42,8 @@ def run():
             log = (reports / (phase + '-server.log')).open('w', encoding='utf-8')
             server = subprocess.Popen(w.server_command(), cwd=root, env=w.env(), stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             menu_smoke._wait_ready(server, reports / (phase + '-server.log'))
-            results = [reports / (phase + '-' + role + '.json') for role in ('A', 'B', 'C')]
-            for role, result in zip(('A', 'B', 'C'), results):
+            results = [reports / (phase + '-' + role + '.json') for role in ('A', 'B', 'C', 'D')]
+            for role, result in zip(('A', 'B', 'C', 'D'), results):
                 clients.append(fabric_smoke._client(w, launch, root, reports, 'ChronicleFabric' + role, phase + '-' + role, {
                     'CHRONICLE_SUCCESSION_SMOKE': str(result), 'CHRONICLE_SUCCESSION_ROOT': str(root),
                     'CHRONICLE_SUCCESSION_ROLE': role, 'CHRONICLE_SUCCESSION_PHASE': phase,

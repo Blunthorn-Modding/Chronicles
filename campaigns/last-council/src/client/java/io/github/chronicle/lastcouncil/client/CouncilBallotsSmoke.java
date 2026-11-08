@@ -52,6 +52,7 @@ public final class CouncilBallotsSmoke {
     private int step, wait, callMessages;
     private UUID pending, motion, ballot, secretMotion, secretBallot, replacement;
     private AdminView admin;
+    private io.github.chronicle.lastcouncil.network.CataloguePayloads.View catalogue;
     private CouncilPayloads.PersonalView personal;
     private View view;
     private Vote vote;
@@ -80,6 +81,7 @@ public final class CouncilBallotsSmoke {
         ClientTickEvents.END_CLIENT_TICK.register(instance::tick);
     }
     public static void admin(AdminView value) { if (instance != null && value.request().equals(instance.pending)) instance.admin = value; }
+    public static void catalogue(io.github.chronicle.lastcouncil.network.CataloguePayloads.View value) { if(instance!=null&&value.request().equals(instance.pending))instance.catalogue=value; }
     public static void personal(CouncilPayloads.PersonalView value) { if (instance != null && value.request().equals(instance.pending)) instance.personal = value; }
     public static void view(View value) { if (instance != null && value.request().equals(instance.pending)) instance.view = value; }
     public static void vote(Vote value) { if (instance != null && value.request().equals(instance.pending)) instance.vote = value; }
@@ -135,7 +137,7 @@ public final class CouncilBallotsSmoke {
                 require(admin.chancellor().equals(offline("ChronicleFabricA")), "appointment missing");
                 admin(Operation.ASSIGN, admin.revision(), offline("ChronicleFabricB"), houseB); step = 4; }
             case 4 -> { noFailure(); if (admin == null) return;
-                admin(Operation.ASSIGN, admin.revision(), offline("ChronicleFabricC"), houseC); step = 5; }
+                require(admin.players().stream().anyMatch(p->p.id().equals(offline("ChronicleFabricC"))&&p.houseId().isBlank()),"late player already assigned"); step=5; }
             case 5 -> { noFailure(); if (admin == null) return;
                 command(c, "fill -5 64 -5 5 64 5 minecraft:stone");
                 command(c, "setblock 0 65 4 minecraft:lectern");
@@ -144,7 +146,28 @@ public final class CouncilBallotsSmoke {
                 wait = 30; mark("initial-join", "ready"); step = 6; }
             case 6 -> { if (!has("initial-joined-B") || !has("initial-joined-C") || !has("initial-denied-B")) return;
                 command(c, "chronicle session start"); wait = 30; step = 7; }
-            case 7 -> { request(Action.STATE, 0, NONE, "", ""); step = 8; }
+            case 7 -> { command(c,"chronicle session pause");command(c,"chronicle editing on");wait=30;step=56; }
+            case 56 -> { admin(Operation.OPEN,0,offline("ChronicleFabricC"),"");step=57; }
+            case 57 -> { noFailure();if(admin==null)return;require(admin.committed()&&admin.lateAssignable(),"committed cast blocked late assignment");
+                for(String file:List.of("roster.json","cast.json","automatic-cast.json"))mark("base-"+file+"-hash",worldHash(file));
+                admin(Operation.ASSIGN,admin.revision(),offline("ChronicleFabricC"),houseC);step=58; }
+            case 58 -> { noFailure();if(admin==null)return;
+                require(admin.players().stream().anyMatch(p->p.id().equals(offline("ChronicleFabricC"))&&p.houseId().equals(houseC)),"late House not published");
+                for(String file:List.of("roster.json","cast.json","automatic-cast.json"))require(worldHash(file).equals(Files.readString(shared.resolve("base-"+file+"-hash")).trim()),"baseline rewritten during late assignment");
+                require(Files.isRegularFile(root.resolve("world/chronicle/last-council/house-enrollments.json")),"enrollment receipt missing");
+                checks.add("late House and new papers publish atomically without rewriting original roster/cast/receipt");
+                pending=UUID.randomUUID();catalogue=null;
+                ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.CataloguePayloads.Request(pending,io.github.chronicle.lastcouncil.network.CataloguePayloads.Category.SECRETS,"",0,0,0));step=62; }
+            case 62 -> { noFailure();if(catalogue==null)return;require(!catalogue.labels().isEmpty()&&catalogue.detail().contains("Text:"),"reusable source catalogue missing");
+                c.getWindow().setWindowedSize(1280,720);c.setScreen(new CouncilCatalogueScreen(catalogue,null));wait=30;step=63; }
+            case 63 -> { require(c.currentScreen instanceof CouncilCatalogueScreen,"catalogue screen closed");checkFrame((CouncilScreen)c.currentScreen);
+                ScreenshotRecorder.saveScreenshot(shared.toFile(),"source-catalogue-normal.png",c.getFramebuffer(),1,ignored->{});
+                c.getWindow().setWindowedSize(640,480);wait=30;step=64; }
+            case 64 -> { require(c.currentScreen instanceof CouncilCatalogueScreen,"compact catalogue screen closed");checkFrame((CouncilScreen)c.currentScreen);
+                ScreenshotRecorder.saveScreenshot(shared.toFile(),"source-catalogue-compact.png",c.getFramebuffer(),1,ignored->{});c.currentScreen.close();
+                checks.add("operator reads reusable catalogue with normal/compact native layouts");command(c,"chronicle editing off");command(c,"chronicle session resume");wait=30;step=59; }
+            case 59 -> { CouncilCreativeSearchProbe.begin(c);wait=30;step=60; }
+            case 60 -> { CouncilCreativeSearchProbe.finish(c);checks.add("Creative search preserves I/O/R/K and rebound input without opening menus");request(Action.STATE,0,NONE,"","");step=8; }
             case 8 -> { noFailure(); if (view == null) return; request(Action.CALL, view.revision(), NONE, "", ""); step = 31; }
             case 31 -> { noFailure(); if (view == null) return; request(Action.CALL, view.revision(), NONE, "", ""); step = 32; }
             case 32 -> { noFailure(); if (view == null) return; request(Action.START, view.revision(), NONE, "", ""); step = 9; }
@@ -164,13 +187,19 @@ public final class CouncilBallotsSmoke {
             case 11 -> { noFailure(); if (view == null) return; ballot = view.activeBallot();
                 require(ballot != null && !ballot.equals(NONE), "ballot missing");
                 mark("ballot-id", ballot.toString()); mark("motion-id", motion.toString());
-                mark("initial-open", "ready"); step = 12; }
+                c.setScreen(new CouncilBusinessScreen(view,null));mark("initial-open", "ready"); step = 12; }
             case 12 -> { if (!has("initial-cast-B") || !has("initial-cast-C")) return;
+                require(c.currentScreen instanceof CouncilBusinessScreen,"Chancellor progress workspace closed");
+                var live=((CouncilBusinessScreen)c.currentScreen).snapshot().progress();
+                if(live==null||live.submitted()!=2)return;
+                require(live.electorate()==2&&live.outstanding().isEmpty(),"all-submitted public progress wrong");
+                checks.add("Chancellor public completion arrives automatically without Refresh");
                 request(Action.BALLOT, 0, ballot, "", ""); step = 13; }
             case 13 -> { noFailure(); if (vote == null) return;
                 require(vote.ballot().threshold() == 2 && vote.ballot().electorateLabels().size() == 2, "fixed electorate or threshold wrong");
                 require(vote.ballot().namedVotes().size() == 2, "public named votes missing");
-                require(vote.voters().size() == 2 && vote.voters().stream().anyMatch(v -> v.player().equals(offline("ChronicleFabricB")) && v.name().equals("Envoy B"))
+                require(c.currentScreen instanceof BallotScreen&&buttons(c.currentScreen).stream().noneMatch(bu->bu.getMessage().getString().equals("Refresh")),"manual Refresh still required");
+                require(vote.voters().size() == 2 && vote.voters().stream().anyMatch(v -> v.player().equals(offline("ChronicleFabricB")) && v.name().equals("Envoy Beatrice of Ash and the Northern Road"))
                         && vote.voters().stream().anyMatch(v -> v.player().equals(offline("ChronicleFabricC")) && v.name().equals("ChronicleFabricC")), "captured public card names missing");
                 wait = 260; step = 35; }
             case 35 -> { require(c.currentScreen instanceof BallotScreen, "public ballot screen missing");
@@ -183,7 +212,12 @@ public final class CouncilBallotsSmoke {
                 require(b.status() == BallotStatus.CLOSED && b.totals().getOrDefault("yes", 0) == 1
                         && b.totals().getOrDefault("abstain", 0) == 1 && b.passedOptions().isEmpty(), "closed result wrong");
                 checks.add("two distinct house representatives cast a public ballot; fixed threshold and closed aggregate verified");
-                mark("initial-closed", "ready"); request(Action.STATE, 0, NONE, "", ""); step = 17; }
+                mark("initial-closed", "ready"); request(Action.STATE,0,motion,"","");step=61; }
+            case 61 -> { noFailure();if(view==null)return;require(view.detail()!=null&&view.detail().attempts().size()==1,"public motion history missing");
+                var old=view.detail().attempts().getFirst();require(old.ballot().namedVotes().size()==2&&old.voters().stream().anyMatch(v->v.name().equals("Envoy Beatrice of Ash and the Northern Road")),"history lost frozen public names/choices");
+                checks.add("selected public motion exposes its actual immutable named attempt history");c.getWindow().setWindowedSize(1280,720);c.setScreen(new CouncilBusinessScreen(view,null));wait=30;step=65; }
+            case 65 -> { require(c.currentScreen instanceof CouncilBusinessScreen,"history detail closed");checkFrame((CouncilScreen)c.currentScreen);
+                ScreenshotRecorder.saveScreenshot(shared.toFile(),"public-motion-history.png",c.getFramebuffer(),1,ignored->{});c.currentScreen.close();request(Action.STATE,0,NONE,"","");step=17; }
             case 17 -> { noFailure(); if (view == null || !has("inventory-ready-B")) return; secretMotion = UUID.randomUUID();
                 requestSecret(Action.PREPARE, view.revision(), secretMotion, "Secret draft", "Secret Council test"); step = 18; }
             case 18 -> { noFailure(); if (view == null) return;
@@ -229,7 +263,8 @@ public final class CouncilBallotsSmoke {
                 command(c, "chronicle players join"); wait = 30; step = 2; }
             case 2 -> { mark("initial-joined-" + role, "ready");
                 if (role.equals("B")) { request(Action.PREPARE, 0, UUID.randomUUID(), "Draft", "Unauthorized"); step = 3; }
-                else step = 4; }
+                else {pending=UUID.randomUUID();catalogue=null;ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.CataloguePayloads.Request(pending,io.github.chronicle.lastcouncil.network.CataloguePayloads.Category.SECRETS,"",0,0,0));wait=30;step=62;} }
+            case 62 -> { require(catalogue==null,"ordinary House player received source catalogue");checks.add("ordinary participant cannot fetch reusable secret catalogue");step=4; }
             case 3 -> { if (notice == null) return; require(notice.message().contains("Chancellor"), "operator house member prepared motion");
                 request(Action.STATE, 0, NONE, "", ""); step = 51; }
             case 51 -> { if (notice == null) return; require(notice.message().contains("Chancellor"), "operator house member accessed proceedings");
@@ -272,9 +307,9 @@ public final class CouncilBallotsSmoke {
                 press(screen, "Edit character card\u2026"); step = 53; }
             case 53 -> { if (!(c.currentScreen instanceof DossierScreen editor)) return;
                 var fields = editor.children().stream().filter(TextFieldWidget.class::isInstance).map(TextFieldWidget.class::cast).toList();
-                require(fields.size() == 3, "character card fields missing"); fields.get(0).setText("Envoy B"); press(editor, "Save"); step = 54; }
+                require(fields.size() == 3, "character card fields missing"); fields.get(0).setText("Envoy Beatrice of Ash and the Northern Road"); press(editor, "Save"); step = 54; }
             case 54 -> { if (!(c.currentScreen instanceof DossierScreen editor) || !editor.snapshot().saved()
-                        || !editor.snapshot().name().equals("Envoy B")) return;
+                        || !editor.snapshot().name().equals("Envoy Beatrice of Ash and the Northern Road")) return;
                 press(editor, "Done"); step = 55; }
             case 55 -> { if (!(c.currentScreen instanceof PersonalScreen)) return;
                 c.currentScreen.close(); checks.add("lectern and public house directory show visible lists; public character name saved");
@@ -436,6 +471,8 @@ public final class CouncilBallotsSmoke {
                 checkProceedingsLayout((CouncilBusinessScreen)c.currentScreen);
                 ScreenshotRecorder.saveScreenshot(shared.toFile(), "proceedings-compact.png", c.getFramebuffer(), 1, ignored -> {});
                 checks.add("rebound proceedings key opened away from lectern; normal and compact frames captured");
+                for(String file:List.of("roster.json","cast.json","automatic-cast.json"))require(worldHash(file).equals(Files.readString(shared.resolve("base-"+file+"-hash")).trim()),"baseline changed after restart");
+                checks.add("late enrollment remains valid through voting and actual restart; original private files unchanged");
                 mark("restart-complete", "ready"); finish(c, null); }
             case 9 -> { if (!has("restart-complete")) return;
                 require(callMessages == 0, "Council call replayed on restart");
@@ -491,7 +528,16 @@ public final class CouncilBallotsSmoke {
     }
     private static void checkProceedingsLayout(CouncilBusinessScreen screen) {
         var buttons = screen.children().stream().filter(ButtonWidget.class::isInstance).map(ButtonWidget.class::cast).toList();
-        require(buttons.stream().anyMatch(b -> b.getMessage().getString().equals("Motions")), "proceedings navigation missing");
+        if(screen.panelWidth<380) {
+            // Compact navigation is paged in-place, rather than seven overlapping rows.
+            for(int i=0;i<3;i++) {
+                var next=buttons(screen).stream().filter(b->b.active&&b.getMessage().getString().equals(">"))
+                    .min(Comparator.comparingInt(ButtonWidget::getY)).orElseThrow(()->new IllegalStateException("compact navigation unavailable"));
+                next.onPress(new MouseInput(0,0));
+            }
+            require(buttons(screen).stream().anyMatch(b->b.getMessage().getString().equals("Motions")),"compact Motions navigation unreachable");
+            buttons=buttons(screen);
+        } else require(buttons.stream().anyMatch(b -> b.getMessage().getString().equals("Motions")), "proceedings navigation missing");
         require(buttons.stream().noneMatch(b -> b.getMessage().getString().equals("Choose motion")), "motion picker remains");
         for (var b : buttons) require(b.getX() >= screen.left && b.getY() >= screen.top
                 && b.getX() + b.getWidth() <= screen.left + screen.panelWidth
@@ -502,6 +548,9 @@ public final class CouncilBallotsSmoke {
                 .filter(value -> value.active && value.getMessage().getString().equals(label)).findFirst()
                 .orElseThrow(() -> new IllegalStateException("button unavailable: " + label));
         button.onPress(new MouseInput(0, 0));
+    }
+    private String worldHash(String name)throws Exception {
+        return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(root.resolve("world/chronicle/last-council/"+name))));
     }
     private static void require(boolean condition, String message) { if (!condition) throw new IllegalStateException(message); }
 }

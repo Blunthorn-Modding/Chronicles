@@ -36,6 +36,7 @@ public final class ProceedingsService {
     }
     public ProceedingsState state() { return state; }
     public BallotView view(UUID ballot, UUID viewer) { return ballots.view(ballot,viewer); }
+    public int submissionCount(UUID ballot) { return ballots.submissionCount(ballot); }
     public void revision(long expected) {
         if(expected!=state.revision())throw new IllegalStateException("Council business changed. Review the current screen.");
     }
@@ -133,12 +134,16 @@ public final class ProceedingsService {
         if(state.phase()!=Phase.DISCUSSION||!region.id().equals(state.votingRegion()))
             throw new IllegalStateException("Open discussion in the configured voting Region first.");
         if(!pendingMotions().isEmpty())throw new IllegalStateException("Vote on or defer every pending motion before requesting regency.");
-        // The scenario's complication integration owns this gate, never a client flag.
-        progression.beforeRegency(state.meeting());
         Set<String> slate=state.succession().started()?state.succession().remaining():Set.copyOf(configuredCandidates.keySet());
+        if(state.succession().started()&&!configuredCandidates.keySet().containsAll(slate)) {
+            var missing=new TreeSet<>(slate);missing.removeAll(configuredCandidates.keySet());
+            throw new IllegalStateException("All remaining candidates must be present: "+String.join(", ",missing));
+        }
         if(!state.succession().started()&&slate.size()<2)throw new IllegalStateException("Choose at least two initial crown candidates.");
         if(slate.isEmpty())throw new IllegalStateException("No crown candidates remain.");
         if(slate.size()>15)throw new IllegalStateException("A regency ballot supports at most fifteen candidates.");
+        // Validate presence before any complication gate or durable operation.
+        progression.beforeRegency(state.meeting());
         UUID id=UUID.randomUUID(),motionId=UUID.randomUUID();
         SuccessionState election=state.succession().open(id,state.meeting(),slate);
         List<BallotOption> options=new ArrayList<>();

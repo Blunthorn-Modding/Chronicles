@@ -1,0 +1,21 @@
+{
+  "project": "qANg5Jrr",
+  "versionId": "8wsUJ306",
+  "version": "6.2.3-fabric",
+  "minecraft": "1.21.10",
+  "loader": "fabric",
+  "license": "MIT",
+  "licenseSHA256": "58f1e9e7dd13004691f8ebe6b89d50449c562fca3a917012a55d9d9872600962",
+  "file": {
+    "id": "ICWvLlQ7",
+    "hashes": {
+      "sha1": "5420209f8560df548625f1defc24ebb94682f0fd",
+      "sha512": "de52773df77c5653500b139781173386e4e779bcfae79a91c93e4c3cd31ba412c3b1110360701efa6433733a6f6cf7738c11cbdafc88fccad786ef7412eabf1a"
+    },
+    "url": "https://cdn.modrinth.com/data/qANg5Jrr/versions/8wsUJ306/e4mc-fabric-6.2.3.jar",
+    "filename": "e4mc-fabric-6.2.3.jar",
+    "primary": true,
+    "size": 663705,
+    "file_type": null
+  }
+}

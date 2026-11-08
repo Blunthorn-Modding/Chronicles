@@ -1,6 +1,7 @@
 package io.github.chronicle.lastcouncil.client;
 
 import io.github.chronicle.core.client.ChronicleCoreClient;
+import io.github.chronicle.core.client.TextInputGuard;
 import io.github.chronicle.lastcouncil.network.CouncilPayloads;
 import io.github.chronicle.lastcouncil.network.ProceedingsPayloads.*;
 import java.util.*;
@@ -34,7 +35,7 @@ final class ProceedingsAccess {
     }
     private static boolean open(MinecraftClient client) {
         if(enabled==null||!enabled.getAsBoolean()||client.player==null||cooldown>0||!ClientPlayNetworking.canSend(Request.ID))return false;
-        if(client.currentScreen instanceof ConfirmScreen||BallotAccess.editingText(client.currentScreen))return false;
+        if(client.currentScreen instanceof ConfirmScreen||TextInputGuard.editingText(client.currentScreen))return false;
         if(client.currentScreen instanceof HandledScreen<?> container){container.close();if(client.currentScreen!=null)return true;}
         UUID id=UUID.randomUUID();expectOpening(id,client.currentScreen);cooldown=10;
         ClientPlayNetworking.send(new Request(id,Action.STATE,0,CouncilPayloads.NONE,"open","","",false,false));return true;

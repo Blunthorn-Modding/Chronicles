@@ -23,7 +23,7 @@ public final class AuthoringUiClient {
 
     private static void tick(MinecraftClient client) {
         while (OPEN_KEY.wasPressed()) {
-            if (client.player == null) return;
+            if (client.player == null || TextInputGuard.editingText(client.currentScreen)) continue;
             if (ClientPlayNetworking.canSend(io.github.chronicle.core.network.CoreMenuPayloads.Request.ID)) {
                 ClientPlayNetworking.send(new io.github.chronicle.core.network.CoreMenuPayloads.Request(
                         io.github.chronicle.core.menu.CoreMenuModel.Action.REOPEN,

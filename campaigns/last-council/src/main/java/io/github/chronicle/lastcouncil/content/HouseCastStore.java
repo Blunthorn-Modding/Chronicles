@@ -27,7 +27,7 @@ public final class HouseCastStore {
         if (!decode(bytes).equals(cast)) throw new IOException("cast serialization failed validation");
         file.save(bytes);
     }
-    private static byte[] encode(HouseCast cast) {
+    static byte[] encode(HouseCast cast) {
         JsonObject root = new JsonObject(); root.addProperty("schema",1); root.addProperty("castId", cast.castId().toString()); root.addProperty("rosterRevision",cast.rosterRevision()); root.addProperty("seed",cast.seed());
         JsonObject papers = new JsonObject();
         cast.papers().entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> {
@@ -37,7 +37,7 @@ public final class HouseCastStore {
         }); root.add("papers",papers); return root.toString().getBytes(StandardCharsets.UTF_8);
     }
     private static JsonArray strings(List<String> list) { JsonArray a = new JsonArray(); list.forEach(a::add); return a; }
-    private static HouseCast decode(byte[] bytes) throws IOException {
+    static HouseCast decode(byte[] bytes) throws IOException {
         try {
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
             JsonObject root = BookConfig.strictObject(text); exact(root,"schema","castId","rosterRevision","seed","papers");

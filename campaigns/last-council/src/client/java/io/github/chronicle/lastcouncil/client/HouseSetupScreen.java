@@ -32,14 +32,17 @@ public final class HouseSetupScreen extends CouncilScreen {
         if(tab==0){
             var house=view.houses().stream().filter(h->h.id().equals(houseId)).findFirst().orElse(null);
             boolean officeHolder=view.target().equals(view.chancellor());
-            var selectHouse=button(house==null?"Choose house...":house.title()+"...",x,y,w,()->choose("Choose house",view.houses().stream().filter(h->view.players().stream().noneMatch(p->!p.id().equals(view.target())&&p.houseId().equals(h.id()))).map(h->new Choice(h.id(),h.title())).toList(),id->{houseId=id;candidate=view.houses().stream().anyMatch(h->h.id().equals(id)&&h.defaultCandidate());}));
-            selectHouse.active=view.editable()&&!officeHolder;
+            var selectHouse=button(house==null?"Choose house...":house.title()+"...",x,y,w,()->choose("Choose house",view.houses().stream().filter(h->view.players().stream().noneMatch(p->!p.id().equals(view.target())&&p.houseId().equals(h.id()))).map(h->new Choice(h.id(),h.title())).toList(),id->{houseId=id;candidate=(view.editable()||(view.lateAssignable()&&!view.electionStarted()))&&view.houses().stream().anyMatch(h->h.id().equals(id)&&h.defaultCandidate());}));
+            selectHouse.active=(view.editable()||view.lateAssignable())&&!officeHolder;
             if(officeHolder)selectHouse.setTooltip(Tooltip.of(Text.literal("The Chancellor cannot also represent a house.")));
-            y+=24;button("Crown candidate: "+(candidate?"Yes":"No"),x,y,w,()->{candidate=!candidate;clearAndInit();}).active=view.editable()&&!officeHolder;
+            y+=24;button("Crown candidate: "+(candidate?"Yes":"No"),x,y,w,()->{candidate=!candidate;clearAndInit();}).active=(view.editable()||(view.lateAssignable()&&!view.electionStarted()))&&!officeHolder;
             y+=24;int half=(w-4)/2;
-            button("Save assignment",x,y,half,()->send(Operation.ASSIGN)).active=view.editable()&&!officeHolder&&!houseId.isBlank();
+            button(view.lateAssignable()?"Assign late...":"Save assignment",x,y,half,()->{
+                if(view.lateAssignable())confirm("Assign late?", "Assign "+(selected==null?"selected person":selected.label())+" to "+(house==null?houseId:house.title())+"? Existing papers and past ballots are preserved.",()->send(Operation.ASSIGN));
+                else send(Operation.ASSIGN);
+            }).active=(view.editable()||view.lateAssignable())&&!officeHolder&&!houseId.isBlank();
             button("Remove assignment",x+half+4,y,half,()->send(Operation.UNASSIGN)).active=view.editable()&&selected!=null&&!selected.houseId().isBlank();
-            y+=27;if(y<top+panelHeight-27)body(view.reason().isBlank()?"House papers issue automatically when play first starts.":view.reason(),x,y,w,top+panelHeight-27-y);
+            y+=27;if(y<top+panelHeight-27)body(view.lateAssignable()?"Add this character to an unused House. Existing papers and past ballots remain unchanged.":!view.assignmentReason().isBlank()?view.assignmentReason():view.reason().isBlank()?"House papers issue automatically when play first starts.":view.reason(),x,y,w,top+panelHeight-27-y);
         }else if(tab==1){
             String name=view.players().stream().filter(p->p.id().equals(view.chancellor())).map(Player::label).findFirst().orElse(view.chancellor().equals(CouncilPayloads.NONE)?"Not assigned":"Appointed person (offline)");
             int bottom=top+panelHeight-44;

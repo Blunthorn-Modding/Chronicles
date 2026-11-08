@@ -33,6 +33,13 @@ def run():
     root = fabric_smoke._stage(w)
     (root / '.council-ballots-fixture').write_text('Disposable Council ballot smoke\n', encoding='utf-8')
     _fixture(root)
+    # Keep one inert House so the first player's templates can refer to another
+    # House before the real third client is deliberately enrolled late.
+    import uuid
+    content=json.loads((w.REPO/'campaigns/last-council/src/main/resources/data/last_council/chronicle/houses.json').read_text(encoding='utf-8'))
+    last=sorted(content['houses'].values(),key=lambda h:(h['title'],h['id']))[-1]['id']
+    placeholder=str(uuid.uuid5(uuid.NAMESPACE_URL,'chronicle:ballots-paper-placeholder'))
+    (root/'world/chronicle/last-council/roster.json').write_text(json.dumps({'schema':1,'revision':1,'assignments':{placeholder:{'owner':placeholder,'houseId':last,'councilMember':True,'candidate':False}}})+'\n',encoding='utf-8')
     for prefix in ('quiet_below-', 'last_council-'):
         for jar in (root / 'mods').glob(prefix + '*.jar'):
             jar.unlink()

@@ -1,28 +1,23 @@
-# Council review - development build0.2.0-dev.4
+# Council review ? development build 0.2.0-dev.5
 
-One local authenticated server: `127.0.0.1:25589`. Import `../client/Chronicle-Last-Council-0.2.0-dev.4.mrpack` as a new client profile. It contains Core + Last Council, Fabric API and Simple Voice Chat, with GUI scale2/narrator disabled. The running review is added to the Multiplayer presets. This is a disposable flat platform, not a production map.
+Use a fresh import of the matching **e4mc Host** and **Player** packs in `../client`. The Host pack contains a clean review world; the Player pack joins it. Only one person opens the bundled world. Open to LAN with commands disabled for guests and share the e4mc address. Voice chat is omitted. The dedicated authenticated alternative remains `127.0.0.1:25589` with its matching plain review pack.
 
-SchinderRenge is whitelisted/operator and explicitly appointed Chancellor, with no house assignment. Two offline placeholder houses allow a useful candidate slate but never vote. Review voting with a different person playing a house, as requested. Operators are allowed to play houses when they are not Chancellor. Only the appointed Chancellor can open proceedings; the motion lectern never contains procedural controls.
+SchinderRenge is preset as Chancellor, without a House. Operators may otherwise play a House; only the appointed Chancellor controls proceedings. The old world in your existing launcher profile is not overwritten. To retain that played world, update **both** Core and Last Council to matching dev.5 jars after closing Minecraft, removing their older versions first. Back up that profile before testing a development update.
 
-## Start
+## Setup
 
-1. Add your reviewer with `/whitelist add TheirMinecraftName` if needed. This local server binds to127.0.0.1; remote access is not configured.
-2. Pause play and enable Editing. In **Players > House & papers > House**, give that person an unoccupied house and, if wanted, candidacy. The Chancellor is configured separately on the **Chancellor** tab; assigning both roles is refused.
-3. Stand near the lectern at0,65,4. The Council Region is the central 11x11 area (x/z-5..5). Your house player joins participation and turns Editing off. Start the first play session; secrets, house goals and known other-house secrets issue automatically and survive restart.
-4. The Chancellor opens proceedings with **I** (rebindable Open council proceedings) or `/chronicle council proceedings`. **Call meeting** sounds the bell; **Open meeting** begins political discussion. These do not create a new Chronicle session.
+1. Pause play, enable Editing, then use **Players > House & papers** to assign an unused House to each online reviewer. Existing committed papers now permit adding a previously unassigned character without changing anyone else's papers. Existing assignments cannot be reassigned. After Regency starts, late entrants may be voters but cannot become new crown candidates.
+2. Each House player joins participation with `/chronicle players join`. Creative is allowed. Turn Editing off and start/resume play. First play issues papers automatically. The Chancellor cannot also represent a House.
+3. Voters stand inside the central Council Region: x/z -5..5, y 64..80. The motion lectern is at 0,65,4. I opens Chancellor proceedings; R opens the current ballot; both are rebindable.
 
-## Review together
+## Bundled review
 
-- The lectern shows a visible motion list and separate description/details; it has only player proposal/sponsorship/withdrawal actions. The Chancellor uses the proceedings sidebar and its Motions workspace. Choose one of the two prepared motions, open its vote and the house player uses **R** (rebindable Open current ballot in Controls) or `/chronicle council vote`. Dismissing never abstains. Confirm a choice; it becomes final. Return to proceedings and close the ballot. The public motion can show named choices; the secret one shows aggregate totals only after closing.
-- Try **Void ballot** before closing, supply a reason, and open a new replacement. The old ID/reason/own choice remain in Recorded ballots. A finalized result cannot be voided.
-- Before **Regency** unlocks, every pending ordinary motion needs a completed ballot or an explicit deferral. Deferring clears it for that meeting; it returns next meeting. A void leaves an ordinary motion unresolved. Request a **regency vote**. It is always secret. To inspect elimination, close the first completed regency without casting: no candidate has a majority, so exactly one is eliminated by the announced tied-last draw. Another completed regency needs **Close meeting > Open meeting**. Resolve any returned deferred motions, then let the house player choose a remaining candidate and close. With one actual house voter present, one vote is a majority; offline placeholders never increase N. Ordinary meetings still work afterward.
-- A technical regency void can be replaced in the **same** meeting, using a new ID/electorate but the same candidate slate. It does not consume the meeting's completed-regency slot.
-- Ballot heads use public character-card names. Public Yes/No/Abstain outlines are green/red/amber; secret heads always remain neutral and expose no turnout. Read the result and archive wording, check the compact layout, and try opening a ballot from an inventory or a nested draft. Notifications should not replace the current screen; the hotkey should preserve an unsent editor draft and ignore text entry/confirmation dialogs.
+- Add a late player after the first session has issued papers. Confirm that original papers remain unchanged and that the new player receives theirs, including after reconnect.
+- Open the public motion. Heads are centered and full public character names wrap. The question, proposal and separate labeled fields use the same presentation at the lectern and in proceedings. Scroll for additional fields. Confirm a choice: it is final. No Refresh button is needed.
+- Keep proceedings open while others vote. Progress updates automatically against the captured electorate; abstention counts as submitted. It never closes voting automatically. Secret ballots show the Chancellor only an anonymous submitted count; ordinary players see no secret turnout or individual choices.
+- Close a public ballot and read its actual recorded attempt, named choices and result from the motion detail. Void an open attempt with a public reason and check that its replacement remains a separate attempt. Secret attempts never reveal named choices; closed secret results show totals only.
+- Regency requires at least two real, eligible candidate characters present when its first ballot opens. Offline review placeholders are omitted. It retains absolute majority. Before a later round, move a remaining candidate outside the Region: opening must wait until they return, retaining the slate. A technical void still allows a replacement in the same meeting. Resolve or defer ordinary motions first.
+- In Creative item search type I, O, R and K, including a rebound Council key. The query and inventory must remain intact. Outside text entry the keys should work normally.
+- As operator, open **Advanced > Game setup > Source catalogue** to inspect reusable House definitions, secret/goal templates, fact defaults and knowledge rules. This first catalogue is read-only; it does not expose the live draw or which characters know whose secrets.
 
-The physical motion lectern supports proposing/sponsoring, but a real second house is needed to review another-house sponsorship. Building/paused interaction behavior stays Core-owned.
-
-## This gate
-
-Please review the small proceedings/ballot screens and constitutional result wording before rebellion starts depending on these outcomes. Actual random complication pools/timing/recess, withdrawal/reset/unfinished-ending controls, schedule-capacity warnings and physical house-paper delivery are still pending. The tested progression hook is not the actual LC08 integration. There is no hidden-complication surprise in this review build yet.
-
-`python scripts/council_review.py start` restarts this exact review after a saving stop. Its current path is in `../reports/council-review-latest.json`. Enter `stop` in its console for a saving shutdown. Do not manually delete files while it runs. Successful test worlds are cleaned after evidence is retained; this one review world remains for your inspection.
+The next gate is the human multiplayer/layout review. Reusable pool editing/export and physical handout delivery, rebellion, treaties, banquet and random complications remain separate work packages. This build does not claim their completion. Verification evidence is in [GROUP_REVIEW_VERIFICATION.md](GROUP_REVIEW_VERIFICATION.md).

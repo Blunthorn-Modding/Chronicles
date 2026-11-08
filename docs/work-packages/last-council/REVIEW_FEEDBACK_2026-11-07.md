@@ -196,3 +196,8 @@ candidate handling without silent elimination, shared formatting with irrelevant
 sections omitted, automatic Chancellor progress against the frozen electorate
 (including Chancellor-only anonymous secret counts and no per-person leakage), and typing I/O/rebound letters in
 Creative search without opening or closing another screen.
+
+
+## 8 November decisions and implementation
+
+The owner authorized implementation. Regency retains its absolute-majority rule. Its initial choices are present eligible candidate characters; subsequent ballots wait until all remaining candidates are present, preserving the committed slate. The source catalogue is a read-only first slice, distinct from the planned reusable pool authoring/export work. See [native design](UI_GROUP_REVIEW_DESIGN.md) and [implementation evidence](GROUP_REVIEW_VERIFICATION.md). Original review observations above remain historical context.

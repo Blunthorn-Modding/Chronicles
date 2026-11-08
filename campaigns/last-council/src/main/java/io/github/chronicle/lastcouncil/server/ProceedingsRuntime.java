@@ -55,7 +55,7 @@ public final class ProceedingsRuntime {
         ServerPlayConnectionEvents.JOIN.register((handler,sender,server)-> {
             Runtime r=WORLDS.get(server);if(r!=null&&(captured(r,handler.player)||chancellor(handler.player)))signal(handler.player,r.service.state().activeBallot(),r);
         });
-        ServerDisconnects.register((handler,server)->{Runtime r=WORLDS.get(server);if(r!=null){UUID id=handler.player.getUuid();r.readers.remove(id);r.gm.remove(id);r.voters.remove(id);r.sentVotes.remove(id);r.limits.remove(id);r.selected.remove(id);}});
+        ServerDisconnects.register((handler,server)->{Runtime r=WORLDS.get(server);if(r!=null){UUID id=handler.player.getUuid();r.readers.remove(id);r.gm.remove(id);r.sentProgress.remove(id);r.voters.remove(id);r.sentVotes.remove(id);r.limits.remove(id);r.selected.remove(id);r.historyPages.remove(id);}});
         ServerPlayNetworking.registerGlobalReceiver(Request.ID,(request,context)->context.server().execute(()->request(context.player(),request)));
         UseBlockCallback.EVENT.register((player,world,hand,hit)->{
             if(hand!=Hand.MAIN_HAND||!(world instanceof ServerWorld w)||!(player instanceof ServerPlayerEntity actor))return ActionResult.PASS;
@@ -122,7 +122,7 @@ public final class ProceedingsRuntime {
     private static void request(ServerPlayerEntity player,Request q) {
         try {
             Runtime r=runtime(player);if(!rate(r,player))return;
-            if(q.action()==Action.EXIT){if(q.site().equals("vote")){r.voters.remove(player.getUuid());r.sentVotes.remove(player.getUuid());}else if(q.site().equals("motions"))r.readers.remove(player.getUuid());else r.gm.remove(player.getUuid());return;}
+            if(q.action()==Action.EXIT){if(q.site().equals("vote")){r.voters.remove(player.getUuid());r.sentVotes.remove(player.getUuid());}else if(q.site().equals("motions"))r.readers.remove(player.getUuid());else {r.gm.remove(player.getUuid());r.sentProgress.remove(player.getUuid());}return;}
             if(q.action()==Action.BALLOT){UUID id=q.reference().equals(CouncilPayloads.NONE)?r.service.state().activeBallot():q.reference();if(id==null)throw new IllegalStateException("No ballot is open.");sendVote(player,r,q.request(),id,!q.site().equals("vote"));return;}
             if(q.action()==Action.CAST) {
                 String refusal=voteRefusal(player,r,q.reference());if(!refusal.isBlank())throw new IllegalStateException(refusal);
@@ -130,8 +130,7 @@ public final class ProceedingsRuntime {
             }
             boolean host=q.action()!=Action.MOTIONS&&q.action()!=Action.PROPOSE&&q.action()!=Action.SPONSOR&&q.action()!=Action.WITHDRAW;
             if(host){if(!chancellor(player))throw new IllegalStateException("Only the Chancellor controls proceedings.");}else requireLectern(player,r,q.site());
-            if(q.action()==Action.STATE){r.gm.add(player.getUuid());sendView(player,r,q.request(),q.site().equals("open"),Mode.PROCEEDINGS,none(q.reference()),"");return;}
-            if(q.action()==Action.MOTIONS){sendView(player,r,q.request(),false,Mode.MOTIONS,none(q.reference()),"");return;}
+            if(q.action()==Action.STATE||q.action()==Action.MOTIONS){UUID selection=none(q.reference());r.historyPages.put(player.getUuid(),Objects.equals(selection,r.selected.get(player.getUuid()))?q.historyPage():0);if(q.action()==Action.STATE)r.gm.add(player.getUuid());sendView(player,r,q.request(),q.site().equals("open")&&q.action()==Action.STATE,q.action()==Action.STATE?Mode.PROCEEDINGS:Mode.MOTIONS,selection,"");return;}
             if(q.action()==Action.RECOVER) {
                 // Metadata-only completion of the exact saved intent; no fresh electorate or world effects.
                 recoverAndNotify(player.getEntityWorld().getServer(),r);reconcileCalls(player.getEntityWorld().getServer(),r);r.failed=false;RuntimeHolds.release(player.getEntityWorld().getServer(),HOLD);
@@ -163,15 +162,17 @@ public final class ProceedingsRuntime {
                 case FINISH -> {r.service.closeMeeting();message="Meeting closed. Roleplay continues.";}
                 case OPEN_BALLOT,OPEN_REGENCY -> {
                     AuthoringSite.Region region=votingRegion(player.getEntityWorld().getServer(),r);
-                    Map<String,BallotElector> electorate=new LinkedHashMap<>();
-                    for(ServerPlayerEntity voter:PlayRuntime.eligiblePlayers(player.getEntityWorld().getServer())) {
-                        HouseAssignment a=CouncilRuntime.roster(player.getEntityWorld().getServer()).assignments().get(voter.getUuid());
-                        if(a!=null&&a.councilMember()&&!chancellor(voter)&&inside(voter,region))electorate.put(a.houseId(),new BallotElector(voter.getUuid(),Profiles.publicCard(player.getEntityWorld().getServer(),voter.getUuid(),voter.getName().getString()).name()));
+                    Map<String,BallotElector> electorate=electorate(player.getEntityWorld().getServer(),region);
+                    if(electorate.isEmpty())throw new IllegalStateException(emptyElectorateReason(player.getEntityWorld().getServer(),region));
+                    Map<String,String> presentCandidates=presentCandidates(player.getEntityWorld().getServer(),electorate,r.service.state().succession());
+                    if(q.action()==Action.OPEN_REGENCY&&r.service.state().succession().started()) {
+                        var missing=new TreeSet<>(r.service.state().succession().remaining());missing.removeAll(presentCandidates.keySet());
+                        if(!missing.isEmpty())throw new IllegalStateException("All remaining candidates must be present: "+String.join(", ",missing.stream().map(id->candidateLabel(player.getEntityWorld().getServer(),id)).toList()));
                     }
-                    if(electorate.isEmpty())throw new IllegalStateException("No eligible representatives are inside the voting Region. No ballot was opened.");
-                    Ballot b=q.action()==Action.OPEN_REGENCY?r.service.openRegency(player.getUuid(),region,electorate,candidates(player.getEntityWorld().getServer()))
+                    Ballot b=q.action()==Action.OPEN_REGENCY?r.service.openRegency(player.getUuid(),region,electorate,presentCandidates)
                             :r.service.open(q.reference(),player.getUuid(),region,electorate);
                     signalOpen(player.getEntityWorld().getServer(),r,b.definition().id());
+                    r.historyPages.put(player.getUuid(),0);
                     message="Ballot opened. Its electorate is fixed.";
                 }
                 case CLOSE_BALLOT -> {r.service.close(q.reference(),player.getUuid());announce(player.getEntityWorld().getServer(),r,q.reference());message="Ballot recorded.";selected=null;}
@@ -257,31 +258,56 @@ public final class ProceedingsRuntime {
         MinecraftServer server=p.getEntityWorld().getServer();boolean gm=chancellor(p);
         if(!ServerPlayNetworking.canSend(p,View.ID))throw new IllegalStateException("Install the matching Last Council client to read Council business.");
         if(mode==Mode.PROCEEDINGS&&!gm)throw new IllegalStateException("Only the Chancellor controls proceedings.");
-        var state=r.service.state();var all=state.motions().values().stream().filter(m->state.succession().rounds().keySet().stream().noneMatch(id->state.attempts().get(id).motion().equals(m.id()))).sorted(Comparator.comparing(Motion::title).thenComparing(Motion::id)).toList();
+        var state=r.service.state();var all=state.motions().values().stream().filter(m->state.activeBallot()!=null&&state.attempts().get(state.activeBallot()).motion().equals(m.id())||state.succession().rounds().keySet().stream().noneMatch(id->state.attempts().get(id).motion().equals(m.id()))).sorted(Comparator.comparing(Motion::title).thenComparing(Motion::id)).toList();
         List<Row> rows=all.stream().map(m->new Row(m.id(),shortLabel(m.title(),48),(r.service.deferredThisMeeting(m.id())?"DEFERRED":m.status().name()),m.hostPrepared()?"Chancellor":shortLabel(house(server,m.proposerHouse()),24),m.ready(1))).toList();
         if(mode==Mode.PROCEEDINGS&&state.activeBallot()!=null)selected=state.attempts().get(state.activeBallot()).motion();
+        if(!Objects.equals(selected,r.selected.get(p.getUuid())))r.historyPages.put(p.getUuid(),0);
         Motion motion=selected==null?null:state.motions().get(selected);Detail detail=null;
         HouseAssignment own=CouncilRuntime.roster(server).assignments().get(p.getUuid());boolean eligible=PlayRuntime.eligiblePlayers(server).contains(p)&&playing(server);
         if(motion!=null){
             boolean deferred=r.service.deferredThisMeeting(motion.id());boolean awaiting=motion.status()==MotionStatus.SUBMITTED&&!deferred;boolean seated=own!=null&&own.councilMember();
+            int pages=(motion.ballots().size()+3)/4;int page=pages==0?0:Math.min(r.historyPages.getOrDefault(p.getUuid(),0),pages-1);r.historyPages.put(p.getUuid(),page);
             detail=new Detail(motion.id(),motion.title(),motion.text(),motion.hostPrepared()?"Chancellor":house(server,motion.proposerHouse()),deferred?"DEFERRED":motion.status().name(),motion.visibility().name(),motion.threshold().name(),
                     motion.sponsors().stream().map(id->house(server,id)).sorted().toList(),motion.notes(),
                     seated&&eligible&&awaiting&&!motion.proposerHouse().equals(own.houseId())&&!motion.sponsors().contains(own.houseId()),
                     seated&&eligible&&motion.ballots().isEmpty()&&motion.status()!=MotionStatus.WITHDRAWN&&motion.proposerHouse().equals(own.houseId()),
                     gm&&playing(server)&&awaiting&&motion.ready(1),gm&&playing(server)&&state.phase()==Phase.DISCUSSION&&state.activeBallot()==null&&!deferred&&motion.status()==MotionStatus.AGENDA,
                     gm&&playing(server)&&state.activeBallot()==null&&!deferred&&(state.phase()==Phase.DISCUSSION||state.phase()==Phase.RECESS)
-                        &&(motion.status()==MotionStatus.SUBMITTED||motion.status()==MotionStatus.AGENDA));
+                        &&(motion.status()==MotionStatus.SUBMITTED||motion.status()==MotionStatus.AGENDA),
+                    ProceedingsPayloads.attemptPage(motion.ballots(),page).stream().map(id->{Attempt a=state.attempts().get(id);BallotView view=historyProjection(id,state.pending(),()->r.service.view(id,null));return view==null?null:new AttemptView(id,a.meeting(),view,voters(a));}).filter(Objects::nonNull).toList(),page,pages);
         }
         List<History> history=state.attempts().values().stream().map(a->{BallotView v;try{v=r.service.view(a.definition().id(),p.getUuid());}catch(RuntimeException absent){return null;}return new History(v.id(),shortLabel(v.title(),48),v.status().name());}).filter(Objects::nonNull).sorted(Comparator.comparing(History::title).thenComparing(History::id)).toList();
         String problem=state.pending()!=null?"A saved Council operation needs recovery.":r.failed?"Council records need recovery.":RuntimeHolds.reason(server)!=null?"A Chronicle operation hold is active.":playing(server)?"":"Play is paused or stopped.";
         if(mode==Mode.PROCEEDINGS)r.gm.add(p.getUuid());else r.gm.remove(p.getUuid());
         r.selected.put(p.getUuid(),selected);
-        ServerPlayNetworking.send(p,new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regencyView(server,r),mode==Mode.MOTIONS&&!gm&&own!=null&&own.councilMember()&&eligible));
+        Progress progress=mode==Mode.PROCEEDINGS&&gm?progress(r):null;
+        Regency regency=regencyView(server,r);
+        View packet=new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regency,mode==Mode.MOTIONS&&!gm&&own!=null&&own.councilMember()&&eligible,progress);
+        if(!ProceedingsPayloads.fitsView(packet))throw new IllegalStateException("This motion's ballot history is too large to display safely.");
+        if(mode==Mode.PROCEEDINGS){r.sentProgress.put(p.getUuid(),progress);r.sentRegency.put(p.getUuid(),regency);}
+        ServerPlayNetworking.send(p,packet);
+    }
+    private static List<Voter> voters(Attempt attempt) {
+        return attempt.definition().electorate().entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e->new Voter(e.getKey(),e.getValue().actor(),e.getValue().label())).toList();
+    }
+    static BallotView historyProjection(UUID id,Pending pending,java.util.function.Supplier<BallotView> projection) {
+        try{return projection.get();}
+        catch(IllegalArgumentException failure){
+            if(pending!=null&&pending.operation()==Operation.OPEN&&pending.ballot().equals(id)&&"Unknown ballot".equals(failure.getMessage()))return null;
+            throw failure;
+        }
+    }
+    private static Progress progress(Runtime r) {
+        UUID id=r.service.state().activeBallot();if(id==null||r.service.state().pending()!=null)return null;
+        Attempt a=r.service.state().attempts().get(id);BallotView view=r.service.view(id,null);
+        List<String> outstanding=view.visibility()==BallotVisibility.SECRET?List.of():a.definition().electorate().entrySet().stream()
+                .filter(e->!view.namedVotes().containsKey(e.getKey())).sorted(Map.Entry.comparingByKey()).map(e->e.getValue().label()).toList();
+        return new Progress(id,r.service.submissionCount(id),a.definition().electorate().size(),outstanding);
     }
     private static void refresh(MinecraftServer server,Runtime r) {
         for(ServerPlayerEntity p:server.getPlayerManager().getPlayerList()) {
-            if(r.gm.contains(p.getUuid())&&chancellor(p))sendView(p,r,CouncilPayloads.NONE,false,Mode.PROCEEDINGS,r.selected.get(p.getUuid()),"");
-            else if(r.readers.containsKey(p.getUuid()))try{requireLectern(p,r,r.readers.get(p.getUuid()).anchor().id());sendView(p,r,CouncilPayloads.NONE,false,Mode.MOTIONS,r.selected.get(p.getUuid()),"");}catch(RuntimeException ignored){r.readers.remove(p.getUuid());}
+            if(r.gm.contains(p.getUuid())&&chancellor(p))try{sendView(p,r,CouncilPayloads.NONE,false,Mode.PROCEEDINGS,r.selected.get(p.getUuid()),"");}catch(RuntimeException failure){r.gm.remove(p.getUuid());r.sentProgress.remove(p.getUuid());notice(p,CouncilPayloads.NONE,failure);}
+            else if(r.readers.containsKey(p.getUuid()))try{requireLectern(p,r,r.readers.get(p.getUuid()).anchor().id());sendView(p,r,CouncilPayloads.NONE,false,Mode.MOTIONS,r.selected.get(p.getUuid()),"");}catch(RuntimeException failure){r.readers.remove(p.getUuid());notice(p,CouncilPayloads.NONE,failure);}
         }
     }
     private static void tick(MinecraftServer server) {
@@ -289,6 +315,12 @@ public final class ProceedingsRuntime {
         if(server.getTicks()%100==0)try{reconcileCalls(server,r);}catch(EventSources.Unavailable sourceOwned){/* Core owns its source recovery hold. */}catch(Exception failure){hold(server,failure);}
         String publicStatus=ChronicleRuntime.service(server).state().phase()+"|"+RuntimeHolds.reason(server)+"|"+r.failed;
         if(!publicStatus.equals(r.publicStatus)){r.publicStatus=publicStatus;refresh(server,r);}
+        for(UUID id:new HashSet<>(r.gm)) {
+            ServerPlayerEntity p=server.getPlayerManager().getPlayer(id);
+            if(p==null||!chancellor(p)){r.gm.remove(id);r.sentProgress.remove(id);r.sentRegency.remove(id);if(p!=null)notice(p,CouncilPayloads.NONE,new IllegalStateException("Only the Chancellor controls proceedings."));continue;}
+            try { if(!Objects.equals(r.sentProgress.get(id),progress(r))||!Objects.equals(r.sentRegency.get(id),regencyView(server,r)))sendView(p,r,CouncilPayloads.NONE,false,Mode.PROCEEDINGS,r.selected.get(id),""); }
+            catch(RuntimeException failure){r.gm.remove(id);r.sentProgress.remove(id);notice(p,CouncilPayloads.NONE,failure);}
+        }
         for(var e:new HashMap<>(r.voters).entrySet()) {
             ServerPlayerEntity p=server.getPlayerManager().getPlayer(e.getKey());if(p==null){r.voters.remove(e.getKey());continue;}
             try {
@@ -311,17 +343,44 @@ public final class ProceedingsRuntime {
             p.sendMessage(Text.literal(text),false);
         }
     }
-    private static Map<String,String> candidates(MinecraftServer server) {
+    private static Map<String,String> presentCandidates(MinecraftServer server,Map<String,BallotElector> electorate,SuccessionState election) {
         Map<String,String> result=new TreeMap<>();
-        CouncilRuntime.roster(server).assignments().values().stream().filter(a->a.councilMember()&&a.candidate())
-                .forEach(a->result.put(a.houseId(),house(server,a.houseId())));
-        // Labels of eliminated or withdrawn initial houses remain available in archived outcomes.
+        CouncilRuntime.roster(server).assignments().values().stream().filter(a->a.councilMember()&&(election.started()?election.remaining().contains(a.houseId()):a.candidate())&&electorate.containsKey(a.houseId()))
+                .forEach(a->result.put(a.houseId(),electorate.get(a.houseId()).label()+" ("+house(server,a.houseId())+")"));
         return result;
+    }
+    private static Map<String,BallotElector> electorate(MinecraftServer server,AuthoringSite.Region region) throws IOException {
+        Map<String,BallotElector> result=new LinkedHashMap<>();
+        for(ServerPlayerEntity voter:PlayRuntime.eligiblePlayers(server)) {
+            HouseAssignment a=CouncilRuntime.roster(server).assignments().get(voter.getUuid());
+            if(a!=null&&a.councilMember()&&!chancellor(voter)&&inside(voter,region))result.put(a.houseId(),new BallotElector(voter.getUuid(),Profiles.publicCard(server,voter.getUuid(),voter.getName().getString()).name()));
+        }
+        return result;
+    }
+    private static String emptyElectorateReason(MinecraftServer server,AuthoringSite.Region region) {
+        var online=server.getPlayerManager().getPlayerList();var eligible=PlayRuntime.eligiblePlayers(server);
+        long inside=online.stream().filter(p->inside(p,region)).count();
+        long seated=online.stream().filter(p->inside(p,region)).filter(p->{var a=CouncilRuntime.roster(server).assignments().get(p.getUuid());return a!=null&&a.councilMember();}).count();
+        long outside=eligible.stream().filter(p->!chancellor(p)&&!inside(p,region)).filter(p->{var a=CouncilRuntime.roster(server).assignments().get(p.getUuid());return a!=null&&a.councilMember();}).count();
+        return emptyElectorateMessage(inside,seated,outside);
+    }
+    static String emptyElectorateMessage(long inside,long seated,long outside) {
+        return "No eligible representatives are inside the voting Region; no ballot opened. Online inside: "+inside+"; inside with a Council House: "+seated+"; eligible Council representatives outside: "+outside+". Representatives must join participation, leave spectator and author modes, and cannot be the Chancellor.";
+    }
+    private static String candidateLabel(MinecraftServer server,String id) {
+        var assignment=CouncilRuntime.roster(server).assignments().values().stream().filter(a->a.houseId().equals(id)).findFirst();
+        if(assignment.isEmpty())return house(server,id);
+        UUID owner=assignment.get().owner();ServerPlayerEntity online=server.getPlayerManager().getPlayer(owner);
+        try{return Profiles.publicCard(server,owner,online==null?"Assigned character":online.getName().getString()).name()+" ("+house(server,id)+")";}
+        catch(IOException failure){return house(server,id);}
     }
     private static Regency regencyView(MinecraftServer server,Runtime r) {
         var election=r.service.state().succession();
-        Set<String> slate=election.started()?election.remaining():candidates(server).keySet();
-        List<String> labels=election.stage()==SuccessionState.Stage.NOT_STARTED||election.stage()==SuccessionState.Stage.CONTESTED?slate.stream().sorted().map(id->house(server,id)).toList():List.of();
+        Map<String,String> present=Map.of();boolean available=true;
+        try{present=presentCandidates(server,electorate(server,votingRegion(server,r)),election);}catch(IOException|RuntimeException unavailable){available=false;}
+        Set<String> slate=election.started()?election.remaining():present.keySet();
+        var missing=new TreeSet<>(slate);missing.removeAll(present.keySet());
+        List<String> labels=election.stage()==SuccessionState.Stage.NOT_STARTED||election.stage()==SuccessionState.Stage.CONTESTED?slate.stream().sorted().map(id->candidateLabel(server,id)).toList():List.of();
         String summary=switch(election.stage()) {
             case NOT_STARTED -> "The candidate slate locks when the first regency ballot opens.";
             case CONTESTED -> "The crown remains undecided.";
@@ -332,12 +391,14 @@ public final class ProceedingsRuntime {
         var latest=election.rounds().values().stream().filter(round->round.result()!=null)
                 .max(Comparator.comparingInt(SuccessionState.Round::meeting));
         if(latest.isPresent()&&election.stage()==SuccessionState.Stage.CONTESTED)summary+="\n"+regencyOutcome(server,latest.get().result());
-        if(!election.started()&&(slate.size()<2||slate.size()>15))summary+="\nChoose two to fifteen crown candidates in house setup.";
+        if(!available)summary+="\nThe voting Region or candidate information is unavailable.";
+        else if(!election.started()&&(slate.size()<2||slate.size()>15))summary+="\nTwo to fifteen eligible candidates must be present in the voting Region.";
+        else if(!missing.isEmpty())summary+="\nWaiting for: "+String.join(", ",missing.stream().map(id->candidateLabel(server,id)).toList());
         if(!r.service.pendingMotions().isEmpty())summary+="\nVote on or defer "+r.service.pendingMotions().size()+" pending motions first.";
         boolean open=(election.stage()==SuccessionState.Stage.NOT_STARTED||election.stage()==SuccessionState.Stage.CONTESTED)
                 &&r.service.state().meeting()>election.lastCompletedMeeting()&&r.service.state().phase()==Phase.DISCUSSION
                 &&r.service.state().activeBallot()==null&&r.service.state().pending()==null&&!r.failed&&playing(server)
-                &&(election.started()||slate.size()>=2&&slate.size()<=15)&&r.service.pendingMotions().isEmpty();
+                &&available&&missing.isEmpty()&&(election.started()||slate.size()>=2&&slate.size()<=15)&&r.service.pendingMotions().isEmpty();
         return new Regency(election.stage().name(),labels,summary,open);
     }
     private static String regencyOutcome(MinecraftServer server,SuccessionRules.Result result) {
@@ -364,7 +425,9 @@ public final class ProceedingsRuntime {
     private record AnchorSession(AuthoringSite.Anchor anchor) { }
     private static final class Runtime {
         final ProceedingsService service;boolean failed;String publicStatus="";final Map<UUID,AnchorSession> readers=new HashMap<>();final Set<UUID> gm=new HashSet<>();
-        final Map<UUID,UUID> selected=new HashMap<>(),voters=new HashMap<>();final Map<UUID,Vote> sentVotes=new HashMap<>();final Map<UUID,int[]> limits=new HashMap<>();
+        final Map<UUID,UUID> selected=new HashMap<>(),voters=new HashMap<>();final Map<UUID,Vote> sentVotes=new HashMap<>();final Map<UUID,int[]> limits=new HashMap<>();final Map<UUID,Integer> historyPages=new HashMap<>();
+        final Map<UUID,Progress> sentProgress=new HashMap<>();
+        final Map<UUID,Regency> sentRegency=new HashMap<>();
         Runtime(ProceedingsService service){this.service=service;}
     }
 }

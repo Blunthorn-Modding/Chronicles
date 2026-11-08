@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 public final class LastCouncilClient implements ClientModInitializer {
     private static boolean active,chancellor;
     @Override public void onInitializeClient(){
+        CouncilCatalogueClient.register();
         CouncilSmoke.register();
         CouncilBallotsSmoke.register();
         CouncilSuccessionSmoke.register();

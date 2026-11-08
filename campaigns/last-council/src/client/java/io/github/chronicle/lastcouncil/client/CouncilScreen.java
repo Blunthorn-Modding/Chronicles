@@ -38,6 +38,19 @@ abstract class CouncilScreen extends Screen {
         if(max>0){int half=(w-4)/2;button("Up",x,y+h-20,half,()->{listOffsets.put(key,Math.max(0,offset-count));clearAndInit();}).active=offset>0;
             button("Down",x+half+4,y+h-20,half,()->{listOffsets.put(key,Math.min(max,offset+count));clearAndInit();}).active=offset<max;}
     }
+    protected void compactRows(String key,List<Choice> choices,String selected,int x,int y,int w,boolean enabled,Consumer<String> select){
+        int saved=listOffsets.getOrDefault(key,0);
+        if(!enabled&&!selected.isBlank())for(int i=0;i<choices.size();i++)if(choices.get(i).id().equals(selected)){saved=i;break;}
+        int offset=Math.clamp(saved,0,Math.max(0,choices.size()-1));
+        listOffsets.put(key,offset);
+        button("<",x,y,20,()->{listOffsets.put(key,Math.max(0,offset-1));rebuildPreservingFocus();}).active=enabled&&offset>0;
+        if(!choices.isEmpty()) {
+            Choice c=choices.get(offset);
+            var row=button(textRenderer.trimToWidth((c.id().equals(selected)?"> ":"")+c.label(),w-48),x+22,y,w-44,()->select.accept(c.id()));
+            row.active=enabled; row.setTooltip(Tooltip.of(Text.literal(c.label())));
+        }
+        button(">",x+w-20,y,20,()->{listOffsets.put(key,Math.min(choices.size()-1,offset+1));rebuildPreservingFocus();}).active=enabled&&offset+1<choices.size();
+    }
     private final Map<String,Integer> readingOffsets=new HashMap<>();
     private record Reading(String key,int x,int y,int w,int h,List<OrderedText> lines) { }
     protected void body(String text,int x,int y,int w,int h){body("body",text,x,y,w,h);}
@@ -59,15 +72,23 @@ abstract class CouncilScreen extends Screen {
         for(SectionCard section:sections){
             List<OrderedText> lines=new ArrayList<>();
             for(String paragraph:section.text().split("\\n",-1))
-                lines.addAll(textRenderer.wrapLines(Text.literal(paragraph.isEmpty()?" ":paragraph),Math.max(1,w-14)));
+                lines.addAll(textRenderer.wrapLines(Text.literal(paragraph.isEmpty()?" ":paragraph),Math.max(1,w-34)));
             int height=20+lines.size()*10;cards.add(new DrawCard(section.heading(),lines,position,height));position+=height+4;
         }
-        cardStacks.add(new CardStack(key,x,y,w,h,position,cards));
+        int contentWidth=position>h?w-20:w;
+        cardStacks.add(new CardStack(key,x,y,contentWidth,h,position,cards));
+        if(position>h) {
+            int max=position-h, offset=Math.clamp(cardOffsets.getOrDefault(key,0),0,max);
+            var up=addDrawableChild(ButtonWidget.builder(Text.literal("^"),b->{cardOffsets.put(key,Math.max(0,offset-30));rebuildPreservingFocus();}).dimensions(x+w-18,y,18,Math.max(10,h/2)).build());
+            up.active=offset>0;
+            var down=addDrawableChild(ButtonWidget.builder(Text.literal("v"),b->{cardOffsets.put(key,Math.min(max,offset+30));rebuildPreservingFocus();}).dimensions(x+w-18,y+Math.max(10,h/2),18,Math.max(10,h-Math.max(10,h/2))).build());
+            down.active=offset<max;
+        }
     }
     @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){
         for(CardStack stack:cardStacks) if(mx>=stack.x&&mx<stack.x+stack.w&&my>=stack.y&&my<stack.y+stack.h){
             int max=Math.max(0,stack.total-stack.h);
-            cardOffsets.put(stack.key,Math.clamp(cardOffsets.getOrDefault(stack.key,0)-(int)Math.signum(vertical)*30,0,max));return true;
+            cardOffsets.put(stack.key,Math.clamp(cardOffsets.getOrDefault(stack.key,0)-(int)Math.signum(vertical)*30,0,max));rebuildPreservingFocus();return true;
         }
         for(ListArea a:lists) if(mx>=a.x&&mx<a.x+a.w&&my>=a.y&&my<a.y+a.h){
             int max=Math.max(0,a.size-a.rows);listOffsets.put(a.key,Math.clamp(listOffsets.getOrDefault(a.key,0)-(int)Math.signum(vertical),0,max));clearAndInit();return true;
@@ -78,6 +99,11 @@ abstract class CouncilScreen extends Screen {
             return true;
         }
         return super.mouseScrolled(mx,my,horizontal,vertical);
+    }
+    protected void rebuildPreservingFocus(){
+        String focused=getFocused() instanceof ButtonWidget button?button.getMessage().getString():null;
+        clearAndInit();
+        if(focused!=null)for(var child:children())if(child instanceof ButtonWidget button&&button.active&&button.getMessage().getString().equals(focused)){setFocused(button);break;}
     }
     protected void message(String value){feedback=value;}
     @Override public void render(DrawContext context,int mouseX,int mouseY,float delta){

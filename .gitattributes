@@ -3,3 +3,6 @@ docs/THE_LAST_COUNCIL_EVENT_BRIEF.md -text whitespace=-blank-at-eol
 
 # This third-party licence has a reviewed byte hash in the dependency lock.
 core/src/main/resources/META-INF/licenses/snakeyaml-engine-LICENSE.txt text eol=lf
+
+# Pinned e4mc review-pack licence; dependency lock verifies these bytes.
+config/third-party/e4mc-LICENSE.txt text eol=lf

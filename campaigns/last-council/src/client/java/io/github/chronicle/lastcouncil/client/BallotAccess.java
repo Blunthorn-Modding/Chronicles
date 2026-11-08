@@ -1,6 +1,7 @@
 package io.github.chronicle.lastcouncil.client;
 
 import io.github.chronicle.core.client.ChronicleCoreClient;
+import io.github.chronicle.core.client.TextInputGuard;
 import io.github.chronicle.lastcouncil.network.CouncilPayloads;
 import io.github.chronicle.lastcouncil.network.ProceedingsPayloads.*;
 import java.util.*;
@@ -13,11 +14,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.*;
 import net.fabricmc.fabric.api.client.screen.v1.*;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.ParentElement;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.EditBoxWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
@@ -63,7 +60,7 @@ final class BallotAccess {
     private static boolean open(MinecraftClient client) {
         if(active==null||!active.getAsBoolean()||client.player==null||cooldown>0||!ClientPlayNetworking.canSend(Request.ID))return false;
         if(client.currentScreen instanceof BallotScreen||client.currentScreen instanceof ConfirmScreen)return false;
-        if(editingText(client.currentScreen))return false;
+        if(TextInputGuard.editingText(client.currentScreen))return false;
         Screen prior=client.currentScreen;
         if(prior!=null&&currentHint==null) {
             cooldown=10;
@@ -96,13 +93,5 @@ final class BallotAccess {
         if(vote.ballot().status()==BallotStatus.OPEN&&(terminal.contains(vote.ballot().id())
                 ||currentHint!=null&&!currentHint.equals(vote.ballot().id())))return false;
         client.setScreen(new BallotScreen(vote,client.currentScreen));return true;
-    }
-    static boolean editingText(Screen screen) {
-        Element focused=screen==null?null:screen.getFocused();
-        for(int depth=0;focused!=null&&depth<16;depth++) {
-            if(focused instanceof TextFieldWidget||focused instanceof EditBoxWidget)return true;
-            focused=focused instanceof ParentElement parent?parent.getFocused():null;
-        }
-        return false;
     }
 }

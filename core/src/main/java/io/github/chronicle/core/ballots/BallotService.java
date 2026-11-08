@@ -13,6 +13,8 @@ public final class BallotService {
         this.repository = Objects.requireNonNull(repository); this.clock = Objects.requireNonNull(clock); state = repository.load();
     }
     public synchronized BallotState state() { return state; }
+    /** Server-only aggregate; callers must authorize its audience. */
+    public synchronized int submissionCount(UUID id) { return get(id).votes().size(); }
     public synchronized void verifyUnchanged() throws IOException { repository.verifyUnchanged(); }
     public synchronized Ballot open(BallotDefinition definition, UUID operator) throws IOException {
         repository.verifyUnchanged();

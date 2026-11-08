@@ -10,8 +10,10 @@ public final class LastCouncil implements ModInitializer {
     @Override public void onInitialize(){
         ScenarioContentRuntime.registerScenario(SCENARIO,"The Last Council",MECHANICS);
         CouncilPayloads.register();
+        io.github.chronicle.lastcouncil.network.CataloguePayloads.register();
         io.github.chronicle.lastcouncil.network.ProceedingsPayloads.register();
         CouncilRuntime.register();
+        io.github.chronicle.lastcouncil.server.CouncilCatalogueRuntime.register();
         io.github.chronicle.lastcouncil.server.ProceedingsRuntime.register();
         if(io.github.chronicle.core.server.PackagedScenarios.defaultsFor(SCENARIO))
             io.github.chronicle.core.scenario.ScenarioEventTemplates.register(io.github.chronicle.lastcouncil.content.CouncilDefaults.meetingCall());

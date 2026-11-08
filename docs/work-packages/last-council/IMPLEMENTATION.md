@@ -82,3 +82,10 @@ The scenario's election state shares the proceedings journal, now strict schema2
 The LC08 gate and other explicitly deferred LC03 items are listed in `LC-03-succession.md`; this is not a claim that the whole package or scenario is complete. Never expose reset/withdrawal/political rollback controls merely because pure domain methods exist.
 
 The final source checks and native proofs for this slice are in [succession verification](SUCCESSION_VERIFICATION.md); the current human checklist is [Council review](REVIEW_COUNCIL.md).
+
+
+## 8 November group-review corrections (dev.5)
+
+Late enrollment uses a private, atomic world overlay containing membership and already-drawn papers, validated against unchanged original roster/cast/issuance files. Existing characters and knowledge do not reroll; the overlay survives restart and cannot add candidates after succession starts. Ballot screens share readable section builders, captured names and actual immutable attempt history, with bounded four-attempt history pages. Public choices and secret aggregates use Core's existing projections. Only Chancellor proceedings receive live anonymous secret submitted counts. Present eligible characters form the first Regency slate; subsequent rounds wait for all remaining characters. Absolute majority is unchanged.
+
+Core owns the reusable text-focus guard and server-side ballot submission count. Last Council owns the House overlay, source catalogue, progression policy, permission-checked projections and Council UI. The read-only OP source catalogue is not the remaining pool-authoring/export milestone. Native evidence, review limitations and the current human checklist are linked from [group-review verification](GROUP_REVIEW_VERIFICATION.md).

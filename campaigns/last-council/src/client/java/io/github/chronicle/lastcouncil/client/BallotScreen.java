@@ -26,14 +26,14 @@ public final class BallotScreen extends CouncilScreen {
             waiting=0;
         }
         view=value;
-        if(client.currentScreen==this)clearAndInit();
+        if(client.currentScreen==this)rebuildPreservingFocus();
     }
     void notice(CouncilPayloads.Notice value) {
         if(value.request().equals(pending)) {
             pending=null;
             waiting=0;
             feedback=value.message();
-            if(client.currentScreen==this)clearAndInit();
+            if(client.currentScreen==this)rebuildPreservingFocus();
         }
     }
     private void send(Action action,String option) {
@@ -45,102 +45,105 @@ public final class BallotScreen extends CouncilScreen {
     private String optionLabel(String id) {
         return view.ballot().options().stream().filter(o->o.id().equals(id)).map(o->o.label()).findFirst().orElse(id);
     }
-    private String names() {
-        StringBuilder out=new StringBuilder();
-        view.ballot().namedVotes().forEach((house,
-                choice)->out.append("\n").append(view.ballot().electorateLabels().getOrDefault(house,
-                house)).append(": ").append(optionLabel(choice)));
-        return out.toString();
-    }
-    private String totals() {
-        StringBuilder out=new StringBuilder();
-        view.ballot().totals().forEach((option,
-                count)->out.append("\n").append(optionLabel(option)).append(": ").append(count));
-        return out.toString();
+    private int rosterHeight() { return panelHeight<280?54:96; }
+    private int rosterWidth() {
+        int full=panelWidth-24;
+        return rosterTotal(full)>rosterHeight()?full-40:full;
     }
     @Override protected void init() {
         frame();
         int x=left+12,w=panelWidth-24,y=top+36;
         var b=view.ballot();
-        int rosterHeight=panelHeight<280?44:84, columns=Math.max(1,(w-42)/72), visible=Math.max(1,rosterHeight/40);
-        int rosterRows=(view.voters().size()+columns-1)/columns, maxRoster=Math.max(0,rosterRows-visible);
-        rosterOffset=Math.clamp(rosterOffset,0,maxRoster);
-        if(maxRoster>0){
-            button("\u2191",x+w-40,y,18,()->{rosterOffset=Math.max(0,rosterOffset-visible);clearAndInit();}).active=rosterOffset>0;
-            button("\u2193",x+w-20,y,18,()->{rosterOffset=Math.min(maxRoster,rosterOffset+visible);clearAndInit();}).active=rosterOffset<maxRoster;
+        int rosterH=rosterHeight(),rosterWidth=rosterWidth();
+        int rosterMax=Math.max(0,rosterTotal(rosterWidth)-rosterH);
+        rosterOffset=Math.clamp(rosterOffset,0,rosterMax);
+        if(rosterMax>0) {
+            button("^",x+w-18,y,18,()->{rosterOffset=Math.max(0,rosterOffset-30);rebuildPreservingFocus();}).active=rosterOffset>0;
+            button("v",x+w-18,y+22,18,()->{rosterOffset=Math.min(rosterMax,rosterOffset+30);rebuildPreservingFocus();}).active=rosterOffset<rosterMax;
         }
-        y+=panelHeight<280?48:88;
-        String info=b.title()+"\n"+view.description()+"\n"+(b.visibility().name().equals("PUBLIC")?"Public vote":"Secret vote")+" | "+b.threshold()+" of "+b.electorateLabels().size()+" required";
-        if(b.ownChoice()!=null&&!b.ownChoice().isBlank())info+="\nYour choice: "+optionLabel(b.ownChoice());
+        y+=rosterH+4;
         boolean captured=client.player!=null&&view.voters().stream().anyMatch(v->v.player().equals(client.player.getUuid()));
         boolean uncast=b.ownChoice()==null||b.ownChoice().isBlank();
-        if(captured&&uncast&&!view.reason().isBlank())info+="\n"+view.reason();
-        if(b.reason()!=null&&!b.reason().isBlank())info+="\nReason: "+b.reason();
-        if(b.status().name().equals("CLOSED")&&!b.totals().isEmpty())info+="\nTotals:"+totals();
-        int available=top+panelHeight-32-y;
         boolean showChoices=captured&&uncast&&b.status().name().equals("OPEN");
-        int slots=showChoices?Math.max(1,Math.min(3,(available-58)/24)):0;
+        int bottom=top+panelHeight-25;
+        int slots=showChoices?(panelHeight<280?1:Math.min(3,b.options().size())):0;
         boolean paging=showChoices&&b.options().size()>slots;
-        int h=Math.max(24,available-slots*24-(paging?24:0)-26);
-        body(info,x,y,w,h);
-        y+=h+2;
+        int controls=slots*22+(paging?22:0);
+        int infoH=Math.max(20,bottom-y-controls);
+        List<SectionCard> cards=new ArrayList<>();
+        cards.add(new SectionCard("Question",b.title()));
+        cards.add(new SectionCard("Proposal",view.description()));
+        cards.add(new SectionCard("Vote type",CouncilBallotSections.label(b.visibility().name())));
+        if(b.visibility().name().equals("PUBLIC"))cards.add(new SectionCard("Head outlines","Grey: not cast; green: For; red: Against; amber: Abstain."));
+        cards.add(new SectionCard("Decision rule",b.threshold()+" of "+b.electorateLabels().size()+" required"));
+        if(b.ownChoice()!=null&&!b.ownChoice().isBlank())cards.add(new SectionCard("Your choice",optionLabel(b.ownChoice())));
+        if(captured&&uncast&&!view.reason().isBlank())cards.add(new SectionCard("Eligibility",view.reason()));
+        if(b.reason()!=null&&!b.reason().isBlank())cards.add(new SectionCard("Reason",b.reason()));
+        if(showChoices)cards.add(new SectionCard("Choices",String.join("\n",b.options().stream().map(o->o.label()).toList())));
+        if(b.status().name().equals("CLOSED")) {
+            StringBuilder result=new StringBuilder(b.passedOptions().isEmpty()?"No option passed":"Passed: "+String.join(", ",b.passedOptions().stream().map(this::optionLabel).toList()));
+            b.totals().forEach((id,count)->result.append("\n").append(optionLabel(id)).append(": ").append(count));
+            cards.add(new SectionCard("Result",result.toString()));
+        }
+        sections("ballot-info",cards,x,y,w,infoH);
+        y+=infoH;
         offset=Math.clamp(offset,0,Math.max(0,b.options().size()-slots));
-        for(int i=offset; i<Math.min(b.options().size(),offset+slots); i++) {
+        for(int i=offset;i<Math.min(b.options().size(),offset+slots);i++) {
             var option=b.options().get(i);
-            button(option.label(),x,y,w,()->client.setScreen(new ConfirmScreen(ok-> {
-                client.setScreen(this); if(ok)send(Action.CAST,option.id());
-            },Text.literal("Confirm your choice?"),Text.literal("Your first accepted choice is final: "
-                    +option.label())))).active=view.canCast();
-            y+=24;
+            button(textRenderer.trimToWidth(option.label(),w-8),x,y,w,()->client.setScreen(new ConfirmScreen(ok->{
+                client.setScreen(this);if(ok)send(Action.CAST,option.id());
+            },Text.literal("Confirm your choice?"),Text.literal("Your first accepted choice is final: "+option.label())))).active=view.canCast();
+            y+=22;
         }
         if(paging) {
             int half=(w-4)/2;
-            button("Previous",x,y,half,()-> {
-                offset=Math.max(0,offset-slots); clearAndInit();
-            }).active=offset>0;
-            button("Next",x+half+4,y,half,()-> {
-                offset+=slots; clearAndInit();
-            }).active=offset+slots<b.options().size();
-            y+=24;
+            button("Previous",x,y,half,()->{offset=Math.max(0,offset-slots);clearAndInit();}).active=offset>0;
+            button("Next",x+half+4,y,half,()->{offset=Math.min(b.options().size()-slots,offset+slots);clearAndInit();}).active=offset+slots<b.options().size();
         }
-        button("Refresh",x,y,w,()->send(Action.BALLOT,""));
+    }
+    private int rosterTotal(int w) {
+        int columns=Math.max(1,w/108), cell=(w-(columns-1)*8)/columns,total=0;
+        for(int first=0;first<view.voters().size();first+=columns) {
+            int lines=1;
+            for(int i=first;i<Math.min(first+columns,view.voters().size());i++)lines=Math.max(lines,textRenderer.wrapLines(Text.literal(view.voters().get(i).name()),cell-4).size());
+            total+=30+lines*10+4;
+        }
+        return total;
     }
     @Override public void render(DrawContext context,int mouseX,int mouseY,float delta) {
         super.render(context,mouseX,mouseY,delta);
-        int x=left+12,y=top+36,w=panelWidth-24,cell=72,columns=Math.max(1,(w-42)/cell),height=panelHeight<280?44:84;
-        var voters=view.voters();int visible=Math.max(1,height/40),rows=(voters.size()+columns-1)/columns;
-        rosterOffset=Math.clamp(rosterOffset,0,Math.max(0,rows-visible));
-        context.enableScissor(x,y,x+w-42,y+height);
-        String hovered=null;
-        for(int i=rosterOffset*columns;i<voters.size()&&i<(rosterOffset+visible)*columns;i++) {
-            var voter=voters.get(i);int px=x+(i%columns)*cell,py=y+(i/columns-rosterOffset)*40;
-            String choice=view.ballot().visibility().name().equals("PUBLIC")?view.ballot().namedVotes().get(voter.house()):null;
-            int color=0xFF888888;
-            if(choice!=null) color=switch(choice.toUpperCase(Locale.ROOT)){case "YES"->0xFF45B95A;case "NO"->0xFFDF5555;case "ABSTAIN"->0xFFD5A443;default->0xFF888888;};
-            int headX=px+(cell-26)/2;
-            context.fill(headX,py,headX+26,py+26,color);
-            var entry=client.player==null?null:client.player.networkHandler.getPlayerListEntry(voter.player());
-            PlayerSkinDrawer.draw(context,entry==null?DefaultSkinHelper.getSkinTextures(voter.player()):entry.getSkinTextures(),headX+1,py+1,24);
-            String name=textRenderer.trimToWidth(voter.name(),cell-4);
-            context.drawTextWithShadow(textRenderer,name,px+(cell-textRenderer.getWidth(name))/2,py+28,0xFFFFFFFF);
-            if(mouseX>=px&&mouseX<px+cell&&mouseY>=py&&mouseY<py+38&&mouseY<y+height){
-                String state=view.ballot().visibility().name().equals("SECRET")?"Secret ballot":choice==null?"Not cast":optionLabel(choice);
-                hovered=voter.name()+" | "+state;
+        int w=rosterWidth(),x=left+12+(panelWidth-24-w)/2,y=top+36,h=rosterHeight();
+        int columns=Math.max(1,w/108),cell=(w-(columns-1)*8)/columns;
+        rosterOffset=Math.clamp(rosterOffset,0,Math.max(0,rosterTotal(w)-h));
+        context.enableScissor(x,y,x+w,y+h);
+        int rowY=y-rosterOffset;
+        for(int first=0;first<view.voters().size();first+=columns) {
+            int count=Math.min(columns,view.voters().size()-first),rowX=x+(w-(count*cell+(count-1)*8))/2,lines=1;
+            for(int j=0;j<count;j++)lines=Math.max(lines,textRenderer.wrapLines(Text.literal(view.voters().get(first+j).name()),cell-4).size());
+            for(int j=0;j<count;j++) {
+                var voter=view.voters().get(first+j);int px=rowX+j*(cell+8),headX=px+(cell-26)/2;
+                String choice=view.ballot().visibility().name().equals("PUBLIC")?view.ballot().namedVotes().get(voter.house()):null;
+                int color=choice==null?0xFF888888:switch(choice.toUpperCase(Locale.ROOT)){case "YES"->0xFF45B95A;case "NO"->0xFFDF5555;case "ABSTAIN"->0xFFD5A443;default->0xFF888888;};
+                context.fill(headX,rowY,headX+26,rowY+26,color);
+                var entry=client.player==null?null:client.player.networkHandler.getPlayerListEntry(voter.player());
+                PlayerSkinDrawer.draw(context,entry==null?DefaultSkinHelper.getSkinTextures(voter.player()):entry.getSkinTextures(),headX+1,rowY+1,24);
+                var nameLines=textRenderer.wrapLines(Text.literal(voter.name()),cell-4);
+                for(int k=0;k<nameLines.size();k++)context.drawTextWithShadow(textRenderer,nameLines.get(k),px+(cell-textRenderer.getWidth(nameLines.get(k)))/2,rowY+30+k*10,0xFFFFFFFF);
             }
+            rowY+=30+lines*10+4;
         }
         context.disableScissor();
-        if(rows>visible)context.fill(x+w-43,y,x+w-41,y+height,0xFF888888);
-        if(hovered!=null)context.drawTooltip(textRenderer,Text.literal(hovered),mouseX,mouseY);
+        if(rosterTotal(w)>h)context.fill(x+w-2,y,x+w,y+h,0xFF888888);
     }
-    @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical){
-        int y=top+36,h=panelHeight<280?44:84;
-        if(mx>=left+12&&mx<left+panelWidth-12&&my>=y&&my<y+h){rosterOffset=Math.max(0,rosterOffset-(int)Math.signum(vertical));clearAndInit();return true;}
+    @Override public boolean mouseScrolled(double mx,double my,double horizontal,double vertical) {
+        int y=top+36,h=rosterHeight();
+        if(mx>=left+12&&mx<left+panelWidth-12&&my>=y&&my<y+h){rosterOffset=Math.clamp(rosterOffset-(int)Math.signum(vertical)*30,0,Math.max(0,rosterTotal(rosterWidth())-h));rebuildPreservingFocus();return true;}
         return super.mouseScrolled(mx,my,horizontal,vertical);
     }
     @Override public void tick() {
         if(pending!=null&&++waiting>200) {
             pending=null;
-            feedback="The server did not answer. Refresh before retrying.";
+            feedback="The server did not answer. Reopen the ballot before retrying.";
         }
     }
     @Override public void close() {

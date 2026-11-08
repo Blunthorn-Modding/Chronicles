@@ -67,8 +67,8 @@ public final class ChronicleCoreClient implements ClientModInitializer {
 
     private static void openOwnDossierWhenRequested(MinecraftClient client) {
         while (DOSSIER_KEY.wasPressed()) {
-            if (client.player == null) {
-                return;
+            if (client.player == null || TextInputGuard.editingText(client.currentScreen)) {
+                continue;
             }
             if (!ClientPlayNetworking.canSend(ProfilePayloads.Request.ID)) {
                 DossierScreen.showNotice(client, "chronicle.profile.error.unsupported");

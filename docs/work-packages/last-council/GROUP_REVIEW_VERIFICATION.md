@@ -1,0 +1,26 @@
+# Group-review corrections ? 8 November 2026
+
+Development build: **0.2.0-dev.5**, branch `feat/last-council`. The dedicated UI design was produced separately and reviewed by the lead before implementation; see [design](UI_GROUP_REVIEW_DESIGN.md). The owner's Regency clarifications retain absolute majority and require all remaining candidates present for later rounds.
+
+## Changes and ownership
+
+- **Core:** shared visible/focused text-input guard, including Creative search, and a server-only ballot submission-count accessor. No new secret turnout field was added to ordinary Core ballot projections.
+- **Last Council:** atomic late House enrollment overlay, effective roster and private papers; shared motion/ballot section builders; full wrapped centered public names; automatic vote and Chancellor progress; bounded four-attempt history pages; present-character Regency rules; OP-only read-only reusable source catalogue. Missing pending OPEN ballots remain recoverable from proceedings rather than breaking its history projection. Empty-electorate refusals report relevant presence counts and eligibility requirements.
+- **Packaging:** matching e4mc Host/Player mrpacks, fresh review-world snapshot with no cast, player inventory, papers or ballot history; pinned e4mc licence included. Source review and existing user launcher worlds are not rewritten by export. Last Council now requires Core dev.5 or newer because it uses the new count accessor and text-input guard.
+
+Late additions publish membership and already-drawn papers in one private world file, `chronicle/last-council/house-enrollments.json`. Original `roster.json`, `cast.json` and `automatic-cast.json` remain unchanged. Startup validates the overlay against those original records. Existing assignments, facts, secrets, goals and knowledge remain fixed; only the newcomer is drawn, with knowledge independently sampled from actual committed secrets. A late character cannot become a candidate after succession begins. Invalid or uncertain writes preserve the files and hold further action for recovery; do not delete the cast to retry.
+
+## Automated evidence
+
+Commands use the repository's child-process-only Java/Gradle environment, with `--offline --no-daemon`:
+
+- `:core:test :campaigns:last-council:test :campaigns:quiet-below:test`, compilation and all three remaps passed. Final Core/Last Council checks passed after implementation fixes; final presentation-only recompilation/remap also passed. XML totals: **872 tests, 865 passed, seven existing Windows symlink skips, zero failures/errors** (Core563, Council67, Quiet Below242).
+- `python -m unittest discover -s scripts -p 'test_*.py'`: **133 passed**. Includes new review-export schema1/2/3 preservation/reset tests and rejection of unsupported schemas. Report: `../reports/council-dev5-python-tests.txt`.
+- `python scripts/council_ballots_smoke.py`: **PASS**, `../reports/council-ballots-20261108T085848818307Z/report.json`. Three real Fabric clients plus actual server restart: late enrollment after automatic issuance; unchanged original private file hashes before/after restart; recipient papers; ordinary catalogue denial and OP catalogue; actual Creative search with I/O/R/K and rebound key; automatic public completion including abstention; captured long name; immutable public named history; secret privacy; audited void/replacement; fixed electorate and confirm-final choice guards; normal/compact screenshots. An initial run exposed a stale compact-layout test assertion, corrected to navigate the in-place selector. Final arrow labels/roster-width refinement was compiled afterward and exercised in the subsequent Regency suite.
+- `python scripts/council_succession_smoke.py`: **PASS**, `../reports/council-succession-20261108T091328421236Z/report.json`. Four real clients plus actual restart cover present candidates versus offline placeholders, retained fixed slate, absent remaining candidate refusal, absolute-majority threshold, anonymous Chancellor-only count, final choices, same-meeting technical replacement and continued ordinary meetings. Native assertions also verify the active Regency row matches its question; a final wording-only change clarifies late enrollment availability.
+- Independent source review covered enrollment/restart and ballot/privacy/authority paths. It found the pending-OPEN history recovery failure and long offline-name fallback issue; both were fixed. Focused regression tests cover missing pending OPEN projection while preserving genuine corruption failures. Lead inspected the actual diff and normal/compact native screenshots.
+- `git diff --check` passed. Source event brief is unchanged. No released alpha or unrelated acoustics work is included.
+
+## Review and limits
+
+The bundled packs are for the next **human multiplayer/UI review**; see [checklist](REVIEW_COUNCIL.md). The current automated suites use local dedicated servers. This pass does not claim an external e4mc peer session or dev.5 relay validation. The earlier production e4mc launcher proof is distinct from these regression results. Catalogue authoring/export and physical House-paper delivery remain follow-up work; rebellion, treaties, banquet and random complications are not delivered by this correction pass. No main merge or public release is performed.
