@@ -21,6 +21,8 @@ public final class ScenarioProfileContentStore {
         Path temporary=Files.createTempDirectory(chronicle,".profile-content-");
         new BookConfig(temporary.resolve("books.json")).loadOrCreate(profile.content().books());
         new LootConfig(temporary.resolve("chest-loot.json")).loadOrCreate(profile.content().lootTables());
+        new io.github.chronicle.core.eventpool.EventPoolCatalog(new io.github.chronicle.core.eventpool.EventPoolCatalogStore(temporary.resolve("event-pools.json")),profile.content().eventPools().values());
+        Files.writeString(temporary.resolve("portable-sections-new.marker"),"1\n",StandardOpenOption.CREATE_NEW);
         identity(temporary.resolve("identity.json"),profile);
         try{Files.move(temporary,published,StandardCopyOption.ATOMIC_MOVE);}
         catch(AtomicMoveNotSupportedException failure){throw new IOException("Atomic profile catalog publication is unsupported; the prepared directory was preserved: "+temporary,failure);}
@@ -32,6 +34,12 @@ public final class ScenarioProfileContentStore {
         if(!Files.isRegularFile(identity,LinkOption.NOFOLLOW_LINKS)||Files.size(identity)>8192||!Files.readString(identity,StandardCharsets.UTF_8).equals(identityText(profile)))throw new IOException("Profile catalog identity is missing or changed; existing data was preserved.");
         for(String name:List.of("books.json","chest-loot.json"))if(!Files.isRegularFile(directory.resolve(name),LinkOption.NOFOLLOW_LINKS)||Files.isSymbolicLink(directory.resolve(name)))throw new IOException("Initialized profile catalog is missing: "+name+". Restore it; Chronicle will not regenerate it.");
         new BookConfig(directory.resolve("books.json")).loadExisting();new LootConfig(directory.resolve("chest-loot.json")).loadExisting();
+        if (Files.exists(directory.resolve("portable-sections-v1.marker"),LinkOption.NOFOLLOW_LINKS) || Files.exists(directory.resolve("portable-sections-new.marker"),LinkOption.NOFOLLOW_LINKS)) {
+            Path pools=directory.resolve("event-pools.json");
+            if (!Files.isRegularFile(pools,LinkOption.NOFOLLOW_LINKS)) throw new IOException("Initialized pool catalog is missing; restore it.");
+            if (Files.size(pools)>io.github.chronicle.core.eventpool.EventPoolCatalogStore.MAX_BYTES) throw new IOException("Pool catalog exceeds its size limit.");
+            io.github.chronicle.core.eventpool.EventPoolCatalogStore.decode(Files.readAllBytes(pools));
+        }
     }
     public static String identityText(ScenarioProfile profile){return profile.identity()+"\n"+profile.content().scenarioId()+"\n"+String.join("\n",profile.mechanics())+"\n";}
     private static void identity(Path file,ScenarioProfile profile)throws IOException{

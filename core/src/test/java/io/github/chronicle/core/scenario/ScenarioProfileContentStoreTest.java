@@ -29,4 +29,17 @@ class ScenarioProfileContentStoreTest {
         assertThrows(java.io.IOException.class,()->ScenarioProfileContentStore.bindWorld(world,null));
         assertThrows(java.io.IOException.class,()->ScenarioProfileContentStore.bindWorld(world,ScenarioProfile.empty("custom:a","A",Set.of())));
     }
+    @Test void importedPoolsInitializeOnceAndDeletedCatalogIsNotReseeded() throws Exception {
+        var pool=new io.github.chronicle.core.eventpool.EventPoolDefinition("custom:pool","Pool",List.of());
+        var content=new ScenarioContent("custom:a",Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(pool.id(),pool),Map.of());
+        var profile=ScenarioProfile.empty("custom:a","A",Set.of()).withContent(content);
+        var store=new ScenarioProfileContentStore(root.resolve("config")); var directory=store.initialize(profile);
+        var file=directory.resolve("event-pools.json");
+        assertEquals(Map.of(pool.id(),pool),io.github.chronicle.core.eventpool.EventPoolCatalogStore.decode(Files.readAllBytes(file)));
+        var catalog=new io.github.chronicle.core.eventpool.EventPoolCatalog(new io.github.chronicle.core.eventpool.EventPoolCatalogStore(file),List.of());
+        catalog.delete(catalog.revision(),pool.id()); store.initialize(profile);
+        assertTrue(io.github.chronicle.core.eventpool.EventPoolCatalogStore.decode(Files.readAllBytes(file)).isEmpty());
+        Files.delete(file); assertThrows(java.io.IOException.class,()->store.initialize(profile)); assertFalse(Files.exists(file));
+    }
+
 }

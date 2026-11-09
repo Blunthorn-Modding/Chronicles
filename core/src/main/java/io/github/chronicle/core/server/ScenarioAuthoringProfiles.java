@@ -25,6 +25,22 @@ public final class ScenarioAuthoringProfiles {
         if(!Set.of("books.json","chest-loot.json","event-pools.json").contains(name))throw new IllegalArgumentException("Unknown portable content catalog.");
         return chronicleConfig().resolve(active().isPresent()?"profile-content/"+name:name);
     }
+    static void initializePortableSections(Path catalog, ScenarioContent content) throws IOException {
+        Path marker=catalog.resolve("portable-sections-v1.marker"), freshMarker=catalog.resolve("portable-sections-new.marker");
+        if (!Files.exists(marker,LinkOption.NOFOLLOW_LINKS)) {
+            boolean fresh=Files.exists(freshMarker,LinkOption.NOFOLLOW_LINKS);
+            if (fresh && (!Files.isRegularFile(freshMarker,LinkOption.NOFOLLOW_LINKS) || Files.size(freshMarker)!=2 || !Files.readString(freshMarker).equals("1\n"))) throw new IOException("New profile marker is invalid.");
+            ScenarioContentRuntime.initializeExtensions(catalog,content,!fresh);
+            if (!Files.exists(catalog.resolve("event-pools.json"),LinkOption.NOFOLLOW_LINKS)) new io.github.chronicle.core.eventpool.EventPoolCatalog(new io.github.chronicle.core.eventpool.EventPoolCatalogStore(catalog.resolve("event-pools.json")),List.of());
+            Files.writeString(marker,"1\n",StandardOpenOption.CREATE_NEW,StandardOpenOption.WRITE);
+        }
+        if (!Files.isRegularFile(marker,LinkOption.NOFOLLOW_LINKS) || Files.size(marker)!=2 || !Files.readString(marker).equals("1\n")) throw new IOException("Portable sections marker is invalid.");
+        Path pools=catalog.resolve("event-pools.json");
+        if (!Files.isRegularFile(pools,LinkOption.NOFOLLOW_LINKS)) throw new IOException("Initialized pool catalog is missing; restore it.");
+        if (Files.size(pools)>io.github.chronicle.core.eventpool.EventPoolCatalogStore.MAX_BYTES) throw new IOException("Pool catalog exceeds its size limit.");
+        io.github.chronicle.core.eventpool.EventPoolCatalogStore.decode(Files.readAllBytes(pools));
+        ScenarioContentRuntime.verifyExtensions(catalog);
+    }
     public static void register(){
         active();
         // Registered before every other Core startup listener and every catalog freeze.
@@ -37,8 +53,10 @@ public final class ScenarioAuthoringProfiles {
                 if(current==null){if(Files.exists(chronicleConfig().resolve("profile-content"),LinkOption.NOFOLLOW_LINKS))throw new IOException("This configuration contains custom scenario catalogs but its profile is missing.");return;}
                 if(!server.isDedicated())throw new IOException("Custom authoring profiles require a separate dedicated server and configuration.");
                 ScenarioContentRuntime.requireCompatibleMechanics(current.mechanics());
+                ScenarioContentRuntime.validateExtensions(current.content());
                 if(!ChronicleCore.books().books().isEmpty()||!ChronicleCore.chestTypes().types().isEmpty()||!ChronicleCore.playerRoles().roles().isEmpty()||!ChronicleCore.observations().definitions().isEmpty()||!ScenarioEventTemplates.templates().isEmpty()||!ScenarioEventTemplates.flags().isEmpty())throw new IOException("An installed scenario registered reusable defaults despite custom profile mode. Its mechanics need profile support before using this setup.");
-                new ScenarioProfileContentStore(chronicleConfig()).initialize(current);
+                Path catalog = new ScenarioProfileContentStore(chronicleConfig()).initialize(current);
+                initializePortableSections(catalog,current.content());
                 ScenarioProfileContentStore.bindWorld(world,current);
                 current.content().roles().values().forEach(ChronicleCore.playerRoles()::register);
                 Encounters.registerDefaults(current.content().encounterGroups().values());

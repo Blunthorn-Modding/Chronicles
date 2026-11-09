@@ -181,8 +181,9 @@ public final class CouncilBallotsSmoke {
                 var pools=io.github.chronicle.core.eventpool.EventPoolCatalogStore.decode(Files.readAllBytes(root.resolve("config/chronicle/event-pools.json")));
                 require(pools.values().stream().anyMatch(p->p.label().equals("Native test pool")&&p.entries().size()==1&&p.entries().get(0).weight()==2),"native pool Save did not persist entry and weight");
                 c.getWindow().setWindowedSize(1280,720);wait=30;step=83;}
-            case 83 -> {checkWidgets(c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"event-pools-normal.png",c.getFramebuffer(),1,ignored->{});c.getWindow().setWindowedSize(640,480);wait=30;step=84;}
-            case 84 -> {checkWidgets(c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"event-pools-compact.png",c.getFramebuffer(),1,ignored->{});mark("pool-compete","ready");step=90;}
+            case 83 -> {checkPoolFrame(c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"event-pools-normal.png",c.getFramebuffer(),1,ignored->{});c.getWindow().setWindowedSize(1920,574);wait=30;step=95;}
+            case 95 -> {checkPoolFrame(c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"event-pools-wide-short.png",c.getFramebuffer(),1,ignored->{});c.getWindow().setWindowedSize(640,480);wait=30;step=84;}
+            case 84 -> {checkPoolFrame(c.currentScreen);ScreenshotRecorder.saveScreenshot(shared.toFile(),"event-pools-compact.png",c.getFramebuffer(),1,ignored->{});mark("pool-compete","ready");step=90;}
             case 90 -> {if(!has("pool-competitor-saved"))return;input(c.currentScreen).setText("4");press(c.currentScreen,"Save pool");wait=30;step=91;}
             case 91 -> {require(buttons(c.currentScreen).stream().anyMatch(b->b.getMessage().getString().equals("Save pool")&&!b.active),"stale save still allows overwrite on retry");
                 require(poolWeight()==3,"stale draft overwrote another operator");press(c.currentScreen,"Back");press(c.currentScreen,"Event pools");step=92;}
@@ -606,6 +607,15 @@ public final class CouncilBallotsSmoke {
         button.onPress(new MouseInput(0, 0));
     }
     private static net.minecraft.client.gui.widget.TextFieldWidget input(Screen screen){return screen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).findFirst().orElseThrow(()->new IllegalStateException("input field unavailable"));}
+    private static void checkPoolFrame(Screen screen){
+        require(screen instanceof io.github.chronicle.core.client.EventPoolEditorScreen,"pool editor expected");
+        var actual=((io.github.chronicle.core.client.EventPoolEditorScreen)screen).menuLayoutForTest();
+        var expected=io.github.chronicle.core.menu.CoreMenuLayout.forViewport(screen.width,screen.height);
+        require(actual.frame().equals(expected.frame()),"pool frame differs from normal O menu");
+        for(var child:screen.children())if(child instanceof net.minecraft.client.gui.widget.ClickableWidget w)
+            require(actual.content().contains(w.getX(),w.getY(),w.getWidth(),w.getHeight()),"pool control clips outside grey frame content");
+        require(buttons(screen).stream().filter(b->Set.of("Back","Save pool","Delete").contains(b.getMessage().getString())).allMatch(b->b.getY()==expected.footerY()),"pool bottom actions do not use shared inset footer");
+    }
     private static void checkWidgets(Screen screen){for(var child:screen.children())if(child instanceof net.minecraft.client.gui.widget.ClickableWidget w)require(w.getX()>=0&&w.getY()>=0&&w.getX()+w.getWidth()<=screen.width&&w.getY()+w.getHeight()<=screen.height,"widget outside screen");}
     private String worldHash(String name)throws Exception {
         return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(root.resolve("world/chronicle/last-council/"+name))));

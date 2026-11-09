@@ -66,7 +66,7 @@ class ScenarioContentTest {
     }
     @Test void readsLegacySchemaOneAndWritesCurrentSchema() {
         ScenarioContent original = new ScenarioContent("example:legacy", Map.of(), Map.of(), Map.of(), Map.of());
-        var root = JsonParser.parseString(ScenarioContentJson.encode(original)).getAsJsonObject(); root.addProperty("schemaVersion", 1); root.remove("encounterGroups"); root.remove("flags");
+        var root = JsonParser.parseString(ScenarioContentJson.encode(original)).getAsJsonObject(); root.addProperty("schemaVersion", 1); root.remove("encounterGroups"); root.remove("flags"); root.remove("eventPools"); root.remove("extensions");
         assertEquals(original, ScenarioContentJson.decode(root.toString())); assertTrue(ScenarioContentJson.encode(original).contains("\"schemaVersion\":" + ScenarioContentJson.SCHEMA_VERSION));
     }
     @Test void flagDefaultsRoundTripAndLegacySchemasRemainReadable() {
@@ -74,7 +74,7 @@ class ScenarioContentTest {
         var root = JsonParser.parseString(ScenarioContentJson.encode(content)).getAsJsonObject();
         assertEquals(content, ScenarioContentJson.decode(root.toString()));
         for (int version = 1; version <= 3; version++) {
-            var legacy = root.deepCopy(); legacy.addProperty("schemaVersion", version); legacy.remove("flags"); if (version == 1) legacy.remove("encounterGroups");
+            var legacy = root.deepCopy(); legacy.addProperty("schemaVersion", version); legacy.remove("flags"); legacy.remove("eventPools"); legacy.remove("extensions"); if (version == 1) legacy.remove("encounterGroups");
             assertTrue(ScenarioContentJson.decode(legacy.toString()).flags().isEmpty());
         }
         assertThrows(IllegalArgumentException.class, () -> new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of("invalid", false)));
@@ -89,6 +89,29 @@ class ScenarioContentTest {
         assertThrows(IllegalArgumentException.class, () -> ScenarioContentJson.decode(invalidJson.toString()));
         var captured = ScenarioContentCapture.capture("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of("example:ready", true));
         assertEquals(Map.of("example:ready", false), captured.content().flags());
+    }
+
+    @Test void portablePoolsAndExtensionsRoundTripAndValidateReferences() {
+        var event = new EventTemplate("example:cue", "Cue", "", "Hello", "", ObservationCatalog.Audience.PARTICIPANTS, "", PlayState.Mode.MANUAL, "", 0, List.of(), Map.of(), List.of(), EventSource.empty());
+        var pool = new io.github.chronicle.core.eventpool.EventPoolDefinition("example:pool", "Pool", List.of(new io.github.chronicle.core.eventpool.EventPoolDefinition.Entry(event.id(), 2)));
+        var extensions = Map.of("example:settings", ScenarioContentJson.canonicalExtension("{\"z\":1,\"a\":{\"b\":true}}"));
+        var content = new ScenarioContent("example:scenario", Map.of(), Map.of(), Map.of(), Map.of(event.id(),event), Map.of(), Map.of(), Map.of(pool.id(),pool), extensions);
+        String json = ScenarioContentJson.encode(content);
+        assertEquals(content,ScenarioContentJson.decode(json)); assertEquals(json,ScenarioContentJson.encode(ScenarioContentJson.decode(json)));
+        assertTrue(json.contains("\"extensions\":{\"example:settings\":{\"a\":{"));
+        assertThrows(IllegalArgumentException.class,()->new ScenarioContent("example:scenario",Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(pool.id(),pool),extensions));
+        assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.canonicalExtension("{\"x\":1,\"x\":2}"));
+        assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.canonicalExtension("{\"x\":\""+"a".repeat(65536)+"\"}"));
+        var legacy=JsonParser.parseString(json).getAsJsonObject(); legacy.addProperty("schemaVersion",4); legacy.remove("eventPools"); legacy.remove("extensions");
+        assertTrue(ScenarioContentJson.decode(legacy.toString()).eventPools().isEmpty());
+    }
+
+    @Test void disabledConfiguredPoolEventsAreNotSilentlyPromoted() {
+        var definition = new EventDefinition("example:cue", 1, "Cue", "", "Text", "", ObservationCatalog.Audience.PARTICIPANTS, Optional.empty(), List.of(), Map.of());
+        var disabled = new EventConfiguration(definition, PlayState.Mode.MANUAL, Optional.empty(), 0, 0, List.of(), false, EventSource.empty());
+        var pool = new io.github.chronicle.core.eventpool.EventPoolDefinition("example:pool", "Pool", List.of(new io.github.chronicle.core.eventpool.EventPoolDefinition.Entry(definition.id(), 1)));
+        assertThrows(IllegalArgumentException.class, () -> ScenarioContentCapture.validatePoolConfigurations(Map.of(pool.id(),pool), Map.of(definition.id(),disabled)));
+        assertDoesNotThrow(() -> ScenarioContentCapture.validatePoolConfigurations(Map.of(pool.id(),pool), Map.of()));
     }
 
 }

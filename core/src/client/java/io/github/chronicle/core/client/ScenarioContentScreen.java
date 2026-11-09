@@ -105,14 +105,15 @@ final class ScenarioContentScreen extends Screen {
         if(mode==Mode.LANDING){if(providers.isEmpty())wrapped(context,"Create an empty scenario using the installed mechanics.",x,y+76,w,0xFFCCCCCC,3);}
         else if(mode==Mode.CREATE){
             line(context,"Scenario name",x,y+39,w,0xFFCCCCCC);line(context,"Scenario ID",x,y+79,w,0xFFCCCCCC);
-            wrapped(context,"Starts with no roles, books, loot tables, Events or encounter groups. Installed mechanics remain available.",x,y+122,w,0xFFCCCCCC,3);
+            wrapped(context,"Starts with empty reusable content. Installed mechanics remain available.",x,y+122,w,0xFFCCCCCC,3);
             line(context,"Uses a separate world and server configuration.",x,y+156,w,0xFFFFCC66);
         }else if(mode==Mode.PREVIEW&&preview!=null){
             line(context,preview.title(),x,y+40,w,0xFFCCCCCC);
             line(context,"Roles: "+preview.roles()+"    Books: "+preview.books(),x,y+70,w,0xFFFFFFFF);
             line(context,"Loot tables: "+preview.lootTables()+"    Events: "+preview.events(),x,y+82,w,0xFFFFFFFF);
             line(context,"Encounter groups: "+preview.encounterGroups(),x,y+94,w,0xFFFFFFFF);
-            wrapped(context,"Exports reusable content. Map setup and player progress stay with the current world.",x,y+116,w,0xFFCCCCCC,3);
+            line(context,"Event pools: "+preview.eventPools()+"    Mechanic settings: "+preview.extensions(),x,y+106,w,0xFFFFFFFF);
+            wrapped(context,"Exports reusable content. Map setup and player progress stay with the current world.",x,y+123,w,0xFFCCCCCC,2);
             line(context,"Event templates need target-map review.",x,y+152,w,0xFFFFCC66);
         }else if(mode==Mode.RESULT){
             wrapped(context,result.kind().equals("KIT")?"Empty content; the current world was not changed.":"The server saved and verified this file.",x,y+46,w,0xFF77FF77,3);

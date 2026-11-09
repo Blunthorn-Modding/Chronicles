@@ -35,6 +35,33 @@ public final class ComplicationsRuntime {
         ComplicationConfig config(){return plan.isInitialized()?plan.config():settings.config();}
     }
     public static void register() {
+        ScenarioContentRuntime.registerExtension(HOLD,new ScenarioContentRuntime.ExtensionAdapter() {
+            public void validate(String json) throws IOException { ComplicationSettings.decode(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)); }
+            public void validateContent(String json, io.github.chronicle.core.scenario.ScenarioContent content) throws IOException {
+                var config=ComplicationSettings.decode(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                if(config.total()>0) {
+                    var pool=content.eventPools().get(config.poolId());
+                    if(pool==null) throw new IOException("Council settings reference an absent event pool: " + config.poolId());
+                    if(pool.entries().size()<config.total()) throw new IOException("Council settings require more Events than the pool contains.");
+                }
+            }
+            public String capture(MinecraftServer server) throws IOException {
+                if (!PackagedScenarios.mechanicsFor(LastCouncil.SCENARIO,LastCouncil.MECHANICS)) return null;
+                var r=runtime(server); r.settings.verify(); return new String(ComplicationSettings.encode(r.settings.config()),java.nio.charset.StandardCharsets.UTF_8);
+            }
+            public void initialize(java.nio.file.Path directory,String initial,boolean legacy) throws IOException {
+                var defaults=ComplicationConfig.defaults();
+                defaults=new ComplicationConfig(defaults.poolId(),0,defaults.meetings(),defaults.earliestTicks(),defaults.latestTicks(),defaults.spacingTicks());
+                if(!legacy && initial!=null) defaults=ComplicationSettings.decode(initial.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                new ComplicationSettings(directory.resolve("last-council-complications.json"),defaults);
+            }
+            public void verify(java.nio.file.Path directory) throws IOException {
+                var file=directory.resolve("last-council-complications.json");
+                if(!java.nio.file.Files.isRegularFile(file,java.nio.file.LinkOption.NOFOLLOW_LINKS)) throw new IOException("Initialized Council settings are missing; restore them.");
+                if(java.nio.file.Files.size(file)>16384) throw new IOException("Council settings exceed their size limit.");
+                ComplicationSettings.decode(java.nio.file.Files.readAllBytes(file));
+            }
+        });
         ServerLifecycleEvents.SERVER_STARTED.register(ComplicationsRuntime::start);
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             var r=WORLDS.get(server);if(r==null)return;

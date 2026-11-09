@@ -14,6 +14,13 @@ import java.util.TreeMap;
 public final class ScenarioContentCapture {
     public record Result(ScenarioContent content, List<String> strippedRoleBindings) { public Result { strippedRoleBindings = List.copyOf(strippedRoleBindings); } }
     private ScenarioContentCapture() { }
+    public static void validatePoolConfigurations(Map<String, io.github.chronicle.core.eventpool.EventPoolDefinition> pools, Map<String, EventConfiguration> events) {
+        for (var pool : pools.values()) for (var entry : pool.entries()) {
+            var config=events.get(entry.eventId());
+            // Absent live configuration can be an unready packaged scenario draft.
+            if (config != null && !config.enabled()) throw new IllegalArgumentException("Pool references disabled Event: " + entry.eventId());
+        }
+    }
     public static Result capture(String scenarioId, Map<String, PlayerRole> roles, Map<String, BookDefinition> books,
                                  Map<String, LootType> loot, Map<String, EventConfiguration> events) {
         return capture(scenarioId, roles, books, loot, events, Map.of());

@@ -45,4 +45,10 @@ class ComplicationsProjectionTest {
         Path file=dir.resolve("setup.json");var settings=new ComplicationSettings(file,c);Files.writeString(file,"{}");
         assertThrows(IOException.class,()->settings.save(c));assertEquals("{}",Files.readString(file));
     }
+    @Test void reusableSettingsEncodingContainsNoPrivatePlanFields() {
+        String json=new String(ComplicationSettings.encode(ComplicationConfig.defaults()),StandardCharsets.UTF_8);
+        for(String privateField:List.of("seed","slots","claims","recipients","clock","experience","schedule","selected")) assertFalse(json.contains(privateField));
+        assertEquals(Set.of("schema","poolId","total","meetings","earliestTicks","latestTicks","spacingTicks"),com.google.gson.JsonParser.parseString(json).getAsJsonObject().keySet());
+    }
+
 }

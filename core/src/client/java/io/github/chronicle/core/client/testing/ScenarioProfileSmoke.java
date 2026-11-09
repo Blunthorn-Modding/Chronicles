@@ -26,6 +26,7 @@ public final class ScenarioProfileSmoke {
         if(c.player==null)return;c.getToastManager().clear();
         for(String message:messages)if(message.contains("Profile trial FAIL"))throw new IllegalStateException(message);
         CoreMenuScreen menu=c.currentScreen instanceof CoreMenuScreen m?m:null;
+        if(mode.equals("portable")){portable(c,menu);return;}
         if(step==0){c.player.networkHandler.sendChatCommand("chronicle");step=1;return;}
         if(step==1){if(menu==null||menu.pending())return;parent=menu;if(!mode.equals("create")){command(c,mode.equals("profile")?"empty":mode);step=2;}else step=3;return;}
         if(step==2){if(!passed(mode.equals("profile")?"empty":mode))return;checks.add("profile runtime assertions: "+mode);if(!mode.equals("profile")){finish(c,null);return;}step=3;}
@@ -43,6 +44,17 @@ public final class ScenarioProfileSmoke {
         if(step==15){if(wait-->0)return;capture(c,"exported");checks.add("native Export displays server file, preserves identity and exports effective reusable content");press(c,"Close");command(c,"edit");step=16;return;}
         if(step==16){if(!passed("edit"))return;checks.add("normal authoring services changed book and deleted role after export");finish(c,null);}
     }catch(Throwable error){finish(c,error.toString());}}
+    private void portable(MinecraftClient c,CoreMenuScreen menu){
+        switch(step){
+            case 0 -> {c.player.networkHandler.sendChatCommand("chronicle");step=1;}
+            case 1 -> {if(menu==null||menu.pending())return;require(menu.state().hold().isBlank(),"fixture has an operation hold");parent=menu;if(!menu.state().editing())require(menu.triggerForTest("Enable editing"),"Editing missing");step=2;}
+            case 2 -> {if(menu==null||menu.pending()||!menu.state().editing())return;parent=menu;require(menu.triggerForTest("Scenario content...")||menu.triggerForTest("..."),"scenario header missing");step=3;}
+            case 3 -> {if(!screen(c))return;require(parent.state().scenarioProviders().size()==1,"one selected provider expected");press(c,parent.state().scenarioProviders().getFirst().title());step=4;}
+            case 4 -> {if(!has(c,"Export content")||!button(c,"Export content").active)return;var p=parent.state().scenarioPreview();require(p!=null&&p.eventPools()==1&&p.extensions()==1,"portable sections absent from reviewed counts");capture(c,"portable-preview");press(c,"Export content");step=5;}
+            case 5 -> {if(!has(c,"Copy path"))return;var r=parent.state().scenarioResult();require(r!=null&&Set.of("CONTENT","PROFILE").contains(r.kind())&&Files.isRegularFile(Path.of(r.path())),"portable export not acknowledged");checks.add("native preview reviews pool/settings counts and exports acknowledged configuration");capture(c,"portable-exported");finish(c,null);}
+            default -> throw new IllegalStateException("unexpected portable step");
+        }
+    }
     private void command(MinecraftClient c,String verb){c.player.networkHandler.sendChatCommand("chronicle_profile_trial "+verb);}
     private boolean passed(String verb){return messages.stream().anyMatch(v->v.contains("Profile trial PASS "+verb));}
     private static boolean screen(MinecraftClient c){return c.currentScreen!=null&&c.currentScreen.getClass().getSimpleName().equals("ScenarioContentScreen");}
