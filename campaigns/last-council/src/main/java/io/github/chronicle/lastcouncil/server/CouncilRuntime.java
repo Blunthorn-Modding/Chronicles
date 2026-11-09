@@ -32,6 +32,17 @@ public final class CouncilRuntime {
     private static final SecureRandom RANDOM=new SecureRandom();
     private CouncilRuntime() { }
     public static void register(){
+        ScenarioContentRuntime.registerExtension(HOLD,new ScenarioContentRuntime.ExtensionAdapter() {
+            public void validate(String json) throws IOException { CouncilContentJson.decode(json.getBytes(StandardCharsets.UTF_8)); }
+            public String capture(MinecraftServer server) throws IOException {
+                if(!active()) return null;
+                if(!server.isOnThread() || !WORLDS.containsKey(server)) throw new IOException("House definitions unavailable.");
+                State state=WORLDS.get(server); state.contentFile.verifyUnchanged();
+                return new String(CouncilContentJson.encode(state.content),StandardCharsets.UTF_8);
+            }
+            public void initialize(java.nio.file.Path directory,String initial,boolean legacy) throws IOException { CouncilContentProfiles.initialize(directory,initial,legacy); }
+            public void verify(java.nio.file.Path directory) throws IOException { CouncilContentProfiles.verify(directory); }
+        });
         ServerLifecycleEvents.SERVER_STARTED.register(server->{if(active())start(server);});
         ServerLifecycleEvents.SERVER_STOPPED.register(WORLDS::remove);
         ServerTickEvents.START_SERVER_TICK.register(CouncilRuntime::issueAtFirstPlay);
@@ -64,10 +75,12 @@ public final class CouncilRuntime {
     public static boolean active(){return PackagedScenarios.mechanicsFor(LastCouncil.SCENARIO,LastCouncil.MECHANICS);}
     private static void start(MinecraftServer server){
         try{
-            var file=new AtomicDataFile(ScenarioAuthoringProfiles.chronicleConfig().resolve("last-council/houses.json"),CouncilContentJson.MAX_BYTES);
+            var profile=ScenarioAuthoringProfiles.active().isPresent();
+            var directory=ScenarioAuthoringProfiles.chronicleConfig().resolve(profile?"profile-content":"");
+            var file=new AtomicDataFile(CouncilContentProfiles.file(directory),CouncilContentJson.MAX_BYTES);
             byte[] bytes=file.load();
             if(bytes==null){
-                if(ScenarioAuthoringProfiles.active().isPresent())bytes="{\"schema\":1,\"note\":\"Empty custom scenario\",\"houses\":{},\"secrets\":[],\"goals\":[],\"secretsPerHouse\":0,\"goalsPerHouse\":0,\"knowledgeChancePercent\":0}".getBytes(StandardCharsets.UTF_8);
+                if(profile)throw new IOException("Initialized profile House content is missing; restore it.");
                 else try(var input=CouncilRuntime.class.getResourceAsStream("/data/last_council/chronicle/houses.json")){
                     if(input==null)throw new IOException("Bundled house content missing");bytes=input.readNBytes(CouncilContentJson.MAX_BYTES+1);
                 }

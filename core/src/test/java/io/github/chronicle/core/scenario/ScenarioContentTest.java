@@ -101,7 +101,7 @@ class ScenarioContentTest {
         assertTrue(json.contains("\"extensions\":{\"example:settings\":{\"a\":{"));
         assertThrows(IllegalArgumentException.class,()->new ScenarioContent("example:scenario",Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(pool.id(),pool),extensions));
         assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.canonicalExtension("{\"x\":1,\"x\":2}"));
-        assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.canonicalExtension("{\"x\":\""+"a".repeat(65536)+"\"}"));
+        assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.canonicalExtension("{\"x\":\""+"a".repeat(ScenarioContentJson.MAX_EXTENSION_BYTES)+"\"}"));
         var legacy=JsonParser.parseString(json).getAsJsonObject(); legacy.addProperty("schemaVersion",4); legacy.remove("eventPools"); legacy.remove("extensions");
         assertTrue(ScenarioContentJson.decode(legacy.toString()).eventPools().isEmpty());
     }
@@ -112,6 +112,24 @@ class ScenarioContentTest {
         var pool = new io.github.chronicle.core.eventpool.EventPoolDefinition("example:pool", "Pool", List.of(new io.github.chronicle.core.eventpool.EventPoolDefinition.Entry(definition.id(), 1)));
         assertThrows(IllegalArgumentException.class, () -> ScenarioContentCapture.validatePoolConfigurations(Map.of(pool.id(),pool), Map.of(definition.id(),disabled)));
         assertDoesNotThrow(() -> ScenarioContentCapture.validatePoolConfigurations(Map.of(pool.id(),pool), Map.of()));
+    }
+
+    @Test void reusableCatalogExtensionsCanExceedSixtyFourKiBButRemainBounded() {
+        String large=ScenarioContentJson.canonicalExtension("{\"body\":\""+"a".repeat(70_000)+"\"}");
+        var content=new ScenarioContent("example:scenario",Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of("example:catalog",large));
+        assertEquals(content,ScenarioContentJson.decode(ScenarioContentJson.encode(content)));
+        String multibyte="{\"body\":\""+"\uD83D\uDE00".repeat(ScenarioContentJson.MAX_EXTENSION_BYTES/4)+"\"}";
+        assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.canonicalExtension(multibyte));
+        String nested="{\"x\":".repeat(40)+"{}"+"}".repeat(40);
+        assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.canonicalExtension(nested));
+    }
+
+    @Test void multipleLegalExtensionsCannotExceedTheWholeContentBudget() {
+        String large=ScenarioContentJson.canonicalExtension("{\"body\":\""+"a".repeat(ScenarioContentJson.MAX_EXTENSION_BYTES-128)+"\"}");
+        var sections=new java.util.TreeMap<String,String>();
+        for(int i=0;i<9;i++)sections.put("example:catalog_"+i,large);
+        var content=new ScenarioContent("example:scenario",Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),Map.of(),sections);
+        assertThrows(IllegalArgumentException.class,()->ScenarioContentJson.encode(content));
     }
 
 }

@@ -40,6 +40,25 @@ public final class CouncilContentJson {
             return new CouncilContent(houses,secrets,goals,integer(root.get("secretsPerHouse")),integer(root.get("goalsPerHouse")),integer(root.get("knowledgeChancePercent")));
         } catch(CharacterCodingException | RuntimeException e) { throw new IOException("invalid Council content",e); }
     }
+    /** Canonical reusable definitions; no live world state is serialized. */
+    public static byte[] encode(CouncilContent content) throws IOException {
+        Objects.requireNonNull(content);
+        // The nonsemantic note stays minimal so a valid near-limit source can still export.
+        JsonObject root=new JsonObject(); root.addProperty("schema",1); root.addProperty("note","");
+        JsonObject houses=new JsonObject();
+        new TreeMap<>(content.houses()).forEach((id,h)->{ JsonObject o=new JsonObject(); o.addProperty("id",h.id()); o.addProperty("title",h.title()); o.addProperty("reputation",h.reputation()); o.addProperty("description",h.description()); o.addProperty("interests",h.interests()); o.addProperty("defaultCandidate",h.defaultCandidate()); houses.add(id,o); });
+        root.add("houses",houses);
+        JsonArray secrets=new JsonArray();
+        for(var s:content.secrets()){ JsonObject o=new JsonObject(); o.addProperty("id",s.id()); o.addProperty("weight",s.weight()); o.addProperty("text",s.text()); JsonObject facts=new JsonObject(); new TreeMap<>(s.facts()).forEach(facts::addProperty); o.add("facts",facts); o.add("applicableHouseIds",sorted(s.applicableHouseIds())); secrets.add(o); }
+        root.add("secrets",secrets);
+        JsonArray goals=new JsonArray();
+        for(var g:content.goals()){ JsonObject o=new JsonObject(); o.addProperty("id",g.id()); o.addProperty("weight",g.weight()); o.addProperty("text",g.text()); o.add("applicableHouseIds",sorted(g.applicableHouseIds())); goals.add(o); }
+        root.add("goals",goals); root.addProperty("secretsPerHouse",content.secretsPerHouse()); root.addProperty("goalsPerHouse",content.goalsPerHouse()); root.addProperty("knowledgeChancePercent",content.knowledgeChancePercent());
+        byte[] bytes=new GsonBuilder().disableHtmlEscaping().create().toJson(root).getBytes(StandardCharsets.UTF_8);
+        if(!decode(bytes).equals(content))throw new IOException("House definitions did not round-trip unchanged");
+        return bytes;
+    }
+    private static JsonArray sorted(Set<String> values) { JsonArray result=new JsonArray(); new TreeSet<>(values).forEach(result::add); return result; }
     private static Set<String> scope(JsonElement e) { JsonArray a=array(e); if(a.size()>32)throw new IllegalArgumentException("scope too large"); Set<String> result=new LinkedHashSet<>(); for(JsonElement x:a)if(!result.add(string(x)))throw new IllegalArgumentException("duplicate scope"); return result; }
     private static JsonObject object(JsonElement e) { if(e==null||!e.isJsonObject())throw new IllegalArgumentException("expected object"); return e.getAsJsonObject(); }
     private static JsonArray array(JsonElement e) { if(e==null||!e.isJsonArray())throw new IllegalArgumentException("expected array"); return e.getAsJsonArray(); }

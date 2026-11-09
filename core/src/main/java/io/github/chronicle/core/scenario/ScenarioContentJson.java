@@ -32,6 +32,7 @@ import java.util.TreeMap;
 public final class ScenarioContentJson {
     public static final int SCHEMA_VERSION = 5;
     public static final int MAX_BYTES = 16 * 1024 * 1024;
+    public static final int MAX_EXTENSION_BYTES = 2 * 1024 * 1024;
     private static final int MAX_DEPTH = 32;
     private ScenarioContentJson() { }
     public static String encode(ScenarioContent content) {
@@ -67,8 +68,10 @@ public final class ScenarioContentJson {
         return new ScenarioContent(string(required(root, "scenarioId"), "scenarioId"), roles, books, loot, events, groups, flags, pools, extensions);
     }
     public static String canonicalExtension(String source) {
-        if (source == null || source.getBytes(StandardCharsets.UTF_8).length > 65536) throw new IllegalArgumentException("extension exceeds 64 KiB");
-        strict(source); return canonical(object(parse(source), "extension")).toString();
+        if (source == null || source.getBytes(StandardCharsets.UTF_8).length > MAX_EXTENSION_BYTES) throw new IllegalArgumentException("extension exceeds 2 MiB");
+        strict(source); String result = canonical(object(parse(source), "extension")).toString();
+        if (result.getBytes(StandardCharsets.UTF_8).length > MAX_EXTENSION_BYTES) throw new IllegalArgumentException("extension exceeds 2 MiB");
+        return result;
     }
     private static JsonElement canonical(JsonElement value) {
         if (value.isJsonObject()) { JsonObject result = new JsonObject(); var sorted = new TreeMap<String, JsonElement>(); value.getAsJsonObject().entrySet().forEach(e -> sorted.put(e.getKey(), e.getValue())); sorted.forEach((key, child) -> result.add(key, canonical(child))); return result; }

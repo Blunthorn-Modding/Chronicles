@@ -1,7 +1,11 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.7`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.8`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
+
+## LC01 portability continuation
+
+The owner deferred treaty group acceptance alongside complications and authorized independent progress. [LC01_PORTABILITY_RESULTS.md](LC01_PORTABILITY_RESULTS.md) records reusable House/secret/goal export/import and safe custom-profile migration. Native content editing remains design-only pending a solo workflow review; physical handout delivery remains pending. The existing dev.7 Host/Player group-review artifacts are unchanged.
 
 ## 9 November continuation
 

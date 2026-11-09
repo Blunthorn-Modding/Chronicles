@@ -1,6 +1,6 @@
 # LC-04 — Treaties and explicit consent
 
-Status: initial house-agreement ceremony in implementation; owner approved the UI and policies on 9 November. Realm ratification and active amendments remain pending. Depends on LC-01; realm ratification also needs LC-02. Brief: §§7, 10–12, 14.
+Status: initial house-agreement ceremony implemented, human acceptance deferred by the owner to the next group review cycle and not a development blocker; owner approved the UI and policies on 9 November. Realm ratification and active amendments remain pending. Depends on LC-01; realm ratification also needs LC-02. Brief: §§7, 10–12, 14.
 
 ## Outcome and ownership
 

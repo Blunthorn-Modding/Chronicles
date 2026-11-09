@@ -112,7 +112,7 @@ final class ScenarioContentScreen extends Screen {
             line(context,"Roles: "+preview.roles()+"    Books: "+preview.books(),x,y+70,w,0xFFFFFFFF);
             line(context,"Loot tables: "+preview.lootTables()+"    Events: "+preview.events(),x,y+82,w,0xFFFFFFFF);
             line(context,"Encounter groups: "+preview.encounterGroups(),x,y+94,w,0xFFFFFFFF);
-            line(context,"Event pools: "+preview.eventPools()+"    Mechanic settings: "+preview.extensions(),x,y+106,w,0xFFFFFFFF);
+            line(context,"Event pools: "+preview.eventPools()+"    Scenario sections: "+preview.extensions(),x,y+106,w,0xFFFFFFFF);
             wrapped(context,"Exports reusable content. Map setup and player progress stay with the current world.",x,y+123,w,0xFFCCCCCC,2);
             line(context,"Event templates need target-map review.",x,y+152,w,0xFFFFCC66);
         }else if(mode==Mode.RESULT){

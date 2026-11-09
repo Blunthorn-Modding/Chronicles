@@ -46,3 +46,5 @@ An initial world-staging attempt used the menu smoke's fixed voice-port readines
 Human treaty presentation/ceremony acceptance is the next review before agreement consequences are integrated into conflict mechanics. Complication/recess/Regency group acceptance remains explicitly deferred. Realm ratification, active amendments, conflicts/rebellion, physical character handouts and banquet/acoustics retain their work-package boundaries; no full LC04/LC08 or release acceptance is claimed.
 
 After verification, seven stopped disposable test worlds and the superseded dev.6 review source were removed (1.39GiB); compact reports/screenshots and the current pack source were retained. Receipt: `../reports/nov09-cleanup.json`. No test clients or review server remain running.
+
+Owner follow-up: treaty multiplayer/UI ceremony acceptance is now explicitly deferred to the next review cycle as well. Neither this nor the complication group review is passed or a blocker to independent development. See [LC01 portability continuation](LC01_PORTABILITY_PLAN.md) for dev.8 work.
