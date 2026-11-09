@@ -1,10 +1,10 @@
 # The Last Council work-package tree
 
-**Current slice:** dev.6 implements Core Event pools, the approved Council complication configuration and durable late-arrival gates, plus the queued ballot/meeting polish. See [LC08 implementation and verification](LC08_IMPLEMENTATION.md). The workflow is approved; native functional review is next. LC08C content/export and the remaining political packages are still outstanding.
+**Current slice:** dev.7 repairs the Event-pool editor frame/footer and adds reusable pool/settings export/import. The owner approved continuing on 9 November and deferred the human complication/Regency group review until more testers are available; it remains outstanding without blocking development. See [9 November implementation](NOV09_IMPLEMENTATION.md). The owner also approved the treaty UI and policies; the initial native house-agreement ceremony is implemented and awaiting human UI/ceremony review. Future review deliveries are Host/Player packs only.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
-Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.6**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
+Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.7**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 
@@ -19,13 +19,13 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 | Package | Deliverable | Depends on | Status |
 |---|---|---|---|
 | [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | In progress: assignments/private cast screens; physical grants and pool authoring pending |
-| [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | In implementation: approved scenes, Core ballots, motions/proceedings; complication gate implemented; native review pending |
-| [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | In progress: rules/journal/regency scene; actual LC08 gate implemented; native review pending |
-| [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Planned; gameplay/UI flow review required |
+| [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | In implementation: approved scenes, Core ballots, motions/proceedings; complication gate implemented; human group review deferred |
+| [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | In progress: rules/journal/regency scene; actual LC08 gate implemented; human group review deferred |
+| [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Initial native house-agreement ceremony implemented; human review and realm ratification/amendments remain |
 | [LC-05](LC-05-conflicts.md) | House/civil/external wars and political settlements | LC-02, LC-04 | Planned |
 | [LC-06](LC-06-rebellion-access.md) | Optional guarded Regions; rebellion and formal reinstatement | LC-01, LC-02, LC-03; LC-04/05 integration | Planned; confirmation/access review required |
 | [LC-07](LC-07-banquet.md) | Optional drinks, delayed illness and antidote | LC-01, existing Core clocks/items | Planned; can progress independently of LC-03/04/05 |
-| [LC-08](LC-08-content-events.md) | Core Event pools; random Council complications, character content and source/flag links | LC-01B/C for handouts; LC-02 progression gate for timing; integrate delivered operations | In implementation: approved pools/timing/gates; final content and export pending |
+| [LC-08](LC-08-content-events.md) | Core Event pools; random Council complications, character content and source/flag links | LC-01B/C for handouts; LC-02 progression gate for timing; integrate delivered operations | In implementation: pools/timing/gates and portable export; final content/source links pending |
 | [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08, chosen LC-10 voice behavior; LC-07 when enabled | Planned |
 | [LC-10](LC-10-room-voice.md) | Shared room-voice/acoustics investigation using Regions and Simple Voice Chat | Existing Regions/voice setup | Investigate early; implementation choice needs prototype review |
 
@@ -59,7 +59,7 @@ Keep builds/native clients serialized where they share class directories or test
 
 - **LC-01:** first release uses one representative per house, matching the brief's default. If multiple simultaneous representatives are required, decide delegation before implementing casting/signature authority; there is still only one vote per house.
 - **LC-02:** technical void with a public reason and a new replacement ballot is confirmed. Confirmed access uses a configurable hotkey and command. Voided regency permits same-meeting replacement; only completed regency consumes that meeting slot. Recovery resumes the same saved attempt without a fresh snapshot.
-- **LC-04:** confirm treaty amendment/signature-expiry rules and which public record accompanies breaking or revealing a private treaty. Never disclose private terms merely because a public war was declared.
+- **LC-04:** signatures persist departure/reconnect; everyone returns to the same lectern for sanctification. Private existence/breaches/history stay private. Active amendments, deliberate reveal and realm ratification remain future decisions. Never disclose private terms merely because a public war was declared.
 - **LC-06:** define the narrow supervised-visit exception and the separate crowned-ruler abdication/deposition procedure before exposing those controls.
 - **LC-07:** review dose counts, onset/duration, symptoms and antidote strength; the brief deliberately leaves those numbers open. Banquet poisoning remains optional.
 - **LC-01B/LC-08:** review pool content, draw quantities, repetition policies and compatibility rules for replayable characters. Cross-house knowledge must resolve to the same draw's assigned facts. The brief's fixed eight-house example is illustrative, not final canon.

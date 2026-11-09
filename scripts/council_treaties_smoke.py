@@ -1,0 +1,80 @@
+"""Opt-in disposable four-client treaty smoke. Never touches an existing world."""
+import hashlib
+import json
+import shutil
+import subprocess
+import uuid
+import fabric_smoke
+import menu_smoke
+from council_ballots_smoke import _fixture
+
+
+def offline(name):
+    return str(uuid.UUID(bytes=hashlib.md5(('OfflinePlayer:' + name).encode()).digest(), version=3))
+
+
+def run():
+    import workspace as w
+    w.require_eula(); w.validate_server_runtime(); w.validate_managed_mod_names()
+    launch = json.loads((w.REPO / 'campaigns/last-council/build/smoke/client-launch.json').read_text(encoding='utf-8'))
+    props = dict(line.split('=', 1) for line in (w.REPO / 'gradle.properties').read_text(encoding='utf-8').splitlines() if '=' in line and not line.lstrip().startswith('#'))
+    jars = list((w.REPO / 'campaigns/last-council/build/libs').glob('last_council-' + props['mod_version'].strip() + '.jar'))
+    if len(jars) != 1:
+        raise RuntimeError('Expected one remapped Last Council jar')
+    w.validate_mod_target(jars[0])
+    root = fabric_smoke._stage(w)
+    (root / '.council-treaties-fixture').write_text('Disposable treaty smoke\n', encoding='utf-8')
+    _fixture(root)
+    chronicle = root / 'world/chronicle'; council = chronicle / 'last-council'
+    authoring = json.loads((chronicle / 'authoring.json').read_text(encoding='utf-8'))
+    authoring['sites'].append({'dimension':'minecraft:overworld','revision':1,'type':'anchor','id':'treaty',
+                               'position':{'x':0,'y':65,'z':2},'expectedBlock':'minecraft:lectern'})
+    (chronicle / 'authoring.json').write_text(json.dumps(authoring)+'\n',encoding='utf-8')
+    (council / 'treaty-lecterns.json').write_text(json.dumps({'schema':1,'lecterns':['treaty']})+'\n',encoding='utf-8')
+    houses = json.loads((w.REPO/'campaigns/last-council/src/main/resources/data/last_council/chronicle/houses.json').read_text(encoding='utf-8'))
+    houses = sorted(houses['houses'].values(),key=lambda h:(h['title'],h['id']))
+    if len(houses)<3: raise RuntimeError('Need three distinct houses')
+    assignments={}
+    for role,house in zip(('B','C','D'),houses):
+        owner=offline('ChronicleFabric'+role)
+        assignments[owner]={'owner':owner,'houseId':house['id'],'councilMember':True,'candidate':True}
+    (council/'roster.json').write_text(json.dumps({'schema':1,'revision':1,'assignments':assignments})+'\n',encoding='utf-8')
+    (council/'chancellor.json').write_text(json.dumps({'schema':1,'revision':1,'chancellor':offline('ChronicleFabricA')})+'\n',encoding='utf-8')
+    config=root/'config/chronicle/last-council-complications.json';config.parent.mkdir(parents=True,exist_ok=True)
+    config.write_text(json.dumps({'schema':1,'poolId':'last_council:complications','total':0,'meetings':[1],'earliestTicks':30000,'latestTicks':30000,'spacingTicks':0})+'\n',encoding='utf-8')
+    for prefix in ('quiet_below-', 'last_council-'):
+        for jar in (root/'mods').glob(prefix+'*.jar'): jar.unlink()
+    shutil.copy2(jars[0],root/'mods'/jars[0].name)
+    reports=w.REPORTS/('council-treaties-'+root.name);reports.mkdir(parents=True)
+    report={'result':'FAIL','world':str(root),'checks':[]};server=log=None;clients=[]
+    try:
+        for phase in ('initial','restart'):
+            menu_smoke._reserve_ports()
+            log=(reports/(phase+'-server.log')).open('w',encoding='utf-8')
+            server=subprocess.Popen(w.server_command(),cwd=root,env=w.env(),stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT,text=True,encoding='utf-8')
+            menu_smoke._wait_ready(server,reports/(phase+'-server.log'))
+            results=[reports/(phase+'-'+role+'.json') for role in ('A','B','C','D')]
+            for role,result in zip(('A','B','C','D'),results):
+                clients.append(fabric_smoke._client(w,launch,root,reports,'ChronicleFabric'+role,phase+'-'+role,{
+                    'CHRONICLE_TREATY_SMOKE':str(result),'CHRONICLE_TREATY_ROOT':str(root),'CHRONICLE_TREATY_ROLE':role,
+                    'CHRONICLE_TREATY_PHASE':phase,'CHRONICLE_MENU_WIDTH':'640','CHRONICLE_MENU_HEIGHT':'480'}))
+            fabric_smoke._await_clients(clients,results,timeout=300)
+            for result in results: report['checks'].extend(json.loads(result.read_text(encoding='utf-8'))['checks'])
+            for _,handle in clients: handle.close()
+            clients.clear();fabric_smoke._stop(server);server=None;log.close();log=None
+        report['result']='PASS'
+        print('PASS Council treaties native smoke:',reports,flush=True)
+    finally:
+        for process,handle in clients:
+            try:
+                if process.poll() is None:
+                    process.terminate()
+                    try: process.wait(timeout=15)
+                    except subprocess.TimeoutExpired: process.kill();process.wait(timeout=15)
+            finally: handle.close()
+        try: fabric_smoke._stop(server)
+        finally:
+            if log: log.close()
+            (reports/'report.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+
+if __name__=='__main__': run()

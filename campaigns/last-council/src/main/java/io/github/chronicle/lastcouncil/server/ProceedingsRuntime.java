@@ -80,6 +80,7 @@ public final class ProceedingsRuntime {
             public String refusal(MinecraftServer server,AuthoringSite site,boolean enabling){
                 if(ballotOpen(server))return "Close or void the current ballot before changing Council bindings.";
                 if(id.equals(LECTERN)&&(!(site instanceof AuthoringSite.Anchor a)||!a.expectedBlock().equals("minecraft:lectern")))return "Choose a Block site bound to a lectern.";
+                if(id.equals(LECTERN)&&enabling&&TreatyRuntime.boundAt(server,site))return "Use a separate lectern for treaties and Council motions.";
                 Runtime r=WORLDS.get(server);if(r==null)return "Council data is unavailable.";
                 if(id.equals(REGION)&&enabling&&!r.service.state().votingRegion().isEmpty()&&!r.service.state().votingRegion().equals(site.id()))return "Remove Council voting from its current Region first.";
                 return "";

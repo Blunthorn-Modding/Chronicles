@@ -169,6 +169,7 @@ The native subtype fixture checks the actual merged dispatcher, removed roots, o
 | `/chronicle council characters` | Council setup: house assignment, explicit Chancellor and papers, also available through Players | Operator level2; non-active Editing; house/cast setup locks after issuance, office changes refused during ballots |
 | `/chronicle council proceedings` | Call/open meetings, agenda, individual ballots, regency, recess and archived results | Explicitly appointed Chancellor; most mutations active play |
 | `/chronicle council vote` | Deliberately open the current ballot | Captured representative or read-only Chancellor; cast still needs eligibility and Region presence |
+| `/chronicle council treaties recover` | Reload the exact saved treaty journal and lectern bindings after a storage hold | Operator level2; no consent is invented or ceremony replayed |
 
 **I** is the default rebindable Open council proceedings key, available only to the appointed Chancellor. Operator permission alone grants no proceedings authority; the Chancellor cannot also own a house. The lectern has no procedural controls.
 
@@ -177,3 +178,5 @@ All pending ordinary motions must complete a vote or be explicitly deferred befo
 **R** is the default configurable Open current ballot keyboard binding. A notice does not replace another screen. The hotkey suspends a pure editor without discarding its draft, closes containers normally, and ignores text entry/confirmations. Dismissal is not abstention. Each house's first accepted confirmed vote is final.
 
 Council voting uses an existing Region subtype; motion proposals/sponsorship use an existing lectern Block-site subtype and physical proximity. These commands do not bypass the corresponding authoring, participation, phase or hold rules. A technical void needs a public reason; replacement is a new ballot. For regency, a void permits same-meeting replacement with the same slate; only a completed ballot consumes that meeting's regency slot. Closed outcomes are not reversible through Void. New political setup/reset/withdrawal controls and actual random complication integration remain pending.
+
+Treaty ceremonies use a separate lectern Block-site subtype under Locations. House representatives create/sign drafts there; only the appointed Chancellor sanctifies while every party has that same lectern open. Signatures survive leaving/reconnecting, but changed terms require fresh consent. Private existence, terms, breaches and history are projected only to the parties and Chancellor. Active amendments, realm ratification and automatic political effects remain future work.

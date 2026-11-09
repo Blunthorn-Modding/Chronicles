@@ -68,6 +68,9 @@ def snapshot(root):
     # Review-only office and placeholder assignments, before automatic papers issue.
     for name in ('chancellor.json', 'roster.json'):
         files['chronicle/last-council/' + name] = safe.regular(council / name).read_bytes()
+    # A ceremony binding is map authoring, unlike the private treaties journal.
+    if (council / 'treaty-lecterns.json').exists():
+        files['chronicle/last-council/treaty-lecterns.json'] = safe.regular(council / 'treaty-lecterns.json').read_bytes()
     document = json.loads(safe.regular(council / 'proceedings.json').read_text(encoding='utf-8'))
     files['chronicle/last-council/proceedings.json'] = encoded(review_proceedings(document))
     return files
@@ -129,6 +132,13 @@ I = Chancellor proceedings; R = current ballot; both are rebindable.
 Use the lectern to view/propose motions. Voters must be inside the Council
 Region (x/z -5..5, y 64..80) when the ballot opens. Creative mode is allowed.
 Later Regency ballots wait for every remaining candidate to return.
+
+The separate treaty lectern is at 0,65,2. Two or more House representatives
+open it together to create an agreement, then sign the exact terms individually.
+The appointed Chancellor opens the same lectern to sanctify after everyone
+has signed and returned. Signatures survive leaving/reconnecting. Changed
+drafts clear signatures. Private agreements and breaches remain private to
+their parties and the Chancellor. Realm ratification/amendments are not included.
 
 LATE ARRIVAL: pause play, enable Editing, and assign an unused House to an
 unassigned online player. Existing papers and historical ballots stay fixed.

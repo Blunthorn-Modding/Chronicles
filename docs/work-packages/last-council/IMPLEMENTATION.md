@@ -1,7 +1,11 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.6`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.7`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
+
+## 9 November continuation
+
+The owner explicitly deferred the multi-person complication functional review and authorized continued work. [NOV09_IMPLEMENTATION.md](NOV09_IMPLEMENTATION.md) records the pool frame/footer correction, portable Event-pool/Council-settings schema5 path and initial private/public in-person treaty ceremony. Native group acceptance remains deferred; existing dev.6 automation is evidence rather than a substitute for the owner's eventual group review.
 
 ## Current LC08 slice
 

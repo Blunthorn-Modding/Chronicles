@@ -47,6 +47,12 @@ def prepare():
     (root/'config/chronicle/scenario-selection.json').parent.mkdir(parents=True,exist_ok=True)
     (root/'config/chronicle/scenario-selection.json').write_text('{"schema":1,"scenarioId":"last_council:scenario"}\n',encoding='utf-8')
     _fixture(root)
+    authoring=root/'world/chronicle/authoring.json'
+    sites=json.loads(authoring.read_text(encoding='utf-8'))
+    sites['sites'].append({'type':'anchor','id':'treaty','dimension':'minecraft:overworld','revision':1,
+                          'position':{'x':0,'y':65,'z':2},'expectedBlock':'minecraft:lectern'})
+    authoring.write_text(json.dumps(sites)+'\n',encoding='utf-8')
+    (root/'world/chronicle/last-council/treaty-lecterns.json').write_text('{"schema":1,"lecterns":["treaty"]}\n',encoding='utf-8')
     houses=json.loads((w.REPO/'campaigns/last-council/src/main/resources/data/last_council/chronicle/houses.json').read_text(encoding='utf-8'))['houses']
     ids=sorted(houses)[:3] if isinstance(houses,dict) else [h['id'] for h in houses][:3]
     ops=json.loads((root/'ops.json').read_text(encoding='utf-8'));owner=next(o for o in ops if o['name'].lower()=='schinderrenge')['uuid']
@@ -101,7 +107,7 @@ def start():
         prepared=root/'.council-platform-prepared'
         if not prepared.exists():
             process.stdin.write('forceload add -8 -8 8 8\n');process.stdin.flush();time.sleep(2)
-            for command in ['gamerule spawnRadius 0','setworldspawn 0 65 0','fill -8 64 -8 8 64 8 minecraft:stone_bricks','setblock 0 65 4 minecraft:lectern','time set day','weather clear','forceload remove -8 -8 8 8','save-all flush']:
+            for command in ['gamerule spawnRadius 0','setworldspawn 0 65 0','fill -8 64 -8 8 64 8 minecraft:stone_bricks','setblock 0 65 4 minecraft:lectern','setblock 0 65 2 minecraft:lectern','time set day','weather clear','forceload remove -8 -8 8 8','save-all flush']:
                 process.stdin.write(command+'\n')
             process.stdin.flush();prepared.write_text('Review platform prepared\n',encoding='utf-8')
         print('Council review ready at '+meta['address']+'; enter stop to save and exit.',flush=True)

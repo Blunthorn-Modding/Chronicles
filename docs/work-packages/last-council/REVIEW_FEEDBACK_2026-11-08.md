@@ -13,3 +13,7 @@ The owner requested recording these changes for tomorrow, 9 November. No impleme
 Provide the e4mc Host and Player `.mrpack` files only. A separate local-server/plain review pack is no longer required. This changes future packaging; it does not request changing or removing today's build or server.
 
 The current dev.6 build stays available for the pending functional review. UI feedback is not functional acceptance of the new pool/complication mechanics.
+
+## 9 November follow-up
+
+The owner reports the available review looks good but has only one other tester. Defer the multi-person complication/recess/Regency functional review until a larger group is ready. It remains an explicit outstanding acceptance task, while further implementation is authorized. The recorded layout defects are now authorized for correction.

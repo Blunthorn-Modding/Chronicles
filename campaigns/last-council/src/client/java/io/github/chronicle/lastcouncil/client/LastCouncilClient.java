@@ -11,10 +11,12 @@ public final class LastCouncilClient implements ClientModInitializer {
     private static boolean active,chancellor;
     @Override public void onInitializeClient(){
         CouncilCatalogueClient.register();
+        TreatyClient.register(()->active);
         ComplicationSettingsClient.register();
         CouncilSmoke.register();
         CouncilBallotsSmoke.register();
         CouncilSuccessionSmoke.register();
+        TreatySmoke.register();
         BallotAccess.register(()->active);
         ProceedingsAccess.register(()->active&&chancellor);
         OwnCardScreens.register("last_council:personal",()->active,(client,card)->{

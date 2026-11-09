@@ -53,10 +53,12 @@ A final disabled-evening hardening commits zero-budget settings too, with a focu
 
 ## Remaining boundaries
 
-LC08C still needs reusable pool/settings integration with ScenarioContent export/import, the final narrative pool and additional political source/flag links. Character-template authoring/physical handout delivery are LC01B/C, separate from Event pools. Recurring/source-driven Event entries are deliberately unsupported initially. Existing recurring Council-call Events are unchanged.
+The dev.6 slice left reusable pool/settings export/import pending; [dev.7 continuation](NOV09_IMPLEMENTATION.md) adds that path. The final narrative pool and additional political source/flag links remain outstanding. Character-template authoring/physical handout delivery are LC01B/C, separate from Event pools. Recurring/source-driven Event entries are deliberately unsupported initially. Existing recurring Council-call Events are unchanged.
 
 Treaties, conflicts/rebellion, banquet and room acoustics remain their own work packages. The initial complication narratives are review material rather than final canon. No public release, map/group acceptance or full LC08 completion is claimed. Human review should judge native controls, readability and the pacing of interruption/recess/resume as one bundle.
 
 ## Review artifacts
 
 Matching dev.6 plain, e4mc Host and e4mc Player packs are prepared in `../client`; pack CRC, mod bytes, exported world payloads and cached e4mc license are verified by the pack builders. The Host includes a fresh review world with the approved default settings and no committed cast/draws; Player contains no world. The old played launcher profile is untouched. The authenticated loopback alternative is `127.0.0.1:25589`; manifest is `../reports/council-review-latest.json`. Only the current review is retained; the superseded stopped dev.5 review (159 MiB) was removed. [REVIEW_COUNCIL.md](REVIEW_COUNCIL.md) gives the bundled steps.
+
+9 November: owner deferred human multi-person complication testing and authorized continued implementation. Track that group review separately; it has not passed. The layout corrections and export follow-up are described in [NOV09_IMPLEMENTATION.md](NOV09_IMPLEMENTATION.md).

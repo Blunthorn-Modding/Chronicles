@@ -1,6 +1,6 @@
 # LC-04 — Treaties and explicit consent
 
-Status: planned. Depends on LC-01; realm ratification also needs LC-02. Brief: §§7, 10–12, 14.
+Status: initial house-agreement ceremony in implementation; owner approved the UI and policies on 9 November. Realm ratification and active amendments remain pending. Depends on LC-01; realm ratification also needs LC-02. Brief: §§7, 10–12, 14.
 
 ## Outcome and ownership
 
@@ -10,10 +10,10 @@ No treaty/signature system exists in Core today. Do not make a generic Core agre
 
 ## Work
 
-1. Design/review bound lectern → parties/terms → in-person attendance → explicit individual signatures → Chancellor sanctification → active → breach/end/history UI. Every signature binds the exact terms/revision shown. The Chancellor cannot force-sign for a party. Settle radius/Region, continuous attendance and signature retention after leaving before native implementation.
+1. Design/review bound lectern → parties/terms → in-person attendance → explicit individual signatures → Chancellor sanctification → active → breach/end/history UI. Every signature binds the exact terms/revision shown. The Chancellor cannot force-sign for a party. Confirmed: unchanged signatures survive leaving/reconnecting; everyone returns to the same lectern for sanctification. The initial physical interaction range is six blocks, revalidated server-side.
    The current UI clarification requires **Create treaty** and multiple independent records: select parties only from representatives simultaneously using that same lectern, include the initiator, require at least two distinct houses, and revalidate sessions on submission. Create does not overwrite another agreement. Signing and sanctification remain separate.
 2. Invalidate pending consent when terms/parties change; reject stale signing and signatures on another player's behalf. No duplicate signature or operator force-sign button.
-3. Public/private visibility is server enforced. Private terms/history are available to signatories and GM; review deliberate reveal/breach publication before implementing those actions.
+3. Public/private visibility is server enforced. Private terms/history are available to signatories and GM; private breaches preserve private existence, terms and history. Deliberate reveal remains a later decision.
 4. House agreements require all signatures plus Chancellor sanctification while required people are present. Revalidate at commitment; missing attendance suspends completion rather than inventing consent. Realm-wide agreements additionally require the designated Council ratification outcome, applied once. Neither witness presence nor a ballot substitutes for the parties' exact consent.
 5. Preserve broken agreements as history. Voting promises never force a choice; defense pacts notify rather than enlist allies.
 
