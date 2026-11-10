@@ -14,7 +14,7 @@
     "client": ["io.github.chronicle.lastcouncil.client.LastCouncilClient"]
   },
   "depends": {
-    "chronicle_core": ">=0.2.0-dev.9",
+    "chronicle_core": ">=0.2.0-dev.10",
     "fabricloader": ">=0.19.5",
     "fabric-api": "*",
     "minecraft": "1.21.10",

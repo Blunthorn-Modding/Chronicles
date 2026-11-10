@@ -5,7 +5,6 @@ import io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.*;
 import io.github.chronicle.lastcouncil.network.CataloguePayloads.Category;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.regex.*;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.screen.Screen;
@@ -71,17 +70,17 @@ final class CouncilContentEditor extends CouncilScreen {
         Category category=view.category();int pages=category==Category.HOUSES?5:category==Category.KNOWLEDGE?3:category==Category.SECRETS?5:4;
         page=Math.clamp(page,0,pages-1);
         if(category==Category.HOUSES){switch(page){
-            case 0 -> {field("Identifier", "id",x,y,w,creating,false);field("Title","title",x,y+47,w,true,false);}
+            case 0 -> field("House name","title",x,y,w,true,false);
             case 1 -> field("Reputation","reputation",x,y,w,true,true);
             case 2 -> field("Description","description",x,y,w,true,true);
             case 3 -> field("Interests","interests",x,y,w,true,true);
             case 4 -> button("Default candidate: "+(draft.has("defaultCandidate")&&draft.get("defaultCandidate").getAsBoolean()?"Yes":"No"),x,y,w,()->{draft.addProperty("defaultCandidate",!draft.get("defaultCandidate").getAsBoolean());clearAndInit();});
         }} else if(category==Category.KNOWLEDGE){String[] keys={"secretsPerHouse","goalsPerHouse","knowledgeChancePercent"};String[] labels={"Secrets per House (0-4)","Goals per House (0-4)","Knowledge chance (0-100%)"};numeric(labels[page],keys[page],x,y,w);}
         else {switch(page){
-            case 0 -> {field("Identifier","id",x,y,w,creating,false);numeric("Weight","weight",x,y+47,w);}
-            case 1 -> field("Literal template text","text",x,y,w,true,true);
+            case 0 -> {field("Name","id",x,y,w,creating,false);numeric("Draw weight","weight",x,y+47,w);}
+            case 1 -> field(category==Category.SECRETS?"Secret text":"Goal text","text",x,y,w,true,true);
             case 2 -> {body("Applicable Houses",x,y,w,12);button("Choose Houses...",x,y+15,w,()->client.setScreen(new Scope(this,view.houses(),draft)));}
-            case 3 -> {if(category==Category.SECRETS){body("Fact defaults",x,y,w,12);button("Edit facts...",x,y+15,w,()->client.setScreen(new Facts(this,draft)));}else previewButton(x,y,w);}
+            case 3 -> {if(category==Category.SECRETS){body("Optional: values reused in template text. A normal secret needs only its text and applicable Houses.",x,y,w,40);button("Template values (optional)...",x,y+44,w,()->client.setScreen(new Facts(this,draft)));}else previewButton(x,y,w);}
             case 4 -> previewButton(x,y,w);
         }}
         int bw=(w-12)/4;button("<",x,bottom,bw,()->{page--;clearAndInit();}).active=page>0;
@@ -114,14 +113,13 @@ final class CouncilContentEditor extends CouncilScreen {
     }
     private static final class Facts extends CouncilScreen {
         final JsonObject draft;final LinkedHashMap<String,String> facts=new LinkedHashMap<>();String selected="";
-        Facts(Screen parent,JsonObject draft){super("Fact defaults",parent);this.draft=draft;if(draft.has("facts"))draft.getAsJsonObject("facts").entrySet().forEach(e->facts.put(e.getKey(),e.getValue().getAsString()));}
-        @Override protected void init(){frame();int x=left+12,w=panelWidth-24,y=top+35;button("+ Add fact",x,y,w,()->client.setScreen(new Fact(this,"","",(k,v)->{if(facts.containsKey(k))return false;facts.put(k,v);selected=k;return true;})));List<Choice> choices=facts.keySet().stream().map(k->new Choice(k,k)).toList();rows("facts",choices,selected,x,y+23,w,panelHeight-150,id->{selected=id;clearAndInit();});int b=top+panelHeight-60;button("Edit",x,b,70,()->client.setScreen(new Fact(this,selected,facts.get(selected),(k,v)->{if(!k.equals(selected)&&facts.containsKey(k))return false;facts.remove(selected);facts.put(k,v);selected=k;return true;}))).active=facts.containsKey(selected);button("Remove",x+74,b,70,()->{facts.remove(selected);selected="";clearAndInit();}).active=facts.containsKey(selected);button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{JsonObject o=new JsonObject();facts.forEach(o::addProperty);draft.add("facts",o);close();});}
+        Facts(Screen parent,JsonObject draft){super("Template values (optional)",parent);this.draft=draft;if(draft.has("facts"))draft.getAsJsonObject("facts").entrySet().forEach(e->facts.put(e.getKey(),e.getValue().getAsString()));}
+        @Override protected void init(){frame();int x=left+12,w=panelWidth-24,y=top+35;button("+ Add value",x,y,w,()->client.setScreen(new Fact(this,io.github.chronicle.lastcouncil.content.CouncilContentEditor.nextFactKey(facts.keySet()),"",(k,v)->{if(facts.containsKey(k))return false;facts.put(k,v);selected=k;return true;}))).active=facts.size()<128;List<Choice> choices=facts.keySet().stream().map(k->new Choice(k,k)).toList();rows("facts",choices,selected,x,y+23,w,panelHeight-150,id->{selected=id;clearAndInit();});int b=top+panelHeight-60;button("Edit",x,b,70,()->client.setScreen(new Fact(this,selected,facts.get(selected),(k,v)->{if(!k.equals(selected)&&facts.containsKey(k))return false;facts.remove(selected);facts.put(k,v);selected=k;return true;}))).active=facts.containsKey(selected);button("Remove",x+74,b,70,()->{facts.remove(selected);selected="";clearAndInit();}).active=facts.containsKey(selected);button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{JsonObject o=new JsonObject();facts.forEach(o::addProperty);draft.add("facts",o);close();});}
     }
     private static final class Fact extends CouncilScreen {
         String key,val;final Consumer2 done;
-        Fact(Screen parent,String key,String val,Consumer2 done){super("Fact default",parent);this.key=key;this.val=val;this.done=done;}
-        @Override protected void init(){frame();int x=left+12,w=panelWidth-24;input("Key",key,x,top+35,w,v->key=v);body("Value",x,top+82,w,12);var f=addDrawableChild(EditBoxWidget.builder().x(x).y(top+95).build(textRenderer,w,Math.max(30,Math.min(70,panelHeight-145)),Text.literal("Value")));f.setMaxLength(2097152);f.setText(val);f.setChangeListener(v->val=v);button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{if(key.isBlank()){message("Enter a fact key.");return;}if(!done.accept(key,val)){message("That fact key already exists.");return;}close();});}
-        void input(String label,String value,int x,int y,int w,Consumer<String> change){body(label,x,y,w,12);var f=addDrawableChild(new TextFieldWidget(textRenderer,x,y+13,w,20,Text.literal(label)));f.setMaxLength(2097152);f.setText(value);f.setChangedListener(change);}
+        Fact(Screen parent,String key,String val,Consumer2 done){super("Template value",parent);this.key=key;this.val=val;this.done=done;}
+        @Override protected void init(){frame();int x=left+12,w=panelWidth-24;body("Automatic reference: ${"+key+"}",x,top+35,w,22);body("Value",x,top+65,w,12);var f=addDrawableChild(EditBoxWidget.builder().x(x).y(top+78).build(textRenderer,w,Math.max(30,Math.min(70,panelHeight-145)),Text.literal("Value")));f.setMaxLength(2097152);f.setText(val);f.setChangeListener(v->val=v);button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{if(!done.accept(key,val)){message("That template reference already exists.");return;}close();});}
     }
     private interface Consumer2 {boolean accept(String key,String value);}
     static final class Preview extends CouncilScreen {

@@ -1,6 +1,6 @@
 # LC01 reusable House content — UI proposal
 
-**Status: owner-approved workflow and cast lock; native implementation and verification in progress on dev.9.** [Interactive standalone example](../../design/last-council-content.html) extends Advanced → Game setup → Source catalogue. The toolbar is a reviewer-only simulation, not a game permission selector. All sample state is local and Reset discards it. No live players, committed facts, assignments, seeds or draws are accessed.
+**Status: owner-approved workflow and cast lock; native implementation verified on dev.9, with the owner's identifier/secret usability corrections on dev.10.** [Interactive standalone example](../../design/last-council-content.html) extends Advanced → Game setup → Source catalogue. The toolbar is a reviewer-only simulation, not a game permission selector. All sample state is local and Reset discards it. No live players, committed facts, assignments, seeds or draws are accessed.
 
 The compact Chronicle frame has category buttons for Houses, Secrets, House goals and Knowledge rules. For each list category, creation appears above search and the left-hand list. Selection displays separately styled read-only cards to the right; small popups handle editing and House selection. Narrow layouts stack the list above details. Search filters the displayed definitions, not the underlying data. Empty and no-match states are explicit. Close returns to the prior screen. The default screen contains descriptions, not operational/debug output.
 
@@ -10,8 +10,8 @@ The compact Chronicle frame has category buttons for Houses, Secrets, House goal
 | Search | Filter the current list by identifier or visible text. |
 | Create House / secret / House goal | Open a new popup; Save adds an independent definition only after validation. A duplicate ID is refused. |
 | Edit | Open a copy of the selected definition; IDs are fixed in this proposal. Save checks that the original still exists and refuses stale/missing keys instead of silently creating one. A real server must also check the expected revision. |
-| House fields | Identifier, title, reputation, description, interests and default-candidate checkbox. House IDs use the existing namespaced syntax. |
-| Secret fields | Identifier, positive weight, literal template text, explicit fact defaults and applicable Houses. Add fact default creates a key/value row; Remove fact removes that row. Duplicate or malformed `fact.*` keys are refused. |
+| House fields | House name, reputation, description, interests and default-candidate checkbox. The server automatically assigns the internal namespaced House ID; users do not enter or edit it. |
+| Secret fields | Name, positive draw weight, secret text and applicable Houses. Ordinary secrets need no template values. The explicitly optional template-values page allows reusable values; Add value generates a free reference such as `fact.value1` and asks only for the value. Existing references remain stable when editing a value. Remove deletes the selected optional value. Raw configuration still validates `fact.*` keys. |
 | House goal fields | Identifier, positive weight, literal template text and applicable Houses. |
 | Choose applicable Houses | Open a multi-select popup of existing Houses. Done applies the selection; Cancel leaves it unchanged. At least one existing House is required when saving a template. |
 | Edit rules | Set secrets per House (0–4), goals per House (0–4) and independent per-secret per-other-House knowledge chance (0–100%). Zero observers is valid; no exposure tally is shown. |
