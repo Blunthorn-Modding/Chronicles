@@ -68,11 +68,7 @@ public final class BookDeliveryRuntime {
         }
     }
     static String stackJson(MinecraftServer s,BookDefinition b){
-        JsonObject content=new JsonObject();content.addProperty("title",b.title());content.addProperty("author",b.author());content.addProperty("generation",0);content.addProperty("resolved",true);
-        JsonArray pages=new JsonArray();for(String page:b.pages()){JsonObject text=new JsonObject();text.addProperty("text",page);pages.add(text);}content.add("pages",pages);
-        JsonObject marker=new JsonObject();marker.addProperty("campaign",service(s).state().bookDelivery().campaignId());marker.addProperty("book",b.id());marker.addProperty("token",service(s).deliveryToken(b.id()));
-        JsonObject custom=new JsonObject();custom.add("chronicle_book",marker);JsonObject components=new JsonObject();components.add("minecraft:written_book_content",content);components.add("minecraft:custom_data",custom);
-        JsonObject stack=new JsonObject();stack.addProperty("id","minecraft:written_book");stack.addProperty("count",1);stack.add("components",components);return stack.toString();
+        return io.github.chronicle.core.books.BookItems.managed(b, service(s).state().bookDelivery().campaignId(), service(s).deliveryToken(b.id()));
     }
     private static void discover(MinecraftServer server){
         if(server.getTicks()%5==0)for(var player:server.getPlayerManager().getPlayerList())observeInventory(player);

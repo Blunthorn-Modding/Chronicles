@@ -137,6 +137,7 @@ public final class ChronicleCore implements ModInitializer {
         AutomaticPlayerSpawns.register();
         io.github.chronicle.core.server.PlayerRoles.register();
         io.github.chronicle.core.server.RoleFirstEntry.register();
+        io.github.chronicle.core.server.PersonalCopies.register();
         io.github.chronicle.core.server.OfferingStats.register();
         io.github.chronicle.core.server.LastingBargains.register();
         io.github.chronicle.core.server.TemporaryOfferings.register();
