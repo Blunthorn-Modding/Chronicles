@@ -8,7 +8,7 @@ import java.util.UUID;
 
 /** Domain state only: callers must enforce permissions and ballot gates. */
 public final class HouseRosterService {
-    private final Map<String, HouseDefinition> definitions;
+    private Map<String, HouseDefinition> definitions;
     private final HouseRosterRepository repository;
     private HouseRoster state;
     public HouseRosterService(Map<String, HouseDefinition> definitions, HouseRosterRepository repository) throws IOException {
@@ -21,6 +21,14 @@ public final class HouseRosterService {
         for (var assignment : state.assignments().values()) requireKnown(assignment.houseId());
     }
     public synchronized HouseRoster snapshot() { return state; }
+    /** Refresh source definitions without changing assignments or roster history. */
+    public synchronized void replaceDefinitions(Map<String,HouseDefinition> replacement) {
+        Objects.requireNonNull(replacement);
+        if(replacement.size()>HouseRoster.MAX_HOUSES)throw new IllegalArgumentException("too many houses");
+        replacement.forEach((id,value)->{if(value==null||!value.id().equals(id))throw new IllegalArgumentException("house key does not match ID");});
+        for(var assignment:state.assignments().values())if(!replacement.containsKey(assignment.houseId()))throw new IllegalStateException("An assigned House cannot be removed.");
+        definitions=Map.copyOf(replacement);
+    }
     public synchronized HouseRoster assign(long expectedRevision, HouseAssignment assignment) throws IOException {
         checkRevision(expectedRevision);
         Objects.requireNonNull(assignment, "assignment");

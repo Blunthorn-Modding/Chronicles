@@ -144,6 +144,14 @@ LATE ARRIVAL: pause play, enable Editing, and assign an unused House to an
 unassigned online player. Existing papers and historical ballots stay fixed.
 Once Regency starts, late arrivals can join as voters but not new candidates.
 The source catalogue is in Advanced > Game setup > Source catalogue (OP only).
+Before first play, enable Editing to create/edit Houses, secrets, House goals
+and knowledge rules there. Once House papers are issued, source editing is
+locked for that experience; use a fresh world/import to test another cast.
+Private menu papers remain available through Character & houses > My house.
+Copy paper lets the player request an individual physical written book.
+No books are automatically given. Leave empty inventory slots for copies.
+For a solo paper test, clear your Chancellor assignment before assigning
+yourself a House; the same person cannot hold both roles.
 
 This is a FRESH REVIEW COPY: session progress, cast, discoveries, ballots,
 player inventories and personal cards were omitted. Terrain, map bindings,

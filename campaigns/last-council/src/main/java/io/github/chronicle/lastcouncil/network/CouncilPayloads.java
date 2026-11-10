@@ -68,8 +68,8 @@ public final class CouncilPayloads {
     }
     private static <T extends CustomPayload> CustomPayload.Id<T> id(String path){return new CustomPayload.Id<>(Identifier.of("last_council",path));}
     private static int count(RegistryByteBuf b,int limit){int n=b.readVarInt();if(n<0||n>limit)throw new IllegalArgumentException("List size exceeds bounds");return n;}
-    private static void writeTexts(RegistryByteBuf b,List<String> lines,int limit){if(lines.size()>limit)throw new IllegalArgumentException("Too many paragraphs");b.writeVarInt(lines.size());for(String s:lines)b.writeString(s,8192);}
-    private static List<String> readTexts(RegistryByteBuf b,int limit){int n=count(b,limit);List<String> lines=new ArrayList<>();for(int i=0;i<n;i++)lines.add(b.readString(8192));return lines;}
+    private static void writeTexts(RegistryByteBuf b,List<String> lines,int limit){if(lines.size()>limit)throw new IllegalArgumentException("Too many paragraphs");b.writeVarInt(lines.size());for(String s:lines)b.writeString(s,16384);}
+    private static List<String> readTexts(RegistryByteBuf b,int limit){int n=count(b,limit);List<String> lines=new ArrayList<>();for(int i=0;i<n;i++)lines.add(b.readString(16384));return lines;}
     private static void writeHouses(RegistryByteBuf b,List<PublicHouse> houses){if(houses.size()>32)throw new IllegalArgumentException("Too many houses");b.writeVarInt(houses.size());for(var h:houses){b.writeString(h.id(),128);b.writeString(h.title(),160);b.writeString(h.reputation(),320);b.writeString(h.description(),4096);b.writeString(h.interests(),2048);b.writeString(h.representative(),96);b.writeBoolean(h.councilMember());b.writeBoolean(h.candidate());b.writeBoolean(h.defaultCandidate());}}
     private static List<PublicHouse> readHouses(RegistryByteBuf b){int n=count(b,32);List<PublicHouse> houses=new ArrayList<>();for(int i=0;i<n;i++)houses.add(new PublicHouse(b.readString(128),b.readString(160),b.readString(320),b.readString(4096),b.readString(2048),b.readString(96),b.readBoolean(),b.readBoolean(),b.readBoolean()));return houses;}
 }

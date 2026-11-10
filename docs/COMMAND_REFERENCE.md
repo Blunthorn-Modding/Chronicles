@@ -1,6 +1,6 @@
-# Chronicle commands (Core/Last Council0.2.0-dev.4)
+# Chronicle commands (Core/Last Council0.2.0-dev.9)
 
-Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored.
+Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored across reconnects. An unsaved Source catalogue draft can be resumed within the same connection after a refused or timed-out save.
 
 Only `/chronicle` is registered. `/chronicles`, `/quiet_below`, `/chronicle author`, `/chronicle area` and the old singular families are retired. Existing worlds, named records, history and JSON/YAML remain intact. Older milestone documents describe historical builds.
 
@@ -173,10 +173,12 @@ The native subtype fixture checks the actual merged dispatcher, removed roots, o
 
 **I** is the default rebindable Open council proceedings key, available only to the appointed Chancellor. Operator permission alone grants no proceedings authority; the Chancellor cannot also own a house. The lectern has no procedural controls.
 
-All pending ordinary motions must complete a vote or be explicitly deferred before Regency unlocks. Deferrals return next meeting. House papers issue automatically on first active play, using a durable receipt so restart/retry cannot reroll them.
+All pending ordinary motions must complete a vote or be explicitly deferred before Regency unlocks. Deferrals return next meeting. Private menu papers are assigned automatically on first active play, using a durable receipt so restart/retry cannot reroll them. Physical books are given only when the player chooses Copy paper in My house. The Source catalogue edits reusable Houses, secrets, House goals and knowledge rules before issuance; after issuance it remains read-only.
 
 **R** is the default configurable Open current ballot keyboard binding. A notice does not replace another screen. The hotkey suspends a pure editor without discarding its draft, closes containers normally, and ignores text entry/confirmations. Dismissal is not abstention. Each house's first accepted confirmed vote is final.
 
 Council voting uses an existing Region subtype; motion proposals/sponsorship use an existing lectern Block-site subtype and physical proximity. These commands do not bypass the corresponding authoring, participation, phase or hold rules. A technical void needs a public reason; replacement is a new ballot. For regency, a void permits same-meeting replacement with the same slate; only a completed ballot consumes that meeting's regency slot. Closed outcomes are not reversible through Void. New political setup/reset/withdrawal controls and actual random complication integration remain pending.
 
 Treaty ceremonies use a separate lectern Block-site subtype under Locations. House representatives create/sign drafts there; only the appointed Chancellor sanctifies while every party has that same lectern open. Signatures survive leaving/reconnecting, but changed terms require fresh consent. Private existence, terms, breaches and history are projected only to the parties and Chancellor. Active amendments, realm ratification and automatic political effects remain future work.
+
+Personal-copy recovery is a Core command: `/chronicle players copies recover <player>` (operator level 2). It reloads the world-private copy journal and compares the connected player's exact inventory with saved evidence. A mixed inventory remains held; the command never invents consent, rewrites inventory or grants another copy.

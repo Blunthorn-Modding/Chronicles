@@ -1,0 +1,39 @@
+# LC01 source editor and requested papers: dev.9
+
+The owner approved the source-content editor and its editing lock after papers are issued. Papers remain in the personal menu; physical copies are requested explicitly. Human multiplayer acceptance of complications and treaties remains deferred to the next group review. Neither is marked passed.
+
+## Source definitions
+
+Advanced Game setup's Source catalogue now has native House, secret, House-goal and knowledge-rule editing. Focused forms edit public descriptions, weights, scoped Houses, fact defaults and draw counts. Explicit sample bindings preview templates without reading the live cast. Source diagnostics support incremental authoring; final cast generation still validates the required draw.
+
+Only operators can inspect this catalogue. Every mutation additionally checks inactive play, Editing, operation holds, current connection and the unchanged source snapshot. Once any cast or pending issuance exists, source editing stays locked, including after a restart. Read-only inspection and the existing authorized Scenario-content export remain available. No reset-cast control is introduced.
+
+Large documents use bounded multipart transfers. Concurrent stale writes are refused rather than merged. Removing a House referenced by templates or assignments is refused. Successful House edits refresh available definitions without changing roster assignments or history. Source ownership and normal/custom-profile paths remain as documented in LC01_PORTABILITY_RESULTS.md.
+
+## Physical copies
+
+My house has Copy paper, followed by a picker for one information paper, own secret, House goal or known secret about another House. The server resolves the paper solely from the authenticated player's committed cast. The request cannot select another recipient or supply book text. No menu opening automatically issues books.
+
+Copies are normal literal written books which players may intentionally share. Long text is paginated and, when necessary, split into volumes without truncation. These rendered private papers are not added to the common Books & Lore catalogue, loot distribution, discovery ledger or reusable exports.
+
+Core owns the reusable copy service, book encoding/pagination and world-private personal-copies.json nonce journal. Last Council owns the paper selection and political privacy. Delivery requires active participation, capacity in empty inventory slots and no Editing/Building/operation hold. Insufficient capacity changes nothing; a deliberate new request may produce another copy. Repeating a completed request does not issue another set.
+
+Before modifying inventory, the service durably records exact before/after evidence. It saves player inventory before recording completion. Interrupted delivery holds play until the connected player's inventory exactly matches before or after; recovery saves and rechecks that inventory before cancelling or completing. Mixed evidence stays held, without an automatic regrant. An operator can retry evidence inspection with `/chronicle players copies recover <player>`. This command does not manufacture an inventory or force a result. Unknown or malformed evidence remains preserved. The journal retains bounded receipts; capacity exhaustion refuses new copies.
+
+## Verification and delivery
+
+The full three-module Gradle test/build run passed (`../reports/lc01-editor-copy-build.txt`), followed by focused Core/Last Council tests and matching remaps after recovery hardening (`../reports/lc01-final-verification-build.txt`). XML totals: 944 tests, zero failures/errors, seven existing platform skips. `python -m unittest discover -s scripts -p 'test_*.py'`: 134 passed (`../reports/lc01-editor-copy-python.txt`).
+
+`python scripts/council_papers_smoke.py`: actual three-client initial/restart PASS, `../reports/council-papers-20261110T112056926954Z/report.json`. It checks deliberate native picker delivery, no automatic grants, same-request idempotence before/after restart, a new explicit copy, wrong-index and nonparticipant refusal, exact unchanged full inventory, literal secret text against the owner's committed cast, exclusion of a distinct foreign secret, personal rather than managed-book markers, native text wrapping and reader screenshot. Lead inspected the book rendering. Catalogue/export exclusion also follows the reviewed server path: no book catalogue registration or managed discovery identity is created.
+
+`python scripts/personal_copy_crash_smoke.py`: three actual hard-halt/restart pairs PASS, `../reports/personal-copy-crash-20261110T112725764694Z/report.json`. Stops after claim and after unsaved inventory mutation recover CANCELLED with exact pre-delivery inventory; stop after player save recovers COMPLETE with exact delivered inventory. All three reject duplicate replay. Fixtures require explicit environment arming, a marked disposable timestamped test directory, fixed actor/request and dedicated offline loopback server. This covers selected process interruptions, not arbitrary power or storage-device failure. The first test-fixture startup used the wrong voice-port defaults; it was stopped, corrected and rerun, with startup-failure cleanup hardened.
+
+The native source-editor initial/restart suite passed at `../reports/council-editor-20261110T111804519327Z/report.json`: normal/compact bounds, House and scoped secret/goal creation, explicit sample preview, >48KiB multipart save, edit/delete, stale second-operator refusal, nonoperator denial, new-House assignment, automatic cast lock, forged deletion refusal and unchanged cast/content after restart. Lead inspected both catalogue screenshots. Final matching source-editor suite PASS: `../reports/council-editor-20261110T113407902661Z/report.json`, after the final native build (`../reports/lc01-editor-timeout-build.txt`). In addition to the original cases, operator B revoked A after its draft loaded; the server ignored the unauthorized save, the client timed out without resending, allowed Close, retained exact fields, and resumed after B restored access. Searching proved the timed-out save did not create a record. The complete cast/content restart checks passed again. Independent read-only checks found the missing-response hang and off-screen refused-draft loss; both were corrected with a bounded connection-local retained draft and no automatic resend.
+
+The final Python suite passed again (134 tests, `../reports/lc01-final-python.txt`); the three new runner scripts also passed `py_compile`. `git diff --check` passed; original brief hash remains `df20a7c1a8ff73f81b9f7dc1265666b4131ce62b260b79904180ea32fca5a44a`. The independent off-screen-refusal and matching late-ack branches were inspected; the real no-response/re-authorization path was exercised natively, rather than claiming every possible network ordering was simulated.
+
+Only matching e4mc Host/Player packs are requested. No additional local review server/plain server pack is needed. Preserve the played launcher world, original event brief, released alpha and unrelated acoustics work.
+
+Final dev.9 delivery: `../client/Chronicle-Last-Council-0.2.0-dev.9-e4mc-Host.mrpack` (SHA256 `e560d051e668be92f9ef0c64268946d9bfae8a5235322d1f74e7c6f3f40f907c`) and Player (SHA256 `6e261a43d3ae50c0918c233b04beabe4022558afb4ec0dfe344a5bf30621c3fd`). Archive CRC and every payload were verified by the pack builder; receipt `../reports/council-e4mc-pack.json`. Only jars/metadata in the already stopped disposable source fixture were refreshed; the played launcher world was not touched. No review server was started.
+
+After verification, seven stopped disposable editor/copy/crash fixtures were removed (1.19 GiB); compact reports and screenshots remain. Receipt: `../reports/lc01-editor-copy-cleanup.json`. The marked pack-source review world remains available; no Minecraft test or review server was left running.

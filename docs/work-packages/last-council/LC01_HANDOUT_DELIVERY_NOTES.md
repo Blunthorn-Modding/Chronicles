@@ -1,6 +1,6 @@
 # Recipient-specific physical House handouts: implementation notes
 
-Discovery only; physical delivery is not implemented by the dev.8 portability change. The owner has been asked whether delivery is automatic at first play or requested from the existing personal menu. Both current menu papers and the committed cast remain authoritative; no future complication selection is involved.
+Historical dev.8 discovery notes, superseded by the owner-approved requested-copy implementation on dev.9. See LC01_EDITOR_COPY_RESULTS.md. The owner chose to keep papers in the personal menu and let players explicitly request individual physical copies. Both current menu papers and the committed cast remain authoritative; no future complication selection is involved.
 
 ## Existing foundations and constraints
 

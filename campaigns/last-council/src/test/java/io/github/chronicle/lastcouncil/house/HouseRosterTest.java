@@ -46,6 +46,17 @@ class HouseRosterTest {
         assertEquals(1, service.snapshot().revision());
         assertEquals("external", Files.readString(path));
     }
+    @Test void sourceRefreshAllowsNewHousesWithoutRewritingMembership() throws Exception {
+        Memory repo=new Memory();var service=new HouseRosterService(Map.of(HOUSE.id(),HOUSE),repo);
+        service.assign(0,assignment(A));var before=service.snapshot();
+        var added=new HouseDefinition("council:new","New","","","",false);
+        assertThrows(IllegalStateException.class,()->service.replaceDefinitions(Map.of(added.id(),added)));
+        assertEquals(before,service.snapshot());assertEquals(before,repo.state);
+        service.replaceDefinitions(Map.of(HOUSE.id(),HOUSE,added.id(),added));
+        assertEquals(before,service.snapshot());
+        service.assign(before.revision(),new HouseAssignment(B,added.id(),true,false));
+        assertEquals(added.id(),service.snapshot().assignments().get(B).houseId());
+    }
     @Test void malformedFilesAreNeverOverwritten(@TempDir Path dir) throws Exception {
         String id = A.toString();
         String entry = "\"" + id + "\":{\"owner\":\"" + id + "\",\"houseId\":\"council:vale\",\"councilMember\":true,\"candidate\":false}";

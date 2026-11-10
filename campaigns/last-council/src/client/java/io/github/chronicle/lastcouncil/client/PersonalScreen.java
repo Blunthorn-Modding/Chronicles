@@ -15,10 +15,13 @@ public final class PersonalScreen extends CouncilScreen {
     private Section section=Section.INFORMATION;
     private String otherHouse="";
     private UUID pending;
+    private UUID copyPending;private int copyTicks;
     PersonalScreen(ProfilePayloads.View card){super("Character & houses",null);this.card=card;}
     void acceptCard(ProfilePayloads.View value){card=value;clearAndInit();}
     void accept(PersonalView value){if(!value.request().equals(pending))return;view=value;pending=null;waitingTicks=0;feedback=value.message();clearAndInit();}
     void notice(Notice notice){if(notice.request().equals(pending)){pending=null;waitingTicks=0;feedback=notice.message();}}
+    void copyStarted(UUID id){copyPending=id;copyTicks=0;feedback="Requesting a physical copy...";clearAndInit();}
+    void copyNotice(Notice notice){if(notice.request().equals(copyPending)){copyPending=null;copyTicks=0;}feedback=notice.message();if(client.currentScreen==this)rebuildPreservingFocus();}
     private void request(){if(client==null||client.player==null||!ClientPlayNetworking.canSend(PersonalRequest.ID))return;pending=UUID.randomUUID();waitingTicks=0;ClientPlayNetworking.send(new PersonalRequest(pending,section,offset));}
     @Override protected void init(){
         if(cardEditor!=null){card=cardEditor.snapshot();cardEditor=null;}
@@ -35,7 +38,7 @@ public final class PersonalScreen extends CouncilScreen {
     private void ownHouse(int x,int y,int w,int h){
         if(view.ownHouse().isBlank()){body(view.message(),x,y,w,h);return;}
         var own=view.houses().stream().filter(v->v.id().equals(view.ownHouse())).findFirst().orElse(null);
-        int list=panelWidth<380?98:126;int bodyY=y;
+        int list=panelWidth<380?98:126;int bodyY=y;h-=24;
         rows("papers",Arrays.stream(Section.values()).map(s->new Choice(s.name(),sectionName(s))).toList(),section.name(),x,y,list,h,id->{section=Section.valueOf(id);offset=0;request();clearAndInit();});
         x+=list+6;w-=list+6;
         String text=(own==null?"":own.title()+"\n\n")+(view.section()==section?String.join("\n\n",view.paragraphs()):"Reading…");
@@ -47,10 +50,22 @@ public final class PersonalScreen extends CouncilScreen {
         else if(view.section()==section&&!view.paragraphs().isEmpty())sections("papers-"+section,
             view.paragraphs().stream().map(paragraph->new SectionCard(sectionName(section),paragraph)).toList(),x,bodyY,w,h-(bodyY-y));
         else body(text,x,bodyY,w,h-(bodyY-y));
+        button("Copy paper...",x,top+panelHeight-68,w,this::copyPaper).active=copyPending==null&&pending==null&&view.section()==section;
         if(view.section()==section){
             if(view.previous())button("Previous",left+12,top+panelHeight-44,80,()->{offset=Math.max(0,view.offset()-8);request();});
             if(view.next())button("Next",left+98,top+panelHeight-44,65,()->{offset=view.offset()+8;request();});
         }
+    }
+    private void copyPaper(){
+        if(view==null||view.section()!=section||copyPending!=null)return;
+        Section requested=section;List<Choice> choices=new ArrayList<>();
+        if(requested==Section.INFORMATION)choices.add(new Choice("0","House information"));
+        else for(int i=0;i<view.paragraphs().size();i++){
+            int index=view.offset()+i;String paragraph=view.paragraphs().get(i).replace('\n',' ');
+            choices.add(new Choice(Integer.toString(index),sectionName(requested)+" "+(index+1)+" / "+textRenderer.trimToWidth(paragraph,200)));
+        }
+        if(choices.isEmpty()){feedback="There is no paper to copy in this section.";return;}
+        choose("Choose a paper to copy",choices,id->PaperCopiesClient.request(this,requested,Integer.parseInt(id)));
     }
     private void otherHouses(int x,int y,int w,int h){
         var others=view.houses().stream().filter(v->!v.id().equals(view.ownHouse())).toList();
@@ -67,5 +82,5 @@ public final class PersonalScreen extends CouncilScreen {
         ),x+list+6,y,w-list-6,h);
     }
     private static String sectionName(Section section){return switch(section){case INFORMATION->"House information";case SECRETS->"Secrets";case GOALS->"Goals";case KNOWN_SECRETS->"Other houses' secrets";};}
-    @Override public void tick(){if(pending!=null&&++waitingTicks>200){pending=null;feedback="The server did not answer. Refresh to retry.";}}
+    @Override public void tick(){if(pending!=null&&++waitingTicks>200){pending=null;feedback="The server did not answer. Refresh to retry.";}if(copyPending!=null&&++copyTicks>200){copyPending=null;feedback="Copy response delayed. Check your inventory before requesting another copy.";rebuildPreservingFocus();}}
 }

@@ -68,6 +68,35 @@ public final class CouncilRuntime {
         if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
         return WORLDS.get(server).content;
     }
+    public static boolean papersCommitted(MinecraftServer server) {
+        if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
+        State state=WORLDS.get(server);return state.cast!=null||state.issuer.hasPending();
+    }
+    public static String contentEditReason(ServerPlayerEntity player) {
+        var server=player.getEntityWorld().getServer();
+        if(server.getPlayerManager().getPlayer(player.getUuid())!=player||!player.getCommandSource().hasPermissionLevel(2))return "Operator access is required.";
+        if(!active()||!WORLDS.containsKey(server))return "House definitions are unavailable.";
+        if(!AuthoringRuntime.editable(server)||!AuthoringRuntime.isAuthor(player))return "Pause play and enable Editing to change source definitions.";
+        if(RuntimeHolds.heldByOther(server,HOLD))return "Resolve the pending operation before editing source definitions.";
+        if(papersCommitted(server))return "House papers have been issued. Source definitions are read-only for this experience.";
+        return "";
+    }
+    /** Server-thread CAS; the editor independently checks the authenticated operator on each request. */
+    public static void replaceContent(MinecraftServer server,CouncilContent expected,CouncilContent replacement)throws IOException {
+        if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
+        State state=WORLDS.get(server);
+        if(!AuthoringRuntime.editable(server)||RuntimeHolds.heldByOther(server,HOLD)||papersCommitted(server))throw new IllegalStateException("Source definitions are currently read-only.");
+        if(!state.content.equals(expected))throw new IllegalStateException("Source definitions changed. Reopen the editor before saving.");
+        for(var assignment:state.rosterSnapshot().assignments().values())if(!replacement.houses().containsKey(assignment.houseId()))throw new IllegalStateException("An assigned House cannot be removed.");
+        byte[] bytes=CouncilContentJson.encode(replacement);
+        try {state.contentFile.verifyUnchanged();state.contentFile.save(bytes);}
+        catch(IOException failure){RuntimeHolds.hold(server,"last_council:house_content","House content could not be saved exactly. Preserve the files and restart to load the saved definitions.");throw failure;}
+        state.roster.replaceDefinitions(replacement.houses());state.content=replacement;state.pending.clear();state.issuanceFailed=false;RuntimeHolds.release(server,HOLD);
+    }
+    static HouseCast committedCast(MinecraftServer server){
+        if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House papers are unavailable.");
+        return WORLDS.get(server).cast;
+    }
     public static Map<String,HouseDefinition> houses(MinecraftServer server) {
         if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
         return WORLDS.get(server).content.houses();
@@ -265,7 +294,7 @@ public final class CouncilRuntime {
     private static void notice(ServerPlayerEntity player,UUID request,Throwable failure){if(ServerPlayNetworking.canSend(player,Notice.ID))ServerPlayNetworking.send(player,new Notice(request,shortMessage(failure)));}
     private static String shortMessage(Throwable failure){String value=failure instanceof IOException?"Data could not be read or saved. Existing authority was preserved; inspect the server configuration and logs.":Objects.toString(failure.getMessage(),"The operation is unavailable.");return value.substring(0,Math.min(512,value.length()));}
     private static final class State {
-        final CouncilContent content;final AtomicDataFile contentFile;final HouseRosterService roster;final HouseCastStore castFile;HouseCast cast;final CouncilOfficeService office;final HouseCastIssuer issuer;boolean issuanceFailed;
+        CouncilContent content;final AtomicDataFile contentFile;final HouseRosterService roster;final HouseCastStore castFile;HouseCast cast;final CouncilOfficeService office;final HouseCastIssuer issuer;boolean issuanceFailed;
         final Map<UUID,Pending> pending=new HashMap<>();final Map<UUID,Limit> limits=new HashMap<>();
         final java.nio.file.Path root;HouseEnrollmentStore enrollment;
         State(java.nio.file.Path root,CouncilContent c,AtomicDataFile f,HouseRosterService r,HouseCastStore s,HouseCast cast,CouncilOfficeService office,HouseCastIssuer issuer)throws IOException{this.root=root;content=c;contentFile=f;roster=r;castFile=s;this.office=office;this.issuer=issuer;publishBaseCast(cast);if(office.snapshot().chancellor()!=null&&rosterSnapshot().assignments().containsKey(office.snapshot().chancellor()))throw new IOException("Chancellor also has an enrolled House; records preserved");}

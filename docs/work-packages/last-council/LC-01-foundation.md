@@ -2,7 +2,7 @@
 
 **Next review work:** The 7 November group review adds safe late House assignment after cast commitment and an Advanced source-pool catalogue to LC-01B/C. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
 
-Status: in progress; LC-01A and the first private cast projection implemented, verification ongoing. Reusable House/pool content export is implemented in dev.8; physical grants, native template editing and the complete delivery review remain pending. See [portability results](LC01_PORTABILITY_RESULTS.md). Depends on existing Core. Brief: §§1–4, 11–12, 16.
+Status: in progress; LC-01A and the first private cast projection implemented, verification ongoing. Reusable House/pool content export is implemented in dev.8; the approved native source editor and requested physical copies are in verification on dev.9. See [current implementation](LC01_EDITOR_COPY_RESULTS.md). See [portability results](LC01_PORTABILITY_RESULTS.md). Depends on existing Core. Brief: §§1–4, 11–12, 16.
 
 ## Outcome and ownership
 
@@ -13,6 +13,8 @@ Latest [UI direction](UI_SCENES_FLOW.md): Character / My house / Other houses ar
 Core owns optional reusable book-pool/template/draw and delivery extensions alongside the existing card/role/book services. Last Council owns political metadata, pool content and house/fact/goal/knowledge rules. Touch `settings.gradle`, shared `build.gradle`, new `campaigns/last-council` and focused Core services; Quiet Below gameplay is outside this package. Read [the clarified flow](FRAMEWORK_INTEGRATION.md).
 
 ## Work
+
+Current approved delivery rule (dev.9): first active play assigns private menu papers only. Players explicitly request individual physical copies from My house; no automatic physical grant is planned. Core owns the reusable copy journal and book pagination, while Last Council owns House categories, templates and recipient selection. The source editor locks after papers are issued. These confirmed choices supersede automatic-delivery suggestions in the original package breakdown below.
 
 **LC-01A — Foundation:** specify stable character/house links, lifecycle and public/private projections; add the Fabric module and matching build requirements; isolate selected scenario defaults; persist seat/candidacy metadata independently of editable card text. Reuse roles where they supply starting gear/destinations, without requiring a duplicate role or house-catalogue workflow. LC-02 can build on this slice before randomization UI is complete.
 

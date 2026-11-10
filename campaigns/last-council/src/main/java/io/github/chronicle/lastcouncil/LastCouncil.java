@@ -13,9 +13,13 @@ public final class LastCouncil implements ModInitializer {
         io.github.chronicle.lastcouncil.network.TreatyPayloads.register();
         io.github.chronicle.lastcouncil.network.ComplicationPayloads.register();
         io.github.chronicle.lastcouncil.network.CataloguePayloads.register();
+        io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.register();
+        io.github.chronicle.lastcouncil.network.PaperCopyPayloads.register();
         io.github.chronicle.lastcouncil.network.ProceedingsPayloads.register();
         CouncilRuntime.register();
         io.github.chronicle.lastcouncil.server.CouncilCatalogueRuntime.register();
+        io.github.chronicle.lastcouncil.server.CouncilContentEditorRuntime.register();
+        io.github.chronicle.lastcouncil.server.HousePaperCopyRuntime.register();
         io.github.chronicle.lastcouncil.server.ProceedingsRuntime.register();
         io.github.chronicle.lastcouncil.server.ComplicationsRuntime.register();
         io.github.chronicle.lastcouncil.server.TreatyRuntime.register();

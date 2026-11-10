@@ -52,7 +52,7 @@ public final class CouncilBallotsSmoke {
     private int step, wait, callMessages, poolMessages;
     private UUID pending, motion, ballot, secretMotion, secretBallot, replacement;
     private AdminView admin;
-    private io.github.chronicle.lastcouncil.network.CataloguePayloads.View catalogue;
+    private io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.View catalogue;
     private CouncilPayloads.PersonalView personal;
     private io.github.chronicle.lastcouncil.network.ComplicationPayloads.View complicationSettings;
     private View view;
@@ -83,7 +83,7 @@ public final class CouncilBallotsSmoke {
         ClientTickEvents.END_CLIENT_TICK.register(instance::tick);
     }
     public static void admin(AdminView value) { if (instance != null && value.request().equals(instance.pending)) instance.admin = value; }
-    public static void catalogue(io.github.chronicle.lastcouncil.network.CataloguePayloads.View value) { if(instance!=null&&value.request().equals(instance.pending))instance.catalogue=value; }
+    public static void catalogue(io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.View value) { if(instance!=null&&value.request().equals(instance.pending))instance.catalogue=value; }
     public static void complicationSettings(io.github.chronicle.lastcouncil.network.ComplicationPayloads.View value){if(instance!=null&&value.request().equals(instance.pending))instance.complicationSettings=value;}
     public static void personal(CouncilPayloads.PersonalView value) { if (instance != null && value.request().equals(instance.pending)) instance.personal = value; }
     public static void view(View value) { if (instance != null && value.request().equals(instance.pending)) instance.view = value; }
@@ -160,8 +160,8 @@ public final class CouncilBallotsSmoke {
                 require(Files.isRegularFile(root.resolve("world/chronicle/last-council/house-enrollments.json")),"enrollment receipt missing");
                 checks.add("late House and new papers publish atomically without rewriting original roster/cast/receipt");
                 pending=UUID.randomUUID();catalogue=null;
-                ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.CataloguePayloads.Request(pending,io.github.chronicle.lastcouncil.network.CataloguePayloads.Category.SECRETS,"",0,0,0));step=62; }
-            case 62 -> { noFailure();if(catalogue==null)return;require(!catalogue.labels().isEmpty()&&catalogue.detail().contains("Text:"),"reusable source catalogue missing");
+                ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.Request(pending,io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.Action.OPEN,io.github.chronicle.lastcouncil.network.CataloguePayloads.Category.SECRETS,"",0,0,0,""));step=62; }
+            case 62 -> { noFailure();if(catalogue==null)return;require(!catalogue.rows().isEmpty()&&catalogue.cards().stream().anyMatch(card->card.title().equals("Template")&&!card.body().isBlank()),"reusable source catalogue missing");
                 c.getWindow().setWindowedSize(1280,720);c.setScreen(new CouncilCatalogueScreen(catalogue,null));wait=30;step=63; }
             case 63 -> { require(c.currentScreen instanceof CouncilCatalogueScreen,"catalogue screen closed");checkFrame((CouncilScreen)c.currentScreen);
                 ScreenshotRecorder.saveScreenshot(shared.toFile(),"source-catalogue-normal.png",c.getFramebuffer(),1,ignored->{});
@@ -302,7 +302,7 @@ public final class CouncilBallotsSmoke {
                 command(c, "chronicle players join"); wait = 30; step = 2; }
             case 2 -> { mark("initial-joined-" + role, "ready");
                 if (role.equals("B")) { request(Action.PREPARE, 0, UUID.randomUUID(), "Draft", "Unauthorized"); step = 3; }
-                else {pending=UUID.randomUUID();catalogue=null;ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.CataloguePayloads.Request(pending,io.github.chronicle.lastcouncil.network.CataloguePayloads.Category.SECRETS,"",0,0,0));wait=30;step=62;} }
+                else {pending=UUID.randomUUID();catalogue=null;ClientPlayNetworking.send(new io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.Request(pending,io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.Action.OPEN,io.github.chronicle.lastcouncil.network.CataloguePayloads.Category.SECRETS,"",0,0,0,""));wait=30;step=62;} }
             case 90 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.CoreMenuScreen))return;if(buttons(c.currentScreen).stream().noneMatch(b->b.getMessage().getString().equals("Event pools")))return;press(c.currentScreen,"Event pools");step=91;}
             case 91 -> {if(!(c.currentScreen instanceof io.github.chronicle.core.client.EventPoolEditorScreen))return;press(c.currentScreen,"Native test pool");press(c.currentScreen,"A broken royal seal (2)");input(c.currentScreen).setText("3");press(c.currentScreen,"Save pool");wait=30;step=92;}
             case 92 -> {require(poolWeight()==3,"competing operator Save failed");c.currentScreen.close();if(c.currentScreen!=null)c.currentScreen.close();command(c,"chronicle editing off");competed=true;mark("pool-competitor-saved","ready");step=42;}

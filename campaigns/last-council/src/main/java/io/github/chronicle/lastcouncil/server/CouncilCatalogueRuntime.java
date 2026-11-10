@@ -16,7 +16,7 @@ public final class CouncilCatalogueRuntime {
         GameSetupTools.register(new GameSetupTools.Tool("last_council:catalogue","Source catalogue","Inspect reusable Last Council source definitions.",
                 List.of(new GameSetupTools.Verb("open","Open source catalogue",GameSetupTools.Guard.READ_ONLY,false)),
                 source->new GameSetupTools.Status(0,List.of(new Fact("Content","House information, secret and goal templates, and knowledge rules.")),Map.of()),
-                (source,verb)->{var player=source.getPlayer();if(player==null)throw new IllegalStateException("Open the catalogue as a player.");send(player,new Request(new UUID(0,0),Category.HOUSES,"",0,0,0),true);return "";}));
+                (source,verb)->{var player=source.getPlayer();if(player==null)throw new IllegalStateException("Open the catalogue as a player.");return "Open Source catalogue from Game setup.";}));
         ServerPlayNetworking.registerGlobalReceiver(Request.ID,(request,context)->context.server().execute(()->send(context.player(),request,false)));
     }
     private static void send(ServerPlayerEntity player,Request request,boolean opening){
