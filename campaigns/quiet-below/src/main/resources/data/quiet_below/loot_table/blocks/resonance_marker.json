@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "conditions": [
+            {
+              "condition": "minecraft:survives_explosion"
+            }
+          ],
+          "name": "quiet_below:resonance_marker"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "quiet_below:blocks/resonance_marker"
+}

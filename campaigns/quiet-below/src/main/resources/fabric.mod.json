@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "quiet_below",
+  "version": "${version}",
+  "name": "The Quiet Below",
+  "description": "The first Chronicle roleplay campaign.",
+  "authors": ["TheOnlyAesir"],
+  "license": "MIT",
+  "contact": {"sources": "https://github.com/TheOnlyAesir/Chronicles", "issues": "https://github.com/TheOnlyAesir/Chronicles/issues"},
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "io.github.chronicle.quietbelow.QuietBelow"
+    ],
+    "client": [
+      "io.github.chronicle.quietbelow.client.QuietBelowClient"
+    ]
+  },
+  "mixins": [
+    "quiet_below.mixins.json"
+  ],
+  "depends": {
+    "chronicle_core": ">=0.1.0-alpha.1",
+    "fabricloader": ">=0.19.5",
+    "fabric-api": "*",
+    "minecraft": "1.21.10",
+    "java": ">=21"
+  }
+}

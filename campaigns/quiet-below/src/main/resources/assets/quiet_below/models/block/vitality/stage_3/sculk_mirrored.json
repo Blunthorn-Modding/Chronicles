@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/sculk_mirrored",
+  "textures": {
+    "all": "quiet_below:block/vitality/stage_3/sculk"
+  }
+}

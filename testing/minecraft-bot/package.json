@@ -1,0 +1,9 @@
+{
+  "name": "chronicle-minecraft-smoke",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local-only deterministic Minecraft integration tests",
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test *.test.cjs", "smoke": "node smoke.cjs" },
+  "dependencies": { "mineflayer": "4.39.0" }
+}

@@ -1,0 +1,49 @@
+{
+    "schema":  1,
+    "resolved":  "2026-10-18",
+    "minecraft":  "1.21.10",
+    "minecraft_protocol":  773,
+    "loader":  "0.19.5",
+    "yarn":  "1.21.10+build.3",
+    "loom":  "1.11.8",
+    "gradle":  {
+                   "url":  "https://services.gradle.org/distributions/gradle-8.14.3-bin.zip",
+                   "version":  "8.14.3",
+                   "sha256":  "bd71102213493060956ec229d946beee57158dbd89d0e62b91bca0fa2c5f3531"
+               },
+    "java":  {
+                 "filename":  "OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.zip",
+                 "url":  "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.12.1%2B1/OpenJDK21U-jdk_x64_windows_hotspot_21.0.12.1_1.zip",
+                 "version":  "21.0.12+101.0.LTS",
+                 "sha256":  "f9d6e191ab098c0d416e7d588a24420a8621cd2f4720dab2459b8b7b2d2d8b4e"
+             },
+    "installer":  {
+                      "url":  "https://maven.fabricmc.net/net/fabricmc/fabric-installer/1.1.2/fabric-installer-1.1.2.jar",
+                      "version":  "1.1.2",
+                      "sha256":  "61e035bf7bf70153e127440ce34de47c9036f0a2d0c65d1529454bd35ceefe4f"
+                  },
+    "mods":  [
+                 {
+                     "url":  "https://cdn.modrinth.com/data/P7dR8mSH/versions/tV4Gc0Zo/fabric-api-0.138.4%2B1.21.10.jar",
+                     "slug":  "fabric-api",
+                     "filename":  "fabric-api-0.138.4+1.21.10.jar",
+                     "size":  2375888,
+                     "version":  "0.138.4+1.21.10",
+                     "sha1":  "0345c20b71007521a25b393091adeb45328d7c57",
+                     "sha512":  "5e64c53391dfd1c059777d671c52be17a4e27a29d9bd7340ea9e3f55ce7a770b38db0a15e0966e981ee8c1b9372fb89543a278521624689268acebb85bd5c6e9",
+                     "project_id":  "P7dR8mSH",
+                     "version_id":  "tV4Gc0Zo"
+                 },
+                 {
+                     "url":  "https://cdn.modrinth.com/data/9eGKb6K1/versions/9074luJy/voicechat-fabric-1.21.10-2.6.22.jar",
+                     "slug":  "simple-voice-chat",
+                     "filename":  "voicechat-fabric-1.21.10-2.6.22.jar",
+                     "size":  5529164,
+                     "version":  "fabric-1.21.10-2.6.22",
+                     "sha1":  "45645b70dc3d88067655faedb1cf4e8a2c788523",
+                     "sha512":  "7e33f97c3c9b55f86e2a3e79e4ee3d0101950fe63d2ada3a7ad84ba53202bab4356472cda08ffdae697e864f038de0641fdbaf248777d37c7126ba50ec94fff2",
+                     "project_id":  "9eGKb6K1",
+                     "version_id":  "9074luJy"
+                 }
+             ]
+}

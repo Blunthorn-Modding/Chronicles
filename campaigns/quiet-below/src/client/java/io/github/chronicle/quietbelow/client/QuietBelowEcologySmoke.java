@@ -1,0 +1,554 @@
+package io.github.chronicle.quietbelow.client;
+
+import com.google.gson.Gson;
+import io.github.chronicle.core.client.AuthoringPreviewRenderer;
+import io.github.chronicle.core.client.CoreMenuScreen;
+import io.github.chronicle.core.menu.CoreMenuModel.Page;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.minecraft.block.Blocks;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.AccessibilityOnboardingScreen;
+import net.minecraft.client.gui.screen.TitleScreen;
+import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
+import net.minecraft.client.network.ServerAddress;
+import net.minecraft.client.network.ServerInfo;
+import net.minecraft.client.option.NarratorMode;
+import net.minecraft.client.util.ScreenshotRecorder;
+import net.minecraft.util.math.BlockPos;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BooleanSupplier;
+import java.util.regex.Pattern;
+
+/** Opt-in two-process ecology rehearsal on the disposable loopback fixture only. */
+final class QuietBelowEcologySmoke {
+    private static final String OUTPUT = System.getenv("CHRONICLE_ECOLOGY_SMOKE");
+    private static final String PHASE = System.getenv("CHRONICLE_ECOLOGY_PHASE");
+    private static final String ADDRESS = "127.0.0.1:25575";
+    private final List<String> messages = new ArrayList<>(), checks = new ArrayList<>();
+    private final List<Step> steps = new ArrayList<>();
+    private final long overallDeadline = System.nanoTime() + 240_000_000_000L;
+    private int index, baseline, sculkBefore, pausedSculk;
+    private long deadline, until, rootFrames;
+    private String vitalityClock;
+    private boolean started, connected, built, finished;
+
+    static void register() {
+        if (PHASE!=null&&List.of("city","city_restart","recovery","recovery_restart","costs","costs_restart").contains(PHASE)) return;
+        if (OUTPUT == null) return;
+        if (!List.of("initial","restart","surface","organic","vitality","items","crops","crops_restart","appearance","appearance_legacy").contains(PHASE)) throw new IllegalArgumentException("Invalid ecology smoke phase");
+        var smoke = new QuietBelowEcologySmoke();
+        ClientReceiveMessageEvents.GAME.register((text, overlay) -> smoke.messages.add(text.getString()));
+        ClientTickEvents.END_CLIENT_TICK.register(smoke::tick);
+    }
+
+    private void tick(MinecraftClient client) {
+        if (finished) return;
+        try {
+            require(System.nanoTime() < overallDeadline, "ecology smoke overall timeout");
+            if (client.player == null && client.getOverlay() == null && client.currentScreen instanceof AccessibilityOnboardingScreen)
+                throw new IllegalStateException("Pack preferences failed to suppress accessibility onboarding");
+            if (!connected && client.getOverlay() == null && client.currentScreen instanceof TitleScreen) {
+                require(client.options.getGuiScale().getValue()==2,"pack GUI scale not loaded");checks.add("new client loads GUI scale 2");
+                require(client.options.getNarrator().getValue()==NarratorMode.OFF,"pack narrator setting not loaded");checks.add("new client loads narrator off");
+                require(!client.options.onboardAccessibility,"pack onboarding preference not loaded");checks.add("new client skips accessibility onboarding without test bypass");
+                require(client.options.skipMultiplayerWarning,"pack multiplayer acknowledgement not loaded");checks.add("new client loads multiplayer acknowledgement");
+                connected = true;
+                ConnectScreen.connect(client.currentScreen, client, ServerAddress.parse(ADDRESS),
+                        new ServerInfo("Chronicle ecology fixture", ADDRESS, ServerInfo.ServerType.OTHER), false, null);
+            }
+            if (client.player == null || client.world == null || (client.currentScreen != null && !(client.currentScreen instanceof CoreMenuScreen))) return;
+            require(client.getCurrentServerEntry() != null && ADDRESS.equals(client.getCurrentServerEntry().address), "ecology fixture address mismatch");
+            if (!built) { build(client); built = true; }
+            if (index >= steps.size()) { finish(client, true, "ecology rehearsal complete"); return; }
+            Step step = steps.get(index);
+            if (!started) { baseline = messages.size(); deadline = System.nanoTime() + step.timeoutMillis * 1_000_000L; step.start.run(); started = true; }
+            if (step.done.getAsBoolean()) { checks.add(step.name); index++; started = false; }
+            else require(System.nanoTime() < deadline, "timed out: " + step.name);
+        } catch (Exception error) { finish(client, false, error.toString()); }
+    }
+
+    private void build(MinecraftClient client) {
+        if ("initial".equals(PHASE)) initial(client); else if("surface".equals(PHASE)) surface(client); else if("organic".equals(PHASE)) organic(client); else if("vitality".equals(PHASE)) vitality(client); else if("items".equals(PHASE)) items(client); else if("crops".equals(PHASE)) crops(client); else if("crops_restart".equals(PHASE)) cropsRestart(client); else if("appearance".equals(PHASE)) appearance(client); else if("appearance_legacy".equals(PHASE)) appearanceLegacy(client); else restart(client);
+    }
+    private void crops(MinecraftClient client){
+        command(client,"isolate native crop bonus from ordinary random growth","gamerule randomTickSpeed 0",".*0.*");
+        command(client,"daylight for crop comparison","time set noon",".*time.*");
+        command(client,"prepare native crop field and ordinary controls","quiet_below_crop_trial prepare","PASS crop prepare:.*");
+        command(client,"enable crop Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create crop source","chronicle regions create crops_source","Region selection crops_source opened.*");
+        command(client,"crop source first corner","chronicle regions pos1 -4 64 0","Set Region draft crops_source position 1.*");
+        command(client,"crop source second corner","chronicle regions pos2 -1 64 0","Set Region draft crops_source position 2.*");
+        command(client,"save crop source","chronicle regions save","Saved Region 'crops_source'\\.");
+        command(client,"look at crop Heart","tp @s -3.5 65 0.5 0 90",".*Teleported.*");
+        command(client,"bind crop Heart","chronicle locations blocks bind crops_heart target","Saved Block site crops_heart.*");
+        command(client,"assign crop source","quiet_below_authoring_trial assign-source crops_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign crop Heart","quiet_below_authoring_trial assign-heart crops_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index crop source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish crop source index",600);
+        command(client,"enable crop ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        openCropMenu(client);cropButton(client,"Faster crop growth");cropButton(client,"Faster crop growth");
+        check("native crop controls stop at minimum interval",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Faster crop growth")).noneMatch(c->c.enabled()),"crop interval underflow"));
+        screenshot(client,"crop-growth-settings.png");check("close crop menu",()->client.currentScreen.close());
+        command(client,"start crop play","chronicle session start","Started Chronicle session.*");
+        command(client,"join crop play","chronicle players join",".*Participation enabled.*");
+        command(client,"crop tuning rejects active author edits","chronicle setup tool \"quiet_below:crops\" slower",".*requires operator editing mode.*");
+        delay("real eligible crop growth",4_000);
+        command(client,"four native crops benefit while controls do not","quiet_below_crop_trial grown","PASS crop grown:.*");
+        command(client,"pause crop play","chronicle session pause","Paused Chronicle session.*");
+        command(client,"remember paused crop ages","quiet_below_crop_trial remember","PASS crop remember:.*");
+        delay("crop effect stays frozen during pause",3_000);
+        command(client,"paused native ages stay unchanged","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        command(client,"view crop comparison","tp @s 6.5 70 8.5 180 30",".*Teleported.*");
+        screenshot(client,"crop-growth-comparison.png");
+        command(client,"resume crop play","chronicle session resume","Resumed Chronicle session.*");
+        command(client,"cut every root contact","quiet_below_crop_trial cut","PASS crop cut:.*");
+        delay("severed field loses its bonus",3_000);
+        command(client,"detached field receives no bonus","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        command(client,"restore physical crop root contact","setblock -3 64 0 sculk",".*Changed.*");
+        delay("reconnected field waits and resumes",4_000);
+        command(client,"crop bonus follows physical reconnection","quiet_below_crop_trial recovered","PASS crop recovered:.*");
+        command(client,"disable crop boost during active play","chronicle setup tool \"quiet_below:crops\" disable","Crop boost disabled.*");
+        command(client,"remember disabled crop ages","quiet_below_crop_trial remember","PASS crop remember:.*");
+        delay("disabled crop bonus does not accrue",3_000);
+        command(client,"disabled field receives no bonus","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        command(client,"pause for restoring crop setting","chronicle session pause","Paused Chronicle session.*");
+        command(client,"enable Editing for crop reset","chronicle editing on","Editing enabled.*");
+        command(client,"re-enable saved fast crop tuning","chronicle setup tool \"quiet_below:crops\" enable","Crop boost enabled.*");
+        command(client,"save native crop ages for restart","quiet_below_crop_trial save","PASS crop save:.*");
+    }
+    private void cropsRestart(MinecraftClient client){
+        command(client,"native crop ages and rules survive restart","quiet_below_crop_trial restart","PASS crop restart:.*");
+        command(client,"resume restarted crop play","chronicle session resume","Resumed Chronicle session.*");
+        command(client,"join restarted crop play","chronicle players join",".*Participation enabled.*");
+        delay("restart does not give an instant crop bonus",800);
+        command(client,"crop restart waits for a fresh interval","quiet_below_crop_trial unchanged","PASS crop unchanged:.*");
+        delay("restart crop bonus resumes normally",3_500);
+        command(client,"restart crop field grows","quiet_below_crop_trial recovered","PASS crop recovered:.*");
+        command(client,"pause crop review snapshot","chronicle session pause","Paused Chronicle session.*");
+        command(client,"enable crop review Editing","chronicle editing on","Editing enabled.*");
+        command(client,"restore default crop interval for review","chronicle setup tool \"quiet_below:crops\" reset","Crop boost enabled.*");
+        command(client,"reset comparison crops for review","quiet_below_crop_trial review","PASS crop review:.*");
+        command(client,"restore ordinary random growth for review","gamerule randomTickSpeed 3",".*3.*");
+        command(client,"set crop review starting point","setworldspawn 6 64 6 180 0",".*spawn.*");
+        command(client,"keep review arrival on the viewing platform","gamerule spawnRadius 0",".*0.*");
+        command(client,"show prepared crop comparison","tp @s 7 72 15 180 28",".*Teleported.*");
+        screenshot(client,"crop-review-ready.png");
+    }
+    private void openCropMenu(MinecraftClient client){
+        step("open native crop menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open Game setup for crops",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
+        step("select Crop growth",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:crops"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:crops"),10_000);
+    }
+    private void cropButton(MinecraftClient client,String label){
+        step("native crop "+label,()->require(press((CoreMenuScreen)client.currentScreen,label),label+" unavailable"),()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().message().contains("Crop boost enabled"),10_000);
+    }
+    private void items(MinecraftClient client){
+        command(client,"vanilla item placement outside campaign","quiet_below_item_trial vanilla","PASS sculk items vanilla:.*");
+        command(client,"place item fixture Heart","setblock 0 64 0 reinforced_deepslate",".*Changed.*");
+        command(client,"place item fixture source","fill 1 64 0 5 64 0 sculk",".*filled.*");
+        command(client,"enable item Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create item source","chronicle regions create items_source","Region selection items_source opened.*");
+        command(client,"item source first corner","chronicle regions pos1 0 64 0","Set Region draft items_source position 1.*");
+        command(client,"item source second corner","chronicle regions pos2 5 64 0","Set Region draft items_source position 2.*");
+        command(client,"save item source","chronicle regions save","Saved Region 'items_source'\\.");
+        command(client,"look at item Heart","tp @s 0.5 65 0.5 0 90",".*Teleported.*");
+        command(client,"bind item Heart","chronicle locations blocks bind items_heart target","Saved Block site items_heart.*");
+        command(client,"assign item source","quiet_below_authoring_trial assign-source items_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign item Heart","quiet_below_authoring_trial assign-heart items_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index item source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("complete item source index",600);
+        command(client,"enable item ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        command(client,"survival Silk Touch harvest and dormant placement","quiet_below_item_trial prepare","PASS sculk items prepare:.*");
+        delay("receive dormant placement states",500);
+        check("all five dormant placements arrive at client",()->{
+            for(int x=1;x<=5;x++)require(client.world.getBlockState(new BlockPos(x,65,8)).get(io.github.chronicle.quietbelow.content.SculkAppearance.VITALITY)==3,"client placement still healthy at "+x);
+        });
+        command(client,"view dormant item models","tp @s 3.5 67 3.5 0 25",".*Teleported.*");
+        screenshot(client,"ecology-dormant-items.png");
+        command(client,"start item play","chronicle session start","Started Chronicle session.*");
+        command(client,"join item play","chronicle players join",".*Participation enabled.*");
+        delay("adopt connected placements and reconcile their colors",2_000);
+        command(client,"connected color and native response; detached remain dormant","quiet_below_item_trial connected","PASS sculk items connected:.*");
+        command(client,"leave item trial paused","chronicle session pause","Paused Chronicle session.*");
+    }
+    private void appearance(MinecraftClient client){
+        command(client,"verify native state and block entity preservation","quiet_below_appearance_trial native","PASS sculk appearance native:.*");
+        command(client,"set daylight for palette comparison","time set noon",".*time.*");
+        command(client,"disable gallery weather changes","gamerule doWeatherCycle false",".*false.*");
+        command(client,"clear gallery weather","weather clear",".*(clear|Clear).*");
+        command(client,"build palette viewing floor","fill -2 63 -3 26 63 6 polished_deepslate",".*filled.*");
+        for(int stage=0;stage<4;stage++){
+            int x=stage*6;
+            String visual="quiet_below_vitality="+stage;
+            command(client,"palette "+stage+" sculk floor","fill "+x+" 64 0 "+(x+3)+" 64 3 sculk["+visual+"]",".*filled.*");
+            command(client,"palette "+stage+" vein support","fill "+x+" 65 4 "+(x+3)+" 67 4 stone",".*filled.*");
+            command(client,"palette "+stage+" vein faces","fill "+x+" 65 3 "+(x+3)+" 67 3 sculk_vein[south=true,"+visual+"]",".*filled.*");
+            command(client,"palette "+stage+" catalyst","setblock "+x+" 65 1 sculk_catalyst["+visual+"]",".*Changed.*");
+            command(client,"palette "+stage+" sensor","setblock "+(x+1)+" 65 1 sculk_sensor["+visual+"]",".*Changed.*");
+            command(client,"palette "+stage+" shrieker","setblock "+(x+2)+" 65 1 sculk_shrieker[can_summon=true,"+visual+"]",".*Changed.*");
+        }
+        command(client,"hold gallery viewpoint","gamemode spectator @s",".*(Spectator|spectator).*");
+        command(client,"compare four vitality stages","tp @s 10.5 72 -10.5 0 27",".*Teleported.*");
+        screenshot(client,"ecology-vitality-four-stages.png");
+        command(client,"inspect exhausted pattern close up","tp @s 19.5 68 -2.5 0 28",".*Teleported.*");
+        screenshot(client,"ecology-vitality-brown-detail.png");
+    }
+    private void appearanceLegacy(MinecraftClient client){
+        command(client,"verify old journal and world decode","quiet_below_appearance_trial legacy","PASS sculk appearance legacy:.*");
+        command(client,"resume copied legacy vitality world","chronicle session resume","Resumed Chronicle session.*");
+        command(client,"join legacy vitality world","chronicle players join",".*Participation enabled.*");
+        delay("reconcile legacy colors from saved vitality",3_000);
+        command(client,"legacy colors preserve living ownership","quiet_below_appearance_trial legacy_live","PASS sculk appearance legacy live:.*");
+        command(client,"leave copied legacy world paused","chronicle session pause","Paused Chronicle session.*");
+        screenshot(client,"ecology-vitality-legacy-restored.png");
+    }
+    private void vitality(MinecraftClient client){
+        command(client,"place vitality Heart","setblock 0 64 0 reinforced_deepslate",".*Changed.*");
+        command(client,"place vitality branch","fill 1 64 0 4 64 0 sculk",".*filled.*");
+        command(client,"place vitality sensor","setblock 4 65 0 sculk_sensor",".*Changed.*");
+        command(client,"place isolated viewing platform","fill 6 63 -1 8 63 1 glass",".*filled.*");
+        command(client,"enable vitality Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create vitality source","chronicle regions create vitality_source","Region selection vitality_source opened.*");
+        command(client,"vitality first corner","chronicle regions pos1 0 64 0","Set Region draft vitality_source position 1.*");
+        command(client,"vitality second corner","chronicle regions pos2 4 65 0","Set Region draft vitality_source position 2.*");
+        command(client,"save vitality source","chronicle regions save","Saved Region 'vitality_source'\\.");
+        command(client,"look at vitality Heart","tp @s 0.5 65 0.5 0 90",".*Teleported.*");
+        command(client,"bind vitality Heart","chronicle locations blocks bind vitality_heart target","Saved Block site vitality_heart.*");
+        command(client,"stand on isolated platform","tp @s 7.5 64 0.5 90 0",".*Teleported.*");
+        command(client,"assign vitality source","quiet_below_authoring_trial assign-source vitality_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign vitality Heart","quiet_below_authoring_trial assign-heart vitality_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index vitality source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish vitality index",600);
+        command(client,"enable vitality ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        openVitalityMenu(client);
+        for(int i=0;i<3;i++)vitalityButton(client,"Faster vitality loss");
+        for(int i=0;i<2;i++)vitalityButton(client,"Faster recovery");
+        check("minimum vitality rates are disabled",()->{
+            var d=((CoreMenuScreen)client.currentScreen).state().detail();
+            require(d.controls().stream().filter(c->c.label().equals("Faster vitality loss")||c.label().equals("Faster recovery")).noneMatch(c->c.enabled()),"vitality rates underflow");
+            require(d.facts().stream().anyMatch(f->f.label().equals("Full vitality loss")&&f.value().startsWith("1 eligible")),"minimum full-loss setting missing");
+        });
+        vitalityButton(client,"Lower extent thresholds");vitalityButton(client,"Lower extent thresholds");
+        check("minimum extent thresholds are disabled",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Lower extent thresholds")).noneMatch(c->c.enabled()),"extent underflow"));
+        vitalityScreenshot(client,"ecology-vitality-settings.png");check("close vitality menu",()->client.currentScreen.close());
+        command(client,"start vitality play","chronicle session start","Started Chronicle session.*");
+        command(client,"join vitality play","chronicle players join",".*Participation enabled.*");
+        command(client,"cut vitality branch","setblock 1 64 0 air",".*Changed.*");
+        command(client,"active play rejects vitality edits","chronicle setup tool \"quiet_below:vitality\" loss_slower",".*requires operator editing mode.*");
+        delay("let detached vitality fall below readiness while remaining positive",53_000);
+        command(client,"positive fading vitality selects its own model","quiet_below_native_trial vitality_fading","PASS vitality fading:.*");
+        command(client,"aim at the fading branch end","tp @s 7.5 64 0.5 90 21",".*Teleported.*");
+        command(client,"pause known positive fading vitality","chronicle session pause","Paused Chronicle session.*");
+        openVitalityMenu(client);
+        check("per-cell readout distinguishes positive fading from zero",()->{
+            String fact=vitalityFact(client,"Looked sculk");
+            require(fact.contains("4, 64, 0")&&fact.contains("(positive)")&&fact.contains("displayed brown with blue flecks")
+                    &&fact.contains("expected brown with blue flecks"),"wrong per-cell vitality readout: "+fact);
+        });
+        check("close fading vitality menu",()->client.currentScreen.close());
+        screenshot(client,"ecology-vitality-fading-world.png");
+        command(client,"resume fading vitality decline","chronicle session resume","Resumed Chronicle session.*");
+        delay("let detached vitality exhaust through a real eligible minute",20_000);
+        command(client,"zero vitality retains terrain and disables native response","quiet_below_native_trial vitality_zero","PASS vitality zero:.*");
+        command(client,"pause spent vitality time","chronicle session pause","Paused Chronicle session.*");
+        openVitalityMenu(client);check("capture paused vitality clock",()->vitalityClock=vitalityFact(client,"Clock"));
+        delay("wait with vitality paused",1_100);
+        step("refresh paused vitality status",()->require(press((CoreMenuScreen)client.currentScreen,"Refresh status"),"vitality refresh unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().message().contains("Vitality status refreshed"),10_000);
+        check("paused vitality does not advance",()->require(vitalityClock.equals(vitalityFact(client,"Clock")),"paused vitality clock advanced"));
+        check("per-cell zero is explicit",()->{
+            String fact=vitalityFact(client,"Looked sculk");
+            require(fact.contains("(zero)")&&fact.contains("displayed fully brown (zero)"),"zero is not explicit: "+fact);
+        });
+        vitalityScreenshot(client,"ecology-vitality-dormant.png");check("close dormant vitality menu",()->client.currentScreen.close());
+        screenshot(client,"ecology-vitality-zero-world.png");
+        command(client,"replace physical vitality bridge while paused","setblock 1 64 0 sculk",".*Changed.*");
+        command(client,"resume vitality recovery","chronicle session resume","Resumed Chronicle session.*");
+        delay("allow physical joining without immediate vitality refill",500);
+        command(client,"reconnected branch recovers gradually","quiet_below_native_trial vitality_recovering","PASS vitality recovering:.*");
+        delay("allow bright recovery through the ready threshold and shared checkpoint",22_000);
+        command(client,"recovered branch restores native response","quiet_below_native_trial vitality_ready","PASS vitality ready:.*");
+        delay("recover healthy color through the final shared checkpoint",20_000);
+        command(client,"healthy color and native identity return","quiet_below_appearance_trial healthy","PASS sculk appearance healthy:.*");
+        command(client,"leave vitality trial paused","chronicle session pause","Paused Chronicle session.*");
+        openVitalityMenu(client);vitalityScreenshot(client,"ecology-vitality-recovered.png");
+    }
+    private void vitalityScreenshot(MinecraftClient client,String name){
+        check("show vitality readings for "+name,()->{var m=(CoreMenuScreen)client.currentScreen;for(int n=0;n<100;n++)m.scrollDetailForTest(1);});
+        screenshot(client,name);
+    }
+    private String vitalityFact(MinecraftClient client,String name){return ((CoreMenuScreen)client.currentScreen).state().detail().facts().stream().filter(f->f.label().equals(name)).findFirst().orElseThrow().value();}
+    private void openVitalityMenu(MinecraftClient client){
+        step("open native vitality menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open Game setup for vitality",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
+        step("select Sculk vitality",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:vitality"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:vitality"),10_000);
+    }
+    private void vitalityButton(MinecraftClient client,String label){
+        step("native vitality "+label,()->require(press((CoreMenuScreen)client.currentScreen,label),label+" unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().message().contains("Vitality tuning saved"),10_000);
+    }
+
+    private void initial(MinecraftClient client) {
+        command(client, "bury corridor in solid stone", "fill -2 60 -2 16 70 4 stone", ".*filled.*");
+        command(client, "open corridor interior", "fill 0 65 1 13 66 1 air", ".*filled.*");
+        command(client, "place temporary Heart", "setblock 0 64 1 reinforced_deepslate", ".*Changed.*");
+        command(client, "place source sculk", "setblock 1 64 1 sculk", ".*Changed.*");
+        command(client, "place catalyst support", "setblock 2 64 1 sculk", ".*Changed.*");
+        command(client, "place native source catalyst", "setblock 2 65 1 sculk_catalyst", ".*Changed.*");
+        command(client, "place native source sensor", "setblock 1 65 1 sculk_sensor", ".*Changed.*");
+        command(client, "close barrier", "fill 8 65 1 8 66 1 stone", ".*filled.*");
+        command(client, "enable Editing", "chronicle editing on", "Editing enabled.*");
+        command(client, "create source region draft", "chronicle regions create \"quiet_below:source_city\"", "Region selection quiet_below_source_city opened.*");
+        command(client, "set source region first corner", "chronicle regions pos1 0 64 1", "Set Region draft quiet_below_source_city position 1.*");
+        command(client, "set source region second corner", "chronicle regions pos2 2 66 1", "Set Region draft quiet_below_source_city position 2.*");
+        command(client, "save source region", "chronicle regions save", "Saved Region 'quiet_below_source_city'\\.");
+        command(client, "look down at Heart", "tp @s 0.5 65 1.5 0 90", ".*Teleported.*");
+        command(client, "bind Heart anchor", "chronicle locations blocks bind \"quiet_below:relic_heart\" target", "Saved Block site quiet_below:relic_heart.*");
+        command(client, "assign source city", "quiet_below_authoring_trial assign-source quiet_below_source_city", "PASS canonical authoring assign-source:.*");
+        command(client, "assign Heart", "quiet_below_authoring_trial assign-heart \"quiet_below:relic_heart\"", "PASS canonical authoring assign-heart:.*");
+        command(client, "start explicit source indexing", "chronicle setup tool \"quiet_below:ecology\" index", "Source indexing started.*");
+        delay("allow small loaded source index", 1_000);
+        command(client, "enable indexed ecology", "chronicle setup tool \"quiet_below:ecology\" enable", "Growth enabled.*");
+        command(client,"save non-default speed before restart","chronicle setup tool \"quiet_below:ecology\" faster","Spread speed saved: 2.00x.*");
+        command(client, "clear previous region outline before root test", "chronicle setup tool \"quiet_below:ecology\" hide_root", "Root outline hidden.*");
+        delay("settle cleared outline",200);
+        check("record private root renderer",()->rootFrames=AuthoringPreviewRenderer.renderedFrames());
+        command(client, "show source root without editing terrain", "chronicle setup tool \"quiet_below:ecology\" show_root", "Root outlined privately.*");
+        step("root outline renders in frozen world",()->{},()->AuthoringPreviewRenderer.renderedFrames()>rootFrames,10_000);
+        check("root location delivered privately to operator",()->require(messages.stream().anyMatch(m->m.contains("Sculk root: 0, 64, 1 in minecraft:overworld")),"missing root coordinates"));
+        screenshot(client,"ecology-root-paused.png");
+        command(client, "hide source root", "chronicle setup tool \"quiet_below:ecology\" hide_root", "Root outline hidden.*");
+        command(client, "start session", "chronicle session start", "Started Chronicle session.*");
+        check("active session without participant has no growth", () -> sculkBefore = sculk(client));
+        delay("wait without participation", 1_100);
+        check("no participant remains inert", () -> require(sculk(client) == sculkBefore, "ecology grew without an eligible participant"));
+        command(client, "owned native features reject inactive intake", "quiet_below_native_trial inactive", "PASS native inactive hooks:.*");
+        command(client, "join participation", "chronicle players join", ".*Participation enabled.*");
+        step("living source grows before closed barrier", () -> {}, () -> {
+            int count = sculk(client); require(count <= 8, "closed corridor exceeded bounded initial growth before barrier: " + count); return count > sculkBefore;
+        }, 30_000);
+        command(client, "owned catalyst ignores deaths and legacy charge", "quiet_below_native_trial active", "PASS native active hooks:.*");
+        delay("observe closed barrier during occupied play", 10_000);
+        check("closed barrier has no growth beyond x8", () -> require(sculkBeyondBarrier(client) == 0, "growth crossed the closed barrier"));
+        command(client, "open physical barrier", "fill 8 65 1 8 66 1 air", ".*filled.*");
+        step("growth reaches corridor beyond opened barrier", () -> {}, () -> sculkBeyondBarrier(client) > 0, 60_000);
+        command(client, "pause active ecology", "chronicle session pause", "Paused Chronicle session.*");
+        delay("settle pause", 400);
+        check("capture paused terrain", () -> pausedSculk = sculk(client));
+        delay("paused world remains stable", 1_100);
+        check("pause prevents further ecology writes", () -> require(sculk(client) == pausedSculk, "ecology changed terrain while paused"));
+        command(client,"place disconnected takeover sculk","setblock 12 64 8 sculk",".*Changed.*");
+        command(client,"place disconnected takeover catalyst","setblock 12 65 8 sculk_catalyst",".*Changed.*");
+        command(client,"reenter paused Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create takeover region","chronicle regions create extra_sculk","Region selection extra_sculk opened.*");
+        command(client,"takeover corner one","chronicle regions pos1 12 64 8","Set Region draft extra_sculk position 1.*");
+        command(client,"takeover corner two","chronicle regions pos2 12 65 8","Set Region draft extra_sculk position 2.*");
+        command(client,"save takeover geometry","chronicle regions save","Saved Region 'extra_sculk'\\.");
+        command(client,"assign optional takeover region","quiet_below_authoring_trial assign-takeover extra_sculk","PASS canonical authoring assign-takeover:.*");
+        command(client,"start explicit region takeover","chronicle setup tool \"quiet_below:ownership\" claim","Region takeover started.*");
+        delay("finish small loaded region takeover",600);
+        command(client,"place non-campaign sculk for cleanup","setblock 6 -64 6 sculk",".*Changed.*");
+        command(client,"enable persistent world cleanup","chronicle setup tool \"quiet_below:ownership\" cleanup_on","Non-campaign sculk cleanup enabled.*");
+        delay("cleanup waits for occupied active play",600);
+        check("paused cleanup preserves stray sculk",()->require(client.world.getBlockState(new BlockPos(6,-64,6)).isOf(Blocks.SCULK),"cleanup changed paused terrain"));
+        command(client,"resume cleanup test","chronicle session resume","Resumed Chronicle session.*");
+        step("world cleanup deletes non-campaign sculk",()->{},()->client.world.getBlockState(new BlockPos(6,-64,6)).isAir(),30_000);
+        check("takeover preserves disconnected sculk and catalyst",()->require(client.world.getBlockState(new BlockPos(12,64,8)).isOf(Blocks.SCULK)&&client.world.getBlockState(new BlockPos(12,65,8)).isOf(Blocks.SCULK_CATALYST),"cleanup deleted explicitly adopted sculk"));
+        command(client,"new stray catalyst queues cleanup","setblock 7 -64 6 sculk_catalyst",".*Changed.*");
+        step("world cleanup also removes newly placed stray catalyst",()->{},()->client.world.getBlockState(new BlockPos(7,-64,6)).isAir(),10_000);
+        command(client,"pause after ownership trial","chronicle session pause","Paused Chronicle session.*");
+        screenshot(client, "ecology-corridor-paused.png");
+    }
+
+    private void restart(MinecraftClient client) {
+        openSpeedMenu(client);
+        check("speed persists in actual menu after saving restart",()->require(menuSpeed(client,"2.00x"),"saved speed was not restored"));
+        check("close persisted speed menu",()->client.currentScreen.close());
+        check("restart begins paused without catch-up", () -> sculkBefore = sculk(client));
+        delay("wait paused after saving restart", 1_100);
+        check("restart pause preserves terrain", () -> require(sculk(client) == sculkBefore, "ecology caught up while paused after restart"));
+        command(client, "temporarily remove Heart anchor", "setblock 0 64 1 air", ".*Changed.*");
+        command(client, "missing Heart has explicit reversible status", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Heart block is missing.*");
+        command(client, "restore Heart anchor", "setblock 0 64 1 reinforced_deepslate", ".*Changed.*");
+        command(client, "restored Heart is not a permanent fault", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Paused; resume Chronicle play.*");
+        command(client, "prune source while paused", "setblock 1 64 1 stone", ".*Changed.*");
+        command(client, "prune and seal the Heart upper face", "setblock 0 65 1 stone", ".*Changed.*");
+        command(client, "resume after source pruning", "chronicle session resume", "Resumed Chronicle session.*");
+        check("capture pruned source terrain", () -> sculkBefore = sculk(client));
+        delay("allow reconciliation after prune", 2_100);
+        check("pruned source does not regrow ownership", () -> require(sculk(client) == sculkBefore, "ecology restored or grew from a removed source"));
+        command(client, "disconnected branch has clear dormant status", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Dormant: no living sculk connection to the Heart.*");
+        command(client, "replace physical source connection", "setblock 1 64 1 sculk", ".*Changed.*");
+        check("capture manually restored connection",()->sculkBefore=sculk(client));
+        step("restored sculk wakes branch and resumes growth",()->{},()->sculk(client)>sculkBefore,60_000);
+        command(client, "reconnected branch reports active growth", "chronicle setup tool \"quiet_below:ecology\" refresh", ".*Active; spreading along reachable exposed surfaces.*");
+        command(client,"persisted cleanup sees newly loaded/restarted world","setblock 7 -64 7 sculk",".*Changed.*");
+        step("cleanup remains enabled after saving restart",()->{},()->client.world.getBlockState(new BlockPos(7,-64,7)).isAir(),10_000);
+        check("takeover ownership survives restart",()->require(client.world.getBlockState(new BlockPos(12,64,8)).isOf(Blocks.SCULK),"restarted cleanup lost takeover ownership"));
+        command(client,"stop cleanup independently of growth","chronicle setup tool \"quiet_below:ownership\" cleanup_off","Non-campaign sculk cleanup stopped.*");
+        command(client,"place stray after cleanup disabled","setblock 7 -64 7 sculk",".*Changed.*");
+        delay("disabled cleanup does not delete stray",600);
+        check("cleanup off preserves non-campaign sculk",()->require(client.world.getBlockState(new BlockPos(7,-64,7)).isOf(Blocks.SCULK),"disabled cleanup deleted sculk"));
+        command(client, "disable ecology without terrain rollback", "chronicle setup tool \"quiet_below:ecology\" disable", "Growth disabled; owned terrain and history retained.*");
+        check("capture disabled terrain", () -> sculkBefore = sculk(client));
+        delay("disabled ecology remains inert", 1_100);
+        check("disable preserves existing terrain", () -> require(sculk(client) == sculkBefore, "disable changed terrain"));
+        command(client,"leave safe paused snapshot for human review","chronicle session pause","Paused Chronicle session.*");
+        command(client,"enable Editing for review speed default","chronicle editing on","Editing enabled.*");
+        command(client,"reset review snapshot to default speed","chronicle setup tool \"quiet_below:ecology\" speed_reset","Spread speed saved: 1.00x.*");
+        screenshot(client, "ecology-disabled-after-prune.png");
+    }
+
+    private void organic(MinecraftClient client) {
+        command(client,"build flat organic-growth surface","fill -12 60 -12 12 64 12 stone",".*filled.*");
+        command(client,"place patch Heart","setblock 0 64 -1 reinforced_deepslate",".*Changed.*");
+        command(client,"place patch source","setblock 0 64 0 sculk",".*Changed.*");
+        command(client,"enable patch Editing","chronicle editing on","Editing enabled.*");
+        command(client,"create patch source region","chronicle regions create patch_source","Region selection patch_source opened.*");
+        command(client,"patch source first position","chronicle regions pos1 0 64 -1","Set Region draft patch_source position 1.*");
+        command(client,"patch source second position","chronicle regions pos2 0 64 0","Set Region draft patch_source position 2.*");
+        command(client,"save patch source","chronicle regions save","Saved Region 'patch_source'\\.");
+        command(client,"look at patch Heart","tp @s 0.5 65 -0.5 0 90",".*Teleported.*");
+        command(client,"bind patch Heart","chronicle locations blocks bind patch_heart target","Saved Block site patch_heart.*");
+        command(client,"stand on the patch surface","tp @s 0.5 65 6.5 180 30",".*Teleported.*");
+        command(client,"assign patch source","quiet_below_authoring_trial assign-source patch_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign patch Heart","quiet_below_authoring_trial assign-heart patch_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index patch source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish patch source index",600);
+        command(client,"enable patch growth","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        for(int i=0;i<4;i++)command(client,"accelerate patch for visual check "+i,"chronicle setup tool \"quiet_below:ecology\" faster","Spread speed saved:.*");
+        command(client,"start patch play","chronicle session start","Started Chronicle session.*");
+        command(client,"join patch play","chronicle players join",".*Participation enabled.*");
+        step("grow an early connected patch",()->{},()->patch(client).size()>=49,30_000);
+        command(client,"pause partial patch","chronicle session pause","Paused Chronicle session.*");
+        check("early patch branches across both axes",()->{
+            var cells=patch(client);int x=cells.stream().mapToInt(p->Math.abs(p.getX())).max().orElseThrow(),z=cells.stream().mapToInt(p->Math.abs(p.getZ())).max().orElseThrow();
+            require(Math.max(x,z)<=10&&Math.min(x,z)>=3,"early patch still forms an axial line: "+x+","+z);
+        });
+        command(client,"hold patch viewing position","gamemode spectator @s",".*(Spectator|spectator).*");
+        command(client,"view partial patch from above","tp @s 0.5 80 0.5 0 90",".*Teleported.*");
+        screenshot(client,"ecology-organic-patch.png");
+    }
+    private List<BlockPos> patch(MinecraftClient client) {
+        List<BlockPos> cells=new ArrayList<>();
+        for(int x=-12;x<=12;x++)for(int z=-12;z<=12;z++)if(client.world.getBlockState(new BlockPos(x,64,z)).isOf(Blocks.SCULK))cells.add(new BlockPos(x,64,z));
+        return cells;
+    }
+    private void surface(MinecraftClient client) {
+        command(client,"build isolated stone cube","fill 0 64 0 4 68 4 stone",".*filled.*");
+        command(client,"place cube Heart","setblock 0 65 2 reinforced_deepslate",".*Changed.*");
+        command(client,"open temporary anchor sightline","fill 0 66 2 0 67 2 air",".*filled.*");
+        command(client,"author cube source","chronicle editing on","Editing enabled.*");
+        command(client,"create cube source region","chronicle regions create cube_source","Region selection cube_source opened.*");
+        command(client,"cube source first corner","chronicle regions pos1 0 65 2","Set Region draft cube_source position 1.*");
+        command(client,"cube source second corner","chronicle regions pos2 0 66 2","Set Region draft cube_source position 2.*");
+        command(client,"save cube source region","chronicle regions save","Saved Region 'cube_source'\\.");
+        command(client,"look at cube Heart","tp @s 0.5 66 2.5 0 90",".*Teleported.*");
+        command(client,"bind cube Heart","chronicle locations blocks bind cube_heart target","Saved Block site cube_heart.*");
+        command(client,"restore cube sightline stone","setblock 0 67 2 stone",".*Changed.*");
+        command(client,"place cube source sculk","setblock 0 66 2 sculk",".*Changed.*");
+        command(client,"view cube from outside","tp @s -3 67 2.5 -90 20",".*Teleported.*");
+        command(client,"assign cube source","quiet_below_authoring_trial assign-source cube_source","PASS canonical authoring assign-source:.*");
+        command(client,"assign cube Heart","quiet_below_authoring_trial assign-heart cube_heart","PASS canonical authoring assign-heart:.*");
+        command(client,"index cube source","chronicle setup tool \"quiet_below:ecology\" index","Source indexing started.*");
+        delay("finish cube source index",600);
+        command(client,"enable cube ecology","chronicle setup tool \"quiet_below:ecology\" enable","Growth enabled.*");
+        openSpeedMenu(client);
+        menuSpeedButton(client,"Slower","0.50x");
+        menuSpeedButton(client,"Slower","0.25x");
+        check("minimum speed disables slower",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Slower")).noneMatch(c->c.enabled()),"minimum speed can underflow"));
+        menuSpeedButton(client,"Reset speed","1.00x");
+        for(String value:List.of("2.00x","4.00x","8.00x","16.00x"))menuSpeedButton(client,"Faster",value);
+        check("maximum speed disables faster",()->require(((CoreMenuScreen)client.currentScreen).state().detail().controls().stream().filter(c->c.label().equals("Faster")).noneMatch(c->c.enabled()),"maximum speed can overflow"));
+        screenshot(client,"ecology-speed-menu.png");
+        check("close speed menu",()->client.currentScreen.close());
+        command(client,"start cube play","chronicle session start","Started Chronicle session.*");
+        command(client,"join cube play","chronicle players join",".*Participation enabled.*");
+        command(client,"active play rejects speed edits","chronicle setup tool \"quiet_below:ecology\" slower",".*requires operator editing mode.*");
+        step("cube growth turns adjacent opposite top and bottom exposed faces",()->{},()->
+                client.world.getBlockState(new BlockPos(2,66,0)).isOf(Blocks.SCULK)
+                &&client.world.getBlockState(new BlockPos(4,66,2)).isOf(Blocks.SCULK)
+                &&client.world.getBlockState(new BlockPos(2,68,2)).isOf(Blocks.SCULK)
+                &&client.world.getBlockState(new BlockPos(2,64,2)).isOf(Blocks.SCULK),60_000);
+        check("cube interior remains intact",()->require(client.world.getBlockState(new BlockPos(2,66,2)).isOf(Blocks.STONE),"growth excavated a closed cube"));
+        command(client,"pause cube after wrapping","chronicle session pause","Paused Chronicle session.*");
+        command(client,"hold an unobstructed cube viewing position","gamemode spectator @s",".*(Spectator|spectator).*");
+        command(client,"look at the wrapped cube","tp @s -5 71 -5 -45 30",".*Teleported.*");
+        screenshot(client,"ecology-wrapped-cube.png");
+    }
+    private void openSpeedMenu(MinecraftClient client) {
+        step("open native ecology speed menu",()->send(client,"chronicle"),()->client.currentScreen instanceof CoreMenuScreen,10_000);
+        step("open Game setup for speed",()->require(press((CoreMenuScreen)client.currentScreen,"Game setup"),"Game setup unavailable"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().page()==Page.SETUP,10_000);
+        step("select Sculk ecology speed controls",()->((CoreMenuScreen)client.currentScreen).selectForTest("tool:quiet_below:ecology"),
+                ()->client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().id().equals("tool:quiet_below:ecology"),10_000);
+    }
+    private boolean menuSpeed(MinecraftClient client,String value) {
+        return client.currentScreen instanceof CoreMenuScreen m&&!m.pending()&&m.state().detail()!=null&&m.state().detail().facts().stream().anyMatch(f->f.label().equals("Spread speed")&&f.value().startsWith(value));
+    }
+    private void menuSpeedButton(MinecraftClient client,String button,String expected) {
+        step("native "+button+" saves "+expected,()->require(press((CoreMenuScreen)client.currentScreen,button),button+" unavailable"),
+                ()->menuSpeed(client,expected)&&((CoreMenuScreen)client.currentScreen).state().message().contains("Spread speed saved"),10_000);
+    }
+    private boolean press(CoreMenuScreen m,String label) {
+        for(int n=0;n<60;n++)m.scrollDetailForTest(1);
+        for(int n=0;n<120;n++){if(m.triggerForTest(label))return true;m.scrollDetailForTest(-1);}return false;
+    }
+
+    private int sculk(MinecraftClient client) {
+        int count = 0;
+        for (int x = 0; x <= 14; x++) for (int y = 64; y <= 66; y++) for (int z = 0; z <= 2; z++)
+            if (client.world.getBlockState(new BlockPos(x, y, z)).isOf(Blocks.SCULK)) count++;
+        return count;
+    }
+
+    private int sculkBeyondBarrier(MinecraftClient client) {
+        int count = 0;
+        for (int x = 9; x <= 14; x++) for (int y = 64; y <= 66; y++) for (int z = 0; z <= 2; z++)
+            if (client.world.getBlockState(new BlockPos(x, y, z)).isOf(Blocks.SCULK)) count++;
+        return count;
+    }
+
+    private void screenshot(MinecraftClient client, String name) {
+        check("clear overlays for " + name, () -> { client.inGameHud.getChatHud().clear(false); client.getToastManager().clear(); });
+        delay("render " + name, 400);
+        step("capture " + name, () -> ScreenshotRecorder.saveScreenshot(Path.of(OUTPUT).toFile(), name, client.getFramebuffer(), 1, ignored -> {}),
+                () -> Files.isRegularFile(Path.of(OUTPUT, "screenshots", name)), 20_000);
+    }
+
+    private void command(MinecraftClient client, String name, String command, String response) { step(name, () -> send(client, command), () -> received(response), 20_000); }
+    private void delay(String name, long millis) { step(name, () -> until = System.nanoTime() + millis * 1_000_000L, () -> System.nanoTime() >= until, millis + 5_000); }
+    private void check(String name, Runnable assertion) { step(name, assertion, () -> true, 1_000); }
+    private void step(String name, Runnable start, BooleanSupplier done, long timeoutMillis) { steps.add(new Step(name, start, done, timeoutMillis)); }
+    private void send(MinecraftClient client, String command) { client.player.networkHandler.sendChatCommand(command); }
+    private boolean received(String expression) {
+        var fresh=messages.subList(baseline,messages.size());
+        for(String message:fresh)if(message.startsWith("FAIL crop "))throw new IllegalStateException(message);
+        Pattern pattern=Pattern.compile(expression,Pattern.CASE_INSENSITIVE);return fresh.stream().anyMatch(message->pattern.matcher(message).matches());
+    }
+
+    private void finish(MinecraftClient client, boolean pass, String detail) {
+        if (finished) return;
+        finished = true;
+        try {
+            Files.createDirectories(Path.of(OUTPUT));
+            if(!pass&&client.currentScreen instanceof CoreMenuScreen menu)
+                Files.writeString(Path.of(OUTPUT).resolve("ecology-"+PHASE+"-menu-failure.json"),new Gson().toJson(menu.state()));
+            Files.writeString(Path.of(OUTPUT).resolve("ecology-" + PHASE + ".json"), new Gson().toJson(Map.of(
+                    "result", pass ? "PASS" : "FAIL", "detail", detail, "checks", checks,
+                    "step", index < steps.size() ? steps.get(index).name : "complete", "messages", messages)));
+        } catch (Exception error) { error.printStackTrace(); }
+        client.scheduleStop();
+    }
+
+    private static void require(boolean condition, String detail) { if (!condition) throw new IllegalStateException(detail); }
+    private record Step(String name, Runnable start, BooleanSupplier done, long timeoutMillis) { }
+}

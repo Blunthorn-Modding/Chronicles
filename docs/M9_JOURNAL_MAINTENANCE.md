@@ -1,0 +1,28 @@
+# M9 journal maintenance and native-city reliability
+
+The operator accepted dev.22 crop growth. This reliability slice addresses the remaining bounded journal and real-city restart/load-order checks before prolonged campaign use. It adds no story gates or mechanics to Core.
+
+## Maintenance contract
+
+- Provide an offline Quiet Below journal maintenance command with a default dry run and explicit apply option. Hold Minecraft's world session lock throughout; reject running worlds, ACTIVE saved sessions, missing/corrupt data and incomplete source indexing.
+- Retain the original CONFIGURE/INDEX/INDEX_COMPLETE records, preserving source scan evidence and the existing exact Core geometry/pin validation. Compact only subsequent history into bounded, hash-chained checkpoint pages. Preserve ownership order, original terrain baselines, current shapes, frontier order, takeover progress, all tuning, vitality values/modes/budgets/eligible time and extent hysteresis.
+- Checkpoint pages are accepted only as one complete initial checkpoint following the original source index. Reject missing, duplicate, reordered, oversized and inconsistent pages. Rebuild derived graph/crop caches on startup as before; no terrain mutations or offline catch-up.
+- Validate the source against Core's saved region and Heart before generating a replacement. Replay and compare the replacement before promotion. Preserve the entire old journal in a durable, checksum-identified archive, then atomically replace the hot journal. Never fall back to a non-atomic move or repair damaged evidence. Keep prepared artifacts on failure for inspection.
+- Journal sequence numbers remain local to each file; checkpoint provenance records the source hash and original record count. Client frames do not survive restart. Old builds must reject checkpoint records; rollback uses the stopped backup and old jars together.
+- This is stopped-world maintenance, not synchronous automatic compaction on the tick thread. Source-index evidence remains bounded but is deliberately not compacted. Require at least 4 KiB saving before replacement, avoiding repeated swaps for tiny provenance-size changes. Existing review/production worlds are preserved; rehearse apply on disposable copies first.
+
+Run `python scripts/ecology_maintenance.py --world "../test-runs/<run>/world"` from the repository for a dry run; add `--apply` to install a verified smaller checkpoint. Select the actual world directory, not the server root. The wrapper limits work to this workspace. The Java entry point holds the native world lock even when the wrapper is bypassed. A dry run prepares and replays a temporary candidate outside the world and removes that candidate on success. Apply archives are in `world/quiet-below/journal-archives/`; never delete these as routine cleanup. A failed apply retains its prepared candidate and any archive. Pause/save-stop and take a full world/mod backup before production maintenance. No live review or production world has been compacted by this implementation slice.
+
+The checkpoint is an authoritative complete current-state snapshot: absence records lost ownership; it is not a replay of the discarded transitions. Exact state equivalence is checked before installation. The hash chain detects damage and accidental edits; it is not a signature against an administrator deliberately rebuilding a different valid chain. Archives retain the original transition evidence.
+
+## Verification
+
+Strict checkpoint round trips, subsequent writes/recompaction, zero/detached/unresolved vitality, partial takeover, all settings, terrain baselines and source validation. Failure tests cover truncation/reorder/duplicates/unknown fields, locked/ACTIVE/corrupt inputs, no-savings and promotion failure with intact archive/source. Run the Java suite, scripting checks and native restart on a compacted disposable world.
+
+Separately prepare a real vanilla ancient city in a disposable test world, use its actual bounds, finish normal bounded indexing while moving the test player, then rehearse save/restart and natural chunk unload/reload. Record actual block/chunk counts and limits. Test helpers may prepare terrain; campaign runtime must never force-load it. Neither this soak nor maintenance changes the production map or introduces authored spread routes.
+
+The historical city check found a capacity blocker: a 256-chunk MCA palette count of 83,431 supported sculk cells above the then-32,768-owned-cell cap. It safely held at 32,765 cells; that failed run remains evidence of the old limit. [Dev.25 city-scale work](M9_CITY_SCALE.md) supersedes the blocker with coupled 131,072 / 524,288 ownership/frontier bounds, compact retained journal payloads and stable scans. The exact current native census was 83,691 cells. Full indexing, natural unload stability and restart/load trials now pass without narrowing the source. Ecology and crop reads use cached-only chunks so observation does not create chunk tickets and prevent natural unload.
+
+**M9 remains in progress.** The city result is a finite fixture, not proof of unlimited duration or arbitrary maps. Conservative unknown-chunk holds remain, automatic journal compaction is not implemented, and prolonged production/load-duration evidence is still required. Crop growth is accepted; passive healing is a separate review slice, and Hunger/Darkness, stations and Heart eradication follow later.
+
+New checkpoints use format 2, including local-healing rules. Format 1 loads with default healing rules. Both are strict complete snapshots; new saved RECOVERY_RULES/checkpoints require the matching reader. The build has no Core protocol, registry, block-state layout or asset change.

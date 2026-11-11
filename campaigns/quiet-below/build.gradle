@@ -1,0 +1,95 @@
+base {
+    archivesName = 'quiet_below'
+}
+
+dependencies {
+    implementation project(path: ':core', configuration: 'namedElements')
+    // namedElements supplies Core's classes for Loom development runs, without
+    // its nested jars. Production receives this library inside Core's jar only.
+    runtimeOnly "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') { useJUnitPlatform { excludeTags 'scale' } }
+
+// Converts a reviewed portable editor export into this mod's optional packaged defaults.
+// It runs Core's pure-Java codec only; it neither starts Minecraft nor edits a jar/world.
+tasks.register('importScenarioContent', JavaExec) {
+    dependsOn project(':core').tasks.named('classes')
+    classpath = project(':core').sourceSets.main.runtimeClasspath
+    mainClass = 'io.github.chronicle.core.scenario.ScenarioContentTool'
+    doFirst {
+        def supplied = project.findProperty('scenarioContentInput')
+        if (supplied == null || supplied.toString().isBlank()) throw new GradleException('importScenarioContent requires -PscenarioContentInput=<absolute exported JSON path>')
+        def input = file(supplied)
+        if (!input.isAbsolute()) throw new GradleException('scenarioContentInput must be an absolute path')
+        def target = file('src/main/resources/data/quiet_below/chronicle/scenario-content.json').absoluteFile
+        if (project.hasProperty('scenarioContentValidateOnly')) args 'validate', input.absolutePath
+        else args 'import', input.absolutePath, target.absolutePath, 'quiet_below:scenario'
+    }
+}
+
+// Explicit capacity/replay benchmark; a fixed heap makes memory evidence reproducible.
+tasks.register('ecologyScaleTest', Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'scale' }
+    maxHeapSize = '1G'
+    workingDir = project.rootDir
+    outputs.upToDateWhen { false }
+}
+
+// Pure Java maintenance entry point, launched outside the Minecraft process while its world is stopped.
+tasks.register('writeEcologyMaintenanceLaunch') {
+    dependsOn tasks.named('classes'), project(':core').tasks.named('classes')
+    doLast {
+        def target = layout.buildDirectory.file('maintenance/launch.json').get().asFile
+        target.parentFile.mkdirs()
+        target.text = groovy.json.JsonOutput.toJson([
+            classpath: sourceSets.main.runtimeClasspath.files.collect { it.absolutePath },
+            mainClass: 'io.github.chronicle.quietbelow.ecology.EcologyMaintenance'
+        ])
+    }
+}
+
+loom {
+    runs {
+        client {
+            if (project.hasProperty('chronicleRunDir')) {
+                runDir = project.property('chronicleRunDir').toString()
+            }
+        }
+    }
+    mods {
+        'quiet_below' {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+        'chronicle_core' {
+            sourceSet project(':core').sourceSets.main
+            sourceSet project(':core').sourceSets.client
+        }
+    }
+}
+
+// Compile/configure once, then the local test harness launches independent Java
+// clients without holding competing Gradle project locks for each game process.
+tasks.register('writeSmokeClientLaunch') {
+    dependsOn tasks.named('configureClientLaunch'), tasks.named('clientClasses'), project(':core').tasks.named('clientClasses')
+    doLast {
+        def game = tasks.named('runClient').get()
+        def config = net.fabricmc.loom.configuration.ide.RunConfig.runConfig(project, loom.runs.getByName('client'))
+        def launch = [
+            jvmArgs: game.allJvmArgs + config.vmArgs,
+            classpath: game.classpath.files.collect { it.absolutePath },
+            mainClass: config.mainClass,
+            args: config.programArgs
+        ]
+        def target = layout.buildDirectory.file('smoke/client-launch.json').get().asFile
+        target.parentFile.mkdirs()
+        target.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(launch))
+        logger.lifecycle('Prepared local Fabric test client launch metadata.')
+    }
+}

@@ -1,0 +1,99 @@
+# Final starting roles from A Quite Below.docx. Map Points remain world-owned.
+schemaVersion: 1
+roles:
+  - id: quiet_below:hermit
+    name: "Hermit"
+    description: "You live just outside the village by yourself; why is up to you."
+    selectable: true
+    capacity: 1
+    starting: null
+    respawn: null
+    items:
+      - '{"id":"minecraft:stone_sword","count":1}'
+      - '{"id":"minecraft:fishing_rod","count":1}'
+      - '{"id":"minecraft:bread","count":32}'
+    books: ["quiet_below:a_tale_of_the_past"]
+  - id: quiet_below:farmer
+    name: "Farmer"
+    description: "You take care of supplying vegetables and bread to the villagers."
+    selectable: true
+    capacity: 2
+    starting: null
+    respawn: null
+    items:
+      - '{"id":"minecraft:hay_block","count":64}'
+      - '{"id":"minecraft:iron_hoe","count":1}'
+      - '{"id":"minecraft:bread","count":64}'
+      - '{"id":"minecraft:bread","count":64}'
+      - '{"id":"minecraft:potato","count":64}'
+      - '{"id":"minecraft:carrot","count":64}'
+    books: []
+  - id: quiet_below:woodcutter
+    name: "Woodcutter"
+    description: "You keep the houses warm and supply the wood for the mineshaft."
+    selectable: true
+    capacity: 2
+    starting: null
+    respawn: null
+    items:
+      - '{"id":"minecraft:iron_axe","count":1}'
+      - '{"id":"minecraft:iron_axe","count":1}'
+      - '{"id":"minecraft:iron_axe","count":1}'
+      - '{"id":"minecraft:bread","count":32}'
+      - '{"id":"minecraft:oak_sapling","count":16}'
+      - '{"id":"minecraft:spruce_sapling","count":16}'
+      - '{"id":"minecraft:oak_log","count":32}'
+      - '{"id":"minecraft:spruce_log","count":32}'
+    books: []
+  - id: quiet_below:carpenter
+    name: "Carpenter"
+    description: "You keep the houses standing and help with the mineshaft extension."
+    selectable: true
+    capacity: 1
+    starting: null
+    respawn: null
+    items:
+      - '{"id":"minecraft:iron_axe","count":1}'
+      - '{"id":"minecraft:iron_pickaxe","count":1}'
+      - '{"id":"minecraft:iron_shovel","count":1}'
+      - '{"id":"minecraft:bread","count":32}'
+      - '{"id":"minecraft:torch","count":32}'
+      - '{"id":"minecraft:cobblestone","count":64}'
+      - '{"id":"minecraft:cobblestone","count":64}'
+      - '{"id":"minecraft:oak_planks","count":64}'
+      - '{"id":"minecraft:spruce_planks","count":64}'
+      - '{"id":"minecraft:crafting_table","count":1}'
+    books: ["quiet_below:weird_building_plans"]
+  - id: quiet_below:miner
+    name: "Miner"
+    description: "You gather resources from the mountain and supply them to the village and beyond."
+    selectable: true
+    capacity: 2
+    starting: null
+    respawn: null
+    items:
+      - '{"id":"minecraft:iron_pickaxe","count":1}'
+      - '{"id":"minecraft:iron_pickaxe","count":1}'
+      - '{"id":"minecraft:iron_pickaxe","count":1}'
+      - '{"id":"minecraft:bread","count":32}'
+      - '{"id":"minecraft:cobblestone","count":64}'
+      - '{"id":"minecraft:cobblestone","count":64}'
+      - '{"id":"minecraft:spruce_fence","count":64}'
+      - '{"id":"minecraft:torch","count":64}'
+      - '{"id":"minecraft:torch","count":64}'
+    books: []
+  - id: quiet_below:fisher
+    name: "Fisher"
+    description: "You fish for food and take the small sailboat to the bigger cities beyond for trade. The iron from this island seems to be of particular purity."
+    selectable: true
+    capacity: 2
+    starting: null
+    respawn: null
+    items:
+      - '{"id":"minecraft:fishing_rod","count":1}'
+      - '{"id":"minecraft:fishing_rod","count":1}'
+      - '{"id":"minecraft:iron_sword","count":1}'
+      - '{"id":"minecraft:bread","count":32}'
+      - '{"id":"minecraft:cod","count":64}'
+      - '{"id":"minecraft:compass","count":1}'
+    books: []

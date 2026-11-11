@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "chronicle_core",
+  "version": "${version}",
+  "name": "Chronicle Core",
+  "description": "Reusable services for Chronicle roleplay campaigns.",
+  "authors": ["TheOnlyAesir"],
+  "license": "MIT",
+  "contact": {"sources": "https://github.com/TheOnlyAesir/Chronicles", "issues": "https://github.com/TheOnlyAesir/Chronicles/issues"},
+  "environment": "*",
+  "mixins": ["chronicle_core.mixins.json"],
+  "entrypoints": {
+    "main": [
+      "io.github.chronicle.core.ChronicleCore"
+    ],
+    "client": [
+      "io.github.chronicle.core.client.ChronicleCoreClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.5",
+    "fabric-api": "*",
+    "minecraft": "1.21.10",
+    "java": ">=21"
+  }
+}

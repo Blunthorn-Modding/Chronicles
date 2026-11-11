@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "can_summon=false,quiet_below_vitality=0": {
+      "model": "minecraft:block/sculk_shrieker"
+    },
+    "can_summon=false,quiet_below_vitality=1": {
+      "model": "quiet_below:block/vitality/stage_1/sculk_shrieker"
+    },
+    "can_summon=false,quiet_below_vitality=2": {
+      "model": "quiet_below:block/vitality/stage_2/sculk_shrieker"
+    },
+    "can_summon=false,quiet_below_vitality=3": {
+      "model": "quiet_below:block/vitality/stage_3/sculk_shrieker"
+    },
+    "can_summon=true,quiet_below_vitality=0": {
+      "model": "minecraft:block/sculk_shrieker_can_summon"
+    },
+    "can_summon=true,quiet_below_vitality=1": {
+      "model": "quiet_below:block/vitality/stage_1/sculk_shrieker_can_summon"
+    },
+    "can_summon=true,quiet_below_vitality=2": {
+      "model": "quiet_below:block/vitality/stage_2/sculk_shrieker_can_summon"
+    },
+    "can_summon=true,quiet_below_vitality=3": {
+      "model": "quiet_below:block/vitality/stage_3/sculk_shrieker_can_summon"
+    }
+  }
+}

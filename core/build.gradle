@@ -1,0 +1,33 @@
+base {
+    archivesName = 'chronicle_core'
+}
+
+loom {
+    mods {
+        'chronicle_core' {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+dependencies {
+    // Data-only YAML parsing for campaign-supplied Player Role defaults and the
+    // operator-editable player-roles.yaml file. Apache-2.0 notice is packaged.
+    implementation "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
+    include "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Exact official artifacts from config/hud-dependencies.lock.json. They are
+    // compile-only and are never packaged in Chronicle's jar.
+    modCompileOnly "maven.modrinth:fancymenu:wQfYaY3H"
+    modCompileOnly "maven.modrinth:spiffyhud:oZJvidU2"
+    modCompileOnly "maven.modrinth:konkrete:kLTIGlRD"
+    modCompileOnly "maven.modrinth:melody:4nd52KsY"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

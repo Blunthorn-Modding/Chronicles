@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "coordinate": "org.snakeyaml:snakeyaml-engine:3.1.1",
+  "version": "3.1.1",
+  "upstreamUrl": "https://repo.maven.apache.org/maven2/org/snakeyaml/snakeyaml-engine/3.1.1/snakeyaml-engine-3.1.1.jar",
+  "upstreamSha1": "9f8bf41c9f06191abd4322072849603bdc919ac7",
+  "upstreamSha256": "59d73655cf077f154137e2d6f6f92c041a954c0b1c534c63800047a0d70a6947",
+  "payloadSha256": "3514509cdcd56cf80e07dbe8c468bb8fa6e39e25df6bcb5b5287366619a34860",
+  "nestedPath": "META-INF/jars/snakeyaml-engine-3.1.1.jar",
+  "modId": "org_snakeyaml_snakeyaml-engine",
+  "license": "Apache-2.0",
+  "licensePath": "META-INF/licenses/snakeyaml-engine-LICENSE.txt",
+  "licenseSha256": "f7db9fd78b014713ed2c34829064e748a2e5d12205e9601df1c640e49129bbf5"
+}

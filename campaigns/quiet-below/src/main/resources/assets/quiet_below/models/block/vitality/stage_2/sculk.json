@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/sculk",
+  "textures": {
+    "all": "quiet_below:block/vitality/stage_2/sculk"
+  }
+}

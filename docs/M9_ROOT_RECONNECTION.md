@@ -1,0 +1,23 @@
+# QB-08 review repair: root visibility and physical reconnection
+
+The operator's review removed all three tracked connections next to the temporary Heart. The saved network retained 231 cells but no root-adjacent owned cell. Replacing sculk restored its appearance, not its ownership. The operator now explicitly confirms that placed sculk must join when physically connected to the Heart or living network. This supersedes the first review's placed-sculk exclusion.
+
+Use one Heart and continuous sculk contact. Do not add catalyst ranges, expansion nodes or node regeneration. Detached branches remain dormant until a real connection returns. Death/XP spread is removed in the configured campaign dimension, including catalysts awaiting ownership. Old queued charge remains inert; sensors/shriekers retain vanilla active detection and warning behavior.
+
+Implementation: bounded loaded-only contact scans from the Heart and certified connected cells; journal newly connected existing sculk before publishing ownership, with explicit AIR cleanup baseline. Never automatically scan/adopt a remote disconnected patch; explicit region takeover is separate. Preserve original source/growth history and existing worlds. New CONNECT records are additive; older builds must not be used after such records appear. Disabled, paused, empty and held play cannot connect new cells.
+
+Presentation: Game setup > Sculk ecology gains Show root / Hide root using Core's existing private outline. Include root coordinates/dimension, explicit disconnected status and connected/detached counts. Explain physical reconnection and paused/empty/unloaded waits. A temporarily missing/replaced Heart is a reversible world condition, distinct from a persistence fault; restoring the expected anchor allows recertification without resetting the journal.
+
+Acceptance: reproduce cut/replace/reconnect, including replay and no-participant/paused/unloaded cases; reject remote and corner-only joins; retain write/read budgets. Exercise the new controls and actual private root outline in the real client. Re-run build, ecology and menu smoke plus scripting checks. Back up the stopped human review and update its jars without resetting geometry/history. Keep production disabled. Update the review guide, decisions and verification evidence, then commit/push a scoped fix branch.
+
+## Follow-up ownership scope confirmed during implementation
+
+The operator also requests a saved region takeover and optional persistent world-wide removal of non-campaign sculk. Core owns saved region selection/assignment. Quiet Below registers **Sculk takeover region**, then **Sculk ownership** offers an explicit takeover, stop takeover, confirmed cleanup enable, immediate cleanup stop and refresh. No automatic adoption/deletion follows merely from assigning a region.
+
+Takeover is a bounded metadata scan while play is non-active. It pins region ID/revision/bounds; changed geometry pauses the task until explicitly stopped/reselected. It survives restart, never overwrites an already-owned baseline and keeps disconnected adopted patches dormant. Cleanup waits for takeover completion/cancellation.
+
+Cleanup scope is every normally loaded chunk in the Heart/source dimension, including chunks loaded later. Other dimensions remain unchanged because current ecology ownership is dimension-pinned. Cleanup is off by default, persists when explicitly enabled, and deletes only unowned sculk/veins/catalysts/sensors/shriekers during eligible occupied ACTIVE play. It never forces chunk loading. The organizer must adopt the regions to preserve before enabling it. Stopping cleanup prevents future deletions; it is not undo.
+
+The scheduler reads up to 512 chunk positions plus 16 newly changed positions and deletes at most two blocks per tick, sharing the engine's four-intent budget. It tracks at most 16,384 loaded chunk cursors, rescans loaded chunks conservatively after restart and queues newly placed unowned sculk. Physical contacts waiting to join are retained/queued instead of deleted. Every deletion has a durable PURGE intent before the world write; a failed write disables cleanup. CLAIM_START/CLAIM_SCAN/CLAIM_DONE and CLEANUP_MODE retain task/mode history alongside CONNECT; older binaries cannot read these new records.
+
+Human review preparation now copies the stopped final rehearsal, with growth/cleanup disabled and play paused. The helper rejects a live or cleanup-enabled snapshot. Existing operator review worlds are upgraded in place without importing this fixture or changing their ownership; cleanup remains off until explicitly chosen.

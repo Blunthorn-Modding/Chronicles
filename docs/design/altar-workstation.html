@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ancient Altar workstation mockup</title>
+<style>
+  :root { color-scheme: dark; font-family: monospace; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-width: max-content; min-height: 100vh; padding: 64px 16px 16px; background: #151515; color: #eee; }
+  .controls { position: fixed; top: 12px; left: 12px; z-index: 2; padding: 9px; border: 2px solid #666; background: #292929; font-size: 14px; }
+  select { margin-left: 8px; color: #fff; background: #111; border: 1px solid #999; font: inherit; }
+  .canvas { width: 640px; height: 480px; position: relative; display: grid; place-items: center; background: radial-gradient(circle, #52575b, #292c2e 68%, #111); image-rendering: pixelated; }
+  .canvas[data-canvas="1280"] { width: 1280px; height: 720px; }
+  /* Every panel measurement is physical pixel = logical GUI pixel x 2. No responsive scaling. */
+  .panel { position: relative; width: 600px; height: 444px; background: #c6c6c6; outline: 4px solid #252525; box-shadow: inset 4px 4px #eee, inset 0 -12px #777, 0 12px 24px #0009; color: #333; font: 18px/18px monospace; }
+  .title { position: absolute; top: 12px; width: 100%; text-align: center; font-weight: bold; text-shadow: 2px 2px #eee; }
+  .status { position: absolute; top: 36px; left: 24px; width: 552px; height: 18px; white-space: nowrap; color: #176b4b; }
+  .spark { color: #16835e; font-weight: bold; }
+  .cards { position: absolute; top: 58px; left: 16px; display: flex; gap: 8px; }
+  .card { width: 280px; height: 48px; padding: 3px 5px; border: 3px solid #777; background: #aaa; box-shadow: inset 2px 2px #ddd, inset -2px -2px #666; color: #2e2e2e; font: 18px/18px monospace; text-align: left; cursor: pointer; }
+  .card.selected { border-color: #1c6b63; background: #b9d3c9; box-shadow: inset 2px 2px #e8fff4, inset -2px -2px #4c857a; }
+  .card:disabled { color: #666; background: #999; cursor: not-allowed; }
+  .card strong { display: block; font-size: 18px; }
+  .count { float: right; color: #554b26; }
+  .glyph { font-weight: bold; } .heart { color: #b21f2d; } .food { color: #bd7c28; } .boot { color: #32668e; }
+  .terms, .stats { position: absolute; left: 24px; width: 552px; height: 18px; white-space: nowrap; }
+  .cost { top: 112px; } .bonus { top: 132px; }
+  .stat-health { top: 152px; } .stat-speed { top: 172px; }
+  .permanent { position: absolute; top: 192px; width: 100%; height: 18px; color: #8a2424; text-align: center; white-space: nowrap; }
+  button.action { position: absolute; top: 216px; height: 40px; border: 3px solid #555; font: bold 18px/18px monospace; cursor: pointer; }
+  .accept { left: 104px; width: 300px; background: #60956e; box-shadow: inset 2px 2px #b9e6b8, inset -2px -2px #2d5437; color: #142818; }
+  .refresh { left: 416px; width: 160px; background: #9a9a9a; box-shadow: inset 2px 2px #ddd, inset -2px -2px #666; color: #282828; }
+  button.action:disabled { background: #858585; color: #555; box-shadow: inset 2px 2px #aaa, inset -2px -2px #666; cursor: not-allowed; }
+  .inventory-label { position: absolute; top: 260px; left: 16px; height: 18px; }
+  /* Slot frame top-left is item coordinate minus one logical pixel: x=69, y=139. */
+  .slots { position: absolute; top: 278px; left: 138px; display: grid; grid-template-columns: repeat(9, 36px); gap: 0; }
+  .slots.hotbar { top: 394px; }
+  .slot { width: 36px; height: 36px; background: #8b8b8b; border: 3px solid #555; box-shadow: inset 2px 2px #333, inset -2px -2px #ddd; }
+  .slot:nth-child(2n) { background: #929292; }
+  .panel[data-state="unpowered"] .status, .panel[data-state="pending"] .status { color: #8a3b22; }
+  .panel[data-state="maxed"] .status { color: #575757; }
+</style>
+</head>
+<body>
+<label class="controls">Canvas
+  <select id="canvasSize" aria-label="Exact mockup canvas"><option value="640">640 × 480</option><option value="1280">1280 × 720</option></select>
+  State <select id="state" aria-label="Mockup state"><option value="powered">Powered / selectable</option><option value="unpowered">Unpowered</option><option value="maxed">Extra heart maxed</option><option value="pending">Waiting for server</option></select>
+</label>
+<main class="canvas" data-canvas="640" aria-label="Exact GUI-scale-2 canvas">
+  <section class="panel" data-state="powered" aria-label="Ancient Altar workstation">
+    <div class="title">Ancient Altar</div>
+    <div class="status"><span class="spark">*</span> <span id="status">Network power: ready</span></div>
+    <div class="cards">
+      <button class="card selected" id="heartCard" type="button"><strong>Extra heart <span class="count" id="heartCount">1/3</span></strong><span class="food">food</span> → <span class="heart">heart</span></button>
+      <button class="card" id="moveCard" type="button"><strong>Faster movement <span class="count">0/3</span></strong><span class="heart">heart</span> → <span class="boot">boot</span> +10%</button>
+    </div>
+    <div class="terms cost" id="cost">Cost: +1 food icon (20 → 22 maximum food)</div>
+    <div class="terms bonus" id="bonus">Bonus: +1 maximum heart (10 → 11 hearts)</div>
+    <div class="stats stat-health" id="health">Health: 10 → 11 hearts   Food: 20 → 22</div>
+    <div class="stats stat-speed" id="speed">Speed: 100% → 100%</div>
+    <div class="permanent">Permanent; no reversal. Ends with network.</div>
+    <button class="action accept" id="accept" type="button">Make permanent bargain</button>
+    <button class="action refresh" id="refresh" type="button">Refresh</button>
+    <div class="inventory-label">Inventory</div>
+    <div class="slots" aria-label="Real player main inventory slots"></div>
+    <div class="slots hotbar" aria-label="Real player hotbar slots"></div>
+  </section>
+</main>
+<script>
+  const panel = document.querySelector('.panel'), canvas = document.querySelector('.canvas'), state = document.querySelector('#state'), canvasSize = document.querySelector('#canvasSize');
+  const heart = document.querySelector('#heartCard'), move = document.querySelector('#moveCard'), accept = document.querySelector('#accept'), refresh = document.querySelector('#refresh');
+  const status = document.querySelector('#status'), cost = document.querySelector('#cost'), bonus = document.querySelector('#bonus'), health = document.querySelector('#health'), food = document.querySelector('#food'), speed = document.querySelector('#speed');
+  document.querySelectorAll('.slots').forEach(group => {
+    for (let i = 0; i < (group.classList.contains('hotbar') ? 9 : 27); i++) {
+      const slot = document.createElement('span');
+      slot.className = 'slot';
+      group.append(slot);
+    }
+  });
+  function show(which) {
+    if (state.value !== 'powered' && state.value !== 'maxed') return;
+    heart.classList.toggle('selected', which === 'heart'); move.classList.toggle('selected', which === 'move');
+    if (which === 'heart') { cost.textContent = 'Cost: +1 food icon (20 → 22 maximum food)'; bonus.textContent = 'Bonus: +1 maximum heart (10 → 11 hearts)'; health.textContent = 'Health: 10 → 11 hearts   Food: 20 → 22'; speed.textContent = 'Speed: 100% → 100%'; }
+    else { cost.textContent = 'Cost: -1 maximum heart (10 → 9 hearts)'; bonus.textContent = 'Bonus: +10% base movement'; health.textContent = 'Health: 10 → 9 hearts   Food: 20 → 20'; speed.textContent = 'Speed: 100% → 110%'; }
+  }
+  heart.onclick = () => show('heart'); move.onclick = () => show('move');
+  accept.onclick = () => { if (!accept.disabled) { state.value = 'pending'; render(); } };
+  refresh.onclick = () => { state.value = 'powered'; render(); };
+  state.onchange = render; canvasSize.onchange = () => canvas.dataset.canvas = canvasSize.value;
+  function render() {
+    const value = state.value; panel.dataset.state = value;
+    const locked = value === 'unpowered' || value === 'pending'; heart.disabled = locked || value === 'maxed'; move.disabled = locked; accept.disabled = locked;
+    refresh.disabled = value === 'pending';
+    if (value === 'powered') { status.textContent = 'Network power: ready'; document.querySelector('#heartCount').textContent = '1/3'; show('heart'); }
+    if (value === 'unpowered') { status.textContent = 'Altar unpowered'; }
+    if (value === 'maxed') { status.textContent = 'Network power: ready — Extra heart complete'; document.querySelector('#heartCount').textContent = '3/3 complete'; show('move'); }
+    if (value === 'pending') { status.textContent = 'Waiting for the Altar…'; }
+  }
+  render();
+</script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+# Vampire SMP authoring reference
+
+Inspected locally on 19 October 2026 at the operator's request. Source: `../VampireSMP-1.1.2.jar`, SHA-256 `d16b71a6d5d5464fe048239aa69dd0fe56f5c708551c81ee0c89ddc3b0a121fb`. The filename says 1.1.2; the embedded `plugin.yml` says version 1.0.0. These findings identify this exact supplied artifact, not an upstream release guarantee.
+
+Method: read packaged `plugin.yml`/`config.yml` and inspect selected class signatures/bytecode with the portable JDK's `javap`. The Paper plugin was not installed, executed or copied into Chronicle. No behavior was runtime-tested.
+
+## Observed authoring patterns
+
+| Evidence in the supplied artifact | Relevant pattern |
+| --- | --- |
+| `CommandHandler.handleBeaconAdd` captures the player's location, accepts a site name/optional radius and saves it through `BeaconManager`. `BeaconSite` stores world name, coordinates and capture radius. | Stand at a meaningful place and register a named site; behavior subsequently resolves that site. |
+| `PowCommand` admin help exposes add/remove/list tome-chest locations. `handleAddTomeChestCommand` captures the player's location; `ConfigManager` exposes persistent chest location management. | Builders register content points in-world rather than embedding map coordinates in source code. The add command can place a chest in this reference; Chronicle should separate binding from any explicit placement action. |
+| `handleSetVampireSpawnCommand` accepts coordinates or the player's current location and persists it. | Capture a spawn point directly during map authoring. Chronicle should make the player/group and spawn purpose explicit rather than assume one global vampire role. |
+| `ConfigManager.validateConfiguredLocations` and beacon list/info/validate/reload handlers exist. | Builders need inspection, validation and persistent configuration alongside registration. |
+
+The inspected entry points demonstrate named points and radius-based beacon sites. A WorldEdit-style two-corner selector is the **operator's requested Chronicle workflow**, not a feature established by this inspection. The package also contains map-specific defaults and a force-load helper; neither is a behavior Chronicle should inherit from a reference about authoring UX.
+
+## Application to Chronicle
+
+Adopt the interaction pattern: build the place, select/register it in-game, bind a purpose, inspect and save. Put reusable regions, location/block anchors, chest/spawn configuration and authoring permissions in Chronicle Core. Keep sculk progression, forge recipes and campaign-specific effects in Quiet Below. Use Fabric-native implementation; this reference does not call for a Paper compatibility layer, a wholesale port, copied faction rules or its fixed map coordinates.
+
+See the revised [in-world authoring plan](MAP_AUTHORING.md). No third-party source, plugin binary or new dependency is included in the repository by this documentation change.
+
+## Chest-distribution reinspection - 19 October 2026
+
+Rechecked the same supplied artifact after the operator rejected capture/template-first authoring. `CommandHandler.handleAddTomeChestCommand` calls `TomeDistributionManager.addTomeLocation` with the player location, saves the list through ConfigManager and places a chest at that location. `ConfigManager.addTomeChestLocation` rejects duplicate coordinates and saves `tome-chests.locations`. This supports the desired one-step location/purpose workflow rather than Chronicle's separate anchor/template prerequisites.
+
+The packaged config has `tome-distribution-interval-minutes: 20`, a chest location list, and `cure_books_spawn_chance: 0.3`. `TomeDistributionManager.distributeTomes` returns unless the reference session state is active, clears registered tome chests, selects random locations/types, distributes tomes, adds enchanted books to remaining locations, then applies its cure-book chance. This is a scenario-specific distribution algorithm, not an existing generic percentage-per-entry profile editor. The findings come from config and `javap -c -p` bytecode, not from running the Paper plugin.
+
+Chronicle adopts direct typed binding plus separately editable distributions. The operator explicitly confirms independent percentages, fills at a new session, optional periodic refills and replacement of **all** bound chest contents. Core supplies the registry/config/scheduler; campaigns supply defaults and recommendations. No reference binary, fixed coordinates, factions, forced loading or copied source is installed.
+
+## Pause/build reinspection - 24 October 2026
+
+Inspected the same SHA-256 artifact using packaged configuration and pinned Java `javap -c -p`; no Paper runtime execution or source copying.
+
+- `SessionManager` uses states before(0), active(1), paused(2), after(3), and pre-session/building(4). `isOutOfSession` covers 0/2/3. Pause freezes ticks and records online food/saturation; an 80-tick task restores them. End fills food/saturation, and resume unfreezes ticks. This is not a general per-player physiology freeze.
+- `CommandHandler` restricts the transition into building to an admin command. `BlockListener.onBlockBreak/onBlockPlace` allow everyone in active or building states, denying 0/2/3. Building is global and unfreezes world ticks; it is not an operator-only map-edit flag.
+- `CombatListener.onEntityDamage`, `onEntityDamageByEntity` and `onFoodLevelChange` cancel player damage, attacks and food changes outside active play. `VampireCraftBlocker.onCraftItem` separately denies 0/2/3. Movement remains available subject to its normal boundary rules.
+- Inspected item/interaction handlers only skip their vampire-specific processing outside active play; they do not establish a general vanilla eating cancellation. Paused reconnects are not explicitly added to the food snapshot map in the inspected join path.
+
+The useful pattern is separate action and survival guards alongside vanilla tick freeze. Chronicle keeps player mobility and card editing, freezes actual hunger/damage/item-use/effect paths, and uses the operator-confirmed global Building Mode for paused map work, separately from metadata editing. The operator's 27 October refinement explicitly adopts live vanilla simulation during Building Mode while retaining Chronicle's survival protections; players are not refilled on resume. See [CF-15](CF15_PAUSED_GAMEPLAY.md). These are bytecode findings, not a claim that every reference behavior was reproduced in Minecraft.
+
+## Pause/build reinspection - 27 October 2026
+
+Rechecked the same local artifact with `javap`; no plugin execution, code copying or dependency installation. `SessionManager` enters PRE_SESSION for Building and calls `tick unfreeze`. Its scheduled task restores food/saturation in that state. The inspected block listeners permit map work there; they do not prove general ordinary-chest denial while paused. Chronicle's requested chest closure and exact held health/hunger are its own policy. No extra primed session phase, narrative boundary or forced gamemode is adopted.

@@ -1,0 +1,36 @@
+{
+  "required": true,
+  "minVersion": "0.8.7",
+  "package": "io.github.chronicle.core.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "EnchantmentStackMixin",
+    "EnchantmentMaximumMixin",
+    "CappedAnvilMixin",
+    "CappedLootMixin",
+    "CappedCreativeMixin",
+    "CappedTradeMixin",
+    "CappedProjectileMixin",
+    "CappedSlotMixin",
+    "PlayerFoodCapacityMixin",
+    "ExpandedHungerMixin",
+    "PausedPlayerPhysiologyMixin",
+    "PausedLivingEntityPhysiologyMixin",
+    "PausedItemUseMixin",
+    "PausedInteractionsMixin",
+    "PausedBlockInteractionMixin",
+    "PausedContainerMixin",
+    "PausedPickupMixin",
+    "PausedPlayerAttackMixin",
+    "PausedHazardsMixin",
+    "PausedPeacefulHungerMixin",
+    "BookClickDiscoveryMixin",
+    "BookPickupDiscoveryMixin",
+    "ServerPlayerInteractionManagerEventSourceMixin",
+    "WrittenBookItemEventSourceMixin",
+    "EntitySpawnEventSourceMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

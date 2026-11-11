@@ -1,0 +1,11 @@
+# CF-13: private action confirmations and connection cleanup
+
+Core owns `ActionConfirmations.open(player, title, details, acceptLabel, gate, action)`. Campaigns supply trusted callbacks; clients submit only the current token and a finite accept/refresh/cancel verb. Core contains no Heart or sculk rule.
+
+There is at most one offer per player and 256 pending offers per server. Fresh UUID tokens expire after 30 monotonic seconds. Every offer binds to the actual network handler, not just the account UUID. Accept consumes the token before the final gate and callback. Refresh creates a successor; cancel accepts the current token or its immediate parent on the same connection. Delayed old-connection actions and disconnect cleanup cannot revoke a reconnected player's new offer. Text and wire values have explicit limits, and unsupported clients receive a notice rather than an unnegotiated packet.
+
+The client uses an explicit confirmation screen with scrollable consequences, status, Refresh and Cancel. It does not reopen from late replies. Replacing a screen with a fresh server opening does not cancel that opening. Callback failure says the operation could not finish: Core cannot promise rollback after a trusted callback may already have persisted its intent. Campaign callbacks must revalidate their own authority and provide durable idempotency where needed.
+
+`ServerDisconnects.register` dispatches Chronicle cleanup on the server thread. The pinned Fabric networking API invokes disconnection from Netty's `channelInactive`; an existing server-thread guard in enchantment migration previously interrupted later event subscribers, leaving offers behind. The real Heart fixture reproduced the retained token, and the repaired run observed cleanup on the server thread. All Chronicle disconnect subscribers now use this dispatcher. Altar and Forge offers also bind to their connection and current/immediate-parent token through the package-private `OfferIdentity` policy.
+
+Verification: focused enqueue/inline and stale-connection/token tests, the complete Java build, actual private A/B confirmation and offline cleanup, and native Forge/Altar reconnect regressions. Exact run paths and limits are in [TEST_PLAN](TEST_PLAN.md). This slice changes no recipe, stored bargain, stat value, permission or authentication setting.

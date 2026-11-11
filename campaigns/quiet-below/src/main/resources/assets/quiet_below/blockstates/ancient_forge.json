@@ -1,0 +1,52 @@
+{
+  "variants": {
+    "facing=north,heat=0": {
+      "model": "quiet_below:block/ancient_forge",
+      "y": 0
+    },
+    "facing=north,heat=1": {
+      "model": "quiet_below:block/ancient_forge_kindling",
+      "y": 0
+    },
+    "facing=north,heat=2": {
+      "model": "quiet_below:block/ancient_forge_active",
+      "y": 0
+    },
+    "facing=east,heat=0": {
+      "model": "quiet_below:block/ancient_forge",
+      "y": 90
+    },
+    "facing=east,heat=1": {
+      "model": "quiet_below:block/ancient_forge_kindling",
+      "y": 90
+    },
+    "facing=east,heat=2": {
+      "model": "quiet_below:block/ancient_forge_active",
+      "y": 90
+    },
+    "facing=south,heat=0": {
+      "model": "quiet_below:block/ancient_forge",
+      "y": 180
+    },
+    "facing=south,heat=1": {
+      "model": "quiet_below:block/ancient_forge_kindling",
+      "y": 180
+    },
+    "facing=south,heat=2": {
+      "model": "quiet_below:block/ancient_forge_active",
+      "y": 180
+    },
+    "facing=west,heat=0": {
+      "model": "quiet_below:block/ancient_forge",
+      "y": 270
+    },
+    "facing=west,heat=1": {
+      "model": "quiet_below:block/ancient_forge_kindling",
+      "y": 270
+    },
+    "facing=west,heat=2": {
+      "model": "quiet_below:block/ancient_forge_active",
+      "y": 270
+    }
+  }
+}

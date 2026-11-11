@@ -1,0 +1,4 @@
+guiScale:2
+narrator:0
+onboardAccessibility:false
+skipMultiplayerWarning:true

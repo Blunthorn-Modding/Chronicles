@@ -1,0 +1,728 @@
+{
+  "schemaVersion": 4,
+  "scenarioId": "quiet_below:scenario",
+  "rolesYaml": "# Final starting roles from A Quite Below.docx. Map Points remain world-owned.\nschemaVersion: 1\nroles:\n  - id: quiet_below:hermit\n    name: \"Hermit\"\n    description: \"You live just outside the village by yourself; why is up to you.\"\n    selectable: true\n    capacity: 1\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:stone_sword\",\"count\":1}'\n      - '{\"id\":\"minecraft:fishing_rod\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n    books: [\"quiet_below:a_tale_of_the_past\"]\n  - id: quiet_below:farmer\n    name: \"Farmer\"\n    description: \"You take care of supplying vegetables and bread to the villagers.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:hay_block\",\"count\":64}'\n      - '{\"id\":\"minecraft:iron_hoe\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":64}'\n      - '{\"id\":\"minecraft:bread\",\"count\":64}'\n      - '{\"id\":\"minecraft:potato\",\"count\":64}'\n      - '{\"id\":\"minecraft:carrot\",\"count\":64}'\n    books: []\n  - id: quiet_below:woodcutter\n    name: \"Woodcutter\"\n    description: \"You keep the houses warm and supply the wood for the mineshaft.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:oak_sapling\",\"count\":16}'\n      - '{\"id\":\"minecraft:spruce_sapling\",\"count\":16}'\n      - '{\"id\":\"minecraft:oak_log\",\"count\":32}'\n      - '{\"id\":\"minecraft:spruce_log\",\"count\":32}'\n    books: []\n  - id: quiet_below:carpenter\n    name: \"Carpenter\"\n    description: \"You keep the houses standing and help with the mineshaft extension.\"\n    selectable: true\n    capacity: 1\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:iron_axe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_shovel\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:torch\",\"count\":32}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:oak_planks\",\"count\":64}'\n      - '{\"id\":\"minecraft:spruce_planks\",\"count\":64}'\n      - '{\"id\":\"minecraft:crafting_table\",\"count\":1}'\n    books: [\"quiet_below:weird_building_plans\"]\n  - id: quiet_below:miner\n    name: \"Miner\"\n    description: \"You gather resources from the mountain and supply them to the village and beyond.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_pickaxe\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:cobblestone\",\"count\":64}'\n      - '{\"id\":\"minecraft:spruce_fence\",\"count\":64}'\n      - '{\"id\":\"minecraft:torch\",\"count\":64}'\n      - '{\"id\":\"minecraft:torch\",\"count\":64}'\n    books: []\n  - id: quiet_below:fisher\n    name: \"Fisher\"\n    description: \"You fish for food and take the small sailboat to the bigger cities beyond for trade. The iron from this island seems to be of particular purity.\"\n    selectable: true\n    capacity: 2\n    starting: null\n    respawn: null\n    items:\n      - '{\"id\":\"minecraft:fishing_rod\",\"count\":1}'\n      - '{\"id\":\"minecraft:fishing_rod\",\"count\":1}'\n      - '{\"id\":\"minecraft:iron_sword\",\"count\":1}'\n      - '{\"id\":\"minecraft:bread\",\"count\":32}'\n      - '{\"id\":\"minecraft:cod\",\"count\":64}'\n      - '{\"id\":\"minecraft:compass\",\"count\":1}'\n    books: []\n",
+  "books": [
+    {
+      "id": "quiet_below:weird_building_plans",
+      "title": "Weird Building Plans",
+      "author": "Unknown",
+      "description": "Private Carpenter book",
+      "pages": [
+        "PLATE I — FURNACE\n\nA series of\ncareful drawings\ndepicts a forge\nconstructed from\nunusually dark\nstone.\n\nIts firebox\nappears to have no\nordinary fuel",
+        "chamber. Instead,\na narrow channel\nruns beneath the\nstructure,\nconnecting to an\nopening at its\nbase.\n\nSeveral\nmeasurements have\nbeen corrected in\nred ink.",
+        "PLATE II — SECOND\nAPPARATUS\n\nA low stone\nplatform with a\nhollow centre,\nsurrounded by four\nraised supports.\n\nThe central\nopening is marked\nwith a strange",
+        "symbol, repeated\nthroughout the\nremaining pages.\n\nPLATES III–VI —\nPASSAGES\n\nDetailed\ncross-sections of\ntunnels, showing\nprecisely measured\nwidths and support",
+        "placements.\n\nSome passages are\nlined with timber,\nwhile others\ndeliberately leave\nthe stone exposed.\n\nSeveral routes\nappear to end\nwithout purpose.\nOthers curve back",
+        "toward the same\npoint.\n\nOne instruction is\nunderlined\nrepeatedly:\n\n\"Do not obstruct\nthe central\nchannels.\"\n\nThe final page",
+        "contains a complex\narrangement of\nmeasurements, with\nno explanation of\nwhat the completed\nconstruction is\nmeant to\naccomplish."
+      ],
+      "rule": "OFF"
+    },
+    {
+      "id": "quiet_below:a_tale_of_the_past",
+      "title": "A Tale of the Past",
+      "author": "A village elder",
+      "description": "Private Hermit book",
+      "pages": [
+        "They will tell you\nthat the city\nbeneath this\nisland was lost\nlong before our\ntime. That much is\ntrue. They may\nalso tell you that\nwhatever lived\ndown there is long\ngone. I wish that\nwere true as well.",
+        "I am no scholar. I\ncannot tell you\nwhat we found or\nwhere it came\nfrom. But I saw\nwhat it did to\ngood people. We\nthought we could\ntake what we\nneeded and leave\nthe rest alone.\nWe were wrong.",
+        "There is something\nburied beneath\nthis island, and\nit should remain\nthat way. If it\never stirs again,\ndo not be tempted\nby the gifts it\nseems to offer. No\nmatter how\nwonderful they may\nappear, they are",
+        "not worth the\nprice. Seal it\naway. Better yet,\ndestroy it, if\nsuch a thing is\npossible.\n\nAnd tell your\nchildren. Make\nsure they tell\ntheirs.\nI do not care if",
+        "they believe this\ntale.\n\nI only pray they\nremember it."
+      ],
+      "rule": "OFF"
+    },
+    {
+      "id": "quiet_below:research_journal_i",
+      "title": "Research Journal I",
+      "author": "Unknown researcher",
+      "description": "Collapsed City spot",
+      "pages": [
+        "We have finally\nreached what\nappears to be the\nremains of an\nancient city,\nburied deep\nbeneath the\nisland. Much of\nits architecture\nhas already\ncollapsed or been\nswallowed by the",
+        "surrounding earth.\nThe surviving\nstructures suggest\na remarkable\ndegree of\nplanning, though\ntheir original\npurpose remains\nunclear.\n\nAmong the rubble,\nwe discovered",
+        "several fragments\nof a strange\nmaterial. The\nworkers have taken\nto calling them\n\"Echo Shards.\"\nDespite their\ndelicate\nappearance, their\nedges are\nremarkably sharp.\nTheir peculiar",
+        "properties warrant\nfurther\nexamination. I\nhave collected a\nnumber of\nspecimens for\nexperimentation.\nPerhaps they may\nprove useful\nbeyond their\napparent purpose\nas decorative",
+        "remnants.\n\nThere is still\nmuch to uncover\nhere. I suspect we\nhave only\nscratched the\nsurface of what\nthis place once\nwas."
+      ],
+      "rule": "UNTIL_FOUND"
+    },
+    {
+      "id": "quiet_below:research_journal_ii",
+      "title": "Research Journal II",
+      "author": "Unknown researcher",
+      "description": "Sculk Pathway",
+      "pages": [
+        "A most peculiar\ndiscovery.\n\nA dark,\nmycelium-like\nsubstance appears\nto permeate many\nof the ancient\npathways. At\nfirst, we assumed\nit to be some form\nof subterranean",
+        "fungus, although\nits unusual\nappearance\nsuggests\notherwise. Several\nof the pathways\nhave collapsed,\nand wherever their\nboundaries were\nbroken, the growth\nhas spread into\nthe surrounding",
+        "stone. During our\nrepairs, we\nnoticed something\nrather curious:\nplanks seem to\nhalt its advance,\nwhereas ordinary\nstone is readily\novertaken. This\nmay explain the\npeculiar\nconstruction of",
+        "the ancient\npassages. Further\nobservation is\nnecessary.\n\nWe have also\nuncovered deposits\nof a striking\nviolet crystal.\nThe material\nappears remarkably\ndurable, resisting",
+        "several of our\nattempts to work\nit. I have marked\nits location for\nfuture study.\n\nBetween these\ncrystals, the\nstrange growth,\nand the Echo\nShards, I am\nbeginning to",
+        "suspect the\nancients possessed\nknowledge we have\nyet to rediscover."
+      ],
+      "rule": "UNTIL_FOUND"
+    },
+    {
+      "id": "quiet_below:research_journal_iii",
+      "title": "Research Journal III",
+      "author": "Unknown researcher",
+      "description": "Ancient Forge",
+      "pages": [
+        "A breakthrough!\n\nUsing the dark\nstone recovered\nfrom the ruins, we\nhave successfully\nreconstructed what\nappears to be a\nform of ancient\nforge. Curiously,\nthe apparatus\nrefuses to ignite",
+        "using conventional\nfuels. Neither\ncoal nor charcoal\nproduces any\nmeaningful\nreaction. However,\nwhen brought into\ncontact with the\nstrange growth we\nhave begun\nreferring to as\n\"sculk,\" the forge",
+        "becomes active.\nHow it draws\nenergy from this\nsubstance remains\na mystery.\n\nFor the time\nbeing, we have\ndecided to keep\nour discoveries\nfrom the residents\nabove. Rumours of",
+        "strange growths\nand ancient\nmachinery would\nundoubtedly cause\nunnecessary alarm.\n\nInitial\nexperiments have\nbeen remarkably\npromising. Rather\nthan merely\nheating materials,",
+        "the forge appears\ncapable of\nimproving existing\nequipment. I\nintend to\ninvestigate its\ninteraction with\nthe other\nsubstances\nrecovered from the\ncity. In\nparticular, I am",
+        "curious what\neffect those\npeculiar sea-green\nshards might\nproduce.\n\nThe possibilities\nare quite\nextraordinary."
+      ],
+      "rule": "UNTIL_FOUND"
+    },
+    {
+      "id": "quiet_below:research_journal_iv",
+      "title": "Research Journal IV",
+      "author": "Unknown researcher",
+      "description": "Spruce Tower",
+      "pages": [
+        "We have begun\nrecreating the\npassages observed\nin the ancient\ncity, deliberately\nallowing the sculk\nto spread along\npredetermined\nroutes.\n\nIn theory, this\nshould permit us",
+        "to harness its\nproperties without\nexposing the\nsurrounding mine.\nOur first attempt\nwas, admittedly,\nless successful\nthan anticipated.\n\nThe growth escaped\nthrough a poorly\nsecured section",
+        "and rapidly\novertook the\nneighbouring\nstonework. It\nrequired\nconsiderable\neffort to remove,\nbut I am confident\nthat we have\neliminated the\nunwanted growth.\nThe sheer quantity",
+        "of timber and\nstone required for\nthese\nconstructions has\nbegun attracting\nattention from the\nvillagers above.\nWe must be more\ndiscreet.\n\nWe have also\nrelocated the",
+        "forge to the ridge\noverlooking the\ncity. The\nenvironment below\nhas become\nincreasingly\nunpleasant, and\nthe elevated\nlocation offers a\nmore suitable\nworkspace. Further\nexperiments have",
+        "confirmed that the\nforge responds to\nfinished equipment\nrather than raw\nmaterials such as\ningots. Even\nmundane substances\ncan produce\nunexpected\nresults. Flint,\nfor instance,\nappears to enhance",
+        "the effectiveness\nof a bow.\n\nSuch discoveries\nonly reinforce my\nconviction that\nour work is\nworthwhile.\n\nWith improved\ncontainment, I see\nno reason we",
+        "cannot continue\nsafely."
+      ],
+      "rule": "UNTIL_FOUND"
+    },
+    {
+      "id": "quiet_below:research_journal_v",
+      "title": "Research Journal V",
+      "author": "Unknown researcher",
+      "description": "Passageway",
+      "pages": [
+        "Our efforts have\nyielded another\nextraordinary\ndiscovery.\n\nWe have\nsuccessfully\nreconstructed a\nsecond apparatus.\nFor lack of a\nbetter term, I\nhave taken to",
+        "calling it the\n\"Altar.\"\n\nUnlike the forge,\nthis device\nappears to act\nupon the\nindividual who\napproaches it.\nThose who offer\nthemselves to its\nstrange ritual",
+        "report\nexperiencing\nabilities beyond\ntheir ordinary\ncapabilities.\n\nThere is, however,\na cost. Its\nprecise nature\nremains uncertain,\nthough I believe\nfurther",
+        "experimentation\nwill reveal the\nunderlying\nmechanism.\n\nInterestingly, the\nforge and altar\ninterfere with one\nanother when\npositioned too\nclosely.\nWe have therefore",
+        "relocated the\naltar to the small\nresearch chamber\nwithin the mine,\nnecessitating a\nfurther expansion\nof our sculk\nnetwork.\n\nContainment\ncontinues to\npresent",
+        "difficulties. The\ngrowth seems to\nexploit every\nopening, no matter\nhow insignificant.\n\nNevertheless, a\nsimple hoe is\nremarkably\neffective at\nremoving it. A\nmanageable",
+        "inconvenience, all\nthings considered.\n\nOf greater\ninterest are the\npeculiar\nformations\nemerging among the\nsculk.\n\nSome respond to\nmovement, almost",
+        "as though\nlistening. Others\nproduce an awful\nshrieking sound\nwhen disturbed.\nWhen the\nneighbouring\ngrowths are\ntriggered, a deep,\nrhythmic pulse can\nsometimes be\nheard.",
+        "It is strangely\nreminiscent of a\nheartbeat.\n\nI have instructed\nthe workers to\nexercise caution\naround these\nformations until\nwe understand\ntheir purpose.\nOn a more",
+        "encouraging note,\na simple feather\nhas produced\nremarkable results\nwhen used with the\nforge. My boots\nnow possess an\nextraordinary\nlightness that is\ndifficult to\ndescribe.\nEvery experiment",
+        "brings another\ndiscovery.\n\nIt would be\nfoolish to turn\nback now."
+      ],
+      "rule": "UNTIL_FOUND"
+    },
+    {
+      "id": "quiet_below:research_journal_vi",
+      "title": "Research Journal VI",
+      "author": "Unknown researcher",
+      "description": "Ancient Altar Room",
+      "pages": [
+        "Today, we ventured\ninto the heart of\nthe ancient city\nfor the first time\nin some weeks.\n\nThe sculk has\nspread\nconsiderably\nfurther than our\nprevious estimates\nsuggested. Entire",
+        "passages are now\ncovered, and the\nshrieking\nformations have\nbecome\ndistressingly\nnumerous.\nNevertheless, we\npressed onward,\nhoping to examine\nthe structure we\nhave come to call",
+        "the \"Heart.\"\n\nAfter the third\nshriek, something\nextraordinary\noccurred. The\nground itself\nseemed to come\nalive, and an\nenormous creature\nemerged from the\nsculk. We had",
+        "never encountered\nanything like it.\n\nWe withdrew\nimmediately.\nFortunately, the\ncreature did not\npursue us for\nlong, and we\neventually watched\nit burrow back\ninto the growth",
+        "from which it had\nappeared.\n\nFor want of a\nbetter name, I\nhave designated\nthis creature a\n\"Warden.\" Could it\nbe some form of\nguardian? Perhaps\ncreated to protect\nthe Heart?",
+        "Whatever its\npurpose, its\nappearance\npresents a\nconsiderable\nobstacle to our\nresearch. I have\ntherefore ordered\na second\nexpedition. We\nshall clear the\naffected passages,",
+        "remove the\nshrieking\nformations, and\nestablish a secure\nroute to the\nHeart. After all,\nthe sculk still\nrequires exposed\nsurfaces and room\ninto which it can\nexpand. With\nsufficient care,",
+        "its spread can be\ncontained.\n\nThe Warden is\nundoubtedly\ndangerous, but\ndanger alone is no\nreason to abandon\nour work. We have\nachieved too much\nto surrender our\ndiscoveries now.",
+        "We must simply\nregain control."
+      ],
+      "rule": "UNTIL_FOUND"
+    },
+    {
+      "id": "quiet_below:warning_for_those_who_come_after",
+      "title": "Warning for Those Who Come After",
+      "author": "Unknown worker",
+      "description": "Just before the Ancient Altar room; old dried blood stains",
+      "pages": [
+        "A warning for\nthose who come\nafter\n\nIf you are reading\nthis, I hope the\npassage behind me\nis still blocked.\n\nI was only a\nworker down here.\nI helped build the",
+        "tunnels, carried\nsupplies, and\ncleared away that\nawful black\ngrowth.I never\nunderstood half of\nwhat the\nresearchers were\ndoing.\n\nToday, we went\ndown into the",
+        "heart of the city\nagain. We were\nmeant to clear the\nway and remove\nthose things that\nkept screaming at\nus. At first, it\nwent well. Then\none of those\ncreatures came out\nof the ground. The\nHead Researcher",
+        "called them\nWardens. A name\ndid nothing to\nsave us.\n\nIt killed the\nothers. I ran as\nfast as I could,\nbut I could hear\nit following me,\ncoming up through\nthe passages we",
+        "had built.\n\nWe should never\nhave built those\npassages. We had\ndiscussed what to\ndo if something\nwent wrong. I am\ngoing to bring\ndown the supports\nand collapse part\nof the mine. With",
+        "any luck, that\nwill trap the\ncreature below.\n\nI don't know if it\nwill work.\n\nI don't know if\nI'll make it out.\n\nBut if you are\nstanding here now,",
+        "then you have\nfound the same\nplace we once\nfound. Please, be\nsmarter than we\nwere. The\nresearcher thought\nhe could control\nit. We all\nbelieved him. And\nfor a while, it\nseemed he was",
+        "right. The forge,\nthe altar, all\nthose wonderful\nthings we could\nsuddenly do...\n\nNone of it was\nworth this.\n\nWhatever you think\nyou might gain\nfrom this place,",
+        "leave it alone. If\nyou can, destroy\nthe growth before\nit takes the whole\nisland. And\nwhatever you do,\ndon't open the way\nagain.\n\nPlease…."
+      ],
+      "rule": "UNTIL_FOUND"
+    }
+  ],
+  "lootTables": [
+    {
+      "id": "quiet_below:ancient_city",
+      "label": "Ancient City",
+      "description": "Independent Minecraft 1.21.10 Ancient City approximation without enchanted books.",
+      "recommendedChests": 4,
+      "refillMinutes": 0,
+      "entries": [
+        {
+          "item": "minecraft:enchanted_golden_apple",
+          "chancePercent": 9.2,
+          "minCount": 1,
+          "maxCount": 2,
+          "components": {}
+        },
+        {
+          "item": "minecraft:music_disc_otherside",
+          "chancePercent": 9.2,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:compass",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:sculk_catalyst",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 2,
+          "components": {}
+        },
+        {
+          "item": "minecraft:name_tag",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:diamond_hoe",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {
+            "minecraft:damage": 156
+          }
+        },
+        {
+          "item": "minecraft:lead",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:diamond_horse_armor",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:leather",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 5,
+          "components": {}
+        },
+        {
+          "item": "minecraft:music_disc_13",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:music_disc_cat",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:diamond_leggings",
+          "chancePercent": 17.62,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:sculk",
+          "chancePercent": 25.32,
+          "minCount": 4,
+          "maxCount": 10,
+          "components": {}
+        },
+        {
+          "item": "minecraft:sculk_sensor",
+          "chancePercent": 25.32,
+          "minCount": 1,
+          "maxCount": 3,
+          "components": {}
+        },
+        {
+          "item": "minecraft:candle",
+          "chancePercent": 25.32,
+          "minCount": 1,
+          "maxCount": 4,
+          "components": {}
+        },
+        {
+          "item": "minecraft:amethyst_shard",
+          "chancePercent": 25.32,
+          "minCount": 1,
+          "maxCount": 15,
+          "components": {}
+        },
+        {
+          "item": "minecraft:experience_bottle",
+          "chancePercent": 25.32,
+          "minCount": 1,
+          "maxCount": 3,
+          "components": {}
+        },
+        {
+          "item": "minecraft:glow_berries",
+          "chancePercent": 25.32,
+          "minCount": 1,
+          "maxCount": 15,
+          "components": {}
+        },
+        {
+          "item": "minecraft:iron_leggings",
+          "chancePercent": 25.32,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:echo_shard",
+          "chancePercent": 32.35,
+          "minCount": 1,
+          "maxCount": 3,
+          "components": {}
+        },
+        {
+          "item": "minecraft:disc_fragment_5",
+          "chancePercent": 32.35,
+          "minCount": 1,
+          "maxCount": 3,
+          "components": {}
+        },
+        {
+          "item": "minecraft:potion",
+          "chancePercent": 38.77,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {
+            "minecraft:potion_contents": {
+              "potion": "minecraft:strong_regeneration"
+            }
+          }
+        },
+        {
+          "item": "minecraft:book",
+          "chancePercent": 38.77,
+          "minCount": 3,
+          "maxCount": 10,
+          "components": {}
+        },
+        {
+          "item": "minecraft:bone",
+          "chancePercent": 38.77,
+          "minCount": 1,
+          "maxCount": 15,
+          "components": {}
+        },
+        {
+          "item": "minecraft:soul_torch",
+          "chancePercent": 38.77,
+          "minCount": 1,
+          "maxCount": 15,
+          "components": {}
+        },
+        {
+          "item": "minecraft:coal",
+          "chancePercent": 49.96,
+          "minCount": 6,
+          "maxCount": 15,
+          "components": {}
+        },
+        {
+          "item": "minecraft:ward_armor_trim_smithing_template",
+          "chancePercent": 5.0,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:silence_armor_trim_smithing_template",
+          "chancePercent": 1.25,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        }
+      ],
+      "books": []
+    },
+    {
+      "id": "quiet_below:crashed_ship",
+      "label": "Crashed ship",
+      "description": "Waterlogged cargo and ocean-monument materials.",
+      "recommendedChests": 2,
+      "refillMinutes": 0,
+      "entries": [
+        {
+          "item": "minecraft:prismarine_shard",
+          "chancePercent": 65,
+          "minCount": 2,
+          "maxCount": 8,
+          "components": {}
+        },
+        {
+          "item": "minecraft:prismarine_crystals",
+          "chancePercent": 35,
+          "minCount": 1,
+          "maxCount": 4,
+          "components": {}
+        },
+        {
+          "item": "minecraft:gold_nugget",
+          "chancePercent": 55,
+          "minCount": 3,
+          "maxCount": 12,
+          "components": {}
+        },
+        {
+          "item": "minecraft:gold_ingot",
+          "chancePercent": 25,
+          "minCount": 1,
+          "maxCount": 3,
+          "components": {}
+        },
+        {
+          "item": "minecraft:wet_sponge",
+          "chancePercent": 10,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        },
+        {
+          "item": "minecraft:gold_block",
+          "chancePercent": 3,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {}
+        }
+      ],
+      "books": []
+    },
+    {
+      "id": "quiet_below:mineshaft",
+      "label": "Mineshaft",
+      "description": "Mine supplies, timber planks and unprocessed resources.",
+      "recommendedChests": 4,
+      "refillMinutes": 0,
+      "entries": [
+        {
+          "item": "minecraft:cobblestone",
+          "chancePercent": 90,
+          "minCount": 16,
+          "maxCount": 48,
+          "components": {}
+        },
+        {
+          "item": "minecraft:spruce_planks",
+          "chancePercent": 65,
+          "minCount": 16,
+          "maxCount": 32,
+          "components": {}
+        },
+        {
+          "item": "minecraft:raw_iron",
+          "chancePercent": 40,
+          "minCount": 1,
+          "maxCount": 6,
+          "components": {}
+        },
+        {
+          "item": "minecraft:coal",
+          "chancePercent": 60,
+          "minCount": 4,
+          "maxCount": 16,
+          "components": {}
+        },
+        {
+          "item": "minecraft:torch",
+          "chancePercent": 60,
+          "minCount": 8,
+          "maxCount": 24,
+          "components": {}
+        }
+      ],
+      "books": []
+    },
+    {
+      "id": "quiet_below:previous_explorer_stash",
+      "label": "Previous explorer stash",
+      "description": "Worn tools and remains of earlier experiments.",
+      "recommendedChests": 2,
+      "refillMinutes": 0,
+      "entries": [
+        {
+          "item": "minecraft:iron_hoe",
+          "chancePercent": 45,
+          "minCount": 1,
+          "maxCount": 1,
+          "components": {
+            "minecraft:damage": 175
+          }
+        },
+        {
+          "item": "minecraft:amethyst_shard",
+          "chancePercent": 50,
+          "minCount": 1,
+          "maxCount": 4,
+          "components": {}
+        },
+        {
+          "item": "minecraft:rotten_flesh",
+          "chancePercent": 80,
+          "minCount": 3,
+          "maxCount": 12,
+          "components": {}
+        },
+        {
+          "item": "minecraft:iron_nugget",
+          "chancePercent": 60,
+          "minCount": 2,
+          "maxCount": 8,
+          "components": {}
+        }
+      ],
+      "books": []
+    }
+  ],
+  "events": [
+    {
+      "id": "quiet_below:sinkhole_opening",
+      "label": "Sinkhole Opening",
+      "description": "Enable before first play. Add the map sinkhole Region End-state actions; GM manual start remains available.",
+      "text": "The Earth quakes beneath your feet and you feel the entire island shift",
+      "sound": "quiet_below:event.sinkhole_opening",
+      "audience": "PARTICIPANTS",
+      "audienceReference": "",
+      "mode": "TIMER",
+      "triggerReference": "",
+      "delayTicks": 36000,
+      "requiredFlags": [],
+      "flagOutcomes": {
+        "quiet_below:sinkholes_opened": true
+      },
+      "regionOutcomes": [
+        {
+          "regionId": "quiet_below:sinkhole",
+          "areaId": "quiet_below:sinkhole",
+          "state": "END"
+        }
+      ],
+      "source": {
+        "type": "",
+        "target": "",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE"
+    },
+    {
+      "id": "quiet_below:sculk_awakening",
+      "label": "Sculk Awakening",
+      "description": "Fifteen occupied active minutes after Sinkhole Opening completes.",
+      "text": "Something has awakened…..",
+      "sound": "quiet_below:event.sculk_awakening",
+      "audience": "PARTICIPANTS",
+      "audienceReference": "",
+      "mode": "SYSTEM",
+      "triggerReference": "",
+      "delayTicks": 18000,
+      "requiredFlags": [
+        "quiet_below:sinkholes_opened"
+      ],
+      "flagOutcomes": {
+        "quiet_below:sculk_awakened": true
+      },
+      "regionOutcomes": [],
+      "source": {
+        "type": "chronicle_core:event_completed",
+        "target": "quiet_below:sinkhole_opening",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE"
+    },
+    {
+      "id": "quiet_below:whisper_from_below",
+      "label": "Whisper from Below",
+      "description": "Optional GM nudge when needed.",
+      "text": "Something is whispering in the dark below….",
+      "sound": "quiet_below:event.whisper_from_below",
+      "audience": "PARTICIPANTS",
+      "audienceReference": "",
+      "mode": "MANUAL",
+      "triggerReference": "",
+      "delayTicks": 0,
+      "requiredFlags": [],
+      "flagOutcomes": {},
+      "regionOutcomes": [],
+      "source": {
+        "type": "",
+        "target": "",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE"
+    },
+    {
+      "id": "quiet_below:city_discovery",
+      "label": "City Discovery",
+      "description": "Bind the city trigger/audience Region on the target map.",
+      "text": "Something ancient lies before you…",
+      "sound": "quiet_below:event.city_discovery",
+      "audience": "REGION",
+      "audienceReference": "quiet_below:ancient_city",
+      "mode": "ENTRY",
+      "triggerReference": "quiet_below:ancient_city",
+      "delayTicks": 0,
+      "requiredFlags": [],
+      "flagOutcomes": {
+        "quiet_below:city_discovered": true
+      },
+      "regionOutcomes": [],
+      "source": {
+        "type": "",
+        "target": "",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE"
+    },
+    {
+      "id": "quiet_below:station_awakened",
+      "label": "Altar or Forge Connected to Sculk",
+      "description": "The first time either station becomes powered by the living network.",
+      "text": "Something is ready for you…..",
+      "sound": "quiet_below:event.station_awakened",
+      "audience": "PARTICIPANTS",
+      "audienceReference": "",
+      "mode": "SYSTEM",
+      "triggerReference": "",
+      "delayTicks": 0,
+      "requiredFlags": [],
+      "flagOutcomes": {},
+      "regionOutcomes": [],
+      "source": {
+        "type": "quiet_below:station_ready",
+        "target": "*",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE"
+    },
+    {
+      "id": "quiet_below:altar_offering",
+      "label": "First Altar Offering",
+      "description": "Each participant hears this on their first successful Altar offering.",
+      "text": "You gain something….at a price…",
+      "sound": "quiet_below:event.altar_offering",
+      "audience": "SOURCE_ACTOR",
+      "audienceReference": "",
+      "mode": "SYSTEM",
+      "triggerReference": "",
+      "delayTicks": 0,
+      "requiredFlags": [],
+      "flagOutcomes": {},
+      "regionOutcomes": [],
+      "source": {
+        "type": "chronicle_core:prayer_completed",
+        "target": "*",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE_PER_ACTOR"
+    },
+    {
+      "id": "quiet_below:sculk_growth",
+      "label": "Sculk Growth stages",
+      "description": "Each additional 5,000 living connected blocks above the initial/high-water baseline; regrowth below it does not repeat old cues.",
+      "text": "Something grows….",
+      "sound": "quiet_below:event.sculk_growth",
+      "audience": "PARTICIPANTS",
+      "audienceReference": "",
+      "mode": "SYSTEM",
+      "triggerReference": "",
+      "delayTicks": 0,
+      "requiredFlags": [],
+      "flagOutcomes": {},
+      "regionOutcomes": [],
+      "source": {
+        "type": "quiet_below:growth_step",
+        "target": "network",
+        "activity": "5000"
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "PER_SOURCE_OCCURRENCE"
+    },
+    {
+      "id": "quiet_below:heart_destroyed",
+      "label": "Heart Destroyed",
+      "description": "Durable Heart destruction; a GM may also deliberately run this before ending play.",
+      "text": "Something vast ends…",
+      "sound": "quiet_below:event.heart_destroyed",
+      "audience": "PARTICIPANTS",
+      "audienceReference": "",
+      "mode": "SYSTEM",
+      "triggerReference": "",
+      "delayTicks": 0,
+      "requiredFlags": [],
+      "flagOutcomes": {
+        "quiet_below:heart_destroyed": true
+      },
+      "regionOutcomes": [],
+      "source": {
+        "type": "quiet_below:heart_destroyed",
+        "target": "network",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE"
+    },
+    {
+      "id": "quiet_below:first_warden",
+      "label": "First Warden spawned",
+      "description": "First actual Warden spawn during active occupied play; loading a saved Warden is not a new spawn.",
+      "text": "An ancient creature rises from the ground…",
+      "sound": "minecraft:entity.warden.emerge",
+      "audience": "PARTICIPANTS",
+      "audienceReference": "",
+      "mode": "SYSTEM",
+      "triggerReference": "",
+      "delayTicks": 0,
+      "requiredFlags": [],
+      "flagOutcomes": {},
+      "regionOutcomes": [],
+      "source": {
+        "type": "chronicle_core:entity_spawned",
+        "target": "minecraft:warden",
+        "activity": ""
+      },
+      "encounterOutcomes": [],
+      "occurrencePolicy": "ONCE"
+    }
+  ],
+  "encounterGroups": [],
+  "flags": {
+    "quiet_below:sinkholes_opened": false,
+    "quiet_below:sculk_awakened": false,
+    "quiet_below:city_discovered": false,
+    "quiet_below:heart_destroyed": false
+  }
+}

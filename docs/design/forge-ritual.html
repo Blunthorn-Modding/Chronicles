@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ancient Forge ritual design</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 24px; background: #151616; color: #e7e7e7; }
+    h1 { margin: 0 0 6px; font-size: 20px; }
+    p { margin: 0 0 16px; max-width: 800px; line-height: 1.45; }
+    .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 18px; }
+    label { display: grid; gap: 4px; font-size: 13px; }
+    select, button { font: inherit; }
+    .note { color: #bbb; font-size: 13px; }
+    .canvas { position: relative; overflow: hidden; background: #393939; image-rendering: pixelated; }
+    .canvas[data-size="640"] { width: 640px; height: 480px; }
+    .canvas[data-size="1280"] { width: 1280px; height: 720px; }
+    .panel { position: absolute; width: 224px; height: 220px; transform: scale(2); transform-origin: top left; image-rendering: pixelated; }
+    .canvas[data-size="640"] .panel { left: 96px; top: 20px; }
+    .canvas[data-size="1280"] .panel { left: 416px; top: 140px; }
+    .panel::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; border: 6px solid transparent; border-image: url('../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/gui/sprites/popup/background.png') 6 fill stretch; }
+    .title { position: absolute; left: 0; top: 10px; width: 224px; height: 10px; }
+    .slot { position: absolute; width: 18px; height: 18px; padding: 0; border: 0; background: transparent url('../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/gui/sprites/container/slot.png') center / 18px 18px no-repeat; image-rendering: pixelated; }
+    .slot img { position: absolute; left: 1px; top: 1px; width: 16px; height: 16px; image-rendering: pixelated; }
+    .entry { left: 104px; top: 28px; }
+    .exit { left: 104px; top: 107px; cursor: pointer; }
+    .exit:empty { cursor: default; }
+    .panel[data-state="success"] .exit { box-shadow: 0 0 0 1px #b365cf inset; }
+    .forge { position: absolute; left: 88px; top: 51px; width: 48px; height: 48px; padding: 0; border: 0; cursor: pointer; background: transparent center / 48px 48px no-repeat; image-rendering: pixelated; }
+    .forge:focus-visible { outline: 1px solid #fff; outline-offset: 1px; }
+    .forge:disabled { cursor: default; }
+    .forge-tooltip { position: absolute; left: 142px; top: 72px; display: none; padding: 3px 4px; background: #100010; border: 1px solid #3a1c4b; color: #fff; font-size: 8px; white-space: nowrap; pointer-events: none; }
+    .forge:hover + .forge-tooltip, .forge:focus-visible + .forge-tooltip { display: block; }
+    .forge:disabled:hover + .forge-tooltip { display: none; }
+    .forge-view { position: absolute; inset: 0; background: center / 48px 48px no-repeat; pointer-events: none; }
+    .panel[data-state="unavailable"] .forge-view { background-image: url('forge-top-idle.svg'); }
+    .panel[data-state="idle"] .forge-view, .panel[data-state="first"] .forge-view, .panel[data-state="lodged"] .forge-view, .panel[data-state="staged"] .forge-view, .panel[data-state="success"] .forge-view, .panel[data-state="salvage"] .forge-view { background-image: url('forge-top-kindling.svg'); }
+    .panel[data-state="working"] .forge-view { background-image: url('forge-top-active.svg'); }
+    .stir { position: absolute; left: 105px; top: 68px; width: 14px; height: 14px; pointer-events: none; display: none; overflow: hidden; }
+    .panel[data-state="lodged"] .stir, .panel[data-state="staged"] .stir, .panel[data-state="working"] .stir { display: block; }
+    .stir::before, .stir::after { content: ""; position: absolute; width: 3px; height: 3px; background: #dd8743; box-shadow: 7px 2px 0 #ffbf68, 3px 8px 0 #9b462c; }
+    .stir::before { left: 2px; top: 3px; animation: gentle-stir 2.4s steps(4, end) infinite; }
+    .stir::after { left: 7px; top: 7px; background: #f0a651; box-shadow: -4px 2px 0 #7a3527; animation: gentle-stir 2.4s steps(4, end) infinite reverse; }
+    .panel[data-state="working"] .stir::before, .panel[data-state="working"] .stir::after { animation-duration: .55s; }
+    @keyframes gentle-stir { to { transform: rotate(90deg); } }
+    .inventory-tray { position: absolute; left: 24px; top: 128px; box-sizing: border-box; width: 176px; height: 86px; z-index: 0; pointer-events: none; border: 2px solid transparent; border-image: url('../../core/src/main/resources/assets/chronicle_core/textures/gui/sprites/workshop/panel.png') 2 fill stretch; }
+    .inventory { position: absolute; left: 31px; top: 135px; z-index: 1; width: 162px; display: grid; grid-template-columns: repeat(9, 18px); grid-auto-rows: 18px; }
+    .hotbar { top: 193px; }
+    .inventory button { cursor: pointer; }
+    .inventory .slot { position: relative; left: auto; top: auto; }
+    .inventory button:focus-visible { outline: 1px solid #fff; outline-offset: -1px; }
+    .inventory .empty { cursor: default; }
+    .panel[data-state="idle"] .entry img, .panel[data-state="lodged"] .entry img, .panel[data-state="working"] .entry img, .panel[data-state="success"] .entry img, .panel[data-state="salvage"] .entry img { display: none; }
+    .panel[data-state="unavailable"] .entry img { display: block; }
+    .legend { margin-top: 10px; max-width: 640px; font-size: 13px; color: #bbb; }
+  </style>
+</head>
+<body>
+  <h1>Ancient Forge ritual</h1>
+  <p>Mock-up only. Add either sample item to the single entry, offer it to the Forge, then add the other item through the same entry. The selected order reaches the same staged pair.</p>
+  <div class="controls" aria-label="Mock-up controls">
+    <label>Window size <select id="size"><option value="640">640 × 480</option><option value="1280">1280 × 720</option></select></label>
+    <label>Offering order <select id="order"><option value="target">Target then ingredient</option><option value="ingredient">Ingredient then target</option></select></label>
+    <label>Visual state <select id="state"><option value="idle">Idle</option><option value="first">First item placed</option><option value="lodged">First item offered</option><option value="staged" selected>Second item placed</option><option value="working">Working</option><option value="success">Successful result</option><option value="salvage">Failed / salvage result</option><option value="unavailable">Unavailable</option></select></label>
+  </div>
+  <div class="canvas" data-size="640">
+    <section class="panel" data-state="staged" aria-label="Ancient Forge mock-up">
+      <canvas class="title" width="224" height="10" aria-label="Ancient Forge"></canvas>
+      <button class="slot entry" aria-label="Entry"><img alt=""></button>
+      <button class="forge" aria-label="Offer"><span class="forge-view"></span></button><span class="forge-tooltip" role="tooltip">Offer</span>
+      <span class="stir" aria-hidden="true"></span>
+      <button class="slot exit" aria-label="Exit"><img alt=""></button>
+      <div class="inventory-tray" aria-hidden="true"></div>
+      <div class="inventory main" aria-label="Inventory"></div>
+      <div class="inventory hotbar" aria-label="Hotbar"></div>
+    </section>
+  </div>
+  <p class="legend">The Forge opening is orange in its kindling and working views. Its small ember movement stays inside the opening: it never displays the held items or predicts the result.</p>
+  <script>
+    (() => {
+      const asset = '../../../reports/forge-ritual-preview-assets/assets/minecraft/textures/';
+      const item = name => `${asset}item/${name}.png`;
+      const target = item('iron_sword');
+      const ingredient = item('echo_shard');
+      const states = ['idle', 'first', 'lodged', 'staged', 'working', 'success', 'salvage', 'unavailable'];
+      const size = document.querySelector('#size');
+      const order = document.querySelector('#order');
+      const state = document.querySelector('#state');
+      const canvas = document.querySelector('.canvas');
+      const panel = document.querySelector('.panel');
+      const entry = document.querySelector('.entry img');
+      const exit = document.querySelector('.exit');
+      const outcome = document.querySelector('.exit img');
+      const forge = document.querySelector('.forge');
+      const parameters = new URLSearchParams(location.search);
+      if (['640', '1280'].includes(parameters.get('size'))) size.value = parameters.get('size');
+      if (['target', 'ingredient'].includes(parameters.get('order'))) order.value = parameters.get('order');
+      if (states.includes(parameters.get('state'))) state.value = parameters.get('state');
+      const first = () => order.value === 'target' ? target : ingredient;
+      const second = () => order.value === 'target' ? ingredient : target;
+      const source = value => value === 'first' ? first() : value === 'staged' || value === 'unavailable' ? second() : '';
+      const render = () => {
+        const value = state.value;
+        canvas.dataset.size = size.value;
+        panel.dataset.state = value;
+        entry.hidden = !source(value);
+        if (!entry.hidden) entry.src = source(value);
+        entry.alt = value === 'first' ? 'First offering' : value === 'staged' || value === 'unavailable' ? 'Second offering' : '';
+        outcome.hidden = !['success', 'salvage'].includes(value);
+        if (!outcome.hidden) outcome.src = value === 'success' ? target : item('iron_ingot');
+        outcome.alt = value === 'success' ? 'Ritual result' : value === 'salvage' ? 'Salvage result' : '';
+        forge.disabled = !['first', 'staged'].includes(value);
+      };
+      const place = kind => {
+        const value = state.value;
+        if (value === 'idle') { order.value = kind; state.value = 'first'; }
+        else if (value === 'lodged' && ((kind === 'target' ? target : ingredient) === second())) state.value = 'staged';
+        render();
+      };
+      const inventoryItems = [target, ingredient, item('iron_ingot'), item('bread'), `${asset}block/torch.png`, item('book'), item('amethyst_shard'), item('leather'), `${asset}block/oak_log.png`];
+      const fillInventory = (element, count) => {
+        for (let index = 0; index < count; index += 1) {
+          const button = document.createElement('button'); button.className = 'slot';
+          const icon = document.createElement('img'); icon.alt = '';
+          if (index < inventoryItems.length) icon.src = inventoryItems[index];
+          else { button.classList.add('empty'); icon.hidden = true; }
+          if (index === 0) { button.setAttribute('aria-label', 'Add iron sword'); button.addEventListener('click', () => place('target')); }
+          else if (index === 1) { button.setAttribute('aria-label', 'Add echo shard'); button.addEventListener('click', () => place('ingredient')); }
+          else button.setAttribute('aria-label', 'Inventory item');
+          button.append(icon); element.append(button);
+        }
+      };
+      fillInventory(document.querySelector('.main'), 27); fillInventory(document.querySelector('.hotbar'), 9);
+      forge.addEventListener('click', () => {
+        if (state.value === 'first') state.value = 'lodged';
+        else if (state.value === 'staged') { state.value = 'working'; render(); window.setTimeout(() => { if (state.value === 'working') { state.value = 'success'; render(); } }, 1500); }
+        render();
+      });
+      exit.addEventListener('click', () => { if (['success', 'salvage'].includes(state.value)) { state.value = 'idle'; render(); } });
+      [size, order, state].forEach(control => control.addEventListener('change', render));
+      const title = document.querySelector('.title'); const context = title.getContext('2d'); const font = new Image();
+      font.onload = () => {
+        // Measured pinned bitmap advances; local file previews need no cross-origin pixel reads.
+        const advances = { 'A': 6, 'n': 6, 'c': 6, 'i': 2, 'e': 6, 't': 4, ' ': 4, 'F': 6, 'o': 6, 'r': 6, 'g': 6 };
+        const glyph = character => { const code = character.charCodeAt(0); return { sx: (code % 16) * 8, sy: Math.floor(code / 16) * 8, width: character === ' ' ? 0 : 8, advance: advances[character] }; };
+        const text = 'Ancient Forge'; const chars = [...text].map(glyph); const width = chars.reduce((sum, value) => sum + value.advance, 0); let x = Math.floor((224 - width) / 2); context.imageSmoothingEnabled = false; chars.forEach(value => { if (value.width) context.drawImage(font, value.sx, value.sy, value.width, 8, x, 1, value.width, 8); x += value.advance; });
+      };
+      font.src = `${asset}font/ascii.png`; render();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "required": true,
+  "minVersion": "0.8.7",
+  "package": "io.github.chronicle.quietbelow.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ContactCostInstanceMixin",
+    "ContactCostLivingMixin",
+    "SculkVisualPropertyMixin",
+    "SculkVeinVisualPropertyMixin",
+    "SculkFeatureVisualPropertyMixin",
+    "SculkItemPlacementMixin",
+    "SculkCatalystBlockEntityMixin",
+    "SculkCatalystListenerMixin",
+    "SculkSensorVibrationCallbackMixin",
+    "SculkSensorBlockMixin",
+    "SculkVibrationTickerMixin",
+    "SculkShriekerBlockEntityMixin",
+    "SculkShriekerVibrationCallbackMixin",
+    "RelicHeartPistonMixin",
+    "WorldMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,315 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="-3.5 -3.5 23 23" shape-rendering="crispEdges">
+  <!-- Generated top-down projection of the original Forge model and texture. -->
+  <defs>
+    <image id="atlas0" href="data:image/png;base64,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" width="16" height="16" preserveAspectRatio="none" style="image-rendering:pixelated"/>
+  </defs>
+  <svg x="-2" y="3" width="4" height="10" viewBox="-2 3 4 10" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 24 22)"/>
+  </svg>
+  <svg x="14" y="3" width="4" height="10" viewBox="14 3 4 10" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 44 13)"/>
+  </svg>
+  <svg x="3" y="-2" width="10" height="4" viewBox="3 -2 10 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 39 22)"/>
+  </svg>
+  <svg x="3" y="14" width="10" height="4" viewBox="3 14 10 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 23 46)"/>
+  </svg>
+  <svg x="-3" y="13" width="6" height="6" viewBox="-3 13 6 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 23 48)"/>
+  </svg>
+  <svg x="13" y="13" width="6" height="6" viewBox="13 13 6 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 49 29)"/>
+  </svg>
+  <svg x="-3" y="-3" width="6" height="6" viewBox="-3 -3 6 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 29 35)"/>
+  </svg>
+  <svg x="13" y="-3" width="6" height="6" viewBox="13 -3 6 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 19 37)"/>
+  </svg>
+  <svg x="-2" y="14" width="4" height="4" viewBox="-2 14 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 52 28)"/>
+  </svg>
+  <svg x="14" y="-2" width="4" height="4" viewBox="14 -2 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 68 16)"/>
+  </svg>
+  <svg x="14" y="14" width="4" height="4" viewBox="14 14 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 68 36)"/>
+  </svg>
+  <svg x="-2" y="-2" width="4" height="4" viewBox="-2 -2 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 52 24)"/>
+  </svg>
+  <svg x="2" y="-1" width="12" height="2" viewBox="2 -1 12 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 52 36)"/>
+  </svg>
+  <svg x="15" y="2" width="2" height="12" viewBox="15 2 2 12" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 41 54)"/>
+  </svg>
+  <svg x="2" y="15" width="12" height="2" viewBox="2 15 12 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 54 17)"/>
+  </svg>
+  <svg x="-1" y="2" width="2" height="12" viewBox="-1 2 2 12" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 27 54)"/>
+  </svg>
+  <svg x="-1" y="-1" width="3" height="3" viewBox="-1 -1 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 8 60)"/>
+  </svg>
+  <svg x="14" y="-1" width="3" height="3" viewBox="14 -1 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 26 60)"/>
+  </svg>
+  <svg x="14" y="14" width="3" height="3" viewBox="14 14 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 75 42)"/>
+  </svg>
+  <svg x="-1" y="14" width="3" height="3" viewBox="-1 14 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 60 45)"/>
+  </svg>
+  <svg x="3" y="1" width="10" height="1" viewBox="3 1 10 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 51 39)"/>
+  </svg>
+  <svg x="3" y="14" width="10" height="1" viewBox="3 14 10 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 67 27)"/>
+  </svg>
+  <svg x="14" y="3" width="1" height="10" viewBox="14 3 1 10" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 55 66)"/>
+  </svg>
+  <svg x="1" y="3" width="1" height="10" viewBox="1 3 1 10" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 43 66)"/>
+  </svg>
+  <svg x="15" y="2" width="1.2" height="1" viewBox="15 2 1.2 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-9.6 0 0 -8 97.8 33)"/>
+  </svg>
+  <svg x="15" y="13" width="1.2" height="1" viewBox="15 13 1.2 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-9.6 0 0 -8 53.4 82)"/>
+  </svg>
+  <svg x="13" y="15" width="1" height="1.2" viewBox="13 15 1 1.2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -9.6 82 53.4)"/>
+  </svg>
+  <svg x="2" y="15" width="1" height="1.2" viewBox="2 15 1 1.2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -9.6 35 97.8)"/>
+  </svg>
+  <svg x="-0.2" y="13" width="1.2" height="1" viewBox="-0.2 13 1.2 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-9.6 0 0 -8 82.6 46)"/>
+  </svg>
+  <svg x="-0.2" y="2" width="1.2" height="1" viewBox="-0.2 2 1.2 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-9.6 0 0 -8 40.6 71)"/>
+  </svg>
+  <svg x="2" y="-0.2" width="1" height="1.2" viewBox="2 -0.2 1 1.2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -9.6 71 40.6)"/>
+  </svg>
+  <svg x="13" y="-0.2" width="1" height="1.2" viewBox="13 -0.2 1 1.2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -9.6 48 82.6)"/>
+  </svg>
+  <svg x="13" y="5" width="1" height="6" viewBox="13 5 1 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 24 32)"/>
+  </svg>
+  <svg x="2" y="5" width="1" height="6" viewBox="2 5 1 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 12 72)"/>
+  </svg>
+  <svg x="4" y="1.5" width="8" height="1" viewBox="4 1.5 8 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 70 52.5)"/>
+  </svg>
+  <svg x="13" y="5" width="1" height="6" viewBox="13 5 1 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 25 32)"/>
+  </svg>
+  <svg x="2" y="5" width="1" height="6" viewBox="2 5 1 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 13 72)"/>
+  </svg>
+  <svg x="4" y="14" width="1" height="0.5" viewBox="4 14 1 0.5" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -4 50 48.5)"/>
+  </svg>
+  <svg x="11" y="14" width="1" height="0.5" viewBox="11 14 1 0.5" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -4 59 48.5)"/>
+  </svg>
+  <svg x="13" y="5" width="1" height="6" viewBox="13 5 1 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 14 72)"/>
+  </svg>
+  <svg x="4" y="14" width="8" height="0.5" viewBox="4 14 8 0.5" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -4 72 21)"/>
+  </svg>
+  <svg x="2" y="5" width="1" height="6" viewBox="2 5 1 6" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 45 72)"/>
+  </svg>
+  <svg x="5" y="1.8" width="6" height="1" viewBox="5 1.8 6 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 51 20.8)"/>
+  </svg>
+  <svg x="1" y="1" width="2" height="2" viewBox="1 1 2 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 49 41)"/>
+  </svg>
+  <svg x="13" y="13" width="2" height="2" viewBox="13 13 2 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 61 73)"/>
+  </svg>
+  <svg x="1" y="13" width="2" height="2" viewBox="1 13 2 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 10 77)"/>
+  </svg>
+  <svg x="13" y="1" width="2" height="2" viewBox="13 1 2 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 22 67)"/>
+  </svg>
+  <svg x="4" y="1.5" width="1" height="1" viewBox="4 1.5 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 73 37.5)"/>
+  </svg>
+  <svg x="11" y="1.5" width="1" height="1" viewBox="11 1.5 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 80 38.5)"/>
+  </svg>
+  <svg x="4" y="1.5" width="8" height="1" viewBox="4 1.5 8 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 72 11.5)"/>
+  </svg>
+  <svg x="-1" y="-1" width="4" height="4" viewBox="-1 -1 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 49 7)"/>
+  </svg>
+  <svg x="13" y="-1" width="4" height="4" viewBox="13 -1 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 63 15)"/>
+  </svg>
+  <svg x="13" y="13" width="4" height="4" viewBox="13 13 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 63 39)"/>
+  </svg>
+  <svg x="-1" y="13" width="4" height="4" viewBox="-1 13 4 4" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 49 59)"/>
+  </svg>
+  <svg x="2" y="1" width="12" height="1" viewBox="2 1 12 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 66 47)"/>
+  </svg>
+  <svg x="2" y="14" width="12" height="1" viewBox="2 14 12 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 66 63)"/>
+  </svg>
+  <svg x="1" y="2" width="1" height="12" viewBox="1 2 1 12" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 20 65)"/>
+  </svg>
+  <svg x="14" y="2" width="1" height="12" viewBox="14 2 1 12" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 59 65)"/>
+  </svg>
+  <svg x="2" y="0" width="12" height="2" viewBox="2 0 12 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 36 40)"/>
+  </svg>
+  <svg x="2" y="14" width="12" height="2" viewBox="2 14 12 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 52 49)"/>
+  </svg>
+  <svg x="0" y="2" width="2" height="12" viewBox="0 2 2 12" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 2 54)"/>
+  </svg>
+  <svg x="14" y="2" width="2" height="12" viewBox="14 2 2 12" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 20 54)"/>
+  </svg>
+  <svg x="2" y="-1" width="1" height="1" viewBox="2 -1 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 67 60)"/>
+  </svg>
+  <svg x="2" y="16" width="1" height="1" viewBox="2 16 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 69 50)"/>
+  </svg>
+  <svg x="-1" y="16" width="1" height="1" viewBox="-1 16 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 3 85)"/>
+  </svg>
+  <svg x="-1" y="13" width="1" height="1" viewBox="-1 13 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 4 82)"/>
+  </svg>
+  <svg x="16" y="13" width="1" height="1" viewBox="16 13 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 22 82)"/>
+  </svg>
+  <svg x="16" y="16" width="1" height="1" viewBox="16 16 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 23 85)"/>
+  </svg>
+  <svg x="13" y="16" width="1" height="1" viewBox="13 16 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 21 85)"/>
+  </svg>
+  <svg x="-1" y="-1" width="1" height="1" viewBox="-1 -1 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 8 68)"/>
+  </svg>
+  <svg x="-1" y="2" width="1" height="1" viewBox="-1 2 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 68 12)"/>
+  </svg>
+  <svg x="13" y="-1" width="1" height="1" viewBox="13 -1 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 82 11)"/>
+  </svg>
+  <svg x="16" y="-1" width="1" height="1" viewBox="16 -1 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 85 12)"/>
+  </svg>
+  <svg x="16" y="2" width="1" height="1" viewBox="16 2 1 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 85 16)"/>
+  </svg>
+  <svg x="2.999" y="2.999" width="10.002" height="10.002" viewBox="2.999 2.999 10.002 10.002" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8.0016 0 0 -8.0016 25.0034 22.0028)"/>
+  </svg>
+  <svg x="-0.5" y="-0.5" width="3" height="3" viewBox="-0.5 -0.5 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 17.5 56.5)"/>
+  </svg>
+  <svg x="13.5" y="-0.5" width="3" height="3" viewBox="13.5 -0.5 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 41.5 56.5)"/>
+  </svg>
+  <svg x="13.5" y="13.5" width="3" height="3" viewBox="13.5 13.5 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 64.5 70.5)"/>
+  </svg>
+  <svg x="-0.5" y="13.5" width="3" height="3" viewBox="-0.5 13.5 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 8.5 71.5)"/>
+  </svg>
+  <svg x="-1" y="-1" width="4" height="1" viewBox="-1 -1 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 65 49)"/>
+  </svg>
+  <svg x="-1" y="2" width="4" height="1" viewBox="-1 2 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 6 66)"/>
+  </svg>
+  <svg x="-1" y="13" width="4" height="1" viewBox="-1 13 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 66 30)"/>
+  </svg>
+  <svg x="-1" y="16" width="4" height="1" viewBox="-1 16 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 66 37)"/>
+  </svg>
+  <svg x="13" y="16" width="4" height="1" viewBox="13 16 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 80 40)"/>
+  </svg>
+  <svg x="13" y="13" width="4" height="1" viewBox="13 13 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 51 77)"/>
+  </svg>
+  <svg x="13" y="2" width="4" height="1" viewBox="13 2 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 61 66)"/>
+  </svg>
+  <svg x="13" y="-1" width="4" height="1" viewBox="13 -1 4 1" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 78 63)"/>
+  </svg>
+  <svg x="-1" y="0" width="1" height="2" viewBox="-1 0 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 67 25)"/>
+  </svg>
+  <svg x="2" y="0" width="1" height="2" viewBox="2 0 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 70 29)"/>
+  </svg>
+  <svg x="13" y="0" width="1" height="2" viewBox="13 0 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 81 33)"/>
+  </svg>
+  <svg x="16" y="0" width="1" height="2" viewBox="16 0 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 84 37)"/>
+  </svg>
+  <svg x="16" y="14" width="1" height="2" viewBox="16 14 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 84 56)"/>
+  </svg>
+  <svg x="13" y="14" width="1" height="2" viewBox="13 14 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 57 83)"/>
+  </svg>
+  <svg x="2" y="14" width="1" height="2" viewBox="2 14 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 55 83)"/>
+  </svg>
+  <svg x="-1" y="14" width="1" height="2" viewBox="-1 14 1 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 56 83)"/>
+  </svg>
+  <svg x="3" y="1" width="10" height="2" viewBox="3 1 10 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 19 44)"/>
+  </svg>
+  <svg x="3" y="13" width="10" height="2" viewBox="3 13 10 2" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 41 57)"/>
+  </svg>
+  <svg x="13" y="3" width="2" height="10" viewBox="13 3 2 10" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 31 54)"/>
+  </svg>
+  <svg x="1" y="3" width="2" height="10" viewBox="1 3 2 10" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 21 54)"/>
+  </svg>
+  <svg x="0" y="0" width="3" height="3" viewBox="0 0 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 60 19)"/>
+  </svg>
+  <svg x="13" y="0" width="3" height="3" viewBox="13 0 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 44 60)"/>
+  </svg>
+  <svg x="13" y="13" width="3" height="3" viewBox="13 13 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 67 73)"/>
+  </svg>
+  <svg x="0" y="13" width="3" height="3" viewBox="0 13 3 3" overflow="hidden">
+    <use href="#atlas0" transform="matrix(-8 0 0 -8 6 74)"/>
+  </svg>
+</svg>

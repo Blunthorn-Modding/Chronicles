@@ -1,0 +1,40 @@
+{
+  "variants": {
+    "sculk_sensor_phase=active,quiet_below_vitality=0": {
+      "model": "minecraft:block/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=active,quiet_below_vitality=1": {
+      "model": "quiet_below:block/vitality/stage_1/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=active,quiet_below_vitality=2": {
+      "model": "quiet_below:block/vitality/stage_2/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=active,quiet_below_vitality=3": {
+      "model": "quiet_below:block/vitality/stage_3/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=cooldown,quiet_below_vitality=0": {
+      "model": "minecraft:block/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=cooldown,quiet_below_vitality=1": {
+      "model": "quiet_below:block/vitality/stage_1/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=cooldown,quiet_below_vitality=2": {
+      "model": "quiet_below:block/vitality/stage_2/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=cooldown,quiet_below_vitality=3": {
+      "model": "quiet_below:block/vitality/stage_3/sculk_sensor_active"
+    },
+    "sculk_sensor_phase=inactive,quiet_below_vitality=0": {
+      "model": "minecraft:block/sculk_sensor_inactive"
+    },
+    "sculk_sensor_phase=inactive,quiet_below_vitality=1": {
+      "model": "quiet_below:block/vitality/stage_1/sculk_sensor_inactive"
+    },
+    "sculk_sensor_phase=inactive,quiet_below_vitality=2": {
+      "model": "quiet_below:block/vitality/stage_2/sculk_sensor_inactive"
+    },
+    "sculk_sensor_phase=inactive,quiet_below_vitality=3": {
+      "model": "quiet_below:block/vitality/stage_3/sculk_sensor_inactive"
+    }
+  }
+}

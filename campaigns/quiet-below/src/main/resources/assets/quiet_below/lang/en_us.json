@@ -1,0 +1,20 @@
+{
+  "item.quiet_below.echo_lens": "Echo Lens",
+  "block.quiet_below.resonance_marker": "Resonance Marker",
+  "message.quiet_below.marker_observation": "Fine grooves converge toward a dark seam in the stone.",
+  "message.quiet_below.marker_lens_clue": "The fracture is recent. Something below has shifted; no tool marks explain it.",
+  "message.quiet_below.session_dormant": "The session is dormant.",
+  "message.quiet_below.marker_revealed": "The new trace follows the supports rather than the ore. The survey notes show the same pattern.",
+  "message.quiet_below.marker_lens_revealed": "The vibration returns after pressure eases. Something below is responding; what it wants remains unclear.",
+  "block.quiet_below.ancient_forge": "Ancient Forge",
+  "block.quiet_below.ancient_altar": "Ancient Altar",
+  "block.quiet_below.relic_heart": "Relic Heart",
+  "subtitles.quiet_below.sinkhole_opening": "Sinkhole opening",
+  "subtitles.quiet_below.sculk_awakening": "Sculk awakening",
+  "subtitles.quiet_below.whisper_from_below": "Whisper from below",
+  "subtitles.quiet_below.city_discovery": "City discovery",
+  "subtitles.quiet_below.station_awakened": "Ancient station awakens",
+  "subtitles.quiet_below.altar_offering": "Altar offering",
+  "subtitles.quiet_below.sculk_growth": "Sculk growth",
+  "subtitles.quiet_below.heart_destroyed": "Heart destroyed"
+}
