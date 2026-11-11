@@ -47,9 +47,11 @@ public final class HouseEnrollmentStore {
         JsonObject item=new JsonObject();item.addProperty("owner",owner.toString());
         item.addProperty("candidate",roster.assignments().get(owner).candidate());item.addProperty("drawSeed",drawSeed);
         JsonObject castJson=BookConfig.strictObject(new String(HouseCastStore.encode(cast),StandardCharsets.UTF_8));
+        if(cast.usedSecretIds()==null)throw new IllegalArgumentException("New enrollment requires used secret IDs");
         item.add("papers",castJson.getAsJsonObject("papers").get(owner.toString()).deepCopy());
+        item.add("usedSecretIds",castJson.getAsJsonArray("usedSecretIds").deepCopy());
         JsonArray updated=entries.deepCopy();updated.add(item);
-        JsonObject root=new JsonObject();root.addProperty("schema",1);root.addProperty("baseFingerprint",fingerprint);root.add("entries",updated);
+        JsonObject root=new JsonObject();root.addProperty("schema",2);root.addProperty("baseFingerprint",fingerprint);root.add("entries",updated);
         byte[] bytes=(root+"\n").getBytes(StandardCharsets.UTF_8);
         if(bytes.length>MAX_BYTES||!decode(bytes).equals(next))throw new IOException("Late House enrollment exceeds its validated bounds");
         storage.save(bytes); // No new membership/papers become visible before this succeeds.
@@ -58,12 +60,15 @@ public final class HouseEnrollmentStore {
     private Snapshot decode(byte[] bytes)throws IOException {
         try {
             JsonObject root=object(bytes);exact(root,"schema","baseFingerprint","entries");
-            if(number(root.get("schema"))!=1||!fingerprint.equals(string(root.get("baseFingerprint"))))throw new IllegalArgumentException("Enrollment baseline differs");
+            long schema=number(root.get("schema"));
+            if((schema!=1&&schema!=2)||!fingerprint.equals(string(root.get("baseFingerprint"))))throw new IllegalArgumentException("Enrollment baseline differs");
             if(baseline.cast()==null)throw new IllegalArgumentException("Enrollment requires an issued cast");
             JsonArray all=root.getAsJsonArray("entries");if(all.size()>HouseRoster.MAX_HOUSES)throw new IllegalArgumentException("Too many enrollments");
             Snapshot value=baseline;
             for(JsonElement element:all){
-                JsonObject item=element.getAsJsonObject();exact(item,"owner","candidate","drawSeed","papers");
+                JsonObject item=element.getAsJsonObject();boolean hasIds=item.has("usedSecretIds");
+                if(hasIds&&schema==2)exact(item,"owner","candidate","drawSeed","papers","usedSecretIds");
+                else exact(item,"owner","candidate","drawSeed","papers");
                 UUID owner=UUID.fromString(string(item.get("owner")));if(!owner.toString().equals(string(item.get("owner"))))throw new IllegalArgumentException("Noncanonical owner");
                 number(item.get("drawSeed"));
                 if(!item.get("candidate").isJsonPrimitive()||!item.get("candidate").getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException("Expected candidacy boolean");
@@ -73,6 +78,8 @@ public final class HouseEnrollmentStore {
                 HouseRoster roster=new HouseRoster(Math.addExact(value.roster().revision(),1),assignments);
                 JsonObject cast=BookConfig.strictObject(new String(HouseCastStore.encode(value.cast()),StandardCharsets.UTF_8));
                 cast.addProperty("rosterRevision",roster.revision());cast.getAsJsonObject("papers").add(owner.toString(),paper.deepCopy());
+                if(hasIds){cast.addProperty("schema",2);cast.add("usedSecretIds",item.get("usedSecretIds").deepCopy());}
+                else {cast.addProperty("schema",1);cast.remove("usedSecretIds");}
                 Snapshot next=new Snapshot(roster,HouseCastStore.decode(cast.toString().getBytes(StandardCharsets.UTF_8)));
                 validateAddition(value,next);value=next;
             }
@@ -93,6 +100,11 @@ public final class HouseEnrollmentStore {
         before.roster().assignments().forEach((owner,a)->{
             if(!a.equals(after.roster().assignments().get(owner))||!before.cast().papers().get(owner).equals(after.cast().papers().get(owner)))throw new IllegalArgumentException("Existing assignment or papers changed");
         });
+        Set<String> oldIds=before.cast().usedSecretIds(),newIds=after.cast().usedSecretIds();
+        if(oldIds!=null){
+            UUID added=after.roster().assignments().keySet().stream().filter(id->!before.roster().assignments().containsKey(id)).findFirst().orElseThrow();
+            if(newIds==null||!newIds.containsAll(oldIds)||newIds.size()-oldIds.size()!=after.cast().papers().get(added).secrets().size())throw new IllegalArgumentException("Used secret IDs regressed or do not match new papers");
+        }
         for(var entry:after.roster().assignments().entrySet())if(!before.roster().assignments().containsKey(entry.getKey())&&!entry.getValue().councilMember())throw new IllegalArgumentException("New House requires its Council seat");
     }
     private static String fingerprint(HouseRoster roster,HouseCast cast){

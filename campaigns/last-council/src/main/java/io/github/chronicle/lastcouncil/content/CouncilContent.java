@@ -2,6 +2,7 @@ package io.github.chronicle.lastcouncil.content;
 
 import io.github.chronicle.lastcouncil.house.HouseDefinition;
 import io.github.chronicle.core.lore.WeightedDraw;
+import io.github.chronicle.core.lore.NumberRange;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -27,13 +28,17 @@ public record CouncilContent(Map<String, HouseDefinition> houses, List<SecretTem
         Objects.requireNonNull(value);
         if (value.codePointCount(0, value.length()) > MAX_TEXT || value.codePoints().anyMatch(c -> c == 0xA7 || (Character.isISOControl(c) && c != '\n' && c != '\t'))) throw new IllegalArgumentException("invalid template text");
     }
-    public record SecretTemplate(String id, int weight, String text, Map<String,String> facts, Set<String> applicableHouseIds) {
+    public record SecretTemplate(String id, int weight, String text, Map<String,String> facts, Map<String,NumberRange> numbers, Set<String> applicableHouseIds) {
+        public SecretTemplate(String id, int weight, String text, Map<String,String> facts, Set<String> applicableHouseIds) {
+            this(id, weight, text, facts, Map.of(), applicableHouseIds);
+        }
         public SecretTemplate {
             new WeightedDraw.Entry<>(id, weight, text); CouncilContent.text(text);
-            Objects.requireNonNull(facts); Objects.requireNonNull(applicableHouseIds);
-            if (facts.size() > 128 || applicableHouseIds.size() > 32) throw new IllegalArgumentException("template exceeds bounds");
+            Objects.requireNonNull(facts); Objects.requireNonNull(numbers); Objects.requireNonNull(applicableHouseIds);
+            if (facts.size() > 128 || (!numbers.isEmpty() && facts.size() + numbers.size() > 124) || applicableHouseIds.size() > 32) throw new IllegalArgumentException("template exceeds bounds");
             facts.forEach((key,value) -> { if (key == null || !FACT_KEY.matcher(key).matches()) throw new IllegalArgumentException("invalid fact key"); CouncilContent.text(value); });
-            facts = Map.copyOf(facts); applicableHouseIds = Set.copyOf(applicableHouseIds);
+            numbers.forEach((key,value) -> { if (key == null || (key.length() > 64 || !key.matches("[A-Za-z_][A-Za-z0-9_]*")) || value == null) throw new IllegalArgumentException("invalid number binding"); });
+            facts = Map.copyOf(facts); numbers = Map.copyOf(numbers); applicableHouseIds = Set.copyOf(applicableHouseIds);
         }
     }
     public record GoalTemplate(String id, int weight, String text, Set<String> applicableHouseIds) {

@@ -1,5 +1,5 @@
 {
-  "schema": 1,
+  "schema": 2,
   "note": "Illustrative sample content, not canonical setting material.",
   "houses": {
     "last_council:ash": {
@@ -80,7 +80,7 @@
     {
       "id": "ash_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:ash"
@@ -98,7 +98,7 @@
     {
       "id": "rowan_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:rowan"
@@ -107,18 +107,22 @@
     {
       "id": "vale_one",
       "weight": 1,
-      "text": "House Vale can reliably supply wheat to ${fact.capacity} other houses. Further promises exceed its reliable reserves.",
-      "facts": {
-        "fact.capacity": "three"
-      },
+      "text": "${house.own} can reliably supply wheat to ${number.capacity} other Houses. Further promises exceed its reliable reserves.",
+      "facts": {},
       "applicableHouseIds": [
         "last_council:vale"
-      ]
+      ],
+      "numbers": {
+        "capacity": {
+          "min": 2,
+          "max": 5
+        }
+      }
     },
     {
       "id": "vale_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:vale"
@@ -136,7 +140,7 @@
     {
       "id": "reed_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:reed"
@@ -145,7 +149,7 @@
     {
       "id": "elm_one",
       "weight": 1,
-      "text": "${house.title} holds an unpublished family correspondence.",
+      "text": "${house.own} holds an unpublished family correspondence.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:elm"
@@ -154,7 +158,7 @@
     {
       "id": "elm_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:elm"
@@ -163,7 +167,7 @@
     {
       "id": "flint_one",
       "weight": 1,
-      "text": "${house.title} holds an unpublished family correspondence.",
+      "text": "${house.own} holds an unpublished family correspondence.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:flint"
@@ -172,7 +176,7 @@
     {
       "id": "flint_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:flint"
@@ -181,7 +185,7 @@
     {
       "id": "mere_one",
       "weight": 1,
-      "text": "${house.title} holds an unpublished family correspondence.",
+      "text": "${house.own} holds an unpublished family correspondence.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:mere"
@@ -190,7 +194,7 @@
     {
       "id": "mere_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:mere"
@@ -199,7 +203,7 @@
     {
       "id": "thorn_one",
       "weight": 1,
-      "text": "${house.title} holds an unpublished family correspondence.",
+      "text": "${house.own} holds an unpublished family correspondence.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:thorn"
@@ -208,7 +212,7 @@
     {
       "id": "thorn_two",
       "weight": 1,
-      "text": "${house.title} holds a private family pledge whose terms remain undisclosed.",
+      "text": "${house.own} holds a private family pledge whose terms remain undisclosed.",
       "facts": {},
       "applicableHouseIds": [
         "last_council:thorn"
@@ -227,7 +231,7 @@
     {
       "id": "ash_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:ash"
       ]
@@ -243,7 +247,7 @@
     {
       "id": "rowan_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:rowan"
       ]
@@ -259,7 +263,7 @@
     {
       "id": "vale_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:vale"
       ]
@@ -275,7 +279,7 @@
     {
       "id": "reed_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:reed"
       ]
@@ -283,7 +287,7 @@
     {
       "id": "elm_one",
       "weight": 1,
-      "text": "${house.title} seeks support for its interests.",
+      "text": "${house.own} seeks support for its interests.",
       "applicableHouseIds": [
         "last_council:elm"
       ]
@@ -291,7 +295,7 @@
     {
       "id": "elm_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:elm"
       ]
@@ -299,7 +303,7 @@
     {
       "id": "flint_one",
       "weight": 1,
-      "text": "${house.title} seeks support for its interests.",
+      "text": "${house.own} seeks support for its interests.",
       "applicableHouseIds": [
         "last_council:flint"
       ]
@@ -307,7 +311,7 @@
     {
       "id": "flint_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:flint"
       ]
@@ -315,7 +319,7 @@
     {
       "id": "mere_one",
       "weight": 1,
-      "text": "${house.title} seeks support for its interests.",
+      "text": "${house.own} seeks support for its interests.",
       "applicableHouseIds": [
         "last_council:mere"
       ]
@@ -323,7 +327,7 @@
     {
       "id": "mere_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:mere"
       ]
@@ -331,7 +335,7 @@
     {
       "id": "thorn_one",
       "weight": 1,
-      "text": "${house.title} seeks support for its interests.",
+      "text": "${house.own} seeks support for its interests.",
       "applicableHouseIds": [
         "last_council:thorn"
       ]
@@ -339,7 +343,7 @@
     {
       "id": "thorn_two",
       "weight": 1,
-      "text": "${house.title} seeks a lasting alliance.",
+      "text": "${house.own} seeks a lasting alliance.",
       "applicableHouseIds": [
         "last_council:thorn"
       ]

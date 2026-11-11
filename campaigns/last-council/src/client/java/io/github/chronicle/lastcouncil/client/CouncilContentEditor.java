@@ -5,7 +5,6 @@ import io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.*;
 import io.github.chronicle.lastcouncil.network.CataloguePayloads.Category;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.regex.*;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.EditBoxWidget;
@@ -15,7 +14,7 @@ import net.minecraft.text.Text;
 /** Focused, paged editor for one literal source definition. */
 final class CouncilContentEditor extends CouncilScreen {
     private final CouncilCatalogueScreen catalogue; private View view; private final JsonObject draft;
-    private final String digest; private final boolean creating; private int page; private UUID pending; private boolean staleDraft,uncertain; private int waitTicks;
+    private final String digest; private final boolean creating; private int page; private UUID pending; private boolean staleDraft,uncertain; private int waitTicks; private EditBoxWidget textField; private boolean focusText;
     CouncilContentEditor(CouncilCatalogueScreen parent,View view,JsonObject draft,String digest,boolean creating){
         super(creating?"Create definition":"Edit definition",parent);this.catalogue=parent;this.view=view;this.draft=draft;this.digest=digest;this.creating=creating;
     }
@@ -67,7 +66,7 @@ final class CouncilContentEditor extends CouncilScreen {
             if(!uncertain)for(var child:children())if(child instanceof net.minecraft.client.gui.widget.ClickableWidget widget)widget.active=false;
             body(uncertain?"Save outcome uncertain. Close and reopen the source catalogue to check and resume the draft.":"Saving. Please wait for the server response.",x,y,w,55);message(uncertain?"Save outcome uncertain.":"Saving...");return;
         }
-        Category category=view.category();int pages=category==Category.HOUSES?5:category==Category.KNOWLEDGE?3:category==Category.SECRETS?5:4;
+        Category category=view.category();int pages=category==Category.HOUSES?5:category==Category.KNOWLEDGE?3:category==Category.SECRETS?4:3;
         page=Math.clamp(page,0,pages-1);
         if(category==Category.HOUSES){switch(page){
             case 0 -> field("House name","title",x,y,w,true,false);
@@ -78,10 +77,9 @@ final class CouncilContentEditor extends CouncilScreen {
         }} else if(category==Category.KNOWLEDGE){String[] keys={"secretsPerHouse","goalsPerHouse","knowledgeChancePercent"};String[] labels={"Secrets per House (0-4)","Goals per House (0-4)","Knowledge chance (0-100%)"};numeric(labels[page],keys[page],x,y,w);}
         else {switch(page){
             case 0 -> {field("Name","id",x,y,w,creating,false);numeric("Draw weight","weight",x,y+47,w);}
-            case 1 -> field(category==Category.SECRETS?"Secret text":"Goal text","text",x,y,w,true,true);
+            case 1 -> {field(category==Category.SECRETS?"Secret text":"Goal text","text",x,y,w,true,true);button("Insert variable...",x,bottom-23,w,()->client.setScreen(new Variables(this,draft,category==Category.SECRETS)));}
             case 2 -> {body("Applicable Houses",x,y,w,12);button("Choose Houses...",x,y+15,w,()->client.setScreen(new Scope(this,view.houses(),draft)));}
-            case 3 -> {if(category==Category.SECRETS){body("Optional: values reused in template text. A normal secret needs only its text and applicable Houses.",x,y,w,40);button("Template values (optional)...",x,y+44,w,()->client.setScreen(new Facts(this,draft)));}else previewButton(x,y,w);}
-            case 4 -> previewButton(x,y,w);
+            case 3 -> {body("Optional numbers are chosen from an inclusive range when this secret is assigned.",x,y,w,40);button("Manage numbers...",x,y+44,w,()->client.setScreen(new Numbers(this,draft)));}
         }}
         int bw=(w-12)/4;button("<",x,bottom,bw,()->{page--;clearAndInit();}).active=page>0;
         button(">",x+bw+4,bottom,bw,()->{page++;clearAndInit();}).active=page+1<pages;
@@ -89,10 +87,9 @@ final class CouncilContentEditor extends CouncilScreen {
         button("Save",x+3*(bw+4),bottom,bw,this::save).active=pending==null&&!staleDraft;
         message(feedback.isBlank()?"Field page "+(page+1)+" / "+pages:feedback);
     }
-    private void previewButton(int x,int y,int w){button("Preview sample...",x,y,w,()->client.setScreen(new Preview(this,value("text"))));}
     private void field(String label,String key,int x,int y,int w,boolean editable,boolean multiline){
         body(label,x,y,w,12);
-        if(multiline){var f=addDrawableChild(EditBoxWidget.builder().x(x).y(y+13).build(textRenderer,w,Math.max(35,Math.min(100,panelHeight-120)),Text.literal(label)));f.setMaxLength(2097152);f.setText(value(key));f.setChangeListener(v->set(key,v));}
+        if(multiline){int height=Math.max(35,Math.min(100,panelHeight-140));boolean returning="text".equals(key)&&focusText&&textField!=null&&textField.getWidth()==w&&textField.getHeight()==height;var f=returning?textField:EditBoxWidget.builder().x(x).y(y+13).build(textRenderer,w,height,Text.literal(label));f.setPosition(x,y+13);addDrawableChild(f);if(!returning){f.setMaxLength(2097152);f.setText(value(key));f.setChangeListener(v->set(key,v));}if("text".equals(key)){textField=f;if(focusText){setFocused(f);focusText=false;}}}
         else {var f=addDrawableChild(new TextFieldWidget(textRenderer,x,y+13,w,20,Text.literal(label)));f.setMaxLength(2097152);f.setText(value(key));f.setEditable(editable);f.setChangedListener(v->set(key,v));}
     }
     private void numeric(String label,String key,int x,int y,int w){body(label,x,y,w,12);var f=addDrawableChild(new TextFieldWidget(textRenderer,x,y+13,w,20,Text.literal(label)));f.setMaxLength(12);f.setText(value(key));f.setChangedListener(v->number(key,v));}
@@ -111,21 +108,41 @@ final class CouncilContentEditor extends CouncilScreen {
         Scope(Screen parent,List<HouseRef> houses,JsonObject draft){super("Applicable Houses",parent);this.houses=houses;this.draft=draft;if(draft.has("applicableHouseIds"))for(JsonElement e:draft.getAsJsonArray("applicableHouseIds"))chosen.add(e.getAsString());}
         @Override protected void init(){frame();int x=left+12,w=panelWidth-24;List<Choice> choices=new ArrayList<>();for(HouseRef h:houses)choices.add(new Choice(h.id(),(chosen.contains(h.id())?"[x] ":"[ ] ")+h.label()));rows("scope",choices,"",x,top+36,w,panelHeight-80,id->{if(!chosen.remove(id))chosen.add(id);clearAndInit();});button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{JsonArray a=new JsonArray();chosen.forEach(a::add);draft.add("applicableHouseIds",a);close();});}
     }
-    private static final class Facts extends CouncilScreen {
-        final JsonObject draft;final LinkedHashMap<String,String> facts=new LinkedHashMap<>();String selected="";
-        Facts(Screen parent,JsonObject draft){super("Template values (optional)",parent);this.draft=draft;if(draft.has("facts"))draft.getAsJsonObject("facts").entrySet().forEach(e->facts.put(e.getKey(),e.getValue().getAsString()));}
-        @Override protected void init(){frame();int x=left+12,w=panelWidth-24,y=top+35;button("+ Add value",x,y,w,()->client.setScreen(new Fact(this,io.github.chronicle.lastcouncil.content.CouncilContentEditor.nextFactKey(facts.keySet()),"",(k,v)->{if(facts.containsKey(k))return false;facts.put(k,v);selected=k;return true;}))).active=facts.size()<128;List<Choice> choices=facts.keySet().stream().map(k->new Choice(k,k)).toList();rows("facts",choices,selected,x,y+23,w,panelHeight-150,id->{selected=id;clearAndInit();});int b=top+panelHeight-60;button("Edit",x,b,70,()->client.setScreen(new Fact(this,selected,facts.get(selected),(k,v)->{if(!k.equals(selected)&&facts.containsKey(k))return false;facts.remove(selected);facts.put(k,v);selected=k;return true;}))).active=facts.containsKey(selected);button("Remove",x+74,b,70,()->{facts.remove(selected);selected="";clearAndInit();}).active=facts.containsKey(selected);button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{JsonObject o=new JsonObject();facts.forEach(o::addProperty);draft.add("facts",o);close();});}
+    private static final class Variables extends CouncilScreen {
+        final CouncilContentEditor editor;final JsonObject draft;final boolean secret;String selected="house.own";
+        Variables(CouncilContentEditor parent,JsonObject draft,boolean secret){super("Insert variable",parent);this.editor=parent;this.draft=draft;this.secret=secret;}
+        @Override protected void init(){frame();int x=left+12,w=panelWidth-24;List<Choice> choices=new ArrayList<>();
+            choices.add(new Choice("house.own","Own House - original recipient"));
+            choices.add(new Choice("house.other","Other House - random other participant"));
+            if(secret&&draft.has("numbers"))draft.getAsJsonObject("numbers").entrySet().forEach(e->{JsonObject range=e.getValue().getAsJsonObject();choices.add(new Choice("number."+e.getKey(),e.getKey()+" ("+range.get("min").getAsInt()+" to "+range.get("max").getAsInt()+")"));});
+            rows("variables",choices,selected,x,top+36,w,panelHeight-80,id->{selected=id;clearAndInit();});
+            button("Cancel",x,top+panelHeight-38,90,this::close);button("Insert",x+94,top+panelHeight-38,90,()->{editor.textField.setFocused(true);("${"+selected+"}").codePoints().forEach(c->editor.textField.charTyped(new net.minecraft.client.input.CharInput(c,0)));editor.focusText=true;close();});
+        }
     }
-    private static final class Fact extends CouncilScreen {
-        String key,val;final Consumer2 done;
-        Fact(Screen parent,String key,String val,Consumer2 done){super("Template value",parent);this.key=key;this.val=val;this.done=done;}
-        @Override protected void init(){frame();int x=left+12,w=panelWidth-24;body("Automatic reference: ${"+key+"}",x,top+35,w,22);body("Value",x,top+65,w,12);var f=addDrawableChild(EditBoxWidget.builder().x(x).y(top+78).build(textRenderer,w,Math.max(30,Math.min(70,panelHeight-145)),Text.literal("Value")));f.setMaxLength(2097152);f.setText(val);f.setChangeListener(v->val=v);button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{if(!done.accept(key,val)){message("That template reference already exists.");return;}close();});}
+    private static final class Numbers extends CouncilScreen {
+        final JsonObject draft;final LinkedHashMap<String,JsonObject> numbers=new LinkedHashMap<>();String selected="";
+        Numbers(Screen parent,JsonObject draft){super("Number variables",parent);this.draft=draft;if(draft.has("numbers"))draft.getAsJsonObject("numbers").entrySet().forEach(e->numbers.put(e.getKey(),e.getValue().getAsJsonObject().deepCopy()));}
+        @Override protected void init(){frame();int x=left+12,w=panelWidth-24,y=top+35;
+            int facts=draft.has("facts")?draft.getAsJsonObject("facts").size():0;
+            button("+ Add number",x,y,w,()->client.setScreen(new NumberEdit(this,"","0","0",(k,min,max)->{if(numbers.containsKey(k))return false;numbers.put(k,range(min,max));selected=k;return true;}))).active=numbers.size()+facts<124;
+            List<Choice> choices=numbers.entrySet().stream().map(e->new Choice(e.getKey(),e.getKey()+" ("+e.getValue().get("min").getAsInt()+" to "+e.getValue().get("max").getAsInt()+")")).toList();
+            if(panelHeight<220)compactRows("numbers",choices,selected,x,y+23,w,true,id->{selected=id;clearAndInit();});
+            else rows("numbers",choices,selected,x,y+23,w,panelHeight-150,id->{selected=id;clearAndInit();});int b=top+panelHeight-60;
+            button("Edit",x,b,70,()->{JsonObject r=numbers.get(selected);client.setScreen(new NumberEdit(this,selected,r.get("min").getAsString(),r.get("max").getAsString(),(k,min,max)->{if(!k.equals(selected)&&numbers.containsKey(k))return false;numbers.remove(selected);numbers.put(k,range(min,max));selected=k;return true;}));}).active=numbers.containsKey(selected);
+            button("Remove",x+74,b,70,()->{numbers.remove(selected);selected="";clearAndInit();}).active=numbers.containsKey(selected);
+            button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{JsonObject o=new JsonObject();numbers.forEach(o::add);draft.add("numbers",o);close();});
+        }
+        private static JsonObject range(int min,int max){JsonObject o=new JsonObject();o.addProperty("min",min);o.addProperty("max",max);return o;}
     }
-    private interface Consumer2 {boolean accept(String key,String value);}
-    static final class Preview extends CouncilScreen {
-        final String template;String bindings="{}",result="";
-        Preview(Screen parent,String template){super("Sample preview",parent);this.template=template;}
-        @Override protected void init(){frame();int x=left+12,w=panelWidth-24;body("Explicit JSON string bindings",x,top+35,w,12);var f=addDrawableChild(EditBoxWidget.builder().x(x).y(top+48).build(textRenderer,w,45,Text.literal("Sample bindings")));f.setMaxLength(2097152);f.setText(bindings);f.setChangeListener(v->bindings=v);body("preview",result,x,top+97,w,Math.max(15,panelHeight-145));button("Render",x,top+panelHeight-38,90,this::renderSample);button("Close",x+94,top+panelHeight-38,90,this::close);}
-        void renderSample(){try{JsonObject o=JsonParser.parseString(bindings).getAsJsonObject();for(var e:o.entrySet())if(!e.getValue().isJsonPrimitive()||!e.getValue().getAsJsonPrimitive().isString())throw new IllegalArgumentException();Matcher m=Pattern.compile("\\$\\{([^}]+)}").matcher(template);StringBuffer out=new StringBuffer();Set<String> missing=new LinkedHashSet<>();while(m.find()){String key=m.group(1);if(!o.has(key))missing.add(key);m.appendReplacement(out,Matcher.quoteReplacement(o.has(key)?o.get(key).getAsString():m.group()));}m.appendTail(out);result=out.toString();feedback=missing.isEmpty()?"":"Missing: "+String.join(", ",missing);clearAndInit();}catch(RuntimeException e){message("Enter a JSON object with string values.");}}
+    private interface NumberDone {boolean accept(String name,int min,int max);}
+    private static final class NumberEdit extends CouncilScreen {
+        String name,min,max;final NumberDone done;final boolean editing;
+        NumberEdit(Screen parent,String name,String min,String max,NumberDone done){super("Number variable",parent);this.name=name;this.min=min;this.max=max;this.done=done;this.editing=!name.isBlank();}
+        @Override protected void init(){frame();boolean compact=panelHeight<220;int x=left+12,w=panelWidth-24,y=top+(compact?30:35),step=compact?30:34,label=compact?10:12,height=compact?18:20;
+            body("Name",x,y,w,label);var n=addDrawableChild(new TextFieldWidget(textRenderer,x,y+label,w,height,Text.literal("Name")));n.setMaxLength(64);n.setText(name);n.setEditable(!editing);n.setChangedListener(v->name=v);
+            body("Minimum (inclusive)",x,y+step,w,label);var lo=addDrawableChild(new TextFieldWidget(textRenderer,x,y+step+label,w,height,Text.literal("Minimum")));lo.setMaxLength(11);lo.setText(min);lo.setChangedListener(v->min=v);
+            body("Maximum (inclusive)",x,y+2*step,w,label);var hi=addDrawableChild(new TextFieldWidget(textRenderer,x,y+2*step+label,w,height,Text.literal("Maximum")));hi.setMaxLength(11);hi.setText(max);hi.setChangedListener(v->max=v);
+            button("Cancel",x,top+panelHeight-38,90,this::close);button("Done",x+94,top+panelHeight-38,90,()->{if(!name.matches("[A-Za-z_][A-Za-z0-9_]*")){message("Use a name starting with a letter or underscore, then letters, numbers or underscores.");return;}try{int a=Integer.parseInt(min),b=Integer.parseInt(max);if(a>b){message("Minimum must not exceed maximum.");return;}if(!done.accept(name,a,b)){message("That number name already exists.");return;}close();}catch(NumberFormatException e){message("Enter signed whole numbers for both bounds.");}});
+        }
     }
 }

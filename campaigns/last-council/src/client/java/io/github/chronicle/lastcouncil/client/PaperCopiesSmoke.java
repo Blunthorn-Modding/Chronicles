@@ -71,7 +71,7 @@ public final class PaperCopiesSmoke {
             case 1->{if(!has("ready-B")||!has("ready-C"))return;command(c,"chronicle editing on");wait=30;step=2;}
             case 2->{admin(Operation.OPEN,0,offline("ChronicleFabricB"),"");step=3;}
             case 3->{if(notice!=null)throw new IllegalStateException(notice.message());if(admin==null)return;require(!admin.houses().isEmpty(),"no houses");admin(Operation.APPOINT_CHANCELLOR,admin.revision(),offline("ChronicleFabricA"),"");step=13;}
-            case 13->{if(notice!=null)throw new IllegalStateException(notice.message());if(admin==null)return;admin(Operation.ASSIGN,admin.revision(),offline("ChronicleFabricB"),admin.houses().get(0).id());step=4;}
+            case 13->{if(notice!=null)throw new IllegalStateException(notice.message());if(admin==null)return;admin(Operation.ASSIGN,admin.revision(),offline("ChronicleFabricB"),admin.houses().stream().filter(h->h.id().equals("last_council:vale")).findFirst().orElseThrow().id());step=4;}
             case 4->{if(notice!=null)throw new IllegalStateException(notice.message());if(admin==null)return;command(c,"chronicle editing off");mark("join","ready");step=5;}
             case 5->{if(!has("joined-B"))return;command(c,"chronicle session start");wait=50;mark("active","ready");step=6;}
             case 6->{if(!has("done-B")||!has("done-C"))return;mark("done-A","ready");finish(c,null);}
@@ -112,7 +112,7 @@ public final class PaperCopiesSmoke {
         JsonObject cast=JsonParser.parseString(Files.readString(root.resolve("world/chronicle/last-council/cast.json"))).getAsJsonObject();
         JsonObject papers=cast.getAsJsonObject("papers");JsonObject own=papers.getAsJsonObject(c.player.getUuid().toString());
         require(own!=null&&!own.getAsJsonArray("secrets").isEmpty(),"fixture has no issued secret");
-        String secret=own.getAsJsonArray("secrets").get(0).getAsString();
+        String secret=own.getAsJsonArray("secrets").get(0).getAsString();require(secret.matches("House Vale can reliably supply wheat to [2-5] other Houses\\. Further promises exceed its reliable reserves\\."),"fixture numeric secret was not resolved from its configured range");
         JsonObject definitions;try(var in=PaperCopiesSmoke.class.getResourceAsStream("/data/last_council/chronicle/houses.json")){require(in!=null,"house definitions missing");definitions=JsonParser.parseString(new String(in.readAllBytes(),StandardCharsets.UTF_8)).getAsJsonObject();}
         String title=definitions.getAsJsonObject("houses").getAsJsonObject(own.get("houseId").getAsString()).get("title").getAsString();
         ItemStack book=ItemStack.EMPTY;String text="";List<Text> pages=List.of();

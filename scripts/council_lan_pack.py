@@ -147,6 +147,10 @@ The source catalogue is in Advanced > Game setup > Source catalogue (OP only).
 Before first play, enable Editing to create/edit Houses, secrets, House goals
 and knowledge rules there. Once House papers are issued, source editing is
 locked for that experience; use a fresh world/import to test another cast.
+Secret text offers Insert variable for Own House, Other House and the
+secret's named number ranges. Each secret can be assigned only once per
+experience; learned copies retain the same resolved names and numbers.
+Source sample previews have been removed.
 Private menu papers remain available through Character & houses > My house.
 Copy paper lets the player request an individual physical written book.
 No books are automatically given. Leave empty inventory slots for copies.

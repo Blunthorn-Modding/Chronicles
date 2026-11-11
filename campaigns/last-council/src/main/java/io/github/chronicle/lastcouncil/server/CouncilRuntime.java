@@ -68,6 +68,11 @@ public final class CouncilRuntime {
         if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
         return WORLDS.get(server).content;
     }
+    public static String paperSetupProblem(MinecraftServer server){
+        if(!server.isOnThread()||!WORLDS.containsKey(server))return "House definitions are unavailable.";
+        State state=WORLDS.get(server);if(state.cast!=null||state.rosterSnapshot().assignments().isEmpty())return "";
+        try{HouseCastGenerator.validateAssignments(state.content,state.rosterSnapshot());return "";}catch(IllegalArgumentException failure){return Objects.toString(failure.getMessage(),"House papers cannot be assigned with this setup.");}
+    }
     public static boolean papersCommitted(MinecraftServer server) {
         if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
         State state=WORLDS.get(server);return state.cast!=null||state.issuer.hasPending();

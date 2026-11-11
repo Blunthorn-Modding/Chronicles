@@ -3,11 +3,14 @@ package io.github.chronicle.lastcouncil.content;
 import java.util.*;
 
 /** Trusted committed cast; only the addressed HousePapers should cross a player boundary. */
-public record HouseCast(UUID castId, long rosterRevision, long seed, Map<UUID,HousePapers> papers) {
+public record HouseCast(UUID castId, long rosterRevision, long seed, Map<UUID,HousePapers> papers, Set<String> usedSecretIds) {
+    /** Legacy casts did not retain source IDs; their rendered papers remain authoritative. */
+    public HouseCast(UUID castId,long rosterRevision,long seed,Map<UUID,HousePapers> papers){this(castId,rosterRevision,seed,papers,null);}
     public HouseCast {
         Objects.requireNonNull(castId); Objects.requireNonNull(papers);
         if (rosterRevision < 0 || papers.size() > 32) throw new IllegalArgumentException("invalid cast");
         papers = Map.copyOf(papers);
+        if(usedSecretIds!=null){if(usedSecretIds.size()>256||usedSecretIds.stream().anyMatch(id->id==null||id.isBlank()))throw new IllegalArgumentException("invalid used secret IDs");usedSecretIds=Set.copyOf(usedSecretIds);}
         var houses = new HashSet<String>();
         papers.values().forEach(p -> { if (!houses.add(p.houseId())) throw new IllegalArgumentException("duplicate house"); });
         for (HousePapers p : papers.values()) {

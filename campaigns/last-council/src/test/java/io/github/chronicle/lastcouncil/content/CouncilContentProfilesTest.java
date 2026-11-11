@@ -42,6 +42,7 @@ class CouncilContentProfilesTest {
         var model=new CouncilContent(Map.of(house.id(),house),entries,List.of(),0,0,0);
         var gson=new com.google.gson.GsonBuilder().disableHtmlEscaping().create();
         var raw=gson.toJsonTree(model).getAsJsonObject();raw.addProperty("schema",1);raw.addProperty("note","");
+        for(var entry:raw.getAsJsonArray("secrets"))entry.getAsJsonObject().remove("numbers");
         int excess=gson.toJson(raw).getBytes(StandardCharsets.UTF_8).length-CouncilContentJson.MAX_BYTES;
         assertTrue(excess>0);
         for(var entry:raw.getAsJsonArray("secrets"))for(var key:new ArrayList<>(entry.getAsJsonObject().getAsJsonObject("facts").keySet())){
@@ -52,6 +53,28 @@ class CouncilContentProfilesTest {
         assertEquals(CouncilContentJson.MAX_BYTES,source.length);
         var decoded=CouncilContentJson.decode(source);byte[] exported=CouncilContentJson.encode(decoded);
         assertTrue(exported.length<=CouncilContentJson.MAX_BYTES);assertEquals(decoded,CouncilContentJson.decode(exported));
+    }
+
+    @Test void legacyAndNumberRangesRoundTripAndMalformedNumbersFail() throws Exception {
+        var h=new HouseDefinition("test:house","H\u00e4user \uD83C\uDF3E","","","",false);
+        var secret=new CouncilContent.SecretTemplate("s",1,"${number.capacity}",Map.of("fact.legacy","\u03b1"),Map.of("capacity",new io.github.chronicle.core.lore.NumberRange(Integer.MIN_VALUE,Integer.MAX_VALUE)),Set.of(h.id()));
+        var value=new CouncilContent(Map.of(h.id(),h),List.of(secret),List.of(),1,0,0);
+        byte[] encoded=CouncilContentJson.encode(value); assertEquals(value,CouncilContentJson.decode(encoded));
+        var root=com.google.gson.JsonParser.parseString(new String(encoded,StandardCharsets.UTF_8)).getAsJsonObject();
+        var range=root.getAsJsonArray("secrets").get(0).getAsJsonObject().getAsJsonObject("numbers").getAsJsonObject("capacity");
+        for(String bad:List.of("{\"min\":2,\"max\":1}","{\"min\":1.5,\"max\":3}","{\"min\":\"1\",\"max\":3}","{\"min\":-2147483649,\"max\":3}")) {
+            root.getAsJsonArray("secrets").get(0).getAsJsonObject().getAsJsonObject("numbers").add("capacity",com.google.gson.JsonParser.parseString(bad));
+            assertThrows(IOException.class,()->CouncilContentJson.decode(root.toString().getBytes(StandardCharsets.UTF_8)));
+        }
+        root.getAsJsonArray("secrets").get(0).getAsJsonObject().getAsJsonObject("numbers").add("capacity",range);
+        root.addProperty("schema",1);root.getAsJsonArray("secrets").get(0).getAsJsonObject().remove("numbers");
+        var legacy=CouncilContentJson.decode(root.toString().getBytes(StandardCharsets.UTF_8));
+        assertEquals("\u03b1",legacy.secrets().getFirst().facts().get("fact.legacy"));assertTrue(legacy.secrets().getFirst().numbers().isEmpty());
+        assertEquals(legacy,CouncilContentJson.decode(CouncilContentJson.encode(legacy)));
+        assertThrows(IllegalArgumentException.class,()->new CouncilContent.SecretTemplate("s",1,"x",Map.of(),Map.of("x".repeat(65),new io.github.chronicle.core.lore.NumberRange(0,1)),Set.of(h.id())));
+        var manyFacts=new HashMap<String,String>();for(int i=0;i<128;i++)manyFacts.put("fact.x"+i,"");
+        assertDoesNotThrow(()->new CouncilContent.SecretTemplate("legacy",1,"x",manyFacts,Set.of(h.id())));
+        assertThrows(IllegalArgumentException.class,()->new CouncilContent.SecretTemplate("s",1,"x",manyFacts,Map.of("n",new io.github.chronicle.core.lore.NumberRange(0,1)),Set.of(h.id())));
     }
     @Test void freshSuppliedAndEmptyIgnoreNormalDefaults() throws Exception {
         write(CouncilContentProfiles.file(config),CouncilContentJson.encode(content()));

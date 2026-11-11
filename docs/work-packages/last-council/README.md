@@ -18,7 +18,7 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 
 | Package | Deliverable | Depends on | Status |
 |---|---|---|---|
-| [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | In progress: source editor and requested paper copies delivered; owner confirmed physical copies/goals/rules; dev.10 fixes House IDs and secret authoring; see DEV10_EDITOR_USABILITY.md |
+| [LC-01](LC-01-foundation.md) | Scenario/card links and reusable randomized lore assignments | Existing Core | In progress: source editor and requested copies delivered; dev.11 adds secret-local number variables, explicit House variables and unique assignment; see DEV11_VARIABLES_RESULTS.md |
 | [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | In implementation: approved scenes, Core ballots, motions/proceedings; complication gate implemented; human group review deferred |
 | [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | In progress: rules/journal/regency scene; actual LC08 gate implemented; human group review deferred |
 | [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Initial native house-agreement ceremony implemented; human review and realm ratification/amendments remain |

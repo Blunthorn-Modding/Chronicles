@@ -1,4 +1,4 @@
-# Chronicle commands (Core/Last Council0.2.0-dev.9)
+# Chronicle commands (Core/Last Council0.2.0-dev.11)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored across reconnects. An unsaved Source catalogue draft can be resumed within the same connection after a refused or timed-out save.
 
@@ -182,3 +182,5 @@ Council voting uses an existing Region subtype; motion proposals/sponsorship use
 Treaty ceremonies use a separate lectern Block-site subtype under Locations. House representatives create/sign drafts there; only the appointed Chancellor sanctifies while every party has that same lectern open. Signatures survive leaving/reconnecting, but changed terms require fresh consent. Private existence, terms, breaches and history are projected only to the parties and Chancellor. Active amendments, realm ratification and automatic political effects remain future work.
 
 Personal-copy recovery is a Core command: `/chronicle players copies recover <player>` (operator level 2). It reloads the world-private copy journal and compares the connected player's exact inventory with saved evidence. A mixed inventory remains held; the command never invents consent, rewrites inventory or grants another copy.
+
+Source secrets now offer Insert variable for Own House / Other House and optional secret-local number ranges. Each secret is assigned once per experience; other Houses learn the same resolved text. Source sample previews have been removed.

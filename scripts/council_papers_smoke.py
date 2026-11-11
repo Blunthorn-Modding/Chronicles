@@ -43,7 +43,11 @@ def run():
     # House before the real third client is deliberately enrolled late.
     import uuid
     content=json.loads((w.REPO/'campaigns/last-council/src/main/resources/data/last_council/chronicle/houses.json').read_text(encoding='utf-8'))
-    last=sorted(content['houses'].values(),key=lambda h:(h['title'],h['id']))[-1]['id']
+    last='last_council:ash'
+    content['secretsPerHouse']=2
+    source=root/'config/chronicle/last-council/houses.json'
+    source.parent.mkdir(parents=True,exist_ok=True)
+    source.write_text(json.dumps(content)+'\n',encoding='utf-8')
     placeholder=str(uuid.uuid5(uuid.NAMESPACE_URL,'chronicle:ballots-paper-placeholder'))
     (root/'world/chronicle/last-council/roster.json').write_text(json.dumps({'schema':1,'revision':1,'assignments':{placeholder:{'owner':placeholder,'houseId':last,'councilMember':True,'candidate':False}}})+'\n',encoding='utf-8')
     for prefix in ('quiet_below-', 'last_council-'):

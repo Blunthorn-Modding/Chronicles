@@ -14,7 +14,7 @@ import net.minecraft.text.Text;
 /** Operator-only reusable source catalogue. */
 final class CouncilCatalogueScreen extends CouncilScreen {
     private View view; private UUID pending; private Action pendingAction; private String query;
-    private TextFieldWidget search; private boolean preview,resuming; private ByteArrayOutputStream document; private int chunkIndex,chunkCount;
+    private TextFieldWidget search; private boolean resuming; private ByteArrayOutputStream document; private int chunkIndex,chunkCount;
     CouncilCatalogueScreen(View view,Screen parent){super("Source catalogue",parent);this.view=view;query=view.query();}
     View current(){return view;}
     void saved(View next){view=next;query=next.query();pending=null;pendingAction=null;if(client.currentScreen==this)clearAndInit();}
@@ -34,14 +34,12 @@ final class CouncilCatalogueScreen extends CouncilScreen {
             try { var object=JsonParser.parseString(document.toString(StandardCharsets.UTF_8)).getAsJsonObject();
                 boolean creating=pendingAction==Action.CREATE;pending=null;document=null;
                 if(resuming&&CouncilCatalogueClient.hasRetained()){resuming=false;var editor=CouncilCatalogueClient.retained().resume(this,false);CouncilCatalogueClient.clearRetained();client.setScreen(editor);}
-                else if(preview){preview=false;client.setScreen(new CouncilContentEditor.Preview(this,object.has("text")?object.get("text").getAsString():""));}
                 else client.setScreen(new CouncilContentEditor(this,view,object,chunk.digest(),creating));
             } catch(RuntimeException ex){pending=null;document=null;resuming=false;message("Invalid editor document received.");}
         }
     }
     void send(Action action,Category category,String q,int page,int selected,int part){
         resuming=false;
-        if(action!=Action.LOAD)preview=false;
         if(!ClientPlayNetworking.canSend(Request.ID)){message("Connection unavailable.");return;}
         pending=UUID.randomUUID();pendingAction=action;document=null;
         ClientPlayNetworking.send(new Request(pending,action,category,q,page,selected,part,view.digest()));
@@ -77,10 +75,9 @@ final class CouncilCatalogueScreen extends CouncilScreen {
         int dx=compact?x:x+listW+6,dy=compact?contentY+listH+4:contentY,dw=compact?w:w-listW-6,dh=compact?contentH-listH-4:contentH;
         int actionsY=dy+Math.max(0,dh-22);List<SectionCard> cards=new ArrayList<>();for(Card c:view.cards())cards.add(new SectionCard(c.title(),c.body()));
         sections("catalogue-detail",cards,dx,dy,dw,Math.max(10,dh-24));
-        int third=(dw-4)/3;
+        int third=(dw-2)/2;
         button(view.category()==Category.KNOWLEDGE?"Edit rules":"Edit",dx,actionsY,third,()->send(Action.LOAD,view.category(),query,view.page(),view.selected(),view.part())).active=view.editable();
         button("Delete",dx+third+2,actionsY,third,()->client.setScreen(new CouncilContentEditor.DeleteConfirm(this,view))).active=view.editable()&&view.category()!=Category.KNOWLEDGE&&!view.rows().isEmpty();
-        button("Preview",dx+2*(third+2),actionsY,third,()->{preview=true;send(Action.LOAD,view.category(),query,view.page(),view.selected(),view.part());}).active=(view.category()==Category.SECRETS||view.category()==Category.GOALS)&&!view.rows().isEmpty();
         int bw=compact?(w-2)/2:(w-6)/4;
         if(!compact){
             button("Page <",x,bottom,bw,()->send(Action.VIEW,view.category(),query,view.page()-1,(view.page()-1)*6,0)).active=view.page()>0;

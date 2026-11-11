@@ -2,6 +2,7 @@ package io.github.chronicle.lastcouncil.content;
 
 import com.google.gson.*;
 import io.github.chronicle.core.books.BookConfig;
+import io.github.chronicle.core.lore.NumberRange;
 import io.github.chronicle.lastcouncil.house.HouseDefinition;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -17,7 +18,7 @@ public final class CouncilContentJson {
         try {
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
             JsonObject root = BookConfig.strictObject(text); exact(root,"schema","note","houses","secrets","goals","secretsPerHouse","goalsPerHouse","knowledgeChancePercent");
-            if (integer(root.get("schema")) != 1) throw new IllegalArgumentException("unsupported content schema");
+            int schema = integer(root.get("schema")); if (schema != 1 && schema != 2) throw new IllegalArgumentException("unsupported content schema");
             String note = string(root.get("note")); CouncilContent.text(note);
             JsonObject houseObject=object(root.get("houses")); if(houseObject.size()>32)throw new IllegalArgumentException("too many houses");
             Map<String,HouseDefinition> houses=new LinkedHashMap<>();
@@ -29,10 +30,12 @@ public final class CouncilContentJson {
             JsonArray secretArray=array(root.get("secrets")); if(secretArray.size()>256)throw new IllegalArgumentException("too many secrets");
             List<CouncilContent.SecretTemplate> secrets=new ArrayList<>();
             for(JsonElement e:secretArray) {
-                JsonObject s=object(e); exact(s,"id","weight","text","facts","applicableHouseIds");
+                JsonObject s=object(e); if(schema == 2 && s.has("numbers")) exact(s,"id","weight","text","facts","numbers","applicableHouseIds"); else exact(s,"id","weight","text","facts","applicableHouseIds");
                 JsonObject f=object(s.get("facts")); if(f.size()>128)throw new IllegalArgumentException("too many facts");
                 Map<String,String> facts=new LinkedHashMap<>(); f.entrySet().forEach(x->facts.put(x.getKey(),string(x.getValue())));
-                secrets.add(new CouncilContent.SecretTemplate(string(s.get("id")),integer(s.get("weight")),string(s.get("text")),facts,scope(s.get("applicableHouseIds"))));
+                Map<String,NumberRange> numbers=new LinkedHashMap<>();
+                if(s.has("numbers")) { JsonObject n=object(s.get("numbers")); if(n.size()>128)throw new IllegalArgumentException("too many numbers"); for(var x:n.entrySet()) { JsonObject range=object(x.getValue()); exact(range,"min","max"); numbers.put(x.getKey(),new NumberRange(signedInteger(range.get("min")),signedInteger(range.get("max")))); } }
+                secrets.add(new CouncilContent.SecretTemplate(string(s.get("id")),integer(s.get("weight")),string(s.get("text")),facts,numbers,scope(s.get("applicableHouseIds"))));
             }
             JsonArray goalArray=array(root.get("goals")); if(goalArray.size()>256)throw new IllegalArgumentException("too many goals");
             List<CouncilContent.GoalTemplate> goals=new ArrayList<>();
@@ -44,12 +47,12 @@ public final class CouncilContentJson {
     public static byte[] encode(CouncilContent content) throws IOException {
         Objects.requireNonNull(content);
         // The nonsemantic note stays minimal so a valid near-limit source can still export.
-        JsonObject root=new JsonObject(); root.addProperty("schema",1); root.addProperty("note","");
+        JsonObject root=new JsonObject(); root.addProperty("schema",2); root.addProperty("note","");
         JsonObject houses=new JsonObject();
         new TreeMap<>(content.houses()).forEach((id,h)->{ JsonObject o=new JsonObject(); o.addProperty("id",h.id()); o.addProperty("title",h.title()); o.addProperty("reputation",h.reputation()); o.addProperty("description",h.description()); o.addProperty("interests",h.interests()); o.addProperty("defaultCandidate",h.defaultCandidate()); houses.add(id,o); });
         root.add("houses",houses);
         JsonArray secrets=new JsonArray();
-        for(var s:content.secrets()){ JsonObject o=new JsonObject(); o.addProperty("id",s.id()); o.addProperty("weight",s.weight()); o.addProperty("text",s.text()); JsonObject facts=new JsonObject(); new TreeMap<>(s.facts()).forEach(facts::addProperty); o.add("facts",facts); o.add("applicableHouseIds",sorted(s.applicableHouseIds())); secrets.add(o); }
+        for(var s:content.secrets()){ JsonObject o=new JsonObject(); o.addProperty("id",s.id()); o.addProperty("weight",s.weight()); o.addProperty("text",s.text()); JsonObject facts=new JsonObject(); new TreeMap<>(s.facts()).forEach(facts::addProperty); o.add("facts",facts); if(!s.numbers().isEmpty()) { JsonObject numbers=new JsonObject(); new TreeMap<>(s.numbers()).forEach((name,range)->{ JsonObject n=new JsonObject(); n.addProperty("min",range.min()); n.addProperty("max",range.max()); numbers.add(name,n); }); o.add("numbers",numbers); } o.add("applicableHouseIds",sorted(s.applicableHouseIds())); secrets.add(o); }
         root.add("secrets",secrets);
         JsonArray goals=new JsonArray();
         for(var g:content.goals()){ JsonObject o=new JsonObject(); o.addProperty("id",g.id()); o.addProperty("weight",g.weight()); o.addProperty("text",g.text()); o.add("applicableHouseIds",sorted(g.applicableHouseIds())); goals.add(o); }
@@ -65,5 +68,6 @@ public final class CouncilContentJson {
     private static String string(JsonElement e) { if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isString())throw new IllegalArgumentException("expected string"); return e.getAsString(); }
     private static boolean bool(JsonElement e) { if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isBoolean())throw new IllegalArgumentException("expected boolean"); return e.getAsBoolean(); }
     private static int integer(JsonElement e) { if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isNumber()||!e.getAsString().matches("0|[1-9][0-9]*"))throw new IllegalArgumentException("expected integer"); return Integer.parseInt(e.getAsString()); }
+    private static int signedInteger(JsonElement e) { if(e==null||!e.isJsonPrimitive()||!e.getAsJsonPrimitive().isNumber()||!e.getAsString().matches("0|-?[1-9][0-9]*"))throw new IllegalArgumentException("expected integer"); return Integer.parseInt(e.getAsString()); }
     private static void exact(JsonObject o,String... fields) { if(!o.keySet().equals(Set.of(fields)))throw new IllegalArgumentException("incorrect fields"); }
 }

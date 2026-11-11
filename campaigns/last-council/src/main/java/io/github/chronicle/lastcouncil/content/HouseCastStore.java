@@ -28,7 +28,8 @@ public final class HouseCastStore {
         file.save(bytes);
     }
     static byte[] encode(HouseCast cast) {
-        JsonObject root = new JsonObject(); root.addProperty("schema",1); root.addProperty("castId", cast.castId().toString()); root.addProperty("rosterRevision",cast.rosterRevision()); root.addProperty("seed",cast.seed());
+        JsonObject root = new JsonObject(); root.addProperty("schema",cast.usedSecretIds()==null?1:2); root.addProperty("castId", cast.castId().toString()); root.addProperty("rosterRevision",cast.rosterRevision()); root.addProperty("seed",cast.seed());
+        if(cast.usedSecretIds()!=null)root.add("usedSecretIds",strings(cast.usedSecretIds().stream().sorted().toList()));
         JsonObject papers = new JsonObject();
         cast.papers().entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(e -> {
             var p = e.getValue(); JsonObject o = new JsonObject(); o.addProperty("houseId",p.houseId()); o.add("secrets", strings(p.secrets())); o.add("goals", strings(p.goals()));
@@ -40,8 +41,11 @@ public final class HouseCastStore {
     static HouseCast decode(byte[] bytes) throws IOException {
         try {
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
-            JsonObject root = BookConfig.strictObject(text); exact(root,"schema","castId","rosterRevision","seed","papers");
-            if (number(root.get("schema")) != 1) throw new IllegalArgumentException("unsupported schema");
+            JsonObject root = BookConfig.strictObject(text);long schema=number(root.get("schema"));
+            if(schema==1)exact(root,"schema","castId","rosterRevision","seed","papers");
+            else if(schema==2)exact(root,"schema","castId","rosterRevision","seed","papers","usedSecretIds");
+            else throw new IllegalArgumentException("unsupported schema");
+            Set<String> used=null;if(schema==2){var ids=strings(root.get("usedSecretIds"),256);used=new HashSet<>(ids);if(used.size()!=ids.size())throw new IllegalArgumentException("duplicate used secret ID");}
             JsonObject all = object(root.get("papers")); if (all.size() > 32) throw new IllegalArgumentException("too many papers");
             Map<UUID,HouseCast.HousePapers> papers = new LinkedHashMap<>();
             for (var e : all.entrySet()) {
@@ -52,7 +56,7 @@ public final class HouseCastStore {
                 for (JsonElement v : known) { JsonObject k = object(v); exact(k,"targetHouseId","body"); knowledge.add(new HouseCast.KnownSecret(string(k.get("targetHouseId")),string(k.get("body")))); }
                 if (papers.putIfAbsent(owner,new HouseCast.HousePapers(string(p.get("houseId")),secrets,goals,knowledge)) != null) throw new IllegalArgumentException("duplicate owner");
             }
-            return new HouseCast(uuid(string(root.get("castId"))),number(root.get("rosterRevision")),number(root.get("seed")),papers);
+            return new HouseCast(uuid(string(root.get("castId"))),number(root.get("rosterRevision")),number(root.get("seed")),papers,used);
         } catch (CharacterCodingException | RuntimeException e) { throw new IOException("invalid committed cast; file preserved",e); }
     }
     private static List<String> strings(JsonElement e,int max) { JsonArray a=array(e); if(a.size()>max)throw new IllegalArgumentException("too many strings"); List<String> result=new ArrayList<>(); for(JsonElement item:a)result.add(string(item)); return result; }

@@ -1,27 +1,24 @@
-# LC01 reusable House content — UI proposal
+# LC01 source content editor: current workflow
 
-**Status: owner-approved workflow and cast lock; native implementation verified on dev.9, with the owner's identifier/secret usability corrections on dev.10.** [Interactive standalone example](../../design/last-council-content.html) extends Advanced → Game setup → Source catalogue. The toolbar is a reviewer-only simulation, not a game permission selector. All sample state is local and Reset discards it. No live players, committed facts, assignments, seeds or draws are accessed.
+Owner approved the variable model on 11 November. Dev.11 replaces the old fixed-value authoring and removes sample previews. The existing compact Chronicle frame, list/detail catalogue, focused forms and server-side source-editing lock remain.
 
-The compact Chronicle frame has category buttons for Houses, Secrets, House goals and Knowledge rules. For each list category, creation appears above search and the left-hand list. Selection displays separately styled read-only cards to the right; small popups handle editing and House selection. Narrow layouts stack the list above details. Search filters the displayed definitions, not the underlying data. Empty and no-match states are explicit. Close returns to the prior screen. The default screen contains descriptions, not operational/debug output.
-
-| Control | Action and validation |
+| Control | Behaviour |
 |---|---|
-| Category | Select the corresponding source catalogue. Knowledge rules presents one settings record. |
-| Search | Filter the current list by identifier or visible text. |
-| Create House / secret / House goal | Open a new popup; Save adds an independent definition only after validation. A duplicate ID is refused. |
-| Edit | Open a copy of the selected definition; IDs are fixed in this proposal. Save checks that the original still exists and refuses stale/missing keys instead of silently creating one. A real server must also check the expected revision. |
-| House fields | House name, reputation, description, interests and default-candidate checkbox. The server automatically assigns the internal namespaced House ID; users do not enter or edit it. |
-| Secret fields | Name, positive draw weight, secret text and applicable Houses. Ordinary secrets need no template values. The explicitly optional template-values page allows reusable values; Add value generates a free reference such as `fact.value1` and asks only for the value. Existing references remain stable when editing a value. Remove deletes the selected optional value. Raw configuration still validates `fact.*` keys. |
-| House goal fields | Identifier, positive weight, literal template text and applicable Houses. |
-| Choose applicable Houses | Open a multi-select popup of existing Houses. Done applies the selection; Cancel leaves it unchanged. At least one existing House is required when saving a template. |
-| Edit rules | Set secrets per House (0–4), goals per House (0–4) and independent per-secret per-other-House knowledge chance (0–100%). Zero observers is valid; no exposure tally is shown. |
-| Preview sample | Render a selected saved template with explicit sample JSON string bindings supplied in the popup. Unbound variables remain visible and are named; sample defaults are not silently substituted. No live data is read. |
-| Delete | Confirm removal. A referenced or otherwise in-use House must be refused with a reason; the sample demonstrates refusal for House references in secrets/goals. A native implementation must also consult all relevant authoritative uses. |
-| Scenario content header | Use the existing global Scenario content flow to export reusable content, subject to its authorization. No per-catalogue export control is added. Exports must not include players, a live cast, rendered private handouts, seed or draw. |
-| Save / Cancel | Save validates without clearing the form on failure; Cancel discards popup edits. Show a useful error for a changed authorization, validation failure or concurrent modification. |
+| Houses | Create/edit public House information; the server supplies a stable internal House ID. |
+| Secret name and weight | Name the secret and set its relative draw weight. A source secret can be assigned once per experience. |
+| Secret text | Write ordinary text; Insert variable offers Own House, Other House and this secret's named number ranges. |
+| Applicable Houses | Choose Houses eligible to receive the secret. One is chosen during allocation; this does not duplicate the secret for every eligible House. |
+| Number variables | Optional ranges attached to this secret. Add asks Name, Minimum and Maximum, using inclusive signed whole numbers. Existing variable names stay stable; editing changes the range. |
+| Own House | `${house.own}` means the House originally receiving the secret, including when other Houses learn it. |
+| Other House | `${house.other}` chooses one other assigned House once for this secret. Repeated references and knowledge copies retain that House. At least two assigned Houses are needed. |
+| Number insertion | `${number.capacity}` uses the secret-local capacity range. It is drawn once, uniformly, then reused throughout the secret and every copy. |
+| House goals | Name/weight, text with Own House / Other House insertion, and applicable Houses. Secret-local numbers are not a separate goal-variable catalogue. |
+| Knowledge rules | Counts of secrets/goals per House and independent knowledge chance. Zero, one or several observers remain possible, with no exposure display to the owner. |
+| Catalogue actions | Create, Edit and Delete. Source sample Preview and raw JSON sample bindings are removed. Event and Region previews are unchanged. |
+| Scenario export | Existing global export/import carries source definitions and ranges; committed draws, used-secret IDs, resolved private papers and seeds stay world-private. |
 
-The catalogue is OP-only even for inspection; the non-OP simulation shows an access message without the source definitions. All writes additionally require Editing, inactive play and no unresolved operation. The server must recheck authority, lifecycle, references and expected revision at commit; disabled buttons are only an affordance. Read-only inspection and authorized export remain available while writes are locked. **Approved:** lock authoritative source editing after cast commitment, including during later enrollment, so the existing rendered facts and the source used for late enrollment remain consistent. The owner approved this policy on continuation; inspection and authorized export remain available. This UI proposes no silent cast replacement, reset or mutation.
+A new draw respects House scopes and configured counts while assigning each secret ID at most once. Insufficient unique eligible secrets produce an actionable setup error. Late enrollment excludes previously used IDs and does not alter existing papers. Every number and Other House resolves before publication; learning or physically copying a secret never rerolls it.
 
-Native validation must apply the existing domain limits and semantics, including namespaced House IDs, bounded text and control characters, positive bounded weights, valid fact keys and House references, category capacity, and drawable pool feasibility. The prototype demonstrates common errors; it is not a complete domain validator. It permits editing fact rows explicitly and refuses edits to a missing record. Literal `${...}` tokens are not executable code. Supported bindings include `${house.title}`, `${fact.*}` and `${other.title}`; the last requires another assigned House. Renderer and server validation must enforce their context and escaping; the sample preview performs simple literal substitution only.
+Only operators inspect the catalogue. Changes require non-active Editing, no conflicting operation, current connection and unchanged authoritative source. Issued or pending House papers lock editing. Multipart transfers, stale-write refusals and retained uncertain/refused drafts remain in place.
 
-The owner approved native implementation. A new experience uses a separate prepared world; this editor does not reset a live cast. Source diagnostics identify incomplete content while allowing incremental authoring; actual cast generation retains its final validation. Export/import uses the existing Scenario content flow. See LC01_EDITOR_COPY_RESULTS.md for implementation boundaries and verification evidence.
+Old source schema 1 and fixed facts remain readable and preserved, with old house.title/other.title aliases supported. There is no fixed-string-variable authoring UI. Existing committed papers remain authoritative and are never regenerated on upgrade. See DEV11_VARIABLES_PLAN.md and DEV11_VARIABLES_RESULTS.md for state compatibility, legacy dependency bounds and verification.

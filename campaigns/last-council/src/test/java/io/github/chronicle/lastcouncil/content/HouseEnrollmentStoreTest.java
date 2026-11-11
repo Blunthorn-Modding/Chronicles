@@ -1,5 +1,6 @@
 package io.github.chronicle.lastcouncil.content;
 
+import com.google.gson.JsonParser;
 import io.github.chronicle.lastcouncil.house.*;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,8 +26,32 @@ class HouseEnrollmentStoreTest {
         store.append(next(),after,99);
         var restored=new HouseEnrollmentStore(memory,before,cast).snapshot();
         assertEquals(next(),restored.roster());assertEquals(after,restored.cast());
+        assertNotNull(restored.cast().usedSecretIds());assertTrue(restored.cast().usedSecretIds().containsAll(cast.usedSecretIds()));
         assertEquals(cast.papers().get(HouseCastTest.A),restored.cast().papers().get(HouseCastTest.A));
         assertThrows(IllegalArgumentException.class,()->store.append(next(),after,100));
+    }
+    @Test void legacyEntriesRetainUnknownIdsAndFingerprintWhileMetadataSurvivesAppend()throws Exception{
+        var before=base();var original=HouseCastTest.content(100);var secrets=new ArrayList<CouncilContent.SecretTemplate>();for(int i=0;i<original.secrets().size();i++){var v=original.secrets().get(i);secrets.add(new CouncilContent.SecretTemplate(v.id(),v.weight(),v.text(),v.facts(),i==2?Set.of("c:c"):Set.of("c:a","c:b")));}var content=new CouncilContent(original.houses(),secrets,original.goals(),1,1,100);var generated=HouseCastGenerator.generate(content,before,44);
+        var legacy=new HouseCast(generated.castId(),generated.rosterRevision(),generated.seed(),generated.papers());
+        var after=HouseCastGenerator.append(content,before,legacy,next(),HouseCastTest.C,99);
+        Memory memory=new Memory();var store=new HouseEnrollmentStore(memory,before,legacy);store.append(next(),after,99);
+        var root=JsonParser.parseString(new String(memory.bytes,StandardCharsets.UTF_8)).getAsJsonObject();
+        root.addProperty("schema",1);root.getAsJsonArray("entries").get(0).getAsJsonObject().remove("usedSecretIds");
+        memory.bytes=root.toString().getBytes(StandardCharsets.UTF_8);
+        var restored=new HouseEnrollmentStore(memory,before,legacy).snapshot();
+        assertEquals(after.papers(),restored.cast().papers());assertNull(restored.cast().usedSecretIds());
+    }
+    @Test void rejectsMetadataRegressionAndPreservesCorruptFile()throws Exception{
+        var before=base();var content=HouseCastTest.content(100);var cast=HouseCastGenerator.generate(content,before,44);
+        var after=HouseCastGenerator.append(content,before,cast,next(),HouseCastTest.C,99);
+        Memory memory=new Memory();var store=new HouseEnrollmentStore(memory,before,cast);store.append(next(),after,99);
+        var root=JsonParser.parseString(new String(memory.bytes,StandardCharsets.UTF_8)).getAsJsonObject();
+        root.getAsJsonArray("entries").get(0).getAsJsonObject().add("usedSecretIds",new com.google.gson.JsonArray());
+        memory.bytes=root.toString().getBytes(StandardCharsets.UTF_8);byte[] corrupt=memory.bytes.clone();
+        assertThrows(IOException.class,()->new HouseEnrollmentStore(memory,before,cast));assertArrayEquals(corrupt,memory.bytes);
+        var bad=new HouseCast(after.castId(),after.rosterRevision(),after.seed(),after.papers(),Set.of());
+        Memory clean=new Memory();var fresh=new HouseEnrollmentStore(clean,before,cast);
+        assertThrows(IllegalArgumentException.class,()->fresh.append(next(),bad,99));assertNull(clean.bytes);
     }
     @Test void failedWritesNeverExposeHalfAnEnrollmentAndRestartUsesPublishedPapers()throws Exception{
         var before=base();var content=HouseCastTest.content(100);var cast=HouseCastGenerator.generate(content,before,44);

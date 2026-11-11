@@ -14,7 +14,7 @@ class HouseCastTest {
     static CouncilContent content(int chance) {
         var houses=Map.of("c:a",house("a"),"c:b",house("b"),"c:c",house("c"));
         var scope=houses.keySet();
-        return new CouncilContent(houses,List.of(new CouncilContent.SecretTemplate("one",1,"${house.title} holds ${fact.capacity}",Map.of("fact.capacity","three"),scope),new CouncilContent.SecretTemplate("two",1,"${house.title} holds four",Map.of(),scope)),List.of(new CouncilContent.GoalTemplate("goal",1,"Help ${other.title}",scope)),1,1,chance);
+        return new CouncilContent(houses,List.of(new CouncilContent.SecretTemplate("one",1,"${house.title} holds ${fact.capacity}",Map.of("fact.capacity","three"),scope),new CouncilContent.SecretTemplate("two",1,"${house.title} holds four",Map.of(),scope),new CouncilContent.SecretTemplate("three",1,"${house.title} holds five",Map.of(),scope)),List.of(new CouncilContent.GoalTemplate("goal",1,"Help ${other.title}",scope)),1,1,chance);
     }
     @Test void deterministicAndKnowledgeMatchesTarget() {
         HouseCast cast=HouseCastGenerator.generate(content(100),roster(),44);
@@ -75,7 +75,8 @@ class HouseCastTest {
     }
     @Test void houseGoalsCanUseTheirOwnAssignedFacts() {
         var base=content(0);
-        var c=new CouncilContent(base.houses(),List.of(base.secrets().getFirst()),List.of(new CouncilContent.GoalTemplate("goal",1,"Promise ${fact.capacity} places",base.houses().keySet())),1,1,0);
+        List<CouncilContent.SecretTemplate> secrets=new ArrayList<>();for(String house:base.houses().keySet())secrets.add(new CouncilContent.SecretTemplate(house,1,"${house.title} holds ${fact.capacity}",Map.of("fact.capacity","three"),Set.of(house)));
+        var c=new CouncilContent(base.houses(),secrets,List.of(new CouncilContent.GoalTemplate("goal",1,"Promise ${fact.capacity} places",base.houses().keySet())),1,1,0);
         var cast=HouseCastGenerator.generate(c,roster(),11);
         assertTrue(cast.papers().values().stream().allMatch(p->p.goals().equals(List.of("Promise three places"))));
     }
