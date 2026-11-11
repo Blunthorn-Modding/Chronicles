@@ -1,10 +1,10 @@
 # Chronicle
 
-**Current 0.1.0-alpha.1:** the two remaining native default-Event checks pass, including ACTIVE promotion across restart and editing/saving an incomplete default through the real editor. Renaming a default preserves its ID. Original Chronicle code/assets are MIT, with separate third-party notices. See the [release package and upload guide](docs/releases/0.1.0-alpha.1/PUBLISHING.md), [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [remaining work](docs/OUTSTANDING_WORK.md).
+**Current publication package 0.1.0-beta:** Chronicle Core and The Quiet Below have separate project summaries, page descriptions and changelogs in the [upload guide](docs/releases/0.1.0-beta/PUBLISHING.md). The beta JARs use the verified Chronicle baseline; only their embedded version fields changed. Original Chronicle code/assets are MIT, with separate third-party notices. See [verification](docs/releases/0.1.0-beta/VERIFICATION.md), the [starting-content guide](docs/FINAL_DEFAULTS_GUIDE.md) and [remaining work](docs/OUTSTANDING_WORK.md).
 
 **Editor workflow:** [menu and command normalization](docs/EDITOR_COMMAND_NORMALIZATION.md) and [command reference](docs/COMMAND_REFERENCE.md). **O** or `/chronicle` remembers your page within the current connection; every item/book Add action uses the same popup.
 
-The [alpha client pack](../client/Chronicle-0.1.0-alpha.1-1.21.10.mrpack) has no retired server addresses. All review servers, old generated worlds and backups were removed at the owner's request; no review is running. The owner will create the two Modrinth projects and upload the prepared files in `../releases/0.1.0-alpha.1`. Handcrafted-map/group testing remains. See [storage policy](docs/WORKSPACE_STORAGE.md). Earlier dated checkpoints below describe historical builds.
+The [historical alpha client pack](../client/Chronicle-0.1.0-alpha.1-1.21.10.mrpack) has no retired server addresses and was not refreshed for this publication pass. All review servers, old generated worlds and backups were removed at the owner's request; no review is running. The owner will create the two mod pages and upload the prepared files in `../releases/0.1.0-beta`. Handcrafted-map/group testing remains. See [storage policy](docs/WORKSPACE_STORAGE.md). Earlier dated checkpoints below describe historical builds.
 
 ## Historical development checkpoints
 

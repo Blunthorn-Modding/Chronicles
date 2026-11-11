@@ -31,6 +31,8 @@ archive another full installation for every build unless requested/needed.
 Validate absolute deletion paths remain under their intended workspace
 directory, and do not traverse junctions or symlinks.
 
-The latest alpha upload package belongs in `../releases/0.1.0-alpha.1`; older
+The current beta upload package belongs in `../releases/0.1.0-beta`; its former
+alpha-named folder was renamed for publication. Historical source release notes
+remain under `docs/releases/0.1.0-alpha.1`. Older
 client review packs are superseded. Map-specific reports are preserved because
 they belong to the separate map-building work.
