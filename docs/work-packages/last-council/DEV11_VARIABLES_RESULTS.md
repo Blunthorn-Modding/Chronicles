@@ -30,3 +30,7 @@ Conditional legacy cross-secret/goal references can require a compatible combina
 - Removed 6 stopped disposable fixtures (1.04 GiB); reports and screenshots retained. Receipt `../reports/dev11-cleanup.json`.
 
 Final SHA256: Host `e1d768b2131011b850cfcc6905c237c6d8efb935b3e1a22bda1497d2878a42bc`; Player `a0e49af5643d2a9763cfb1055d8287e7d55e44ad4b9486d144d191c0920b63c9`.
+
+## Owner review: 11 November
+
+The owner accepted the variable editor as cleaner and understandable. One polish item remains: remove the bottom-left `Field page 1/4` hint, which appears not to update. Bundle its removal with the next development milestone; retain useful save/error feedback and create no standalone review build for this change. This acceptance does not mark the deferred treaty/complication multiplayer tests passed.
