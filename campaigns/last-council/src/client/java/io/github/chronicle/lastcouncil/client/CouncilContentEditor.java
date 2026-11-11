@@ -85,7 +85,7 @@ final class CouncilContentEditor extends CouncilScreen {
         button(">",x+bw+4,bottom,bw,()->{page++;clearAndInit();}).active=page+1<pages;
         button("Cancel",x+2*(bw+4),bottom,bw,this::close);
         button("Save",x+3*(bw+4),bottom,bw,this::save).active=pending==null&&!staleDraft;
-        message(feedback.isBlank()?"Field page "+(page+1)+" / "+pages:feedback);
+        message(feedback);
     }
     private void field(String label,String key,int x,int y,int w,boolean editable,boolean multiline){
         body(label,x,y,w,12);
