@@ -3,5 +3,8 @@
   "message.last_council.ballot.open": "Council ballot open: %1$s. Press %2$s or use %3$s.",
   "message.last_council.ballot.command": "Council ballot open: %1$s. Use %2$s.",
   "message.last_council.ballot.check": "To check for a current ballot, use %1$s.",
-  "key.last_council.proceedings.open": "Open council proceedings"
+  "key.last_council.proceedings.open": "Open council proceedings",
+  "item.last_council.banquet_drink": "Banquet drink",
+  "item.last_council.banquet_poison": "Poison dose",
+  "item.last_council.banquet_antidote": "Antidote"
 }

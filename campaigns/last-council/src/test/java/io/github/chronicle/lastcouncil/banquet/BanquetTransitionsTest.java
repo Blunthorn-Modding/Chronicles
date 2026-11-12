@@ -87,6 +87,22 @@ class BanquetTransitionsTest {
         assertThrows(IllegalArgumentException.class, () -> new BanquetState(0, Map.of(token, supply), Map.of(), Map.of(request, issued)));
     }
 
+    @Test void refreshingCannotPostponePendingOnsetOrRestartActiveIncubation(){
+        UUID actor=id();BanquetState s=infect(BanquetState.empty(),actor,TIMING);s=advance(s,3,Set.of(actor));
+        for(int i=0;i<2;i++){
+            if(i==1)s=advance(s,2,Set.of(actor));
+            UUID poison=id(),drink=id();s=issue(s,s.revision(),id(),actor,poison,SupplyKind.POISON);s=issue(s,s.revision(),id(),actor,drink,SupplyKind.DRINK);
+            s=contaminate(s,s.revision(),id(),actor,poison,drink);s=drink(s,s.revision(),id(),actor,drink,new Timing(20,30),RepeatPolicy.REFRESH);
+            assertEquals(new Illness(i==0?2:0,30),s.illnesses().get(actor));
+        }
+    }
+    @Test void anotherDoseIsConsumedWithoutRevealingPriorContamination(){
+        UUID actor=id(),other=id(),drink=id(),first=id(),second=id();BanquetState s=BanquetState.empty();
+        for(var entry:Map.of(drink,SupplyKind.DRINK,first,SupplyKind.POISON,second,SupplyKind.POISON).entrySet())s=issue(s,s.revision(),id(),actor,entry.getKey(),entry.getValue());
+        s=contaminate(s,s.revision(),id(),actor,first,drink);s=contaminate(s,s.revision(),id(),other,second,drink);
+        assertEquals(actor,s.supplies().get(drink).poisoner());assertEquals(other,s.supplies().get(second).usedBy());assertNull(s.supplies().get(drink).usedBy());
+    }
+
     @Test void immutableAndBoundedState() {
         UUID token = id(), actor = id();
         Map<UUID, Supply> source = new HashMap<>();

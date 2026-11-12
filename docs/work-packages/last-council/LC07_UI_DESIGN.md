@@ -1,4 +1,4 @@
-﻿# LC07 banquet UI design — proposal for owner review
+# LC07 banquet UI design — proposal for owner review
 
 The interactive [mockup](../../design/last-council-banquet.html) is a design proposal, not implemented or approved gameplay. It reuses the Chronicle Game setup frame, list/detail pattern and focused dialogs. The compact simulation tests contained, scrollable content and footer. Sample values and example events are fictional.
 
@@ -11,3 +11,5 @@ The interactive [mockup](../../design/last-council-banquet.html) is a design pro
 The user must review the new workflow, values, effect tuning, death/offline and cure/stacking policies, supply limits and private log before native UI implementation. The LC-07 brief remains authoritative and unchanged. The mockup is an interaction illustration, not evidence of native gameplay, inventory transactions, access enforcement or multiplayer behavior.
 
 Lead reviewed the proposed wireframe before authoring and the completed normal/compact screenshots afterward. Local Edge checks passed on 11 November: twelve checks covering disabled initial proposal, Chancellor-only sample log, non-active editing guard, timing validation/save feedback, required recipient, gift bounds, explicit confirmation, cancellation and compact frame containment, with no JavaScript exceptions. Screenshots and reproducible browser script are retained under ignored `output/playwright/banquet-*`. The main content scrolls inside the compact frame; the footer remains contained. This verifies only the HTML prototype. Owner workflow review is still pending.
+
+Owner approved the workflow and policies after this prototype: default disabled, 2/8 active minutes, Nausea I and Slowness I without damage, death/reconnect persistence, offline/pause/Building clocks held, full antidote cure and repeat-dose refresh. This supersedes the proposal's no-stacking text. The lead approved the designer's later 480x180 native dialog dimensions; the private log keeps the larger shared frame. See LC07_IMPLEMENTATION.md for delivered behavior and evidence.

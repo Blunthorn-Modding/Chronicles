@@ -1,6 +1,6 @@
 # LC-07 — Optional banquet intrigue
 
-Status: optional mechanic, LC07A private domain/storage foundation implemented; native items/effects and new UI await workflow/policy review. See [the implementation boundary and checks](LC07A_RESULTS.md). Depends on LC-01 and existing Core item/clock/effect helpers. Brief: §9, §12, §14.
+Status: optional mechanic implemented on dev.12 after owner workflow/policy approval; owner native presentation/tuning review pending. See [implementation and verification](LC07_IMPLEMENTATION.md). Depends on LC-01 and existing Core item/clock/effect helpers. Brief: §9, §12, §14.
 
 ## Outcome and ownership
 

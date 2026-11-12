@@ -30,10 +30,9 @@ public final class BanquetTransitions {
         checkFresh(state, expectedRevision);
         Supply poison = available(state, poisonToken, SupplyKind.POISON);
         Supply drink = available(state, drinkToken, SupplyKind.DRINK);
-        if (drink.poisoner() != null) throw new IllegalStateException("Drink already contaminated");
         Map<UUID, Supply> supplies = new HashMap<>(state.supplies());
         supplies.put(poisonToken, consumed(poison, actor, request));
-        supplies.put(drinkToken, new Supply(drink.kind(), drink.issuer(), actor, null, null));
+        supplies.put(drinkToken, new Supply(drink.kind(), drink.issuer(), drink.poisoner()==null?actor:drink.poisoner(), null, null));
         return commit(state, request, op, supplies, state.illnesses());
     }
 
@@ -47,7 +46,8 @@ public final class BanquetTransitions {
         if (drink.poisoner() != null && (!illnesses.containsKey(actor) || repeatPolicy == RepeatPolicy.REFRESH)) {
             if (!illnesses.containsKey(actor) && illnesses.size() >= MAX_ILLNESSES)
                 throw new IllegalStateException("Illness capacity reached");
-            illnesses.put(actor, new Illness(timing.onsetTicks(), timing.durationTicks()));
+            Illness existing=illnesses.get(actor);
+            illnesses.put(actor, new Illness(existing==null?timing.onsetTicks():Math.min(existing.onsetTicks(),timing.onsetTicks()), timing.durationTicks()));
         }
         Map<UUID, Supply> supplies = new HashMap<>(state.supplies());
         supplies.put(token, consumed(drink, actor, request));

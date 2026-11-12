@@ -64,7 +64,7 @@ public record BanquetState(long revision, Map<UUID, Supply> supplies,
             throw new IllegalArgumentException("Banquet capacity exceeded");
         if (revision < operations.size()) throw new IllegalArgumentException("Revision precedes receipts");
         Map<UUID, Operation> issued = new HashMap<>();
-        Map<UUID, Operation> contaminated = new HashMap<>();
+        Set<UUID> contaminated = new HashSet<>(), attributed = new HashSet<>();
         Set<UUID> illActors = new HashSet<>();
         for (var entry : operations.entrySet()) {
             UUID request = entry.getKey();
@@ -79,9 +79,10 @@ public record BanquetState(long revision, Map<UUID, Supply> supplies,
                 }
                 case CONTAMINATE -> {
                     Supply target = supplies.get(op.secondToken());
-                    if (input.kind() != SupplyKind.POISON || target == null || target.kind() != SupplyKind.DRINK
-                            || !op.actor().equals(target.poisoner()) || contaminated.put(op.secondToken(), op) != null)
+                    if (input.kind() != SupplyKind.POISON || target == null || target.kind() != SupplyKind.DRINK || target.poisoner() == null)
                         throw new IllegalArgumentException("Invalid contamination receipt");
+                    contaminated.add(op.secondToken());
+                    if(op.actor().equals(target.poisoner()))attributed.add(op.secondToken());
                     requireConsumed(input, request, op.actor());
                 }
                 case DRINK -> {
@@ -102,7 +103,8 @@ public record BanquetState(long revision, Map<UUID, Supply> supplies,
         }
         for (var entry : supplies.entrySet()) {
             Supply supply = entry.getValue();
-            if (!issued.containsKey(entry.getKey()) || (supply.poisoner() != null) != contaminated.containsKey(entry.getKey()))
+            if (!issued.containsKey(entry.getKey()) || (supply.poisoner() != null) != contaminated.contains(entry.getKey())
+                    || supply.poisoner()!=null&&!attributed.contains(entry.getKey()))
                 throw new IllegalArgumentException("Supply history incomplete");
             if (supply.useRequest() != null) {
                 Operation op = operations.get(supply.useRequest());

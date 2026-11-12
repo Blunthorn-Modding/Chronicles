@@ -18,7 +18,8 @@ abstract class CouncilScreen extends Screen {
     protected String feedback="";
     protected final Screen parent;
     CouncilScreen(String title,Screen parent){super(Text.literal(title));this.parent=parent;}
-    protected void frame(){readings.clear();lists.clear();cardStacks.clear();panelWidth=Math.min(480,width-20);panelHeight=Math.min(360,height-20);left=(width-panelWidth)/2;top=(height-panelHeight)/2;button("Close",left+panelWidth-66,top+8,54,this::close);}
+    protected void frame(){frame(480,360);}
+    protected void frame(int maxWidth,int maxHeight){readings.clear();lists.clear();cardStacks.clear();panelWidth=Math.min(maxWidth,width-20);panelHeight=Math.min(maxHeight,height-20);left=(width-panelWidth)/2;top=(height-panelHeight)/2;button("Close",left+panelWidth-66,top+8,54,this::close);}
     protected ButtonWidget button(String label,int x,int y,int w,Runnable action){return addDrawableChild(ButtonWidget.builder(Text.literal(label),b->action.run()).dimensions(x,y,w,20).build());}
     private final List<Reading> readings=new ArrayList<>();
     private final Map<String,Integer> listOffsets=new HashMap<>();

@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "io.github.chronicle.lastcouncil.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "BanquetEffectOwnershipMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

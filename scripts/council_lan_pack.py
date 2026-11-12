@@ -151,6 +151,16 @@ Secret text offers Insert variable for Own House, Other House and the
 secret's named number ranges. Each secret can be assigned only once per
 experience; learned copies retain the same resolved names and numbers.
 Source sample previews have been removed.
+Banquet controls are in Game setup > Banquet. Join participation before an
+operator gives supplies. Poisoning defaults to disabled; this review enables it.
+Poison in the main hand + drink in the offhand contaminates one drink.
+Drink normally, even at full hunger. Onset is 2 active minutes; illness lasts
+8 active minutes. Extra poisoned drinks refresh duration without restarting
+incubation. An antidote fully cures it. Death/reconnect keep illness; offline,
+paused and Building Mode clocks stop. Only the Chancellor can inspect the
+private log (also /chronicle banquet log). /chronicle banquet recover is an
+operator tool for exact held inventory recovery. Stock cannot be crafted;
+use Give supplies rather than vanilla /give for valid issued items.
 Private menu papers remain available through Character & houses > My house.
 Copy paper lets the player request an individual physical written book.
 No books are automatically given. Leave empty inventory slots for copies.
