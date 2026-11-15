@@ -32,7 +32,7 @@ public final class BanquetSmoke {
         role=System.getenv("CHRONICLE_BANQUET_ROLE"); phase=System.getenv("CHRONICLE_BANQUET_PHASE");
         if(root.getParent()==null || !root.getParent().getFileName().toString().equals("test-runs")
                 || !Files.isRegularFile(root.resolve(".council-banquet-fixture")) || output.startsWith(root)
-                || !Set.of("A","B").contains(role) || !Set.of("initial","restart").contains(phase))
+                || !Set.of("A","B").contains(role) || !Set.of("initial","restart","exclusion").contains(phase))
             throw new IllegalArgumentException("Unsafe banquet smoke fixture");
     }
     public static void register() { String path=System.getenv("CHRONICLE_BANQUET_SMOKE"); if(path!=null){instance=new BanquetSmoke(path);ClientTickEvents.END_CLIENT_TICK.register(instance::tick);} }
@@ -68,22 +68,22 @@ public final class BanquetSmoke {
             case 1->{c.player.networkHandler.sendChatCommand("chronicle setup");step=2;}
             case 2->{if(!(c.currentScreen instanceof CoreMenuScreen menu)||menu.pending())return;if(!menu.state().selected().equals("tool:last_council:banquet")){menu.selectForTest("tool:last_council:banquet");wait=10;return;}require(menu.triggerForTest("Open banquet"),"banquet setup action missing");step=3;}
             case 3->{if(!(c.currentScreen instanceof BanquetScreen screen))return;View view=viewOf(screen);require(view.editable()&&!view.canLog()&&view.log().isEmpty(),"unexpected setup permissions or private log");
-                if(phase.equals("restart")){require(view.config().equals(new BanquetConfig(true,2,8)),"settings did not survive restart");checks.add("settings survived restart");c.setScreen(null);c.player.networkHandler.sendChatCommand("chronicle banquet trial exercise");step=10;return;}
+                if(!phase.equals("initial")){require(view.config().equals(new BanquetConfig(true,2,2,2)),"settings did not survive restart");checks.add("settings survived restart");c.setScreen(null);c.player.networkHandler.sendChatCommand("chronicle banquet trial exercise");step=10;return;}
                 require(view.config().equals(BanquetConfig.defaults()),"unexpected initial defaults"); c.getWindow().setWindowedSize(1280,720);wait=20;step=4;}
             case 4->{ScreenshotRecorder.saveScreenshot(shared.toFile(),"banquet-normal.png",c.getFramebuffer(),1,ignored->{});press(c.currentScreen,"Settings...");press(c.currentScreen,"Banquet: Disabled");press(c.currentScreen,"Save");require(enabled(c.currentScreen,"Settings...")&&enabled(c.currentScreen,"Give supplies..."),"pending save disabled existing buttons");checks.add("pending save leaves existing menu buttons enabled without flicker");step=5;}
-            case 5->{if(!(c.currentScreen instanceof BanquetScreen screen)||!viewOf(screen).config().enabled())return;require(viewOf(screen).config().equals(new BanquetConfig(true,2,8)),"unexpected saved settings");c.player.networkHandler.sendChatCommand("chronicle banquet trial change_settings");wait=15;step=40;}
+            case 5->{if(!(c.currentScreen instanceof BanquetScreen screen)||!viewOf(screen).config().enabled())return;require(viewOf(screen).config().equals(new BanquetConfig(true,2,2,2)),"unexpected saved settings");c.player.networkHandler.sendChatCommand("chronicle banquet trial change_settings");wait=15;step=40;}
             case 40->{clock("change_settings");press(c.currentScreen,"Settings...");press(c.currentScreen,"Save");step=41;}
-            case 41->{if(!(c.currentScreen instanceof BanquetScreen screen)||!viewOf(screen).config().equals(new BanquetConfig(true,3,9)))return;press(screen,"Settings...");var fields=c.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).toList();require(fields.size()==2&&fields.get(0).getText().equals("3")&&fields.get(1).getText().equals("9"),"stale settings draft was reused with a fresh revision");fields.get(0).setText("2");fields.get(1).setText("8");wait=5;step=43;}
+            case 41->{if(!(c.currentScreen instanceof BanquetScreen screen)||!viewOf(screen).config().equals(new BanquetConfig(true,3,4,5)))return;press(screen,"Settings...");var fields=c.currentScreen.children().stream().filter(net.minecraft.client.gui.widget.TextFieldWidget.class::isInstance).map(net.minecraft.client.gui.widget.TextFieldWidget.class::cast).toList();require(fields.size()==3&&fields.get(0).getText().equals("3")&&fields.get(1).getText().equals("4")&&fields.get(2).getText().equals("5"),"stale settings draft was reused with a fresh revision");fields.get(0).setText("2");fields.get(1).setText("2");fields.get(2).setText("2");wait=5;step=43;}
             case 43->{press(c.currentScreen,"Save");step=42;}
-            case 42->{if(!(c.currentScreen instanceof BanquetScreen screen)||!viewOf(screen).config().equals(new BanquetConfig(true,2,8)))return;checks.add("rejected stale save reloads current server settings before another edit");c.getWindow().setWindowedSize(640,360);wait=20;step=6;}
+            case 42->{if(!(c.currentScreen instanceof BanquetScreen screen)||!viewOf(screen).config().equals(new BanquetConfig(true,2,2,2)))return;checks.add("rejected stale save reloads current server settings before another edit");c.getWindow().setWindowedSize(640,360);wait=20;step=6;}
             case 6->{c.currentScreen.resize(c,320,180);wait=10;step=7;}
             case 7->{ScreenshotRecorder.saveScreenshot(shared.toFile(),"banquet-compact.png",c.getFramebuffer(),1,ignored->{});checks.add("operator saved enabled settings through native controls; no Chancellor log exposed");c.setScreen(null);c.player.networkHandler.sendChatCommand("chronicle editing off");wait=30;step=8;}
             case 8->{c.player.networkHandler.sendChatCommand("chronicle players join");wait=30;step=9;}
             case 9->{c.player.networkHandler.sendChatCommand("chronicle session start");wait=80;step=11;}
             case 11->{c.player.networkHandler.sendChatCommand("chronicle banquet trial exercise");step=10;}
-            case 10->{Path report=shared.resolve(phase+"-trial.json");if(!Files.isRegularFile(report))return;var result=com.google.gson.JsonParser.parseString(Files.readString(report)).getAsJsonObject();require(result.get("result").getAsString().equals("PASS"),"server item trial failed: "+result);checks.add(phase.equals("initial")?"actual gift, offhand poison, full-hunger use, refresh and cure; onset accelerated for symptoms":"illness and receipts survived restart");mark("trial-complete");step=12;}
-            case 12->{if(!has("log-B"))return;if(phase.equals("initial")){c.options.useKey.setPressed(true);wait=50;step=14;}else step=13;}
-            case 14->{c.options.useKey.setPressed(false);require(c.player.getMainHandStack().isOf(net.minecraft.item.Items.GLASS_BOTTLE),"real drinking animation did not consume the issued drink");checks.add("32-tick drink use completed through real client input at full hunger");BanquetGiftTrial.start(c);giftTrial=true;}
+            case 10->{Path report=shared.resolve(phase+"-trial.json");if(!Files.isRegularFile(report))return;var result=com.google.gson.JsonParser.parseString(Files.readString(report)).getAsJsonObject();require(result.get("result").getAsString().equals("PASS"),"server item trial failed: "+result);checks.add(phase.equals("initial")?"all vanilla edible items, single portion split, storage/drop, nutrition, remainders, replay and cure":"illness or permanent exclusion and receipts survived restart");mark("trial-complete");step=12;}
+            case 12->{if(!has("log-B"))return;if(phase.equals("initial")){c.options.useKey.setPressed(true);wait=50;step=14;}else if(phase.equals("restart")){c.player.networkHandler.sendChatCommand("chronicle editing off");wait=15;step=50;}else step=13;}
+            case 14->{c.options.useKey.setPressed(false);require(c.player.getMainHandStack().isOf(net.minecraft.item.Items.BOWL),"real eating animation did not consume the poisoned stew");checks.add("32-tick food use completed through real client input with vanilla bowl remainder");BanquetGiftTrial.start(c);giftTrial=true;}
             case 15->{c.player.networkHandler.sendChatCommand("chronicle banquet trial clock_advance");wait=15;step=16;}
             case 16->{clock("clock_advance");c.player.networkHandler.sendChatCommand("chronicle session pause");wait=20;step=17;}
             case 17->{c.player.networkHandler.sendChatCommand("chronicle banquet trial clock_start");wait=60;step=18;}
@@ -92,10 +92,16 @@ public final class BanquetSmoke {
             case 20->{c.player.networkHandler.sendChatCommand("chronicle banquet trial clock_held");wait=15;step=21;}
             case 21->{clock("clock_held");checks.add("real active ticks advance illness; technical pause and Building Mode hold it");c.player.networkHandler.sendChatCommand("chronicle banquet trial build_off");wait=15;step=22;}
             case 22->{c.player.networkHandler.sendChatCommand("chronicle session resume");wait=30;step=23;}
+            case 50->{c.player.networkHandler.sendChatCommand("chronicle session resume");wait=30;step=51;}
+            case 51->{c.player.networkHandler.sendChatCommand("chronicle banquet trial critical_cure");wait=15;step=55;}
+            case 55->{clock("critical_cure");checks.add("antidote cured critical Poison II before lethal tick");c.player.networkHandler.sendChatCommand("chronicle banquet trial critical");wait=50;step=52;}
+            case 52->{clock("critical");require(!c.player.isAlive(),"untreated critical poisoning did not kill");c.player.requestRespawn();wait=40;step=53;}
+            case 53->{require(c.player.isSpectator(),"poisoned death did not enter spectator");c.player.networkHandler.sendChatCommand("chronicle banquet trial fatal_check");wait=15;step=54;}
+            case 54->{clock("fatal_check");checks.add("critical poison caused real death, excluded participation and respawned as spectator");step=13;}
             case 23->{c.player.networkHandler.sendChatCommand("chronicle banquet trial death_prepare");wait=30;step=24;}
             case 24->{clock("death_prepare");require(!c.player.isAlive(),"fixture death did not occur");c.player.requestRespawn();wait=40;step=25;}
             case 25->{require(c.player.isAlive(),"fixture respawn failed");c.player.networkHandler.sendChatCommand("chronicle banquet trial death_check");wait=15;step=26;}
-            case 26->{clock("death_check");checks.add("illness survived real death and respawn without refresh");step=13;}
+            case 26->{clock("death_check");require(!c.player.isSpectator(),"unrelated death excluded an incubating character");checks.add("unrelated incubation death retained illness and did not exclude the character");step=13;}
             case 13->{mark("done-A");finish(c,null);}
         }
     }

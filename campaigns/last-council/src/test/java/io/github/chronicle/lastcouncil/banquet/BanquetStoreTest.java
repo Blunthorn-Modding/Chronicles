@@ -81,7 +81,7 @@ class BanquetStoreTest {
         BanquetService service = prepare(new BanquetStore(directory.resolve("valid.json")));
         String good = new String(BanquetStore.encode(service.snapshot()), StandardCharsets.UTF_8);
         List<Consumer<JsonObject>> changes = List.of(
-            r -> r.addProperty("schema", 2), r -> r.addProperty("schema", "1"),
+            r -> r.addProperty("schema", 3), r -> r.addProperty("schema", "2"),
             r -> r.addProperty("revision", 0), r -> r.addProperty("revision", -1), r -> r.addProperty("revision", 1.0),
             r -> r.addProperty("extra", true), r -> r.remove("operations"), r -> r.addProperty("supplies", "wrong"),
             r -> r.getAsJsonArray("supplies").get(0).getAsJsonObject().addProperty("issuer", HOST.toString().toUpperCase()),
@@ -102,11 +102,37 @@ class BanquetStoreTest {
             change.accept(root);
             assertPreserved(path, root.toString().getBytes(StandardCharsets.UTF_8));
         }
-        assertPreserved(path, good.replace("\"schema\":1", "\"schema\":1,\"schema\":1").getBytes(StandardCharsets.UTF_8));
+        assertPreserved(path, good.replace("\"schema\":2", "\"schema\":2,\"schema\":2").getBytes(StandardCharsets.UTF_8));
         assertPreserved(path, "{} trailing".getBytes(StandardCharsets.UTF_8));
         assertPreserved(path, new byte[]{(byte) 0xc3, (byte) 0x28});
         assertPreserved(path, new byte[0]);
         assertThrows(IOException.class, () -> BanquetStore.decode(new byte[BanquetStore.MAX_BYTES + 1]));
+    }
+
+    @Test void schemaOneLedgerRemainsReadableAsHarmlessLegacyState() throws Exception {
+        byte[] legacy = "{\"schema\":1,\"revision\":0,\"supplies\":[],\"illnesses\":[],\"operations\":[]}\n"
+                .getBytes(StandardCharsets.UTF_8);
+        assertEquals(BanquetState.empty(), BanquetStore.decode(legacy));
+        BanquetState state = prepare(new BanquetStore(directory.resolve("prepared.json"))).snapshot();
+        JsonObject root = JsonParser.parseString(new String(BanquetStore.encode(state), StandardCharsets.UTF_8)).getAsJsonObject();
+        root.addProperty("schema", 1);
+        root.remove("eliminated");
+        for (var row : root.getAsJsonArray("illnesses")) {
+            row.getAsJsonObject().remove("poisonTicks");
+            row.getAsJsonObject().remove("lethal");
+        }
+        for (var row : root.getAsJsonArray("operations")) {
+            var timing = row.getAsJsonObject().get("timing");
+            if (!timing.isJsonNull()) {
+                timing.getAsJsonObject().remove("poisonTicks");
+                timing.getAsJsonObject().remove("lethal");
+            }
+        }
+        BanquetState migrated = BanquetStore.decode(root.toString().getBytes(StandardCharsets.UTF_8));
+        assertEquals(state, migrated);
+        assertFalse(migrated.illnesses().get(PLAYER).lethal());
+        migrated = BanquetTransitions.advance(migrated, 100, Set.of(PLAYER));
+        assertTrue(migrated.illnesses().isEmpty());
     }
 
     private static void assertPreserved(Path path, byte[] bytes) throws IOException {

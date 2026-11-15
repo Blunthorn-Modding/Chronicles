@@ -1,11 +1,11 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.12`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.13`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
 
 ## Current delivery
 
-[LC07_IMPLEMENTATION.md](LC07_IMPLEMENTATION.md) records the approved optional Banquet implementation, native two-client/restart checks and remaining human tuning review. [DEV11_VARIABLES_RESULTS.md](DEV11_VARIABLES_RESULTS.md) records the preceding source-editor and House-variable changes. Requested physical paper copies and source editing are delivered; the older entries below are historical. Matching dev.12 e4mc Host/Player packs are available. Treaty and complication group acceptance remain deferred and unpassed.
+[LC07B_RESULTS.md](LC07B_RESULTS.md) records ordinary food contamination and the approved escalating, potentially fatal poisoning revision. The preceding [LC07_IMPLEMENTATION.md](LC07_IMPLEMENTATION.md) remains the dev.12 implementation record. [DEV11_VARIABLES_RESULTS.md](DEV11_VARIABLES_RESULTS.md) records the source editor and House variables. The next review covers Banquet execution and balance. Treaty and complication group acceptance remain deferred.
 
 ## LC01 portability continuation
 

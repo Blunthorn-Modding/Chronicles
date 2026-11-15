@@ -40,6 +40,8 @@ def run():
     w.validate_mod_target(jars[0])
     root = fabric_smoke._stage(w)
     (root / '.council-banquet-fixture').write_text('Disposable banquet smoke\n', encoding='utf-8')
+    properties = root / "server.properties"
+    properties.write_text(properties.read_text(encoding="utf-8").replace("gamemode=creative", "gamemode=survival").replace("difficulty=peaceful", "difficulty=normal"), encoding="utf-8")
     _fixture(root)
     chancellor = str(uuid.UUID(bytes=hashlib.md5(b'OfflinePlayer:ChronicleFabricB').digest(), version=3))
     (root / 'world/chronicle/last-council/chancellor.json').write_text(json.dumps({'schema': 1, 'revision': 1, 'chancellor': chancellor}) + '\n', encoding='utf-8')
@@ -53,7 +55,7 @@ def run():
     server = log = None
     clients = []
     try:
-        for phase in ('initial', 'restart'):
+        for phase in ('initial', 'restart', 'exclusion'):
             menu_smoke._reserve_ports()
             log = (reports / (phase + '-server.log')).open('w', encoding='utf-8')
             server_env=w.env();server_env.update({'CHRONICLE_BANQUET_TRIAL':str(root), 'CHRONICLE_BANQUET_PHASE':phase, 'CHRONICLE_BANQUET_TRIAL_REPORT':str(reports / (phase + '-trial.json')), 'CHRONICLE_BANQUET_DROP_GIFT_REPLY':'1' if phase=='initial' else '0'})
@@ -71,10 +73,13 @@ def run():
             for _, handle in clients:
                 handle.close()
             clients.clear()
-            if phase == 'initial':
+            if phase != 'exclusion':
                 server.stdin.write('chronicle session pause\n'); server.stdin.flush(); time.sleep(0.3)
             ledger = root / 'world/chronicle/last-council/banquet.json'
-            before_offline = json.loads(ledger.read_text(encoding='utf-8'))['illnesses']
+            snapshot = json.loads(ledger.read_text(encoding='utf-8'))
+            if phase == 'initial':
+                report['vanillaEdibleTypes'] = sum(row['kind'] == 'FOOD' for row in snapshot['supplies']) - 1
+            before_offline = snapshot['illnesses']
             time.sleep(2)
             assert json.loads(ledger.read_text(encoding='utf-8'))['illnesses'] == before_offline
             report['checks'].append('illness clocks remain unchanged with both clients offline')

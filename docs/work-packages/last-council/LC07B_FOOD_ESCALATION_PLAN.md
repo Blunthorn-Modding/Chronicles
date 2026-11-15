@@ -2,17 +2,17 @@
 
 ## Owner feedback, 12 November 2026
 
-The owner confirms dev.12 works functionally but changes the desired execution: poison should apply to ordinary Minecraft food, symptoms should intensify, and untreated poisoning should eventually be lethal. This supersedes the non-lethal outcome for new poisoning. It does not yet confirm exact timing, per-dose stack scope or post-death behavior; those questions are pending.
+The owner confirms dev.12 works functionally but changes the desired execution: poison should apply to ordinary Minecraft food, symptoms should intensify, and untreated poisoning should eventually be lethal. This supersedes the non-lethal outcome for new poisoning. The owner subsequently approved one food item per dose, the proposed 2/2/2-minute escalation and death ending participation as in hardcore play.
 
-No dev.12 runtime behavior or review pack has been changed for this feedback yet.
+Implementation and automated/native verification are complete on dev.13. Matching Host/Player packs are prepared. See [the results](LC07B_RESULTS.md) for behavior, compatibility and remaining human review.
 
-## Proposed player flow
+## Confirmed player flow
 
 Use an issued poison dose in the main hand with food in the offhand. The food retains its ordinary item type, model, name, tooltip, nutrition, vanilla consumption effects and container remainder. Eating rather than merely carrying it causes exposure. Existing banquet drinks and the full-cure antidote remain supported. Contamination and perpetrator evidence remain private to the server/assigned Chancellor.
 
-Pending owner choice: one item or the entire held stack per dose. Do not silently poison an entire stack or discard its remaining items. Stack splitting, merging, transfers, container storage, dropped items and replayed consumption must conserve the number of contaminated portions. No public poison flag or effect component may be added to food.
+One dose contaminates one food item. Do not silently poison an entire stack or discard its remaining items. Stack splitting, merging, transfers, container storage, dropped items and replayed consumption must conserve the number of contaminated portions. No public poison flag or effect component may be added to food.
 
-Proposed configurable progression, awaiting the timing answer:
+Approved configurable progression:
 
 1. Incubation: 2 eligible active minutes without symptoms.
 2. Mild symptoms: 2 eligible active minutes of Nausea I and Slowness I.
@@ -21,7 +21,7 @@ Proposed configurable progression, awaiting the timing answer:
 
 Vanilla 1.21.10 `PoisonStatusEffect.applyUpdateEffect` was inspected in the locally mapped Minecraft jar: it damages only above 1 health point. Poison II alone therefore cannot implement death. Additional damage belongs only to the critical stage, respects Core pause/Building protections and must not be implemented by globally changing vanilla Poison.
 
-One antidote clears every pending/active banquet stage and only owned effects. Repeated exposure must never postpone onset, downgrade the current stage or grant a recovery window. It may extend poisoning in accordance with the chosen refreshed-illness policy. Offline time, technical pauses and Building Mode remain excluded; reconnecting must not cure it. The owner is deciding whether death clears illness or retains a non-lethal remainder to avoid repeated respawn deaths.
+One antidote clears every pending/active banquet stage and only owned effects. Repeated exposure must never postpone onset, downgrade the current stage or grant a recovery window. It may extend poisoning in accordance with the chosen refreshed-illness policy. Offline time, technical pauses and Building Mode remain excluded; reconnecting must not cure it. A fatal poisoning durably excludes that character from participation. Respawn and reconnect enforce Spectator mode.
 
 ## Ownership and implementation slices
 

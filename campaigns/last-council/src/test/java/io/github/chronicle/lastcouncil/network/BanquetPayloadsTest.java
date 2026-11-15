@@ -22,4 +22,12 @@ class BanquetPayloadsTest {
         assertThrows(IllegalArgumentException.class,()->new PlayerChoice(id,"x".repeat(161)));
         assertThrows(IllegalArgumentException.class,()->new LogEntry("x".repeat(513)));
     }
+    @Test void stageTimingsStayDistinctInTheClientProjection(){
+        UUID id=UUID.randomUUID();
+        BanquetConfig config=new BanquetConfig(true,2,3,4);
+        View view=new View(id,false,1,config,false,false,false,List.of(),List.of(),"",false,false,id);
+        assertEquals(2,view.config().onsetMinutes());
+        assertEquals(3,view.config().symptomMinutes());
+        assertEquals(4,view.config().poisonMinutes());
+    }
 }

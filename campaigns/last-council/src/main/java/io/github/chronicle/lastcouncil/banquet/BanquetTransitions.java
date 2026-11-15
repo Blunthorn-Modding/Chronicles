@@ -1,6 +1,7 @@
 package io.github.chronicle.lastcouncil.banquet;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -24,46 +25,78 @@ public final class BanquetTransitions {
     }
 
     public static BanquetState contaminate(BanquetState state, long expectedRevision, UUID request, UUID actor,
-                                           UUID poisonToken, UUID drinkToken) {
-        Operation op = new Operation(actor, OperationType.CONTAMINATE, poisonToken, drinkToken, null, null, null);
+                                           UUID poisonToken, UUID foodToken) {
+        Operation op = new Operation(actor, OperationType.CONTAMINATE, poisonToken, foodToken, null, null, null);
         if (replay(state, request, op)) return state;
         checkFresh(state, expectedRevision);
+        requirePresent(state, actor);
         Supply poison = available(state, poisonToken, SupplyKind.POISON);
-        Supply drink = available(state, drinkToken, SupplyKind.DRINK);
+        Supply food = availableFood(state, foodToken);
         Map<UUID, Supply> supplies = new HashMap<>(state.supplies());
         supplies.put(poisonToken, consumed(poison, actor, request));
-        supplies.put(drinkToken, new Supply(drink.kind(), drink.issuer(), drink.poisoner()==null?actor:drink.poisoner(), null, null));
+        supplies.put(foodToken, new Supply(food.kind(), food.issuer(), food.poisoner() == null ? actor : food.poisoner(), null, null));
         return commit(state, request, op, supplies, state.illnesses());
     }
 
     public static BanquetState drink(BanquetState state, long expectedRevision, UUID request, UUID actor,
-                                      UUID token, Timing timing, RepeatPolicy repeatPolicy) {
+                                     UUID token, Timing timing, RepeatPolicy repeatPolicy) {
+        return consumeFood(state, expectedRevision, request, actor, token, timing, repeatPolicy);
+    }
+
+    public static BanquetState eat(BanquetState state, long expectedRevision, UUID request, UUID actor,
+                                   UUID token, Timing timing, RepeatPolicy repeatPolicy) {
+        return consumeFood(state, expectedRevision, request, actor, token, timing, repeatPolicy);
+    }
+
+    private static BanquetState consumeFood(BanquetState state, long expectedRevision, UUID request, UUID actor,
+                                            UUID token, Timing timing, RepeatPolicy repeatPolicy) {
         Operation op = new Operation(actor, OperationType.DRINK, token, null, null, timing, repeatPolicy);
         if (replay(state, request, op)) return state;
         checkFresh(state, expectedRevision);
-        Supply drink = available(state, token, SupplyKind.DRINK);
+        requirePresent(state, actor);
+        Supply food = availableFood(state, token);
         Map<UUID, Illness> illnesses = new HashMap<>(state.illnesses());
-        if (drink.poisoner() != null && (!illnesses.containsKey(actor) || repeatPolicy == RepeatPolicy.REFRESH)) {
+        if (food.poisoner() != null && (!illnesses.containsKey(actor) || repeatPolicy == RepeatPolicy.REFRESH)) {
             if (!illnesses.containsKey(actor) && illnesses.size() >= MAX_ILLNESSES)
                 throw new IllegalStateException("Illness capacity reached");
-            Illness existing=illnesses.get(actor);
-            illnesses.put(actor, new Illness(existing==null?timing.onsetTicks():Math.min(existing.onsetTicks(),timing.onsetTicks()), timing.durationTicks()));
+            illnesses.put(actor, refresh(illnesses.get(actor), timing));
         }
         Map<UUID, Supply> supplies = new HashMap<>(state.supplies());
-        supplies.put(token, consumed(drink, actor, request));
+        supplies.put(token, consumed(food, actor, request));
         return commit(state, request, op, supplies, illnesses);
+    }
+
+    private static Illness refresh(Illness existing, Timing timing) {
+        if (existing == null) return new Illness(timing.onsetTicks(), timing.durationTicks(), timing.poisonTicks(), timing.lethal());
+        // Escalating illness persists until cured. Further exposures cannot grant an earlier-stage reprieve.
+        if (existing.lethal()) return existing;
+        long onset = Math.min(existing.onsetTicks(), timing.onsetTicks());
+        if (timing.lethal()) return new Illness(onset, timing.durationTicks(), timing.poisonTicks(), true);
+        return new Illness(onset, timing.durationTicks(), 0, false);
     }
 
     public static BanquetState antidote(BanquetState state, long expectedRevision, UUID request, UUID actor, UUID token) {
         Operation op = new Operation(actor, OperationType.ANTIDOTE, token, null, null, null, null);
         if (replay(state, request, op)) return state;
         checkFresh(state, expectedRevision);
+        requirePresent(state, actor);
         Supply antidote = available(state, token, SupplyKind.ANTIDOTE);
         Map<UUID, Supply> supplies = new HashMap<>(state.supplies());
         supplies.put(token, consumed(antidote, actor, request));
         Map<UUID, Illness> illnesses = new HashMap<>(state.illnesses());
         illnesses.remove(actor);
         return commit(state, request, op, supplies, illnesses);
+    }
+
+    public static BanquetState eliminate(BanquetState state, UUID actor) {
+        Objects.requireNonNull(state); Objects.requireNonNull(actor);
+        if (state.eliminated().contains(actor)) return state;
+        if (state.eliminated().size() >= MAX_ILLNESSES) throw new IllegalStateException("Elimination capacity reached");
+        Map<UUID, Illness> illnesses = new HashMap<>(state.illnesses());
+        illnesses.remove(actor);
+        Set<UUID> eliminated = new HashSet<>(state.eliminated());
+        eliminated.add(actor);
+        return new BanquetState(nextRevision(state), state.supplies(), illnesses, state.operations(), eliminated);
     }
 
     public static BanquetState advance(BanquetState state, long deltaTicks, Set<UUID> eligiblePlayers) {
@@ -73,17 +106,19 @@ public final class BanquetTransitions {
         Map<UUID, Illness> illnesses = new HashMap<>(state.illnesses());
         for (UUID player : eligible) {
             Illness illness = illnesses.get(player);
-            if (illness == null || deltaTicks == 0) continue;
-            long onset = illness.onsetTicks();
-            if (deltaTicks < onset) illnesses.put(player, new Illness(onset - deltaTicks, illness.durationTicks()));
-            else {
-                long activeTicks = deltaTicks - onset;
-                if (activeTicks >= illness.durationTicks()) illnesses.remove(player);
-                else illnesses.put(player, new Illness(0, illness.durationTicks() - activeTicks));
-            }
+            if (illness == null || deltaTicks == 0 || state.eliminated().contains(player)) continue;
+            illnesses.computeIfPresent(player, (ignored, value) -> advance(value, deltaTicks));
         }
         if (illnesses.equals(state.illnesses())) return state;
-        return new BanquetState(nextRevision(state), state.supplies(), illnesses, state.operations());
+        return new BanquetState(nextRevision(state), state.supplies(), illnesses, state.operations(), state.eliminated());
+    }
+
+    private static Illness advance(Illness illness, long ticks) {
+        if (ticks < illness.onsetTicks()) return new Illness(illness.onsetTicks() - ticks, illness.durationTicks(), illness.poisonTicks(), illness.lethal());
+        long remaining = ticks - illness.onsetTicks();
+        if (illness.lethal()) return new Illness(0, Math.max(0, illness.durationTicks() - remaining), illness.poisonTicks(), true);
+        if (remaining >= illness.durationTicks()) return null;
+        return new Illness(0, illness.durationTicks() - remaining, 0, false);
     }
 
     private static boolean replay(BanquetState state, UUID request, Operation op) {
@@ -102,10 +137,19 @@ public final class BanquetTransitions {
         if (state.revision() == Long.MAX_VALUE) throw new IllegalStateException("Revision exhausted");
         return state.revision() + 1;
     }
+    private static void requirePresent(BanquetState state, UUID actor) {
+        if (state.eliminated().contains(actor)) throw new IllegalStateException("Eliminated characters cannot use banquet supplies");
+    }
     private static Supply available(BanquetState state, UUID token, SupplyKind kind) {
         Supply supply = state.supplies().get(token);
         if (supply == null || supply.kind() != kind || supply.usedBy() != null)
             throw new IllegalStateException("Supply unavailable");
+        return supply;
+    }
+    private static Supply availableFood(BanquetState state, UUID token) {
+        Supply supply = state.supplies().get(token);
+        if (supply == null || (supply.kind() != SupplyKind.DRINK && supply.kind() != SupplyKind.FOOD) || supply.usedBy() != null)
+            throw new IllegalStateException("Food unavailable");
         return supply;
     }
     private static Supply consumed(Supply supply, UUID actor, UUID request) {
@@ -115,6 +159,6 @@ public final class BanquetTransitions {
                                        Map<UUID, Supply> supplies, Map<UUID, Illness> illnesses) {
         Map<UUID, Operation> operations = new HashMap<>(state.operations());
         operations.put(request, op);
-        return new BanquetState(nextRevision(state), supplies, illnesses, operations);
+        return new BanquetState(nextRevision(state), supplies, illnesses, operations, state.eliminated());
     }
 }

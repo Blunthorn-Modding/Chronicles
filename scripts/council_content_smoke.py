@@ -82,7 +82,7 @@ def run():
     assert len(json.dumps(houses).encode())>65536
     try:
         source=fresh();config=source/'config/chronicle'
-        banquet={'schema':1,'enabled':True,'onsetMinutes':3,'durationMinutes':11}
+        banquet={'schema':2,'enabled':True,'onsetMinutes':3,'symptomMinutes':4,'poisonMinutes':5}
         (config/'last-council').mkdir()
         (config/'last-council/houses.json').write_text(json.dumps(houses)+'\n',encoding='utf-8')
         (config/'scenario-selection.json').write_text('{"schema":1,"scenarioId":"last_council:scenario"}\n',encoding='utf-8')
@@ -136,7 +136,7 @@ def run():
         result['checks'].append('fresh custom profile loads imported pools/settings once and starts without a private schedule')
         # Ordinary stopped-server configuration edits remain authoritative over profile seeds.
         pools['pools'][0]['entries'][0]['weight']=9;settings['total']=0
-        banquet.update(enabled=False,durationMinutes=7)
+        banquet.update(enabled=False,poisonMinutes=7)
         (catalogs/'last-council-banquet.json').write_text(json.dumps(banquet)+'\n',encoding='utf-8')
         houses['knowledgeChancePercent']=19
         houses['houses'][house]['title']='Edited portable House'
@@ -158,7 +158,7 @@ def run():
         empty=fresh();(empty/'config/chronicle/scenario-profile.json').write_text(json.dumps(empty_profile)+'\n',encoding='utf-8')
         empty_export=document(phase(empty,'empty',expected_pools=0))
         empty_houses=empty_export['extensions']['last_council:houses']
-        assert empty_export['extensions']['last_council:banquet']=={'schema':1,'enabled':False,'onsetMinutes':2,'durationMinutes':8}
+        assert empty_export['extensions']['last_council:banquet']=={'schema':2,'enabled':False,'onsetMinutes':2,'symptomMinutes':2,'poisonMinutes':2}
         assert not empty_houses['houses'] and not empty_houses['secrets'] and not empty_houses['goals']
         result['checks'].append('fresh empty authoring profile suppresses installed House/secret/goal defaults')
         # Emulate the dev.7 profile: generic marker exists, House config still uses its old normal path.
@@ -171,7 +171,7 @@ def run():
         legacy.write_text(json.dumps(houses)+'\n',encoding='utf-8');legacy_before=legacy.read_bytes()
         migrated=document(phase(empty,'legacy',expected_pools=0))
         assert house_fields(migrated['extensions']['last_council:houses'])==house_fields(houses)
-        assert migrated['extensions']['last_council:banquet']=={'schema':1,'enabled':False,'onsetMinutes':2,'durationMinutes':8}
+        assert migrated['extensions']['last_council:banquet']=={'schema':2,'enabled':False,'onsetMinutes':2,'symptomMinutes':2,'poisonMinutes':2}
         assert (empty_catalog/'last-council/houses.json').read_bytes()==legacy_before and legacy.read_bytes()==legacy_before
         result['checks'].append('old initialized profile migrates exact legacy House file once, preserves source and exports loaded content')
         result['result']='PASS';print('PASS portable Council content:',reports,flush=True)

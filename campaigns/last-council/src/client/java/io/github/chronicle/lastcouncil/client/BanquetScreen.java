@@ -17,8 +17,8 @@ final class BanquetScreen extends CouncilScreen {
     private ButtonWidget retryButton;
     private UUID recipient=BanquetPayloads.NONE;
     private String drinks="0", poison="0", antidotes="0";
-    private boolean enabledDraft; private String onsetDraft, durationDraft;
-    BanquetScreen(View view,Screen parent){super(view.logView()?"Banquet log":"Banquet",parent);this.view=view;enabledDraft=view.config().enabled();onsetDraft=Integer.toString(view.config().onsetMinutes());durationDraft=Integer.toString(view.config().durationMinutes());if(!view.logView()){pending=BanquetClient.compatiblePendingGift(view.worldId());feedback=BanquetClient.giftBlocked(view.worldId())?"Unresolved gift in another world, or world identity unavailable.":BanquetClient.takeGiftNotice();}}
+    private boolean enabledDraft; private String onsetDraft, symptomDraft, poisonDraft;
+    BanquetScreen(View view,Screen parent){super(view.logView()?"Banquet log":"Banquet",parent);this.view=view;enabledDraft=view.config().enabled();onsetDraft=Integer.toString(view.config().onsetMinutes());symptomDraft=Integer.toString(view.config().symptomMinutes());poisonDraft=Integer.toString(view.config().poisonMinutes());if(!view.logView()){pending=BanquetClient.compatiblePendingGift(view.worldId());feedback=BanquetClient.giftBlocked(view.worldId())?"Unresolved gift in another world, or world identity unavailable.":BanquetClient.takeGiftNotice();}}
     void accept(View next){
         if(pending==null || !pending.request().equals(next.request()) || (pending.action()==Action.GIFT && !view.worldId().equals(next.worldId())))return;
         boolean refreshSettings=view.revision()!=next.revision()||!view.config().equals(next.config());
@@ -27,7 +27,7 @@ final class BanquetScreen extends CouncilScreen {
         boolean changed=view.revision()!=next.revision() || !view.config().equals(next.config()) || view.editable()!=next.editable() || view.canGift()!=next.canGift() || view.canLog()!=next.canLog() || !view.players().equals(next.players()) || !view.log().equals(next.log()) || view.logView()!=next.logView() || view.held()!=next.held();
         view=next;
         if(pending.action()!=Action.GIFT || !next.held())pending=null;
-        if(refreshSettings){enabledDraft=next.config().enabled();onsetDraft=Integer.toString(next.config().onsetMinutes());durationDraft=Integer.toString(next.config().durationMinutes());}
+        if(refreshSettings){enabledDraft=next.config().enabled();onsetDraft=Integer.toString(next.config().onsetMinutes());symptomDraft=Integer.toString(next.config().symptomMinutes());poisonDraft=Integer.toString(next.config().poisonMinutes());}
         message(concurrentSettings?"Settings changed; latest values loaded.":next.message());if(changed)clearAndInit();else updateRetry();
     }
     private void send(Action action,BanquetConfig config,UUID target,int d,int p,int a){
@@ -45,23 +45,25 @@ final class BanquetScreen extends CouncilScreen {
             String text=view.log().isEmpty()?"No log entries.":String.join("\n\n",view.log().stream().map(LogEntry::text).toList());
             body("log",text,x,y,w,Math.max(20,panelHeight-90));
         }else{
-            var c=view.config();body("Banquet: "+(c.enabled()?"Enabled":"Disabled")+"\nOnset: "+c.onsetMinutes()+" minutes  |  Illness: "+c.durationMinutes()+" minutes",x,y,w,35);
+            var c=view.config();body("Banquet: "+(c.enabled()?"Enabled":"Disabled")+"\nOnset "+c.onsetMinutes()+"m | Mild "+c.symptomMinutes()+"m | Poison I "+c.poisonMinutes()+"m\nCritical poisoning can kill.",x,y,w,35);
             int bw=(w-(view.canLog()?8:4))/(view.canLog()?3:2);
-            button("Settings...",x,y+42,bw,()->{if(available())client.setScreen(new Settings(this));}).active=view.editable();
-            button("Give supplies...",x+bw+4,y+42,bw,()->{if(available())client.setScreen(new Gift(this));}).active=view.canGift()&&!BanquetClient.giftBlocked(view.worldId());
-            if(view.canLog())button("Private log",x+2*(bw+4),y+42,bw,()->send(Action.LOG,null,BanquetPayloads.NONE,0,0,0));
+            int actions=panelHeight<=160?y+42:y+78;
+            button("Settings...",x,actions,bw,()->{if(available())client.setScreen(new Settings(this));}).active=view.editable();
+            button("Give supplies...",x+bw+4,actions,bw,()->{if(available())client.setScreen(new Gift(this));}).active=view.canGift()&&!BanquetClient.giftBlocked(view.worldId());
+            if(view.canLog())button("Private log",x+2*(bw+4),actions,bw,()->send(Action.LOG,null,BanquetPayloads.NONE,0,0,0));
         }
         retryButton=button("Retry request",x,top+panelHeight-38,110,this::retry);updateRetry();
         if(!view.message().isBlank()&&feedback.isBlank())message(view.message());
     }
     private static final class Settings extends CouncilScreen {
-        private final BanquetScreen owner;private boolean enabled;private String onset,duration;
-        Settings(BanquetScreen owner){super("Banquet settings",owner);this.owner=owner;enabled=owner.enabledDraft;onset=owner.onsetDraft;duration=owner.durationDraft;}
+        private final BanquetScreen owner;private boolean enabled;private String onset,symptom,poison;
+        Settings(BanquetScreen owner){super("Banquet settings",owner);this.owner=owner;enabled=owner.enabledDraft;onset=owner.onsetDraft;symptom=owner.symptomDraft;poison=owner.poisonDraft;}
         @Override protected void init(){frame(480,180);int x=left+12,w=panelWidth-24,y=top+36;
             button("Banquet: "+(enabled?"Enabled":"Disabled"),x,y,w,()->{enabled=!enabled;clearAndInit();});
-            int col=(w-4)/2;body("Onset (1-60 min)",x,y+28,col,12);body("Illness (1-60 min)",x+col+4,y+28,col,12);
-            field(x,y+41,col,onset,v->onset=v);field(x+col+4,y+41,col,duration,v->duration=v);
-            button("Save",x,top+panelHeight-38,90,()->{try{int a=Integer.parseInt(onset),b=Integer.parseInt(duration);if(a<1||a>60||b<1||b>60)throw new IllegalArgumentException();owner.enabledDraft=enabled;owner.onsetDraft=onset;owner.durationDraft=duration;client.setScreen(owner);owner.send(Action.SAVE,new BanquetConfig(enabled,a,b),BanquetPayloads.NONE,0,0,0);}catch(IllegalArgumentException e){message("Enter minutes from 1 to 60.");}});
+            int col=(w-8)/3;body("Onset (min)",x,y+28,col,12);body("Mild (min)",x+col+4,y+28,col,12);body("Poison I (min)",x+2*(col+4),y+28,col,12);
+            field(x,y+41,col,onset,v->onset=v);field(x+col+4,y+41,col,symptom,v->symptom=v);field(x+2*(col+4),y+41,col,poison,v->poison=v);
+            if(panelHeight>160)body("Critical follows Poison I until cured.",x,y+69,w,12);
+            button("Save",x,top+panelHeight-38,90,()->{try{int a=Integer.parseInt(onset),b=Integer.parseInt(symptom),c=Integer.parseInt(poison);if(a<1||a>60||b<1||b>60||c<1||c>60)throw new IllegalArgumentException();owner.enabledDraft=enabled;owner.onsetDraft=onset;owner.symptomDraft=symptom;owner.poisonDraft=poison;client.setScreen(owner);owner.send(Action.SAVE,new BanquetConfig(enabled,a,b,c),BanquetPayloads.NONE,0,0,0);}catch(IllegalArgumentException e){message("Enter minutes from 1 to 60.");}});
             button("Cancel",x+94,top+panelHeight-38,90,this::close);
         }
         private void field(int x,int y,int w,String value,java.util.function.Consumer<String> changed){var f=addDrawableChild(new TextFieldWidget(textRenderer,x,y,w,20,Text.literal("Minutes")));f.setMaxLength(2);f.setText(value);f.setChangedListener(changed);}

@@ -49,7 +49,7 @@ public final class BanquetStore implements BanquetRepository {
 
     public static byte[] encode(BanquetState state) throws IOException {
         JsonObject root = new JsonObject();
-        root.addProperty("schema", 1);
+        root.addProperty("schema", 2);
         root.addProperty("revision", state.revision());
         root.add("supplies", entries(state.supplies(), (row, supply) -> {
             row.addProperty("kind", supply.kind().name());
@@ -61,6 +61,8 @@ public final class BanquetStore implements BanquetRepository {
         root.add("illnesses", entries(state.illnesses(), (row, illness) -> {
             row.addProperty("onsetTicks", illness.onsetTicks());
             row.addProperty("durationTicks", illness.durationTicks());
+            row.addProperty("poisonTicks", illness.poisonTicks());
+            row.addProperty("lethal", illness.lethal());
         }));
         root.add("operations", entries(state.operations(), (row, op) -> {
             uuid(row, "actor", op.actor());
@@ -73,11 +75,16 @@ public final class BanquetStore implements BanquetRepository {
                 JsonObject bounds = new JsonObject();
                 bounds.addProperty("onsetTicks", op.timing().onsetTicks());
                 bounds.addProperty("durationTicks", op.timing().durationTicks());
+                bounds.addProperty("poisonTicks", op.timing().poisonTicks());
+                bounds.addProperty("lethal", op.timing().lethal());
                 timing = bounds;
             }
             row.add("timing", timing);
             row.add("repeatPolicy", op.repeatPolicy() == null ? JsonNull.INSTANCE : new com.google.gson.JsonPrimitive(op.repeatPolicy().name()));
         }));
+        JsonArray eliminated = new JsonArray();
+        state.eliminated().stream().sorted().forEach(id -> eliminated.add(id.toString()));
+        root.add("eliminated", eliminated);
         byte[] bytes = (root + "\n").getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_BYTES) throw new IOException("Banquet records exceed their size limit.");
         return bytes;
@@ -90,8 +97,10 @@ public final class BanquetStore implements BanquetRepository {
             String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
             JsonObject root = BookConfig.strictObject(text);
-            fields(root, "schema", "revision", "supplies", "illnesses", "operations");
-            if (integer(root.get("schema")) != 1) throw new IllegalArgumentException("Unsupported schema");
+            long schema = integer(root.get("schema"));
+            if (schema != 1 && schema != 2) throw new IllegalArgumentException("Unsupported schema");
+            fields(root, schema == 1 ? new String[] {"schema", "revision", "supplies", "illnesses", "operations"}
+                    : new String[] {"schema", "revision", "supplies", "illnesses", "operations", "eliminated"});
             Map<UUID, Supply> supplies = new HashMap<>();
             for (JsonElement value : array(root, "supplies", MAX_SUPPLIES)) {
                 JsonObject row = value.getAsJsonObject();
@@ -103,8 +112,12 @@ public final class BanquetStore implements BanquetRepository {
             Map<UUID, Illness> illnesses = new HashMap<>();
             for (JsonElement value : array(root, "illnesses", MAX_ILLNESSES)) {
                 JsonObject row = value.getAsJsonObject();
-                fields(row, "id", "onsetTicks", "durationTicks");
-                unique(illnesses, requiredUuid(row, "id"), new Illness(integer(row.get("onsetTicks")), integer(row.get("durationTicks"))));
+                fields(row, schema == 1 ? new String[] {"id", "onsetTicks", "durationTicks"}
+                        : new String[] {"id", "onsetTicks", "durationTicks", "poisonTicks", "lethal"});
+                unique(illnesses, requiredUuid(row, "id"), schema == 1
+                        ? new Illness(integer(row.get("onsetTicks")), integer(row.get("durationTicks")))
+                        : new Illness(integer(row.get("onsetTicks")), integer(row.get("durationTicks")),
+                                integer(row.get("poisonTicks")), bool(row.get("lethal"))));
             }
             Map<UUID, Operation> operations = new HashMap<>();
             for (JsonElement value : array(root, "operations", MAX_OPERATIONS)) {
@@ -113,15 +126,24 @@ public final class BanquetStore implements BanquetRepository {
                 Timing timing = null;
                 if (!row.get("timing").isJsonNull()) {
                     JsonObject bounds = row.getAsJsonObject("timing");
-                    fields(bounds, "onsetTicks", "durationTicks");
-                    timing = new Timing(integer(bounds.get("onsetTicks")), integer(bounds.get("durationTicks")));
+                    fields(bounds, schema == 1 ? new String[] {"onsetTicks", "durationTicks"}
+                            : new String[] {"onsetTicks", "durationTicks", "poisonTicks", "lethal"});
+                    timing = schema == 1 ? new Timing(integer(bounds.get("onsetTicks")), integer(bounds.get("durationTicks")))
+                            : new Timing(integer(bounds.get("onsetTicks")), integer(bounds.get("durationTicks")),
+                                    integer(bounds.get("poisonTicks")), bool(bounds.get("lethal")));
                 }
                 unique(operations, requiredUuid(row, "id"), new Operation(requiredUuid(row, "actor"),
                     OperationType.valueOf(string(row.get("type"))), requiredUuid(row, "inputToken"),
                     nullableUuid(row, "secondToken"), row.get("issueKind").isJsonNull() ? null : SupplyKind.valueOf(string(row.get("issueKind"))),
                     timing, row.get("repeatPolicy").isJsonNull() ? null : RepeatPolicy.valueOf(string(row.get("repeatPolicy")))));
             }
-            return new BanquetState(integer(root.get("revision")), supplies, illnesses, operations);
+            Set<UUID> eliminated = new java.util.HashSet<>();
+            if (schema == 2) for (JsonElement value : array(root, "eliminated", MAX_ILLNESSES)) {
+                if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()) throw new IllegalArgumentException("Expected eliminated UUID");
+                String raw = value.getAsString(); UUID id = UUID.fromString(raw);
+                if (!id.toString().equals(raw) || !eliminated.add(id)) throw new IllegalArgumentException("Invalid eliminated UUID");
+            }
+            return new BanquetState(integer(root.get("revision")), supplies, illnesses, operations, eliminated);
         } catch (RuntimeException | CharacterCodingException invalid) {
             throw new IOException("Invalid private banquet records; retained file was preserved.", invalid);
         }
@@ -154,6 +176,11 @@ public final class BanquetStore implements BanquetRepository {
         if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber() || !value.getAsString().matches("0|[1-9][0-9]*"))
             throw new IllegalArgumentException("Expected nonnegative integer");
         return Long.parseLong(value.getAsString());
+    }
+    private static boolean bool(JsonElement value) {
+        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isBoolean())
+            throw new IllegalArgumentException("Expected boolean");
+        return value.getAsBoolean();
     }
     private static UUID requiredUuid(JsonObject row, String key) {
         String value = string(row.get(key));

@@ -103,6 +103,63 @@ class BanquetTransitionsTest {
         assertEquals(actor,s.supplies().get(drink).poisoner());assertEquals(other,s.supplies().get(second).usedBy());assertNull(s.supplies().get(drink).usedBy());
     }
 
+    @Test void foodExposureMovesThroughEveryLethalStageAndEliminationIsPermanent() {
+        UUID actor = id(), poison = id(), food = id();
+        Timing lethal = new Timing(2, 4, 2, true);
+        BanquetState s = issue(BanquetState.empty(), 0, id(), actor, poison, SupplyKind.POISON);
+        s = issue(s, s.revision(), id(), actor, food, SupplyKind.FOOD);
+        s = contaminate(s, s.revision(), id(), actor, poison, food);
+        s = eat(s, s.revision(), id(), actor, food, lethal, RepeatPolicy.IGNORE);
+        assertEquals(Stage.INCUBATION, s.illnesses().get(actor).stage());
+        s = advance(s, 2, Set.of(actor));
+        assertEquals(Stage.MILD, s.illnesses().get(actor).stage());
+        s = advance(s, 2, Set.of(actor));
+        assertEquals(Stage.POISONED, s.illnesses().get(actor).stage());
+        s = advance(s, 2, Set.of(actor));
+        assertEquals(Stage.CRITICAL, s.illnesses().get(actor).stage());
+        assertSame(s, advance(s, 100, Set.of(actor)));
+        s = eliminate(s, actor);
+        assertTrue(s.eliminated().contains(actor));
+        assertFalse(s.illnesses().containsKey(actor));
+        UUID freshFood = id();
+        BanquetState excluded = issue(s, s.revision(), id(), actor, freshFood, SupplyKind.FOOD);
+        assertThrows(IllegalStateException.class, () -> eat(excluded, excluded.revision(), id(), actor, freshFood, lethal, RepeatPolicy.REFRESH));
+    }
+
+    @Test void refreshingLethalExposureNeverResetsCriticalStage() {
+        UUID actor = id();
+        Timing lethal = new Timing(5, 10, 4, true);
+        BanquetState s = infect(BanquetState.empty(), actor, lethal);
+        s = advance(s, 15, Set.of(actor));
+        assertEquals(Stage.CRITICAL, s.illnesses().get(actor).stage());
+        UUID poison = id(), food = id();
+        s = issue(s, s.revision(), id(), actor, poison, SupplyKind.POISON);
+        s = issue(s, s.revision(), id(), actor, food, SupplyKind.FOOD);
+        s = contaminate(s, s.revision(), id(), actor, poison, food);
+        s = eat(s, s.revision(), id(), actor, food, lethal, RepeatPolicy.REFRESH);
+        assertEquals(Stage.CRITICAL, s.illnesses().get(actor).stage());
+    }
+
+    @Test void laterExposureAndChangedSettingsCannotDowngradePoison() {
+        UUID actor = id();
+        BanquetState state = infect(BanquetState.empty(), actor, new Timing(2, 10, 4, true));
+        state = advance(state, 9, Set.of(actor));
+        assertEquals(Stage.POISONED, state.illnesses().get(actor).stage());
+        Illness before = state.illnesses().get(actor);
+        state = infect(state, actor, new Timing(20, 40, 20, true));
+        assertEquals(before, state.illnesses().get(actor));
+        UUID poison = id(), food = id(), remedy = id();
+        state = issue(state, state.revision(), id(), actor, poison, SupplyKind.POISON);
+        state = issue(state, state.revision(), id(), actor, food, SupplyKind.FOOD);
+        state = contaminate(state, state.revision(), id(), actor, poison, food);
+        state = eat(state, state.revision(), id(), actor, food, new Timing(20, 40, 20, true), RepeatPolicy.REFRESH);
+        assertEquals(before, state.illnesses().get(actor));
+        state = advance(state, 100, Set.of(actor));
+        state = issue(state, state.revision(), id(), actor, remedy, SupplyKind.ANTIDOTE);
+        state = antidote(state, state.revision(), id(), actor, remedy);
+        assertTrue(state.illnesses().isEmpty());
+    }
+
     @Test void immutableAndBoundedState() {
         UUID token = id(), actor = id();
         Map<UUID, Supply> source = new HashMap<>();

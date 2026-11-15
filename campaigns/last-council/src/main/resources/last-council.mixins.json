@@ -3,7 +3,8 @@
   "package": "io.github.chronicle.lastcouncil.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "BanquetEffectOwnershipMixin"
+    "BanquetEffectOwnershipMixin",
+    "BanquetFoodMixin"
   ],
   "injectors": {
     "defaultRequire": 1

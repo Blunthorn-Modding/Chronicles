@@ -29,7 +29,7 @@ public final class BanquetItems {
     private static final Map<SupplyKind, Item> ITEMS = new EnumMap<>(SupplyKind.class);
     private BanquetItems() { }
     public static void register() {
-        for (SupplyKind kind : SupplyKind.values()) {
+        for (SupplyKind kind : new SupplyKind[]{SupplyKind.DRINK, SupplyKind.POISON, SupplyKind.ANTIDOTE}) {
             Identifier id = Identifier.of("last_council", "banquet_" + kind.name().toLowerCase(java.util.Locale.ROOT));
             var key = RegistryKey.of(RegistryKeys.ITEM, id);
             ITEMS.put(kind, Registry.register(Registries.ITEM, key, new SupplyItem(new Item.Settings().registryKey(key).maxCount(1), kind)));
@@ -42,13 +42,40 @@ public final class BanquetItems {
         return stack;
     }
     public static UUID token(ItemStack stack, SupplyKind kind) {
-        if (stack.isEmpty() || !stack.isOf(ITEMS.get(kind)) || stack.getCount() != 1) throw new IllegalArgumentException("Choose an issued banquet supply.");
+        boolean correctItem = kind == SupplyKind.FOOD ? edible(stack) : stack.isOf(ITEMS.get(kind));
+        if (stack.isEmpty() || !correctItem || stack.getCount() != 1) throw new IllegalArgumentException("Choose an issued supply or a single food serving.");
         var data = stack.get(DataComponentTypes.CUSTOM_DATA);
         if (data == null) throw new IllegalArgumentException("This supply has not been issued.");
         String value = data.copyNbt().getString(TOKEN).orElse("");
         UUID token = UUID.fromString(value);
         if (!token.toString().equals(value)) throw new IllegalArgumentException("Invalid supply token.");
         return token;
+    }
+    public static boolean edible(ItemStack stack) {
+        return !stack.isEmpty() && stack.contains(DataComponentTypes.FOOD) && stack.contains(DataComponentTypes.CONSUMABLE);
+    }
+    public static boolean trackedFood(ItemStack stack) {
+        var data = stack.get(DataComponentTypes.CUSTOM_DATA);
+        return edible(stack) && data != null && data.copyNbt().contains(TOKEN);
+    }
+    public static ItemStack trackFood(ItemStack stack, UUID token) {
+        ItemStack serving = stack.copyWithCount(1);
+        var existing = serving.get(DataComponentTypes.CUSTOM_DATA);
+        NbtCompound data = existing == null ? new NbtCompound() : existing.copyNbt();
+        data.putString(TOKEN, token.toString());
+        serving.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(data));
+        return serving;
+    }
+    public static ItemStack untrackFood(ItemStack stack) {
+        ItemStack clean = stack.copy();
+        var existing = clean.get(DataComponentTypes.CUSTOM_DATA);
+        if (existing != null) {
+            NbtCompound data = existing.copyNbt();
+            data.remove(TOKEN);
+            if (data.isEmpty()) clean.remove(DataComponentTypes.CUSTOM_DATA);
+            else clean.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(data));
+        }
+        return clean;
     }
     private static final class SupplyItem extends Item {
         private final SupplyKind kind;

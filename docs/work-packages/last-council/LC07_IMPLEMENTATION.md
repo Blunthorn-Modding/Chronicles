@@ -1,5 +1,7 @@
 # LC07: optional banquet
 
+This is the dev.12 implementation record. The owner subsequently approved ordinary food and lethal escalation, delivered in [dev.13](LC07B_RESULTS.md).
+
 The owner approved the UI workflow and illness policies on 11 November 2026. Development version **0.2.0-dev.12** implements the optional banquet in Last Council. Native presentation and tuning await owner review; the separately deferred treaty and complication group reviews remain unpassed.
 
 ## Playing and configuration

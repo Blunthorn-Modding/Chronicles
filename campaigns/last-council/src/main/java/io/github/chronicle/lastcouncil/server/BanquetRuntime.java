@@ -15,6 +15,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.*;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.inventory.SimpleInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -33,12 +34,14 @@ public final class BanquetRuntime {
     private static final Map<MinecraftServer,Runtime> WORLDS=new IdentityHashMap<>();
     private static final Map<ServerPlayerEntity,Long> REQUESTS=new WeakHashMap<>();
     private static final ThreadLocal<Boolean> APPLYING=ThreadLocal.withInitial(()->false);
+    private static final ThreadLocal<Boolean> FINISHING_FOOD = ThreadLocal.withInitial(() -> false);
     private BanquetRuntime() { }
     private static final class Runtime {
         final BanquetSettings settings; final BanquetStore store; final BanquetJournal journal; final UUID worldId;
         BanquetState state; long revision=new java.security.SecureRandom().nextLong(Long.MAX_VALUE); int ticks;
         String inspected="";
         boolean failed;
+        UUID criticalDamageActor;
         final Map<UUID,Long> elapsed=new HashMap<>(); final Map<UUID,List<StatusEffectInstance>> symptoms=new HashMap<>();
         Runtime(BanquetSettings settings,BanquetStore store,BanquetState state,BanquetJournal journal,UUID worldId){this.settings=settings;this.store=store;this.state=state;this.journal=journal;this.worldId=worldId;}
     }
@@ -53,6 +56,11 @@ public final class BanquetRuntime {
         ServerLifecycleEvents.SERVER_STOPPING.register(server->{var r=WORLDS.get(server);if(r!=null&&r.journal.pending()==null)try{flush(r);}catch(Exception e){hold(server,"Banquet clock checkpoint failed; preserve its records.");}});
         ServerLifecycleEvents.SERVER_STOPPED.register(server->{WORLDS.remove(server);REQUESTS.keySet().removeIf(p->p.getEntityWorld().getServer()==server);});
         ServerTickEvents.END_SERVER_TICK.register(BanquetRuntime::tick);
+        net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
+            if (entity instanceof ServerPlayerEntity player) poisonedDeath(player);
+        });
+        net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, player, alive) -> enforceExclusion(player));
+        net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> enforceExclusion(handler.player));
         ServerPlayNetworking.registerGlobalReceiver(Request.ID,(q,c)->c.server().execute(()->request(c.player(),q)));
         CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->dispatcher.register(literal("chronicle").then(literal("banquet")
             .then(literal("log").executes(c->{var p=c.getSource().getPlayerOrThrow();if(!CouncilRuntime.isChancellor(c.getSource().getServer(),p.getUuid()))throw new IllegalStateException("Only the assigned Chancellor can inspect banquet records.");send(p,NONE,true,true,"");return 1;}))
@@ -120,26 +128,36 @@ public final class BanquetRuntime {
         if(!ledgerHash(r.state).equals(intent.beforeLedgerHash())||!inventory(server,owner).equals(intent.before()))throw new IllegalStateException("Inventory or banquet state changed; nothing was applied.");
         r.journal.claim(intent);hold(server,"A banquet operation needs exact inventory recovery; preserve the inventory.");
         apply(owner,InventorySnapshots.decode(server,intent.after()));
+        completeInventory(server, r, intent, owner);
+        return "Supplies delivered.";
+    }
+    private static void completeInventory(MinecraftServer server, Runtime r, BanquetJournal.Intent intent,
+                                          ServerPlayerEntity owner) throws IOException {
         server.getPlayerManager().saveAllPlayerData();
         savedInventory(server,owner);
         if(server.getPlayerManager().getPlayer(owner.getUuid())!=owner||!inventory(server,owner).equals(intent.after()))throw new IOException("Inventory save needs exact recovery.");
         r.store.save(intent.afterLedger());r.state=intent.afterLedger();
         r.journal.finish(intent.request(),BanquetJournal.Stage.COMPLETE);RuntimeHolds.release(server,HOLD);
-        return "Supplies delivered.";
+    }
+    private static boolean matchesBefore(MinecraftServer server, Runtime r, String expected) throws IOException {
+        if (ledgerHash(r.state).equals(expected)) return true;
+        // Dev.12 pending intents fingerprint the schema-1 bytes. Verify the retained file before comparing them.
+        r.store.verifyUnchanged();
+        Path ledger = server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/last-council/banquet.json");
+        return hash(Files.readAllBytes(ledger)).equals(expected);
     }
     private static void recover(MinecraftServer server,Runtime r)throws IOException{
         ready(r);var op=r.journal.pending();if(op==null){flush(r);r.failed=false;RuntimeHolds.release(server,HOLD);return;}
         var player=server.getPlayerManager().getPlayer(op.owner());if(player==null)return;
-        String current=ledgerHash(r.state),after=ledgerHash(op.afterLedger());
         var live=inventory(server,player);
-        if(live.equals(op.before())&&current.equals(op.beforeLedgerHash())){
+        if(live.equals(op.before())&&matchesBefore(server,r,op.beforeLedgerHash())){
             server.getPlayerManager().saveAllPlayerData();if(!inventory(server,player).equals(live))throw new IOException("Recovery inventory changed.");
             savedInventory(server,player);
             r.journal.finish(op.request(),BanquetJournal.Stage.CANCELLED);r.failed=false;RuntimeHolds.release(server,HOLD);
-        }else if(live.equals(op.after())&&(current.equals(op.beforeLedgerHash())||current.equals(after))){
+        }else if(live.equals(op.after())&&(matchesBefore(server,r,op.beforeLedgerHash())||r.state.equals(op.afterLedger()))){
             server.getPlayerManager().saveAllPlayerData();if(!inventory(server,player).equals(live))throw new IOException("Recovery inventory changed.");
             savedInventory(server,player);
-            if(!current.equals(after)){r.store.save(op.afterLedger());r.state=op.afterLedger();}
+            if(!r.state.equals(op.afterLedger())){r.store.save(op.afterLedger());r.state=op.afterLedger();}
             r.journal.finish(op.request(),BanquetJournal.Stage.COMPLETE);r.failed=false;RuntimeHolds.release(server,HOLD);
         }
     }
@@ -148,27 +166,87 @@ public final class BanquetRuntime {
         try{
             requireUse(player);Runtime r=runtime(server);ready(r);flush(r);
             if(!r.settings.config().enabled())throw new IllegalStateException("Poisoning is disabled.");
-            UUID poison=BanquetItems.token(player.getMainHandStack(),SupplyKind.POISON),drink=BanquetItems.token(player.getOffHandStack(),SupplyKind.DRINK);
+            UUID poison=BanquetItems.token(player.getMainHandStack(),SupplyKind.POISON);
             UUID request=derived(poison,"contaminate");var before=inventory(server,player);var stacks=new ArrayList<>(InventorySnapshots.decode(server,before));
             int slot=player.getInventory().getSelectedSlot();stacks.set(slot,ItemStack.EMPTY);
-            BanquetState after=BanquetTransitions.contaminate(r.state,r.state.revision(),request,player.getUuid(),poison,drink);
+            ItemStack target = player.getOffHandStack();
+            BanquetState base = r.state;
+            UUID drink;
+            if (BanquetItems.edible(target)) {
+                if (BanquetItems.trackedFood(target)) {
+                    drink = BanquetItems.token(target, SupplyKind.FOOD);
+                } else {
+                    drink = derived(request, "food");
+                    base = BanquetTransitions.issue(base, base.revision(), derived(request, "food-issued"), player.getUuid(), drink, SupplyKind.FOOD);
+                    stacks.set(40, BanquetItems.trackFood(target, drink));
+                    if (target.getCount() > 1) stacks.set(slot, target.copyWithCount(target.getCount() - 1));
+                }
+            } else {
+                drink = BanquetItems.token(target, SupplyKind.DRINK);
+            }
+            BanquetState after=BanquetTransitions.contaminate(base,base.revision(),request,player.getUuid(),poison,drink);
             String fingerprint=hash(("contaminate/"+player.getUuid()+"/"+poison+"/"+drink).getBytes(StandardCharsets.UTF_8));
-            transact(server,r,new BanquetJournal.Intent(request,player.getUuid(),player.getUuid(),fingerprint,name(player)+" contaminated a drink.",ledgerHash(r.state),after,before,snapshot(server,stacks)),player);
-            player.sendMessage(Text.literal("You empty the vial into the drink."),true);return true;
+            transact(server,r,new BanquetJournal.Intent(request,player.getUuid(),player.getUuid(),fingerprint,name(player)+" contaminated a serving.",ledgerHash(r.state),after,before,snapshot(server,stacks)),player);
+            player.sendMessage(Text.literal("You empty the vial into the offering."),true);return true;
         }catch(Exception e){itemFailure(player,e);return false;}
+    }
+    public static boolean finishingFood() { return FINISHING_FOOD.get(); }
+
+    /** Runs vanilla eating once, between durable preparation and the exact inventory checkpoint. */
+    public static ItemStack finishFood(ServerPlayerEntity player, ItemStack food) {
+        MinecraftServer server = player.getEntityWorld().getServer();
+        Hand hand = player.getActiveHand();
+        try {
+            requireUse(player);
+            Runtime r = runtime(server);
+            ready(r);
+            flush(r);
+            UUID token = BanquetItems.token(food, SupplyKind.FOOD);
+            UUID request = derived(token, "consume");
+            if (player.getStackInHand(hand) != food) throw new IllegalStateException("The food in your hand changed.");
+            var before = inventory(server, player);
+            var stacks = new ArrayList<>(InventorySnapshots.decode(server, before));
+            ItemStack expected = ItemStack.EMPTY;
+            if (player.isCreative()) expected = BanquetItems.untrackFood(food);
+            else {
+                var remainder = food.get(DataComponentTypes.USE_REMAINDER);
+                if (remainder != null) expected = remainder.convertInto().copy();
+            }
+            stacks.set(hand == Hand.OFF_HAND ? 40 : player.getInventory().getSelectedSlot(), expected);
+            BanquetState next = BanquetTransitions.drink(r.state, r.state.revision(), request, player.getUuid(), token,
+                    r.settings.config().timing(), RepeatPolicy.REFRESH);
+            if (!r.settings.config().enabled()) next = new BanquetState(next.revision(), next.supplies(), r.state.illnesses(), next.operations(), next.eliminated());
+            var intent = new BanquetJournal.Intent(request, player.getUuid(), player.getUuid(),
+                    hash(("food/" + player.getUuid() + "/" + token).getBytes(StandardCharsets.UTF_8)),
+                    name(player) + " ate a contaminated serving.", ledgerHash(r.state), next, before, snapshot(server, stacks));
+            r.journal.claim(intent);
+            hold(server, "A banquet meal needs exact inventory recovery; preserve the inventory.");
+            ItemStack result;
+            FINISHING_FOOD.set(true);
+            try { result = food.finishUsing(player.getEntityWorld(), player); }
+            finally { FINISHING_FOOD.remove(); }
+            if (player.isCreative()) result = BanquetItems.untrackFood(result);
+            player.setStackInHand(hand, result);
+            if (!inventory(server, player).equals(intent.after())) throw new IOException("Food consumption changed unexpected inventory slots.");
+            completeInventory(server, r, intent, player);
+            return result;
+        } catch (Exception failure) {
+            itemFailure(player, failure);
+            return player.getStackInHand(hand);
+        }
     }
     public static void consume(ServerPlayerEntity player,SupplyKind kind,Hand hand){
         MinecraftServer server=player.getEntityWorld().getServer();
         try{
             requireUse(player);Runtime r=runtime(server);ready(r);flush(r);
             UUID token=BanquetItems.token(player.getStackInHand(hand),kind),request=derived(token,"consume");
-            if(kind==SupplyKind.POISON)throw new IllegalStateException("Use the dose with a drink in your other hand.");
+            if(kind==SupplyKind.POISON)throw new IllegalStateException("Use the dose with food or a drink in your other hand.");
             var before=inventory(server,player);var stacks=new ArrayList<>(InventorySnapshots.decode(server,before));int slot=hand==Hand.OFF_HAND?40:player.getInventory().getSelectedSlot();stacks.set(slot,new ItemStack(Items.GLASS_BOTTLE));
             BanquetState after;
             if(kind==SupplyKind.ANTIDOTE)after=BanquetTransitions.antidote(r.state,r.state.revision(),request,player.getUuid(),token);
             else {
                 after=BanquetTransitions.drink(r.state,r.state.revision(),request,player.getUuid(),token,r.settings.config().timing(),RepeatPolicy.REFRESH);
-                if(!r.settings.config().enabled())after=new BanquetState(after.revision(),after.supplies(),r.state.illnesses(),after.operations());
+                if(!r.settings.config().enabled())after=new BanquetState(after.revision(),after.supplies(),r.state.illnesses(),after.operations(),after.eliminated());
                 // Disabled poisoning cannot create/refresh illness; existing clocks remain suspended.
             }
             String fingerprint=hash((kind+"/"+player.getUuid()+"/"+token).getBytes(StandardCharsets.UTF_8));
@@ -192,7 +270,7 @@ public final class BanquetRuntime {
         ServerPlayerEntity target=server.getPlayerManager().getPlayer(q.recipient());if(target==null||players(server).stream().noneMatch(p->p.id().equals(q.recipient())))throw new IllegalStateException("Choose an online participant.");
         flush(r);var before=inventory(server,target);var stacks=new ArrayList<>(InventorySnapshots.decode(server,before));var slots=new ArrayList<Integer>();for(int i=0;i<36;i++)if(stacks.get(i).isEmpty())slots.add(i);
         int total=q.drinks()+q.poison()+q.antidotes();if(slots.size()<total)throw new IllegalStateException("The recipient needs "+total+" empty inventory slots; nothing was given.");
-        BanquetState after=r.state;int index=0;for(var kind:SupplyKind.values()){int count=kind==SupplyKind.DRINK?q.drinks():kind==SupplyKind.POISON?q.poison():q.antidotes();for(int i=0;i<count;i++){UUID token=derived(q.request(),"token/"+index);after=BanquetTransitions.issue(after,after.revision(),derived(q.request(),"issue/"+index),actor.getUuid(),token,kind);stacks.set(slots.get(index),BanquetItems.stack(kind,token));index++;}}
+        BanquetState after=r.state;int index=0;for(var kind:List.of(SupplyKind.DRINK,SupplyKind.POISON,SupplyKind.ANTIDOTE)){int count=kind==SupplyKind.DRINK?q.drinks():kind==SupplyKind.POISON?q.poison():q.antidotes();for(int i=0;i<count;i++){UUID token=derived(q.request(),"token/"+index);after=BanquetTransitions.issue(after,after.revision(),derived(q.request(),"issue/"+index),actor.getUuid(),token,kind);stacks.set(slots.get(index),BanquetItems.stack(kind,token));index++;}}
         return transact(server,r,new BanquetJournal.Intent(q.request(),actor.getUuid(),target.getUuid(),fingerprint,name(actor)+" gave "+name(target)+" "+q.drinks()+" drinks, "+q.poison()+" doses and "+q.antidotes()+" antidotes.",ledgerHash(r.state),after,before,snapshot(server,stacks)),target);
     }
     private static void request(ServerPlayerEntity player,Request q){
@@ -206,7 +284,7 @@ public final class BanquetRuntime {
         try{
             Runtime r=runtime(server);ready(r);
             switch(q.action()){
-                case OPEN -> { }
+                case OPEN -> message = r.settings.migrationNotice();
                 case LOG -> {if(!CouncilRuntime.isChancellor(server,player.getUuid()))return;}
                 case SAVE -> {if(!editable(player)||q.revision()!=r.revision||q.config()==null)throw new IllegalStateException("Enable Editing outside active play and reopen current settings.");flush(r);r.settings.save(q.config());r.revision=Math.incrementExact(r.revision);message="Settings saved.";}
                 case GIFT -> message=gift(player,q);
@@ -225,6 +303,7 @@ public final class BanquetRuntime {
     private static void tick(MinecraftServer server){
         Runtime r=WORLDS.get(server);if(r==null||r.failed)return;
         try{
+            for (var player : server.getPlayerManager().getPlayerList()) enforceExclusion(player);
             if(r.journal.pending()!=null){
                 if(++r.ticks%20==0){var op=r.journal.pending();var owner=server.getPlayerManager().getPlayer(op.owner());
                     if(owner==null)r.inspected="";
@@ -237,17 +316,30 @@ public final class BanquetRuntime {
             flush(r);
             for(var player:server.getPlayerManager().getPlayerList()){
                 var illness=r.state.illnesses().get(player.getUuid());
-                if(eligible.contains(player.getUuid())&&illness!=null&&illness.active())symptoms(r,player);else clearSymptoms(r,player);
+                if(eligible.contains(player.getUuid())&&illness!=null&&illness.active()) {
+                    symptoms(r,player);
+                    if (illness.stage() == Stage.CRITICAL) {
+                        r.criticalDamageActor = player.getUuid();
+                        try { player.damage(player.getEntityWorld(), player.getDamageSources().magic(), 1.0f); }
+                        finally { r.criticalDamageActor = null; }
+                    }
+                } else clearSymptoms(r,player);
             }
         }catch(Exception e){r.failed=true;io.github.chronicle.core.ChronicleCore.LOGGER.error("Banquet progression held for exact recovery",e);hold(server,"Banquet records need recovery; preserve their retained files.");}
     }
     private static void symptoms(Runtime r,ServerPlayerEntity player){
         List<StatusEffectInstance> ours=r.symptoms.computeIfAbsent(player.getUuid(),ignored->new ArrayList<>());
         ours.removeIf(instance->player.getStatusEffect(instance.getEffectType())!=instance);
-        for(var effect:List.of(StatusEffects.NAUSEA,StatusEffects.SLOWNESS)){
+        Illness illness = r.state.illnesses().get(player.getUuid());
+        boolean poisoned = illness != null && (illness.stage() == Stage.POISONED || illness.stage() == Stage.CRITICAL);
+        if (!poisoned) clearOwnedEffect(r, player, StatusEffects.POISON);
+        var effects = poisoned ? List.of(StatusEffects.NAUSEA, StatusEffects.SLOWNESS, StatusEffects.POISON)
+                : List.of(StatusEffects.NAUSEA, StatusEffects.SLOWNESS);
+        for(var effect:effects){
             var old=player.getStatusEffect(effect);boolean owned=old==null||ours.contains(old);
             if(!owned)continue;
-            APPLYING.set(true);try{player.addStatusEffect(new StatusEffectInstance(effect,40,0,false,false,true));}finally{APPLYING.remove();}
+            int amplifier = effect.equals(StatusEffects.POISON) && illness.stage() == Stage.CRITICAL ? 1 : 0;
+            APPLYING.set(true);try{player.addStatusEffect(new StatusEffectInstance(effect,40,amplifier,false,false,true));}finally{APPLYING.remove();}
             if(owned){var applied=player.getStatusEffect(effect);if(applied!=null&&!ours.contains(applied))ours.add(applied);}
         }
     }
@@ -257,6 +349,45 @@ public final class BanquetRuntime {
     }
     private static void clearSymptoms(Runtime r,ServerPlayerEntity player){
         var ours=r.symptoms.remove(player.getUuid());if(ours==null)return;
-        for(var effect:List.of(StatusEffects.NAUSEA,StatusEffects.SLOWNESS)){var current=player.getStatusEffect(effect);if(current!=null&&ours.contains(current)&&current.getAmplifier()==0&&current.getDuration()<=40)player.removeStatusEffect(effect);}
+        for(var effect:List.of(StatusEffects.NAUSEA,StatusEffects.SLOWNESS,StatusEffects.POISON)){var current=player.getStatusEffect(effect);if(current!=null&&ours.contains(current)&&current.getAmplifier()<=1&&current.getDuration()<=40)player.removeStatusEffect(effect);}
+    }
+    private static void clearOwnedEffect(Runtime r, ServerPlayerEntity player,
+                                         net.minecraft.registry.entry.RegistryEntry<net.minecraft.entity.effect.StatusEffect> effect) {
+        var owned = r.symptoms.get(player.getUuid());
+        var current = player.getStatusEffect(effect);
+        if (owned != null && current != null && owned.remove(current)) player.removeStatusEffect(effect);
+    }
+
+    private static void poisonedDeath(ServerPlayerEntity player) {
+        MinecraftServer server = player.getEntityWorld().getServer();
+        Runtime r = WORLDS.get(server);
+        if (r == null) return;
+        Illness illness = r.state.illnesses().get(player.getUuid());
+        if (illness == null || illness.stage() != Stage.CRITICAL || !player.getUuid().equals(r.criticalDamageActor)) return;
+        try {
+            ready(r);
+            flush(r);
+            BanquetState next = BanquetTransitions.eliminate(r.state, player.getUuid());
+            r.store.save(next);
+            r.state = next;
+            clearSymptoms(r, player);
+            player.sendMessage(Text.literal("Your part in this Council has ended."), false);
+        } catch (Exception failure) {
+            r.failed = true;
+            hold(server, "A fatal poisoning needs operator recovery; preserve its records.");
+            io.github.chronicle.core.ChronicleCore.LOGGER.error("Could not persist the poisoned character's exclusion", failure);
+        }
+    }
+
+    private static void enforceExclusion(ServerPlayerEntity player) {
+        MinecraftServer server = player.getEntityWorld().getServer();
+        Runtime r = WORLDS.get(server);
+        if (r == null || !r.state.eliminated().contains(player.getUuid())) return;
+        if (player.isAlive() && !player.isSpectator()) player.changeGameMode(net.minecraft.world.GameMode.SPECTATOR);
+        var play = PlayRuntime.available(server);
+        if (play != null && play.participants().contains(player.getUuid())) {
+            try { PlayRuntime.setSelfParticipant(player, false); }
+            catch (IOException | IllegalStateException failure) { hold(server, "A deceased character's participation needs recovery."); }
+        }
     }
 }

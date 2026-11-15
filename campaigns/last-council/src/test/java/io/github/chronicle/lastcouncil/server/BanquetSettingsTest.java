@@ -17,11 +17,11 @@ class BanquetSettingsTest {
         Path path = directory.resolve("settings.json");
         var settings = new BanquetSettings(path, BanquetConfig.defaults());
         assertEquals(new BanquetConfig(false, 2, 8), settings.config());
-        assertEquals(new BanquetState.Timing(2400, 9600), settings.config().timing());
-        var next = new BanquetConfig(true, 1, 60);
+        assertEquals(new BanquetState.Timing(2400, 4800, 2400, true), settings.config().timing());
+        var next = new BanquetConfig(true, 1, 60, 60);
         settings.save(next);
         assertEquals(next, new BanquetSettings(path, BanquetConfig.defaults()).config());
-        assertEquals(new BanquetState.Timing(1200, 72000), next.timing());
+        assertEquals(new BanquetState.Timing(1200, 144000, 72000, true), next.timing());
         assertThrows(IllegalArgumentException.class, () -> new BanquetConfig(false, 0, 1));
         assertThrows(IllegalArgumentException.class, () -> new BanquetConfig(false, 1, 61));
     }
@@ -45,6 +45,19 @@ class BanquetSettingsTest {
         Files.write(path, invalidUtf8);
         assertThrows(IOException.class, () -> new BanquetSettings(path, BanquetConfig.defaults()));
         assertArrayEquals(invalidUtf8, Files.readAllBytes(path));
+    }
+
+    @Test void legacyCustomDurationIsRetainedAndDefaultsHaveVisibleMigration() throws Exception {
+        Path path = directory.resolve("legacy.json");
+        Files.writeString(path, "{\"schema\":1,\"enabled\":true,\"onsetMinutes\":3,\"durationMinutes\":59}");
+        var settings = new BanquetSettings(path, BanquetConfig.defaults());
+        assertEquals(new BanquetConfig(true, 3, 30, 29), settings.config());
+        assertFalse(settings.migrationNotice().isBlank());
+        settings.save(settings.config());
+        assertTrue(settings.migrationNotice().isBlank());
+        assertEquals(settings.config(), new BanquetSettings(path, BanquetConfig.defaults()).config());
+        byte[] defaults = "{\"schema\":1,\"enabled\":true,\"onsetMinutes\":2,\"durationMinutes\":8}".getBytes(StandardCharsets.UTF_8);
+        assertEquals(new BanquetConfig(true, 2, 2, 2), BanquetSettings.decode(defaults));
     }
 
     @Test void staleSavePreservesFileAndMemory() throws Exception {

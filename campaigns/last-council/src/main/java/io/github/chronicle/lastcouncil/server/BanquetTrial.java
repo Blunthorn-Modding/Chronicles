@@ -47,15 +47,44 @@ public final class BanquetTrial {
         }))))));
         CommandRegistrationCallback.EVENT.register((dispatcher,access,environment)->{
             var trial=literal("trial");
-            for(String mode:List.of("clock_start","clock_advance","clock_held","build_on","build_off","death_prepare","death_check","change_settings"))trial.then(literal(mode).executes(c->{
+            for(String mode:List.of("clock_start","clock_advance","clock_held","build_on","build_off","death_prepare","death_check","change_settings","critical","critical_cure","fatal_check"))trial.then(literal(mode).executes(c->{
                 var server=c.getSource().getServer();check(server);var player=c.getSource().getPlayerOrThrow();
                 if(!"ChronicleFabricA".equals(player.getName().getString()))throw new IllegalStateException("Unsafe trial actor");
                 try{
                     if(mode.startsWith("build_"))io.github.chronicle.core.server.SessionBuilding.set(c.getSource(),mode.equals("build_on"));
                     var runtime=method(BanquetRuntime.class,"runtime",MinecraftServer.class).invoke(null,server);
                     if(mode.equals("change_settings")){
-                        ((BanquetSettings)field(runtime,"settings").get(runtime)).save(new BanquetConfig(true,3,9));
+                        ((BanquetSettings)field(runtime,"settings").get(runtime)).save(new BanquetConfig(true,3,4,5));
                         var revision=field(runtime,"revision");revision.setLong(runtime,Math.incrementExact(revision.getLong(runtime)));
+                        Files.writeString(Path.of(System.getenv("CHRONICLE_BANQUET_TRIAL_REPORT")+"."+mode),"PASS");return 1;
+                    }
+                    if (mode.startsWith("critical")) {
+                        method(BanquetRuntime.class,"flush",runtime.getClass()).invoke(null,runtime);
+                        var base = BanquetRuntime.state(server);
+                        var next = BanquetTransitions.advance(base, 100000, Set.of(player.getUuid()));
+                        require(next.illnesses().get(player.getUuid()).stage() == Stage.CRITICAL, "critical stage missing");
+                        ((BanquetStore)field(runtime,"store").get(runtime)).save(next);
+                        field(runtime,"state").set(runtime,next);
+                        player.clearStatusEffects();
+                        player.setHealth(1.0f);
+                        player.getHungerManager().setFoodLevel(0);
+                        player.getHungerManager().setSaturationLevel(0);
+                        if (mode.equals("critical_cure")) {
+                            method(BanquetRuntime.class,"symptoms",runtime.getClass(),ServerPlayerEntity.class).invoke(null,runtime,player);
+                            require(player.getStatusEffect(StatusEffects.POISON).getAmplifier() == 1, "critical Poison II missing");
+                            gift(player, 0, 0, 1);
+                            equip(player, SupplyKind.ANTIDOTE, Hand.MAIN_HAND);
+                            use(player, Hand.MAIN_HAND);
+                            require(player.isAlive() && !BanquetRuntime.state(server).illnesses().containsKey(player.getUuid()), "critical cure failed");
+                            require(!player.hasStatusEffect(StatusEffects.POISON), "critical cure retained owned Poison");
+                            gift(player, 1, 1, 0);
+                            drink(player);
+                        }
+                        Files.writeString(Path.of(System.getenv("CHRONICLE_BANQUET_TRIAL_REPORT")+"."+mode),"PASS");return 1;
+                    }
+                    if (mode.equals("fatal_check")) {
+                        require(player.isSpectator() && BanquetRuntime.state(server).eliminated().contains(player.getUuid()),"fatal poisoning did not exclude the character");
+                        require(!io.github.chronicle.core.server.PlayRuntime.available(server).participants().contains(player.getUuid()),"excluded character retained participation");
                         Files.writeString(Path.of(System.getenv("CHRONICLE_BANQUET_TRIAL_REPORT")+"."+mode),"PASS");return 1;
                     }
                     method(BanquetRuntime.class,"flush",runtime.getClass()).invoke(null,runtime);
@@ -89,6 +118,11 @@ public final class BanquetTrial {
         Object runtime=method(BanquetRuntime.class,"runtime",MinecraftServer.class).invoke(null,server);
         Field journalField=field(runtime,"journal"),stateField=field(runtime,"state"),storeField=field(runtime,"store");
         BanquetJournal journal=(BanquetJournal)journalField.get(runtime);
+        if("exclusion".equals(System.getenv("CHRONICLE_BANQUET_PHASE"))){
+            require(BanquetRuntime.state(server).eliminated().contains(player.getUuid()) && player.isSpectator(), "fatal exclusion missing after restart");
+            require(!io.github.chronicle.core.server.PlayRuntime.available(server).participants().contains(player.getUuid()), "dead character still participating");
+            return;
+        }
         if("restart".equals(System.getenv("CHRONICLE_BANQUET_PHASE"))){
             require(BanquetRuntime.state(server).illnesses().containsKey(player.getUuid()),"illness missing after restart");
             require(journal.receipts().size()>=8,"receipts missing after restart");return;
@@ -100,11 +134,11 @@ public final class BanquetTrial {
         require(journal.get(gift.request())!=null,"gift receipt missing");
         int initial=BanquetRuntime.state(server).supplies().size();require(initial==7,"wrong issued supply count");
         drink(player); BanquetState.Illness first=BanquetRuntime.state(server).illnesses().get(player.getUuid());
-        require(first!=null&&first.onsetTicks()==2400&&first.durationTicks()==9600,"first illness timing mismatch");
+        require(first!=null&&first.onsetTicks()==2400&&first.durationTicks()==4800,"first illness timing mismatch");
         BanquetState advanced=BanquetTransitions.advance(BanquetRuntime.state(server),2500,Set.of(player.getUuid()));
         ((BanquetStore)storeField.get(runtime)).save(advanced);stateField.set(runtime,advanced);
         drink(player); BanquetState.Illness refreshed=BanquetRuntime.state(server).illnesses().get(player.getUuid());
-        require(refreshed!=null&&refreshed.onsetTicks()==0&&refreshed.durationTicks()==9600,"repeat failed to refresh active illness without restarting incubation");
+        require(refreshed!=null&&refreshed.onsetTicks()==0&&refreshed.durationTicks()==4700,"repeat failed to refresh active illness without restarting incubation");
         advanced=BanquetTransitions.advance(BanquetRuntime.state(server),2400,Set.of(player.getUuid()));
         ((BanquetStore)storeField.get(runtime)).save(advanced);stateField.set(runtime,advanced);
         player.addStatusEffect(new StatusEffectInstance(StatusEffects.NAUSEA,200,1));
@@ -119,6 +153,93 @@ public final class BanquetTrial {
         drink(player);require(BanquetRuntime.state(server).illnesses().containsKey(player.getUuid()),"final illness missing");
         require(journal.receipts().size()>=8,"missing operation receipts");
         recovery(server,player,runtime);
+        exerciseFoods(server, player);
+    }
+    private static void exerciseFoods(MinecraftServer server, ServerPlayerEntity player) throws Exception {
+        for (var item : net.minecraft.registry.Registries.ITEM) {
+            if (!net.minecraft.registry.Registries.ITEM.getId(item).getNamespace().equals("minecraft")) continue;
+            ItemStack ordinary = new ItemStack(item);
+            if (!BanquetItems.edible(ordinary)) continue;
+            gift(player, 0, 1, 0);
+            equip(player, SupplyKind.POISON, Hand.MAIN_HAND);
+            int count = ordinary.isOf(net.minecraft.item.Items.BREAD) ? 4 : 1;
+            ordinary.setCount(count);
+            player.setStackInHand(Hand.OFF_HAND, ordinary);
+            require(BanquetRuntime.contaminate(player), "could not contaminate " + item);
+            ItemStack serving = player.getOffHandStack();
+            require(serving.getCount() == 1 && serving.isOf(item), "wrong poisoned portion count");
+            require(serving.getName().equals(ordinary.getName()), "poisoning changed the food name");
+            require(serving.get(net.minecraft.component.DataComponentTypes.FOOD).equals(ordinary.get(net.minecraft.component.DataComponentTypes.FOOD)), "nutrition changed");
+            if (count > 1) require(player.getMainHandStack().getCount() == count - 1 && !BanquetItems.trackedFood(player.getMainHandStack()), "clean stack remainder lost");
+            if (ordinary.isOf(net.minecraft.item.Items.BREAD)) {
+                var pos = player.getBlockPos().add(3, 0, 0);
+                player.getEntityWorld().setBlockState(pos, net.minecraft.block.Blocks.CHEST.getDefaultState());
+                var chest = (net.minecraft.block.entity.ChestBlockEntity)player.getEntityWorld().getBlockEntity(pos);
+                chest.setStack(0, serving.copy());
+                player.setStackInHand(Hand.OFF_HAND, ItemStack.EMPTY);
+                ItemStack stored = chest.removeStack(0);
+                var dropped = player.dropItem(stored, false, false);
+                require(dropped != null, "food drop missing");
+                dropped.resetPickupDelay();
+                dropped.onPlayerCollision(player);
+                equip(player, SupplyKind.FOOD, Hand.OFF_HAND);
+                require(BanquetItems.token(player.getOffHandStack(), SupplyKind.FOOD).equals(BanquetItems.token(serving, SupplyKind.FOOD)), "storage/drop lost food identity");
+            }
+            ItemStack copied = player.getOffHandStack().copy();
+            var remainder = copied.get(net.minecraft.component.DataComponentTypes.USE_REMAINDER);
+            player.getHungerManager().setFoodLevel(10);
+            player.setCurrentHand(Hand.OFF_HAND);
+            ItemStack result = ordinary.isOf(net.minecraft.item.Items.BREAD) ? eatWithSaveFailure(server, player) : player.getOffHandStack().finishUsing(player.getEntityWorld(), player);
+            player.stopUsingItem();
+            require(player.getHungerManager().getFoodLevel() > 10, "vanilla nutrition did not apply for " + item);
+            require(remainder == null ? result.isEmpty() : ItemStack.areEqual(result, remainder.convertInto()), "vanilla container remainder changed for " + item);
+            require(BanquetRuntime.state(server).supplies().get(BanquetItems.token(copied, SupplyKind.FOOD)).usedBy().equals(player.getUuid()), "food exposure not committed");
+            if (ordinary.isOf(net.minecraft.item.Items.GOLDEN_APPLE)) require(player.hasStatusEffect(StatusEffects.ABSORPTION), "golden apple effects lost");
+            if (ordinary.isOf(net.minecraft.item.Items.PUFFERFISH)) require(player.hasStatusEffect(StatusEffects.POISON), "pufferfish effects lost");
+            player.setStackInHand(Hand.OFF_HAND, copied);
+            player.setCurrentHand(Hand.OFF_HAND);
+            copied.finishUsing(player.getEntityWorld(), player);
+            player.stopUsingItem();
+            require(ItemStack.areEqual(copied, player.getOffHandStack()), "copied token replay consumed another food");
+            player.setStackInHand(Hand.OFF_HAND, ItemStack.EMPTY);
+            player.clearStatusEffects();
+        }
+        gift(player, 0, 1, 1);
+        equip(player, SupplyKind.ANTIDOTE, Hand.MAIN_HAND);
+        use(player, Hand.MAIN_HAND);
+        require(!BanquetRuntime.state(server).illnesses().containsKey(player.getUuid()), "food illness not cured");
+        equip(player, SupplyKind.POISON, Hand.MAIN_HAND);
+        player.setStackInHand(Hand.OFF_HAND, new ItemStack(net.minecraft.item.Items.MUSHROOM_STEW));
+        require(BanquetRuntime.contaminate(player), "stew preparation failed");
+        player.setStackInHand(Hand.MAIN_HAND, player.getOffHandStack());
+        player.setStackInHand(Hand.OFF_HAND, ItemStack.EMPTY);
+        player.getHungerManager().setFoodLevel(16);
+    }
+    private static ItemStack eatWithSaveFailure(MinecraftServer server, ServerPlayerEntity player) throws Exception {
+        check(server);
+        Path world = server.getSavePath(WorldSavePath.ROOT).toAbsolutePath().normalize();
+        Path data = world.resolve("playerdata"), backup = world.resolve("playerdata-food-trial");
+        require(data.getParent().equals(world) && backup.getParent().equals(world) && !Files.isSymbolicLink(data) && !Files.exists(backup), "unsafe food failure fixture");
+        BanquetState before = BanquetRuntime.state(server);
+        Files.move(data, backup);
+        try {
+            Files.writeString(data, "food trial write failure\n");
+            player.getOffHandStack().finishUsing(player.getEntityWorld(), player);
+            require(BanquetRuntime.state(server).equals(before), "food ledger published after failed inventory save");
+        } finally {
+            if (Files.isRegularFile(data) && Files.readString(data).equals("food trial write failure\n")) Files.delete(data);
+            require(!Files.exists(data), "food blocker changed");
+            Files.move(backup, data);
+        }
+        Object runtime = method(BanquetRuntime.class, "runtime", MinecraftServer.class).invoke(null, server);
+        require(((BanquetJournal)field(runtime, "journal").get(runtime)).pending() != null, "food save failure lost its pending intent");
+        method(BanquetRuntime.class, "recover", MinecraftServer.class, runtime.getClass()).invoke(null, server, runtime);
+        require(((BanquetJournal)field(runtime, "journal").get(runtime)).pending() == null, "food after-inventory recovery failed");
+        return player.getOffHandStack();
+    }
+    private static void gift(ServerPlayerEntity player, int drinks, int poison, int antidotes) throws Exception {
+        var request = new Request(UUID.randomUUID(), Action.GIFT, 0, null, player.getUuid(), drinks, poison, antidotes);
+        method(BanquetRuntime.class, "gift", ServerPlayerEntity.class, Request.class).invoke(null, player, request);
     }
     private static void recovery(MinecraftServer server,ServerPlayerEntity player,Object runtime)throws Exception{
         check(server);
