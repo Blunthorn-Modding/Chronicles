@@ -12,7 +12,7 @@ The owner confirmed three rules on 17 November:
 - Every current house in a conflict must sign a peace or ceasefire agreement.
 - Founding houses remain on their original sides until an agreement; supporting houses may change sides or withdraw voluntarily.
 
-The owner also rejected an abstract settlement mechanic and requested another workflow review. The revised proposal removes that category entirely. Peace/Ceasefire reuse voluntary treaty consent and only record the conflict as ended/paused. Negotiated demands stay freeform promises: the mod does not force a Council decision, ballot choice, law, payment, surrender or military result. This revised interpretation needs owner review before native implementation.
+The owner also rejected an abstract settlement mechanic and requested another workflow review. The revised proposal removes that category entirely. Peace/Ceasefire reuse voluntary treaty consent and only record the conflict as ended/paused. Negotiated demands stay freeform promises: the mod does not force a Council decision, ballot choice, law, payment, surrender or military result. The owner approved this revised workflow and authorized implementation.
 
 ## Workflow and UI boundaries
 
@@ -22,7 +22,7 @@ The public conflict register is a separate compact screen. Open it from a clicka
 
 The Chancellor can inspect public conflicts. The operator's **Game setup > Conflicts** settings popup owns the civil-war threshold under the usual non-active Editing guard. A Chancellor without a house has no house-side actions.
 
-Peace and ceasefire use the existing treaty lectern. A focused addition to treaty creation selects the agreement type and, for Peace/Ceasefire, the conflict. All current houses are listed automatically as required parties. The parties write their own terms, then sign that exact document revision. The Chancellor witnesses/sanctifies under the existing ceremony and attendance rules; this is not a Council vote or authority to impose terms. Peace records the conflict as ended; ceasefire records it as paused. Conflict membership changes invalidate completion based on an old party set; the draft must be updated and signed again. An ended conflict is historical and has no support actions. The proposed paused view retains sides/history and directs further agreements through the lectern; resuming hostilities after ceasefire is outside this review slice and must not silently become a new rule.
+Peace and ceasefire use the existing treaty lectern. A focused addition to treaty creation selects the agreement type and, for Peace/Ceasefire, the conflict. All current houses are listed automatically as required parties. The parties write their own terms, then sign that exact document revision. The Chancellor witnesses/sanctifies under the existing ceremony and attendance rules; this is not a Council vote or authority to impose terms. Peace records the conflict as ended; ceasefire records it as paused. Conflict membership changes invalidate completion based on an old party set; the draft must be updated and signed again. An ended conflict is historical and has no support actions. The proposed paused view retains sides/history and directs further agreements through the lectern; renewed hostilities after peace or ceasefire use the normal physical challenge and create a new conflict ID, preserving prior records. There is no separate resume action. Only an ACTIVE conflict between the same founding pair blocks a duplicate declaration.
 
 ## Treaty prerequisite
 
@@ -36,7 +36,7 @@ A non-aggression pact's automatic breach applies when its party declares war aga
 
 ## Implementation order
 
-1. **Review the revised focused UI.** The dedicated UI agent supplies the prototype with the three confirmed policies and concrete voluntary-agreement flow, then the lead verifies normal/compact views and interaction paths. The owner reviews the removal of abstract settlement before native screen implementation.
+1. **Review the revised focused UI.** The dedicated UI agent supplies the prototype with the three confirmed policies and concrete voluntary-agreement flow, then the lead verifies normal/compact views and interaction paths. Owner review passed: implement the revised flow, with renewed hostilities through a new normal declaration and no resume control.
 2. **Typed treaty records.** Extend the Last Council treaty model, codec, draft payloads and the existing small creation/edit form. Retain legacy readers and signature/visibility rules. Verify migration, stale signatures, inactive editing and private projections before integration.
 3. **Conflict domain.** Add a bounded immutable world-owned journal for declaration, sides, membership revision, classification, status and public history. Server authority maps the actor's current house. One house occupies at most one side per conflict. Multiple independent conflicts remain possible. Founders cannot withdraw or switch sides; supporters can, with explicit public records.
 4. **Physical declaration and register.** Add the approved interaction handler and nonce-bound confirmation. Present public records and eligible side actions in a separate screen. Keep authority, target and revision checks on the server. Reuse the existing compact frame, list/detail sections and popups.

@@ -89,7 +89,7 @@ class TreatyServiceTest {
     }
     @Test void malformedStateIsRejected() throws Exception {
         Store store=new Store();TreatyService s=new TreatyService(store);s.create(id,a,doc(1,Visibility.PUBLIC,a,b));String json=new String(store.bytes,StandardCharsets.UTF_8);
-        store.bytes=json.replace("\"schema\":1","\"schema\":1,\"schema\":1").getBytes(StandardCharsets.UTF_8);assertThrows(IOException.class,()->new TreatyService(store));
+        store.bytes=json.replace("\"schema\":2","\"schema\":2,\"schema\":2").getBytes(StandardCharsets.UTF_8);assertThrows(IOException.class,()->new TreatyService(store));
         store.bytes=json.replace("\"revision\":1","\"revision\":1.0").getBytes(StandardCharsets.UTF_8);assertThrows(IOException.class,()->new TreatyService(store));
         store.bytes=new byte[]{(byte)0xc3,(byte)0x28};assertThrows(IOException.class,()->new TreatyService(store));
     }
