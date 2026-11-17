@@ -1,5 +1,7 @@
 # Dev.14 Banquet feedback
 
+Owner functional review passed on 17 November 2026. The owner confirmed the delivered corrections work. Treaty and complication group reviews remain deferred.
+
 The owner accepted dev.13 food poisoning and requested item-named feedback, loot-table supplies, a poison death message and a hunger investigation.
 
 ## Delivered changes
