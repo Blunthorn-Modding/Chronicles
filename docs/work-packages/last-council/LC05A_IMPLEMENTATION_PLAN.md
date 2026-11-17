@@ -1,28 +1,28 @@
 # LC05A house conflicts
 
-The owner requested the next milestone after accepting dev.14. This slice develops house war, changing support and treaty-linked settlements. The first deliverable is the interactive workflow review. Native controls follow the approved flow.
+The owner requested the next milestone after accepting dev.14. This slice develops house war, changing support and voluntary peace/ceasefire agreements. The first deliverable is the interactive workflow review. Native controls follow the approved flow.
 
 ## Current decisions
 
 An initial declaration starts with an interaction on the actual opposing representative. The initiating house confirms a public reason. The target has no veto. Public conflicts have opposing sides, a chronological record and voluntary support. Civil-war classification starts at four participating houses across both sides, with a configurable threshold. War preserves Council and palace privileges.
 
-The owner's answers are pending for three choices:
+The owner confirmed three rules on 17 November:
 
-- Sneak plus empty-hand right-click, or a dedicated challenge item.
-- All current conflict houses, or only the two founding houses, must sign a settlement.
-- Founders need a settlement while supporters can withdraw, or everyone can withdraw and an empty side ends the conflict.
+- Use a dedicated challenge item on the actual opposing representative. Its final name/art is not chosen; the mockup calls it a challenge token.
+- Every current house in a conflict must sign a peace or ceasefire agreement.
+- Founding houses remain on their original sides until an agreement; supporting houses may change sides or withdraw voluntarily.
 
-These choices are visible in the prototype review and must be settled before their native implementation.
+The owner also rejected an abstract settlement mechanic and requested another workflow review. The revised proposal removes that category entirely. Peace/Ceasefire reuse voluntary treaty consent and only record the conflict as ended/paused. Negotiated demands stay freeform promises: the mod does not force a Council decision, ballot choice, law, payment, surrender or military result. This revised interpretation needs owner review before native implementation.
 
 ## Workflow and UI boundaries
 
-The declaration popup identifies the actual character and house, collects the public reason and offers Confirm/Cancel. A server-created offer binds the target, current assignments and interaction context. Confirmation revalidates both players, their connection/house assignment, normal interaction reach, line of sight and active participation. Leaving before commitment refuses the declaration. The completed declaration persists after a later departure.
+The dedicated challenge item opens a declaration popup identifying the actual character and house, collecting the public reason and offering Confirm/Cancel. A server-created offer binds the target, current assignments and interaction context. Confirmation revalidates both players, the held challenge item, their connection/house assignment, normal interaction reach, line of sight and active participation. Leaving before commitment refuses the declaration. The completed declaration persists after a later departure.
 
 The public conflict register is a separate compact screen. Open it from a clickable declaration notice, a View conflict action or `/chronicle council conflicts`. Its left list selects a conflict and the right panel shows the declaration, sides, status and public history. Joining a side, changing support and withdrawal use focused confirmation dialogs. Initial war declaration remains tied to the physical interaction. The character/house personal menu keeps its existing scope.
 
 The Chancellor can inspect public conflicts. The operator's **Game setup > Conflicts** settings popup owns the civil-war threshold under the usual non-active Editing guard. A Chancellor without a house has no house-side actions.
 
-Peace and ceasefire use the existing treaty lectern. A focused addition to treaty creation selects the agreement type and, for settlement types, the conflict. Signatures bind the exact document revision and required parties. The Chancellor sanctifies while required people are present under the existing ceremony rules. Conflict membership changes invalidate a settlement preflight based on the old party set.
+Peace and ceasefire use the existing treaty lectern. A focused addition to treaty creation selects the agreement type and, for Peace/Ceasefire, the conflict. All current houses are listed automatically as required parties. The parties write their own terms, then sign that exact document revision. The Chancellor witnesses/sanctifies under the existing ceremony and attendance rules; this is not a Council vote or authority to impose terms. Peace records the conflict as ended; ceasefire records it as paused. Conflict membership changes invalidate completion based on an old party set; the draft must be updated and signed again. An ended conflict is historical and has no support actions. The proposed paused view retains sides/history and directs further agreements through the lectern; resuming hostilities after ceasefire is outside this review slice and must not silently become a new rule.
 
 ## Treaty prerequisite
 
@@ -36,11 +36,11 @@ A non-aggression pact's automatic breach applies when its party declares war aga
 
 ## Implementation order
 
-1. **Review the focused UI and settle the three policy choices.** The dedicated UI agent supplies the prototype, then the lead verifies normal/compact views and interaction paths. The owner reviews before native screen implementation.
+1. **Review the revised focused UI.** The dedicated UI agent supplies the prototype with the three confirmed policies and concrete voluntary-agreement flow, then the lead verifies normal/compact views and interaction paths. The owner reviews the removal of abstract settlement before native screen implementation.
 2. **Typed treaty records.** Extend the Last Council treaty model, codec, draft payloads and the existing small creation/edit form. Retain legacy readers and signature/visibility rules. Verify migration, stale signatures, inactive editing and private projections before integration.
-3. **Conflict domain.** Add a bounded immutable world-owned journal for declaration, sides, membership revision, classification, status and public history. Server authority maps the actor's current house. One house occupies at most one side per conflict. Multiple independent conflicts remain possible. Counterpart roles and withdrawal follow the owner's answer.
+3. **Conflict domain.** Add a bounded immutable world-owned journal for declaration, sides, membership revision, classification, status and public history. Server authority maps the actor's current house. One house occupies at most one side per conflict. Multiple independent conflicts remain possible. Founders cannot withdraw or switch sides; supporters can, with explicit public records.
 4. **Physical declaration and register.** Add the approved interaction handler and nonce-bound confirmation. Present public records and eligible side actions in a separate screen. Keep authority, target and revision checks on the server. Reuse the existing compact frame, list/detail sections and popups.
-5. **Treaty effects and recovery.** Pin relevant treaty revisions and the conflict operation before applying a declaration's non-aggression breaches or a sanctified settlement. Reuse the pinned operation on retry and restart. A pending cross-store operation holds progression and has an operator recovery path. Publish the public conflict change only after its durable effects complete. Settlement history exposes the resulting public status while honoring the linked treaty's visibility.
+5. **Treaty effects and recovery.** Pin relevant treaty revisions and the conflict operation before applying a declaration's non-aggression breaches or a unanimously signed, sanctified peace/ceasefire status change. Reuse the pinned operation on retry and restart. A pending cross-store operation holds progression and has an operator recovery path. Publish the public conflict change only after its durable effects complete. Public history exposes the resulting conflict status while honoring the agreement's visibility; no private treaty ID, title or existence is disclosed. Freeform terms never execute arbitrary gameplay or Council actions.
 6. **Configuration and verification.** Export the reusable threshold through the existing scenario extension pattern. Keep conflict state, current sides and operation receipts in the world. Audit Event-source budgets before registering completed public conflict changes for existing flags/Events. Verify the combined package before building matching e4mc Host/Player packs.
 
 Last Council owns political types, consent effects, conflicts and permissions. Core's existing participation, character cards, Events, storage, authoring guards and UI widgets provide the shared facilities. This slice adds no military simulation or automatic combat outcome.
@@ -49,10 +49,10 @@ Last Council owns political types, consent effects, conflicts and permissions. C
 
 - Physical target authority, changed assignment, expired offer, distance/line of sight, disconnect and forged remote declaration.
 - Unilateral declaration, self-house refusal, duplicate request/restart, simultaneous conflicts and one-side-per-conflict enforcement.
-- Voluntary support changes and the chosen founder/withdrawal policy, with public history and no automatic ally enlistment.
+- Voluntary support changes, refusal of founder withdrawal/side-switching, public history and no automatic ally enlistment.
 - Civil-war threshold entry/exit with at least one house on both sides, preserving Council/palace rights.
 - Public/private non-aggression breach projections. Outsider list/detail/debug/error/history paths reveal no private treaty identifiers, titles, terms, counts or existence.
-- Exact settlement signatures, changed membership after signing, absent parties, ceasefire/peace application, repeat sanctification and interrupted cross-store recovery.
+- Every current house must sign the same peace/ceasefire text; changed membership invalidates the old party set. Test absent parties, status-only effects, repeat sanctification and interrupted cross-store recovery. Confirm no forced vote, law or demanded action is executed.
 - Legacy treaty migration and export/import/restart of reusable settings without private progress.
 - Native multi-client normal/compact screens and controller restart checks, with disposable worlds and retained compact evidence. Human treaty/complication group reviews remain deferred.
 

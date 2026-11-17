@@ -1,49 +1,44 @@
-# LC05 UI design — house conflicts and treaty types
+# LC05 UI design — conflicts, peace and ceasefire
 
 ## Status
 
-This is an interactive design proposal for review, not native gameplay authorization. It supersedes no approved treaty ceremony and does not implement LC05 conflict state, breach integration, foreign affairs, rebellion, automatic PvP, or a winner.
+This is a renewed interactive proposal for review, not native implementation approval. It represents the confirmed Challenge-token and exact-consent rules without adding a Council outcome, forced PvP, resource change, timer, resume mechanism, or winner.
 
 Prototype: [`last-council-conflicts.html`](../../design/last-council-conflicts.html).
 
-## Approved flow represented
+## Conflict register and declaration
 
-- The personal menu remains only **Character / My house / Other houses**. It has no Conflicts entry.
-- A player opens the public conflict register by clicking a public declaration notice or by `/chronicle council conflicts`. The register never offers remote initial declaration.
-- Initial house war begins in person on the actual other representative. The prototype offers the proposed, not approved, empty-hand + sneak gesture fixture and then names the target character, target house, and public reason in a focused confirmation.
-- Declaration is unilateral: the target has no veto. The public event is generic. An authorized initiator alone receives a private warning that their non-aggression agreement may be breached; neither its existence, type, terms, nor breach appears in an outsider projection.
-- The compact public register uses a chronological left list and right detail: declaration/reason, both house-side lists, and immutable public history. A house can Join side, Change side, or Withdraw only through a focused confirmation. The Chancellor gets the same public view with no house actions.
-- The Operator-only **Game setup → Conflicts** popup is explicitly limited to non-active Editing. It contains the configurable civil-war label threshold (fixture: four total houses across both sides), and has no winner control.
-- Loyal warring houses keep their votes and palace rights; war does not set PvP or decide a winner. This is stated where a player accepts the declaration, not as permanent screen boilerplate.
+- Personal-menu access stays **Character / My house / Other houses**. A public notice or `/chronicle council conflicts` opens the public register; neither starts a remote declaration.
+- A house representative uses the dedicated **Challenge token** on a nearby representative. The visual item choice remains cosmetic and unspecified. The confirmation names target character/house and reason, records a unilateral declaration, and has no target-veto control.
+- The initiator alone can receive a private non-aggression warning in that confirmation. No public/outsider projection exposes a private pact’s existence, type, terms, history, or breach implication.
+- The compact list/detail register presents public status, sides and history. Supporters can Join, Change side, or Withdraw through confirmations. Founders see: “Founding house: leave through a peace agreement.” Chancellor sees no house actions.
+- Operator-only **Game setup → Conflicts**, while non-active Editing, configures the civil-war label threshold (2–16). It assigns no winner.
 
-## Treaty lectern extension
+## Peace and ceasefire at the existing treaty lectern
 
-The existing treaty form needs a focused type selector: **General, Alliance, Non-aggression, Mutual defense, Trade / rights, Peace, Ceasefire**. Legacy documents safely read as **General**. For Peace or Ceasefire, the existing bound treaty lectern reveals a Conflict selector. The normal exact-signature ceremony and Chancellor presence remain the only route to settlement; the extension does not redesign the broader treaty UI or introduce realm ratification.
+The existing type picker includes **General, Alliance, Non-aggression, Mutual defense, Trade / rights, Peace, Ceasefire**; legacy documents read as General. Only Peace and Ceasefire expose the Conflict selector. Peace can end an Active or Paused conflict; Ceasefire selects an Active conflict. The draft shows freeform agreed terms and automatically lists every current house on both sides as a required signer, with no party-omission control.
 
-Private treaty type/information must be projection-scoped exactly like existing private terms: outsiders see no existence, type, terms, signatures, history, or breach implication. This design adds only an initiator-local declaration warning.
+Each current house signs the exact terms separately. The Chancellor is not a party signer: after every required house has signed, the assigned Chancellor performs the existing separate **Sanctify agreement** witness action at the same lectern. This is not Council permission.
 
-## Geometry and compact behavior
+Before sanctification, membership changes invalidate signatures and retain the typed terms for review in a fresh exact-consent draft. Peace records the conflict as **Ended**; Ceasefire records it as **Paused**. Public history records only the agreement/status, not freeform terms. Terms remain roleplayed promises. Paused resumption is deliberately omitted and remains a later review question.
 
-The prototype reuses the compact treaty framing: a centered maximum 700px frame, 75vh scroll bound, a 190px left list and flexible detail panel. At 650px and below, the list stacks above detail with a 150px cap. Dialogs are maximum 580px wide and 88vh high. Buttons wrap inside the frame; the screen deliberately avoids a full-width empty dashboard.
+## Geometry and fixture controls
 
-## Owner decisions still pending
+The frame remains maximum 700px, max-height 75vh, with a 190px left list/detail split. At 650px and below the list stacks over detail and caps at 150px. Dialogs remain bounded to 580px/88vh. Reviewer controls select an actor, simulate Challenge-token use, open the existing treaty lectern, and reset fictional fixture data.
 
-1. **Challenge gesture:** whether empty-hand + sneak is the final input or a dedicated item replaces it.
-2. **Peace/ceasefire consent set:** whether required signers are all current sides/parties or founding parties. The prototype does not freeze either policy; it only routes the selected conflict into the existing exact-consent ceremony.
-3. **Founder withdrawal / empty side:** whether founding houses must draft settlement while supporters can withdraw, or anyone may withdraw and an empty side ends the conflict. The fixture leaves founder withdrawal disabled and labels the policy pending; it is not an approved rule.
+## Browser review paths
 
-## Focused review checks
+- **Peace:** Ash opens Treaty lectern → Peace → Ash–Rowan; the required list is Ash, Vale and Rowan. Enter terms and prepare. Select each house actor in turn; each uses **Sign as House …**. Select Chancellor; **Sanctify agreement** becomes enabled only after all three house signatures and records Ended.
+- **Ceasefire:** repeat with Ceasefire and observe Paused after sanctification; no resume control is proposed.
+- **Membership invalidation:** before sanctification, select Vale, use Back to conflicts, then Change side or Withdraw. The unsigned draft’s signatures are cleared; its terms are retained in the rebuilt draft and a review notice appears.
+- **Privacy:** Ash’s Challenge-token confirmation against Reed gives the private warning. Vale’s does not; public history never reveals it.
 
-- Normal and compact frames keep list, details, actions and dialogs within the bounds.
-- Actor fixture proves an outsider sees public conflict detail only; private pact information is absent. Ash alone sees the private warning before declaration.
-- The declaration confirmation names Sera / House Reed / reason, says unilateral and has no acceptance affordance.
-- Public records respond to Join, Change side and Withdraw confirmations. Chancellor has no house controls; Operator configuration is isolated from Chancellor.
-- Treaty type selection reveals a Conflict picker only for Peace and Ceasefire, preserving the existing ceremony statement.
+Native implementation details and the cosmetic token appearance remain outside this UI proposal.
 
-## Lead verification ? 17 November 2026
+## Lead review evidence - 17 November 2026
 
-Installed Edge / cached Playwright CLI: **26 checks passed**, with no page exceptions on the final run. Covered actor separation, private-warning presentation, side changes/withdrawal/rejoining, record-specific sides, threshold validation/classification, duplicate-founder refusal, treaty-type conditional fields, Escape cancellation and compact scrolling/confirmation bounds. Lead inspected normal, compact upper/lower register and compact confirmation captures. Early fixture defects were corrected before this result.
+Lead consolidated the fixture handlers, removing superseded consent implementations. Installed Edge/cached Playwright CLI passed **44 focused checks** across challenge/side controls and the complete agreement flow. These cover dedicated-item presentation, founder/supporter controls, private-warning presentation, all-current-house signatures, Chancellor-only witnessing, missing-signature refusal, Ended/Paused records, retained text and cleared consent after membership changes, conditional fields, paused-to-peace selection and normal/compact layout. Lead inspected normal register, signed terms and compact upper/lower draft captures.
 
-Evidence: `../reports/lc05a-prototype-validation.json` relative to repository root; screenshots and replay script under ignored `output/playwright/conflicts-*`. Reproduce with cached `playwright-cli --session lc05 run-code --filename output/playwright/conflicts-smoke.js` against loopback port 8926. Static inline JavaScript syntax, UTF-8/no-BOM, local Markdown links, unchanged source-brief hash and `git diff --check` also pass.
+Replays: ignored `output/playwright/conflicts-v2-smoke.js` and `conflicts-v2-agreements.js`; result JSON and prototype hash: `../reports/lc05a-prototype-v2-validation.json` relative to repository root. Static inline JavaScript syntax, UTF-8/no-BOM, local Markdown links, unchanged brief hash and scoped diff checks also pass. Earlier draft fixture issues were corrected before final evidence.
 
-This verifies a local workflow simulation. It does not certify native privacy, persistence, interaction reach, treaty recovery or Minecraft layout. Those checks follow owner workflow/policy approval and implementation. No native code changed; Gradle/game tests and new packs are unnecessary for this design-only slice. Human treaty/complication multiplayer reviews remain deferred and unpassed.
+This is renewed workflow review, not native implementation or multiplayer/privacy certification. No gameplay code, version, client pack or played world changes. Gradle/game tests are not needed for this HTML/documentation slice. Ceasefire resumption remains an explicit open design point before completing its native lifecycle.

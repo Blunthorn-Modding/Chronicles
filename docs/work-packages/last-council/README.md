@@ -1,6 +1,6 @@
 # The Last Council work-package tree
 
-**Current slice:** [LC05A house conflicts](LC05A_IMPLEMENTATION_PLAN.md), starting with the [interactive workflow proposal](../../design/last-council-conflicts.html) and [UI design](LC05_UI_DESIGN.md). The owner accepted dev.14 Banquet corrections. Conflict policy choices and workflow review precede native implementation. Treaty and complication multiplayer reviews remain deferred, not passed.
+**Current slice:** [LC05A house conflicts](LC05A_IMPLEMENTATION_PLAN.md), starting with the [interactive workflow proposal](../../design/last-council-conflicts.html) and [UI design](LC05_UI_DESIGN.md). The owner accepted dev.14 Banquet corrections. The owner confirmed a dedicated challenge item, all-current-house agreement signatures and founder/supporter withdrawal rules. The revised workflow removes abstract settlement controls and awaits a second review before native implementation. Treaty and complication multiplayer reviews remain deferred, not passed.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
@@ -22,14 +22,14 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 | [LC-02](LC-02-council-ballots.md) | Event-led gatherings; Core ballots and GM-led Council procedure | LC-01A | In implementation: approved scenes, Core ballots, motions/proceedings; complication gate implemented; human group review deferred |
 | [LC-03](LC-03-succession.md) | Locked candidate slate and progressive succession | LC-02 | In progress: rules/journal/regency scene; actual LC08 gate implemented; human group review deferred |
 | [LC-04](LC-04-treaties.md) | New Last Council treaties, signatures and visibility | LC-01A; LC-02 for realm ratification | Initial native house-agreement ceremony implemented; human review and realm ratification/amendments remain |
-| [LC-05](LC-05-conflicts.md) | House/civil/external wars and political settlements | LC-02, LC-04 | LC05A plan and UI proposal pending owner review; native work not started |
+| [LC-05](LC-05-conflicts.md) | House/civil/external wars and peace agreements | LC-02, LC-04 | LC05A plan and UI proposal pending owner review; native work not started |
 | [LC-06](LC-06-rebellion-access.md) | Optional guarded Regions; rebellion and formal reinstatement | LC-01, LC-02, LC-03; LC-04/05 integration | Planned; confirmation/access review required |
 | [LC-07](LC-07-banquet.md) | Optional drinks, delayed illness and antidote | LC-01, existing Core clocks/items | Dev.13 food poisoning and dev.14 feedback/loot corrections accepted by owner; see LC07B_RESULTS.md and DEV14_BANQUET_FEEDBACK.md |
 | [LC-08](LC-08-content-events.md) | Core Event pools; random Council complications, character content and source/flag links | LC-01B/C for handouts; LC-02 progression gate for timing; integrate delivered operations | In implementation: pools/timing/gates and portable export; final content/source links pending |
 | [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08, chosen LC-10 voice behavior; LC-07 when enabled | Planned |
 | [LC-10](LC-10-room-voice.md) | Shared room-voice/acoustics investigation using Regions and Simple Voice Chat | Existing Regions/voice setup | Investigate early; implementation choice needs prototype review |
 
-The political critical path is LC-01A → LC-02 → LC-03, then settlement/access integration and LC-09. LC-01B/C add the randomizer and Last Council bindings; they must be complete before randomized handout delivery/content review, but need not block the ballot-domain work. Treaties and banquet work need not wait for succession. Packages describe coherent deliverables, not instructions to implement everything concurrently.
+The political critical path is LC-01A → LC-02 → LC-03, then peace-agreement/access integration and LC-09. LC-01B/C add the randomizer and Last Council bindings; they must be complete before randomized handout delivery/content review, but need not block the ballot-domain work. Treaties and banquet work need not wait for succession. Packages describe coherent deliverables, not instructions to implement everything concurrently.
 
 LC-10 can be investigated early and independently. Its later ID does not mean room acoustics waits until after release. Reuse existing physical-acoustics support if it satisfies the map; build custom Region routing/filtering only after reviewing the demonstrated gap.
 
