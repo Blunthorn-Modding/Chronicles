@@ -104,7 +104,7 @@ public final class TypedChestLoot {
         for(var b:ChestAuthoring.service(server).state().bindings().values())if(b.directBook()!=null&&!BookRuntime.books(server).containsKey(b.directBook().bookId()))throw new IllegalArgumentException("Unknown direct chest book: "+b.directBook().bookId());
         for (LootType type : candidate.values()) for (var entry : type.entries()) {
             if (!Registries.ITEM.containsId(Identifier.of(entry.item()))) throw new IllegalArgumentException("Unknown loot item in " + type.id() + ": " + entry.item());
-            ItemStack stack = ChestAuthoring.decode(server, new InventorySnapshot(1, List.of(stackJson(entry.item(), entry.maxCount(), entry.componentsJson())))).getFirst();
+            ItemStack stack = ChestAuthoring.decode(server, new InventorySnapshot(1, List.of(stackJson(entry.item(), 1, entry.componentsJson())))).getFirst();
             if (stack.isEmpty() || stack.getCount() > stack.getMaxCount()) throw new IllegalArgumentException("Invalid loot count/components in " + type.id() + ": " + entry.item());
         }
     }
@@ -260,7 +260,7 @@ public final class TypedChestLoot {
                     UUID id = UUID.nameUUIDFromBytes((binding.id() + "|" + next.sessionNumber() + "|" + cycle.generation()).getBytes(StandardCharsets.UTF_8));
                     InventorySnapshot before=ChestAuthoring.snapshot(server,target.inventory());
                     var bookPlan=BookDeliveryRuntime.planFill(server,binding,runtime.types.get(binding.lootType()),before,roll(server,runtime.types.get(binding.lootType()),target.inventory().size(),id),id,reservedBooks);
-                    InventorySnapshot after = bookPlan.after();
+                    InventorySnapshot after = LootItemFactories.prepareContents(server, id, bookPlan.after());
                     var operation = new PendingChestOperation(id.toString(), SYSTEM_UUID, "Chronicle loot scheduler", binding.id(), binding.revision(), next.sessionNumber(), cycle.generation(),
                             binding.directTarget(), before, after, Instant.now().toString(),PendingChestOperation.Purpose.FILL,null,0,null,null,null,bookPlan.claims());
                     prepared.add(new Prepared(operation, target, ChestAuthoring.validateForInventory(server, after, target.inventory())));
@@ -277,6 +277,7 @@ public final class TypedChestLoot {
             var rules=new TreeMap<String,io.github.chronicle.core.books.BookDefinition.Rule>();BookRuntime.books(server).forEach((key,value)->rules.put(key,value.rule()));
             for (Prepared item : prepared){if(item.operation.bookClaims().isEmpty())service.begin(item.operation,true);else service.beginLore(item.operation,rules,true);}
             ChestAuthoring.refreshHold(server);
+            for (Prepared item : prepared) LootItemFactories.authorize(server, item.operation);
             for (Prepared item : prepared) {
                 ChestAuthoring.closeViewers(server, item.target.inventory());
                 for (int slot = 0; slot < item.stacks.size(); slot++) item.target.inventory().setStack(slot, item.stacks.get(slot).copy());
@@ -297,16 +298,25 @@ public final class TypedChestLoot {
     private static InventorySnapshot roll(MinecraftServer server, LootType type, int size, UUID operation) {
         var random = new Random(operation.getMostSignificantBits() ^ operation.getLeastSignificantBits());
         var selected = LootRoller.roll(type, random);
-        if (selected.size() > size) throw new IllegalArgumentException("Loot type exceeds target capacity: " + type.id());
-        List<String> stacks = new ArrayList<>(Collections.nCopies(size, "{}"));
+        List<ItemStack> rewards = new ArrayList<>();
+        for (var entry : selected) {
+            ItemStack template = ChestAuthoring.decode(server, new InventorySnapshot(1,
+                    List.of(stackJson(entry.entry().item(), 1, entry.entry().componentsJson())))).getFirst();
+            for (int remaining = entry.count(); remaining > 0;) {
+                int count = Math.min(remaining, template.getMaxCount());
+                rewards.add(template.copyWithCount(count));
+                remaining -= count;
+            }
+        }
+        if (rewards.size() > size) throw new IllegalArgumentException("Loot type exceeds target capacity: " + type.id());
         List<Integer> slots = new ArrayList<>(); for (int i = 0; i < size; i++) slots.add(i);
         Collections.shuffle(slots, random);
-        for (int i = 0; i < selected.size(); i++) {
-            var entry = selected.get(i);
-            stacks.set(slots.get(i), stackJson(entry.entry().item(), entry.count(), entry.entry().componentsJson()));
+        var inventory = new net.minecraft.inventory.SimpleInventory(size);
+        for (int i = 0; i < rewards.size(); i++) {
+            int slot = slots.get(i);
+            inventory.setStack(slot, rewards.get(i));
         }
-        var normalized = ChestAuthoring.decode(server, new InventorySnapshot(size, stacks));
-        return ChestAuthoring.snapshot(server, new net.minecraft.inventory.SimpleInventory(normalized.toArray(ItemStack[]::new)));
+        return ChestAuthoring.snapshot(server, inventory);
     }
     private static String stackJson(String item, int count, String components) {
         JsonObject stack = new JsonObject(); stack.addProperty("id", item); stack.addProperty("count", count);

@@ -285,6 +285,7 @@ public final class ChestAuthoring {
             switch (decision) {
                 case ABORT_UNCHANGED -> runtime.service.abortUnchanged(operationId);
                 case COMMIT_APPLIED -> {
+                    LootItemFactories.authorize(source.getServer(), operation);
                     if (!source.getServer().saveAll(false, true, true)) {
                         RuntimeHolds.hold(source.getServer(), HOLD_OWNER, "Chest fill " + operationId + " matches the intended contents but its world save is not confirmed.");
                         throw new IllegalStateException("Applied contents match, but Minecraft did not confirm a flushed world save. Pending evidence remains and simulation stays held.");

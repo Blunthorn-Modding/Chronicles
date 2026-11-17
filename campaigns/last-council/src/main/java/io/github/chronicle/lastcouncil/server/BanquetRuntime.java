@@ -31,6 +31,9 @@ import static net.minecraft.server.command.CommandManager.literal;
 public final class BanquetRuntime {
     public static final String HOLD="last_council:banquet";
     private static final UUID NONE=new UUID(0,0);
+    private static final net.minecraft.registry.RegistryKey<net.minecraft.entity.damage.DamageType> POISON_DAMAGE =
+            net.minecraft.registry.RegistryKey.of(net.minecraft.registry.RegistryKeys.DAMAGE_TYPE,
+                    net.minecraft.util.Identifier.of("last_council", "banquet_poison"));
     private static final Map<MinecraftServer,Runtime> WORLDS=new IdentityHashMap<>();
     private static final Map<ServerPlayerEntity,Long> REQUESTS=new WeakHashMap<>();
     private static final ThreadLocal<Boolean> APPLYING=ThreadLocal.withInitial(()->false);
@@ -46,6 +49,7 @@ public final class BanquetRuntime {
         Runtime(BanquetSettings settings,BanquetStore store,BanquetState state,BanquetJournal journal,UUID worldId){this.settings=settings;this.store=store;this.state=state;this.journal=journal;this.worldId=worldId;}
     }
     public static void register() {
+        if (CouncilRuntime.active()) registerLoot();
         ScenarioContentRuntime.registerExtension(HOLD,new ScenarioContentRuntime.ExtensionAdapter(){
             public void validate(String json)throws IOException{BanquetSettings.decode(json.getBytes(StandardCharsets.UTF_8));}
             public String capture(MinecraftServer server)throws IOException{if(!CouncilRuntime.active())return null;var r=runtime(server);r.settings.verify();return new String(BanquetSettings.encode(r.settings.config()),StandardCharsets.UTF_8);}
@@ -187,7 +191,7 @@ public final class BanquetRuntime {
             BanquetState after=BanquetTransitions.contaminate(base,base.revision(),request,player.getUuid(),poison,drink);
             String fingerprint=hash(("contaminate/"+player.getUuid()+"/"+poison+"/"+drink).getBytes(StandardCharsets.UTF_8));
             transact(server,r,new BanquetJournal.Intent(request,player.getUuid(),player.getUuid(),fingerprint,name(player)+" contaminated a serving.",ledgerHash(r.state),after,before,snapshot(server,stacks)),player);
-            player.sendMessage(Text.literal("You empty the vial into the offering."),true);return true;
+            player.sendMessage(Text.translatable("message.last_council.banquet.poisoned", target.getName()),true);return true;
         }catch(Exception e){itemFailure(player,e);return false;}
     }
     public static boolean finishingFood() { return FINISHING_FOOD.get(); }
@@ -320,7 +324,7 @@ public final class BanquetRuntime {
                     symptoms(r,player);
                     if (illness.stage() == Stage.CRITICAL) {
                         r.criticalDamageActor = player.getUuid();
-                        try { player.damage(player.getEntityWorld(), player.getDamageSources().magic(), 1.0f); }
+                        try { player.damage(player.getEntityWorld(), poisonDamage(player.getEntityWorld().getServer()), 1.0f); }
                         finally { r.criticalDamageActor = null; }
                     }
                 } else clearSymptoms(r,player);
@@ -388,6 +392,35 @@ public final class BanquetRuntime {
         if (play != null && play.participants().contains(player.getUuid())) {
             try { PlayRuntime.setSelfParticipant(player, false); }
             catch (IOException | IllegalStateException failure) { hold(server, "A deceased character's participation needs recovery."); }
+        }
+    }
+    public static net.minecraft.entity.damage.DamageSource poisonDamage(MinecraftServer server) {
+        return new net.minecraft.entity.damage.DamageSource(server.getRegistryManager()
+                .getOrThrow(net.minecraft.registry.RegistryKeys.DAMAGE_TYPE).getOrThrow(POISON_DAMAGE));
+    }
+
+    private static UUID lootToken(UUID operation, int slot, SupplyKind kind) {
+        return derived(operation, "banquet-loot/" + slot + "/" + kind);
+    }
+
+    private static void registerLoot() {
+        for (SupplyKind kind : List.of(SupplyKind.DRINK, SupplyKind.POISON, SupplyKind.ANTIDOTE)) {
+            var item = net.minecraft.util.Identifier.of("last_council", "banquet_" + kind.name().toLowerCase(Locale.ROOT));
+            LootItemFactories.register(item, new LootItemFactories.Factory() {
+                public ItemStack prepare(MinecraftServer server, UUID operation, int slot, ItemStack template) {
+                    return BanquetItems.withToken(template, lootToken(operation, slot, kind));
+                }
+                public void authorize(MinecraftServer server, UUID operation, int slot, ItemStack reward) throws IOException {
+                    UUID token = lootToken(operation, slot, kind);
+                    if (!token.equals(BanquetItems.token(reward, kind))) throw new IllegalStateException("Loot supply identity changed.");
+                    Runtime r = runtime(server);
+                    ready(r);
+                    if (r.failed || r.journal.pending() != null) throw new IllegalStateException("Recover Banquet records before issuing loot supplies.");
+                    flush(r);
+                    BanquetState next = BanquetTransitions.issue(r.state, r.state.revision(), derived(token, "loot-issued"), NONE, token, kind);
+                    if (next != r.state) { r.store.save(next); r.state = next; }
+                }
+            });
         }
     }
 }

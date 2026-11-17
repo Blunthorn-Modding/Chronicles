@@ -42,7 +42,9 @@ def level_data(raw):
     data.pop('Player', None)
     data['LevelName'] = nbtlib.String('Chronicle - Council review (e4mc)')
     data['allowCommands'] = nbtlib.Byte(1)
-    data['GameType'] = nbtlib.Int(1)
+    data['GameType'] = nbtlib.Int(0)
+    data['Difficulty'] = nbtlib.Byte(2)
+    data['DifficultyLocked'] = nbtlib.Byte(0)
     buffer = io.BytesIO()
     level.write(buffer)
     return gzip.compress(buffer.getvalue(), mtime=0)
@@ -108,7 +110,7 @@ ONE PERSON HOSTS. Everyone imports their pack as a NEW launcher instance.
 
 HOST: Import the Host .mrpack, then Singleplayer > Chronicle - Council review
 (e4mc). It includes the review platform and bound motion lectern at 0,65,4.
-Press Escape > Open to LAN. Set Allow Commands to OFF for guests; keep Creative for setup.
+Press Escape > Open to LAN. Set Allow Commands to OFF for guests and choose Survival.
 Open the world and send the public e4mc address from chat to your reviewer.
 The world already has cheats enabled for its local host. Do not run a separate server.
 
@@ -165,6 +167,12 @@ Offline, paused and Building Mode clocks stop. Only the Chancellor can
 inspect the private log (also /chronicle banquet log).
 /chronicle banquet recover retries exact held inventory recovery.
 Use Give supplies for issued poison, antidotes and banquet drinks.
+Advanced > Loot Tables > Add item also supports Poison dose and Antidote.
+Each rolled serving receives its own valid supply identity. Counts above one
+use separate slots, and scheduled refills work normally.
+The bundled world starts in Survival on Normal difficulty. An existing old
+review world may still use Peaceful: /difficulty normal. Use Survival for
+hunger and damage tests. Paused play and Building Mode hold hunger.
 Private menu papers remain available through Character & houses > My house.
 Copy paper lets the player request an individual physical written book.
 No books are automatically given. Leave empty inventory slots for copies.
@@ -245,6 +253,11 @@ def build():
             for name, raw in overrides.items():
                 if z.read('overrides/' + name) != raw:
                     raise RuntimeError('Pack payload changed')
+            if kind == 'Host':
+                import nbtlib
+                packed = nbtlib.File.parse(io.BytesIO(gzip.decompress(z.read('overrides/saves/' + WORLD + '/level.dat'))))['Data']
+                if int(packed['GameType']) != 0 or int(packed['Difficulty']) != 2:
+                    raise RuntimeError('Review world must start in Survival on Normal difficulty')
             if any('voicechat' in name.lower() or 'token' in name.lower() or 'cast.json' in name for name in z.namelist()):
                 raise RuntimeError('Unexpected private/runtime payload')
         result['artifacts'].append({'kind': kind, 'path': str(target), 'bytes': target.stat().st_size, 'sha256': w.digest(target)})

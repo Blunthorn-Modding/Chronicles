@@ -6,5 +6,9 @@
   "key.last_council.proceedings.open": "Open council proceedings",
   "item.last_council.banquet_drink": "Banquet drink",
   "item.last_council.banquet_poison": "Poison dose",
-  "item.last_council.banquet_antidote": "Antidote"
+  "item.last_council.banquet_antidote": "Antidote",
+  "message.last_council.banquet.poisoned": "You poison the %s",
+  "death.attack.last_council.poison": "%1$s was killed by poison",
+  "death.attack.last_council.poison.player": "%1$s was killed by poison",
+  "death.attack.last_council.poison.item": "%1$s was killed by poison"
 }

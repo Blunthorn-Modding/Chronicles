@@ -59,7 +59,10 @@ public final class BanquetItems {
         return edible(stack) && data != null && data.copyNbt().contains(TOKEN);
     }
     public static ItemStack trackFood(ItemStack stack, UUID token) {
-        ItemStack serving = stack.copyWithCount(1);
+        return withToken(stack.copyWithCount(1), token);
+    }
+    public static ItemStack withToken(ItemStack stack, UUID token) {
+        ItemStack serving = stack.copy();
         var existing = serving.get(DataComponentTypes.CUSTOM_DATA);
         NbtCompound data = existing == null ? new NbtCompound() : existing.copyNbt();
         data.putString(TOKEN, token.toString());

@@ -1,9 +1,11 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.13`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.14`. Branch: `feat/last-council`.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
 
 ## Current delivery
+
+[DEV14_BANQUET_FEEDBACK.md](DEV14_BANQUET_FEEDBACK.md) records accepted food poisoning, the requested feedback/loot/death-message corrections and the hunger diagnosis.
 
 [LC07B_RESULTS.md](LC07B_RESULTS.md) records ordinary food contamination and the approved escalating, potentially fatal poisoning revision. The preceding [LC07_IMPLEMENTATION.md](LC07_IMPLEMENTATION.md) remains the dev.12 implementation record. [DEV11_VARIABLES_RESULTS.md](DEV11_VARIABLES_RESULTS.md) records the source editor and House variables. The next review covers Banquet execution and balance. Treaty and complication group acceptance remain deferred.
 

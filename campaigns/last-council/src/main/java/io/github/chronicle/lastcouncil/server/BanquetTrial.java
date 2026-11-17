@@ -38,7 +38,15 @@ public final class BanquetTrial {
     private BanquetTrial() { }
     public static void register() {
         if (System.getenv("CHRONICLE_BANQUET_TRIAL") == null) return;
-        ServerLifecycleEvents.SERVER_STARTED.register(BanquetTrial::check);
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            check(server);
+            if (!"initial".equals(System.getenv("CHRONICLE_BANQUET_PHASE"))) return;
+            var pos = new net.minecraft.util.math.BlockPos(0, -59, 0);
+            server.getOverworld().setBlockState(pos, net.minecraft.block.Blocks.CHEST.getDefaultState());
+            var target = new io.github.chronicle.core.content.ChestTarget("target", 1, "minecraft:overworld", 0, -59, 0, "minecraft:chest");
+            try { io.github.chronicle.core.server.ChestAuthoring.service(server).putTypedBinding("last_council:banquet_test", target, false); }
+            catch (java.io.IOException failure) { throw new IllegalStateException(failure); }
+        });
         CommandRegistrationCallback.EVENT.register((dispatcher, access, environment) -> dispatcher.register(literal("chronicle").then(literal("banquet").then(literal("trial").then(literal("exercise").executes(context -> {
             ServerPlayerEntity player=context.getSource().getPlayerOrThrow(); MinecraftServer server=context.getSource().getServer();
             check(server); if(!"ChronicleFabricA".equals(player.getName().getString()) || server.getPlayerManager().getPlayer(player.getUuid())!=player)throw new IllegalStateException("Unsafe trial actor");
@@ -128,11 +136,13 @@ public final class BanquetTrial {
             require(journal.receipts().size()>=8,"receipts missing after restart");return;
         }
         require(BanquetRuntime.canUse(player),"actor is not active eligible participant");
+        lootSupplies(server, player);
+        int baseline = BanquetRuntime.state(server).supplies().size();
         Request gift=new Request(UUID.randomUUID(),Action.GIFT,0,null,player.getUuid(),3,3,1);
         String result=(String)method(BanquetRuntime.class,"gift",ServerPlayerEntity.class,Request.class).invoke(null,player,gift);
         require(result.equals("Supplies delivered."),"gift refused: "+result);
         require(journal.get(gift.request())!=null,"gift receipt missing");
-        int initial=BanquetRuntime.state(server).supplies().size();require(initial==7,"wrong issued supply count");
+        int initial=BanquetRuntime.state(server).supplies().size();require(initial==baseline+7,"wrong issued supply count");
         drink(player); BanquetState.Illness first=BanquetRuntime.state(server).illnesses().get(player.getUuid());
         require(first!=null&&first.onsetTicks()==2400&&first.durationTicks()==4800,"first illness timing mismatch");
         BanquetState advanced=BanquetTransitions.advance(BanquetRuntime.state(server),2500,Set.of(player.getUuid()));
@@ -154,6 +164,29 @@ public final class BanquetTrial {
         require(journal.receipts().size()>=8,"missing operation receipts");
         recovery(server,player,runtime);
         exerciseFoods(server, player);
+    }
+    private static void lootSupplies(MinecraftServer server, ServerPlayerEntity player) throws Exception {
+        var chest = (net.minecraft.block.entity.ChestBlockEntity)server.getOverworld().getBlockEntity(new net.minecraft.util.math.BlockPos(0, -59, 0));
+        require(chest != null, "loot test chest missing");
+        int doses = 0, cures = 0;
+        var tokens = new java.util.HashSet<UUID>();
+        for (int slot = 0; slot < chest.size(); slot++) {
+            ItemStack stack = chest.getStack(slot);
+            if (stack.isEmpty()) continue;
+            for (var kind : List.of(SupplyKind.POISON, SupplyKind.ANTIDOTE)) {
+                UUID token;
+                try { token = BanquetItems.token(stack, kind); }
+                catch (IllegalArgumentException invalid) { continue; }
+                require(stack.getCount() == 1 && tokens.add(token), "loot supply stacked or token reused");
+                var supply = BanquetRuntime.state(server).supplies().get(token);
+                require(supply != null && supply.kind() == kind, "loot supply has no private authority");
+                if (kind == SupplyKind.POISON) doses++; else cures++;
+                require(player.getInventory().insertStack(stack.copy()), "fixture inventory full");
+                chest.setStack(slot, ItemStack.EMPTY);
+            }
+        }
+        chest.markDirty();
+        require(doses == 3 && cures == 2, "normal loot fill did not issue three doses and two cures");
     }
     private static void exerciseFoods(MinecraftServer server, ServerPlayerEntity player) throws Exception {
         for (var item : net.minecraft.registry.Registries.ITEM) {

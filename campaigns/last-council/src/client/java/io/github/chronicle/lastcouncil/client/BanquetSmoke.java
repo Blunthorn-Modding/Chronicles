@@ -25,6 +25,7 @@ public final class BanquetSmoke {
     private static BanquetSmoke instance;
     private final Path output, shared; private final String role, phase;
     private final List<String> checks = new ArrayList<>(); private final long started = System.nanoTime();
+    private String poisonNotice = "", poisonDeath = "";
     private boolean connecting, done, giftTrial; private int step, wait, views; private UUID forged; private String offlineIllnesses; private long offlineTime;
     private BanquetSmoke(String path) {
         Path root=Path.of(System.getenv("CHRONICLE_BANQUET_ROOT")).toAbsolutePath().normalize();
@@ -35,7 +36,12 @@ public final class BanquetSmoke {
                 || !Set.of("A","B").contains(role) || !Set.of("initial","restart","exclusion").contains(phase))
             throw new IllegalArgumentException("Unsafe banquet smoke fixture");
     }
-    public static void register() { String path=System.getenv("CHRONICLE_BANQUET_SMOKE"); if(path!=null){instance=new BanquetSmoke(path);ClientTickEvents.END_CLIENT_TICK.register(instance::tick);} }
+    public static void register() { String path=System.getenv("CHRONICLE_BANQUET_SMOKE"); if(path!=null){instance=new BanquetSmoke(path);ClientTickEvents.END_CLIENT_TICK.register(instance::tick);
+        net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+            String text = message.getString();
+            if (text.startsWith("You poison the ")) instance.poisonNotice = text;
+            if (text.contains("was killed by poison")) instance.poisonDeath = text;
+        });} }
     public static void view(View view) { if(instance!=null && view.request().equals(instance.forged)) instance.views++; }
     private void mark(String name)throws Exception { Files.writeString(shared.resolve(phase+"-"+name),"ready",StandardCharsets.UTF_8); }
     private boolean has(String name){return Files.isRegularFile(shared.resolve(phase+"-"+name));}
@@ -82,7 +88,7 @@ public final class BanquetSmoke {
             case 9->{c.player.networkHandler.sendChatCommand("chronicle session start");wait=80;step=11;}
             case 11->{c.player.networkHandler.sendChatCommand("chronicle banquet trial exercise");step=10;}
             case 10->{Path report=shared.resolve(phase+"-trial.json");if(!Files.isRegularFile(report))return;var result=com.google.gson.JsonParser.parseString(Files.readString(report)).getAsJsonObject();require(result.get("result").getAsString().equals("PASS"),"server item trial failed: "+result);checks.add(phase.equals("initial")?"all vanilla edible items, single portion split, storage/drop, nutrition, remainders, replay and cure":"illness or permanent exclusion and receipts survived restart");mark("trial-complete");step=12;}
-            case 12->{if(!has("log-B"))return;if(phase.equals("initial")){c.options.useKey.setPressed(true);wait=50;step=14;}else if(phase.equals("restart")){c.player.networkHandler.sendChatCommand("chronicle editing off");wait=15;step=50;}else step=13;}
+            case 12->{if(!has("log-B"))return;if(phase.equals("initial")){require(poisonNotice.equals("You poison the Mushroom Stew"),"named poisoning feedback missing: "+poisonNotice);checks.add("loot-issued poison and antidotes work and feedback names the poisoned item");c.options.useKey.setPressed(true);wait=50;step=14;}else if(phase.equals("restart")){c.player.networkHandler.sendChatCommand("chronicle editing off");wait=15;step=50;}else step=13;}
             case 14->{c.options.useKey.setPressed(false);require(c.player.getMainHandStack().isOf(net.minecraft.item.Items.BOWL),"real eating animation did not consume the poisoned stew");checks.add("32-tick food use completed through real client input with vanilla bowl remainder");BanquetGiftTrial.start(c);giftTrial=true;}
             case 15->{c.player.networkHandler.sendChatCommand("chronicle banquet trial clock_advance");wait=15;step=16;}
             case 16->{clock("clock_advance");c.player.networkHandler.sendChatCommand("chronicle session pause");wait=20;step=17;}
@@ -95,7 +101,7 @@ public final class BanquetSmoke {
             case 50->{c.player.networkHandler.sendChatCommand("chronicle session resume");wait=30;step=51;}
             case 51->{c.player.networkHandler.sendChatCommand("chronicle banquet trial critical_cure");wait=15;step=55;}
             case 55->{clock("critical_cure");checks.add("antidote cured critical Poison II before lethal tick");c.player.networkHandler.sendChatCommand("chronicle banquet trial critical");wait=50;step=52;}
-            case 52->{clock("critical");require(!c.player.isAlive(),"untreated critical poisoning did not kill");c.player.requestRespawn();wait=40;step=53;}
+            case 52->{clock("critical");require(poisonDeath.contains("was killed by poison"),"poison death message missing");checks.add("fatal chat message says killed by poison");require(!c.player.isAlive(),"untreated critical poisoning did not kill");c.player.requestRespawn();wait=40;step=53;}
             case 53->{require(c.player.isSpectator(),"poisoned death did not enter spectator");c.player.networkHandler.sendChatCommand("chronicle banquet trial fatal_check");wait=15;step=54;}
             case 54->{clock("fatal_check");checks.add("critical poison caused real death, excluded participation and respawned as spectator");step=13;}
             case 23->{c.player.networkHandler.sendChatCommand("chronicle banquet trial death_prepare");wait=30;step=24;}

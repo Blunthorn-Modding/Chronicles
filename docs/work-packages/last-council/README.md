@@ -1,10 +1,10 @@
 # The Last Council work-package tree
 
-**Current slice:** [LC07B food poisoning](LC07B_RESULTS.md) extends Banquet to ordinary edible items, one serving per dose, staged illness and fatal character exclusion on dev.13. The owner confirmed dev.12's functional delivery and approved this revision. Human review of the new execution and timing is next. Treaty and complication multiplayer acceptance remain explicitly deferred. Review deliveries remain e4mc Host/Player packs.
+**Current slice:** [dev.14 Banquet feedback](DEV14_BANQUET_FEEDBACK.md) adds item-named poisoning feedback, usable loot-table supplies and poison death messages. The owner accepted dev.13 food poisoning. The hunger investigation found vanilla active-play rates and incorrect Creative/Peaceful review-pack defaults, corrected to Survival/Normal. Treaty and complication group reviews remain deferred. Delivery uses matching e4mc Host/Player packs.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
-Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.13**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
+Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council`, based on release commit `4d73742`. Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The approved native implementation is now in progress on development version **0.2.0-dev.14**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 

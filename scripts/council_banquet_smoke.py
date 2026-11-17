@@ -22,6 +22,13 @@ def _fixture(root):
              'lecterns': ['motions'], 'motions': {}, 'attempts': {}, 'activeBallot': None,
              'pending': None, 'calls': {}}
     (council / 'proceedings.json').write_text(json.dumps({'schemaVersion': 1, 'state': state}) + '\n', encoding='utf-8')
+    loot = {'schemaVersion': 1, 'types': [{'id': 'last_council:banquet_test', 'label': 'Banquet supplies', 'description': 'Native loot issuance test', 'recommendedChests': 1, 'refillMinutes': 0, 'entries': [
+        {'item': 'last_council:banquet_poison', 'chancePercent': 100, 'minCount': 3, 'maxCount': 3},
+        {'item': 'last_council:banquet_antidote', 'chancePercent': 100, 'minCount': 2, 'maxCount': 2},
+        {'item': 'minecraft:bread', 'chancePercent': 100, 'minCount': 1, 'maxCount': 1}]}]}
+    config = root / 'config/chronicle'
+    config.mkdir(parents=True, exist_ok=True)
+    (config / 'chest-loot.json').write_text(json.dumps(loot) + '\n', encoding='utf-8')
     assignments = {}
     for name, house in [('ChronicleFabricA', 'ash'), ('BanquetOfflineHouse', 'vale')]:
         owner = str(uuid.UUID(bytes=hashlib.md5(('OfflinePlayer:' + name).encode()).digest(), version=3))
