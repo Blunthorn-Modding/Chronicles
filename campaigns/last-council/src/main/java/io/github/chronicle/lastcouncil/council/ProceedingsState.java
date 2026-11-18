@@ -12,6 +12,10 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
     public enum MotionStatus { SUBMITTED, AGENDA, VOTING, RECORDED, WITHDRAWN }
     public enum Threshold { MAJORITY, TWO_THIRDS }
     public enum Operation { OPEN, CLOSE, VOID }
+    public enum ForeignKind { DECLARE_WAR, MAKE_PEACE }
+    public record ForeignSubject(ForeignKind kind,String realmId,long revision) {
+        public ForeignSubject { Objects.requireNonNull(kind);houseId(realmId);if(revision<0)throw new IllegalArgumentException("Invalid diplomatic revision."); }
+    }
     public ProceedingsState {
         if (revision < 0 || meeting < 0) throw new IllegalArgumentException("Invalid Council revision or meeting.");
         Objects.requireNonNull(phase); Objects.requireNonNull(votingRegion); Objects.requireNonNull(succession);
@@ -28,6 +32,10 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
             if (a.meeting()>meeting || !id.equals(a.definition().id()) || m == null || !m.ballots().contains(id)
                     || !a.definition().purpose().equals(m.id().toString()) || !a.definition().title().equals(m.title()))
                 throw new IllegalArgumentException("Ballot attempt does not match its motion.");
+            if(m.foreign()!=null&&(a.definition().threshold()!=BallotDefinition.twoThirds(a.definition().electorate().size())
+                    ||a.definition().visibility()!=m.visibility()
+                    ||!a.definition().options().equals(List.of(new BallotOption("yes","Yes",true),new BallotOption("no","No",false),new BallotOption("abstain","Abstain",false)))))
+                throw new IllegalArgumentException("Foreign ballot rules differ from its motion.");
         });
         motions.values().forEach(m -> m.ballots().forEach(id -> {
             Attempt a = fixedAttempts.get(id);
@@ -47,7 +55,7 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
         if(succession.withdrawals().stream().anyMatch(w->w.meeting()>meeting))throw new IllegalArgumentException("Withdrawal belongs to a future meeting.");
         for(var entry:succession.rounds().entrySet()) {
             Attempt a=attempts.get(entry.getKey());SuccessionState.Round round=entry.getValue();
-            if(a==null||a.meeting()!=round.meeting()||a.definition().visibility()!=BallotVisibility.SECRET
+            if(a==null||motions.get(a.motion()).foreign()!=null||a.meeting()!=round.meeting()||a.definition().visibility()!=BallotVisibility.SECRET
                     ||a.definition().threshold()!=BallotDefinition.majority(a.definition().electorate().size()))
                 throw new IllegalArgumentException("Invalid regency ballot snapshot.");
             Set<String> expected=round.slate().size()==1?Set.of("yes","no","abstain"):new HashSet<>(round.slate());
@@ -72,10 +80,14 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
     }
     public record Motion(UUID id, String title, String text, UUID proposer, String proposerHouse,
             BallotVisibility visibility, Threshold threshold, boolean hostPrepared, Set<String> sponsors,
-            MotionStatus status, List<UUID> ballots, List<String> notes) {
+            MotionStatus status, List<UUID> ballots, List<String> notes,ForeignSubject foreign) {
+        public Motion(UUID id,String title,String text,UUID proposer,String proposerHouse,BallotVisibility visibility,Threshold threshold,boolean hostPrepared,Set<String> sponsors,MotionStatus status,List<UUID> ballots,List<String> notes) {
+            this(id,title,text,proposer,proposerHouse,visibility,threshold,hostPrepared,sponsors,status,ballots,notes,null);
+        }
         public Motion {
             Objects.requireNonNull(id); Objects.requireNonNull(proposer); Objects.requireNonNull(visibility);
             Objects.requireNonNull(threshold); Objects.requireNonNull(status);
+            if(foreign!=null&&threshold!=Threshold.TWO_THIRDS)throw new IllegalArgumentException("Foreign war and peace require two-thirds.");
             validText(title,160,false); validText(text,4096,true); Objects.requireNonNull(proposerHouse);
             if (!hostPrepared && proposerHouse.isBlank()) throw new IllegalArgumentException("A proposal needs its house.");
             if (!proposerHouse.isBlank()) houseId(proposerHouse);
@@ -87,7 +99,7 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
         }
         public boolean ready(int required) { return hostPrepared || sponsors.size() >= required; }
         public Motion with(MotionStatus status, Set<String> sponsors, List<UUID> ballots, List<String> notes) {
-            return new Motion(id,title,text,proposer,proposerHouse,visibility,threshold,hostPrepared,sponsors,status,ballots,notes);
+            return new Motion(id,title,text,proposer,proposerHouse,visibility,threshold,hostPrepared,sponsors,status,ballots,notes,foreign);
         }
     }
     /** The original geometry and representative identities stay fixed for the life of this ballot. */

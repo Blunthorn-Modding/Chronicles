@@ -16,6 +16,20 @@ public final class ProceedingsService {
     private ProceedingsState state;
     private final java.util.function.IntUnaryOperator draw;
     private final ProgressionGate progression;
+    private final MotionEffects effects;
+    /** Server-only effects run inside the saved CLOSE operation, before its intent is cleared. */
+    public interface MotionEffects {
+        void validate(Motion motion) throws IOException;
+        void apply(Motion motion,Ballot ballot) throws IOException;
+        void validateHistory(ProceedingsState state,BallotState ballots) throws IOException;
+        void verifyUnchanged() throws IOException;
+    }
+    private static final MotionEffects NO_FOREIGN=new MotionEffects() {
+        public void validate(Motion m){if(m.foreign()!=null)throw new IllegalStateException("Foreign affairs authority is required.");}
+        public void apply(Motion m,Ballot b){validate(m);}
+        public void validateHistory(ProceedingsState s,BallotState b){s.motions().values().forEach(this::validate);}
+        public void verifyUnchanged(){}
+    };
     public interface ProgressionGate {
         void beforeRegency(int meeting) throws IOException;
         void beforeMeetingClose(int meeting) throws IOException;
@@ -29,6 +43,11 @@ public final class ProceedingsService {
     }
     public ProceedingsService(ProceedingsRepository repository,BallotService ballots,Clock clock,
             java.util.function.IntUnaryOperator draw,ProgressionGate progression) throws IOException {
+        this(repository,ballots,clock,draw,progression,NO_FOREIGN);
+    }
+    public ProceedingsService(ProceedingsRepository repository,BallotService ballots,Clock clock,
+            java.util.function.IntUnaryOperator draw,ProgressionGate progression,MotionEffects effects) throws IOException {
+        this.effects=Objects.requireNonNull(effects);
         this.draw=Objects.requireNonNull(draw);this.progression=Objects.requireNonNull(progression);
         this.repository=Objects.requireNonNull(repository); this.ballots=Objects.requireNonNull(ballots);
         this.clock=Objects.requireNonNull(clock); state=Objects.requireNonNull(repository.load());
@@ -81,6 +100,7 @@ public final class ProceedingsService {
         Motion saved=motion.hostPrepared()?motion.with(MotionStatus.AGENDA,motion.sponsors(),motion.ballots(),motion.notes()):motion;
         Motion old=state.motions().get(motion.id());
         if(old!=null) { repository.verifyUnchanged();if(old.equals(saved))return;throw new IllegalStateException("Proposal ID already exists."); }
+        effects.validate(saved);
         publish(d -> d.motions.put(saved.id(),saved));
     }
     public void sponsor(UUID id, String house) throws IOException {
@@ -122,6 +142,7 @@ public final class ProceedingsService {
             throw new IllegalStateException("Use Request regency vote for succession, including a replacement.");
         if(state.phase()!=Phase.DISCUSSION||m.status()!=MotionStatus.AGENDA||deferredThisMeeting(motion))throw new IllegalStateException("Bring an agenda motion to open proceedings first.");
         if(!region.id().equals(state.votingRegion()))throw new IllegalStateException("Choose the configured voting Region.");
+        effects.validate(m);
         int threshold=m.threshold()==Threshold.MAJORITY?BallotDefinition.majority(electorate.size()):BallotDefinition.twoThirds(electorate.size());
         BallotDefinition definition=new BallotDefinition(UUID.randomUUID(),m.id().toString(),m.title(),
                 List.of(new BallotOption("yes","Yes",true),new BallotOption("no","No",false),new BallotOption("abstain","Abstain",false)),electorate,threshold,m.visibility());
@@ -194,7 +215,7 @@ public final class ProceedingsService {
         idle();requireActive(id);return ballots.cast(id,actor,choice);
     }
     /** Resume the same saved operation; never capture a new electorate or choose a replacement ID. */
-    public void verifyUnchanged() throws IOException { repository.verifyUnchanged();ballots.verifyUnchanged(); }
+    public void verifyUnchanged() throws IOException { repository.verifyUnchanged();ballots.verifyUnchanged();effects.verifyUnchanged(); }
     public void recover() throws IOException {
         verifyUnchanged();
         Pending p=state.pending(); if(p==null){validateLinks();return;}
@@ -204,8 +225,8 @@ public final class ProceedingsService {
             if(tied.size()!=size||index<0)throw new IllegalStateException("Saved elimination draw changed.");return index;
         })))throw new IllegalStateException("Saved regency outcome differs from its ballot.");
         switch(p.operation()) {
-            case OPEN -> ballots.open(a.definition(),p.actor());
-            case CLOSE -> ballots.close(p.ballot(),p.actor());
+            case OPEN -> {effects.validate(state.motions().get(a.motion()));ballots.open(a.definition(),p.actor());}
+            case CLOSE -> {Ballot closed=ballots.close(p.ballot(),p.actor());if(!p.actor().equals(closed.finishedBy()))throw new IllegalStateException("Saved ballot closer differs from the pending operation.");effects.apply(state.motions().get(a.motion()),closed);}
             case VOID -> ballots.voidBallot(p.ballot(),p.actor(),p.reason());
         }
         publish(d -> {
@@ -226,13 +247,16 @@ public final class ProceedingsService {
         ballot.votes().values().forEach(option->totals.merge(option,1,Integer::sum));
         return SuccessionRules.decide(state.succession().rounds().get(id).slate(),totals,ballot.definition().electorate().size(),choice);
     }
-    private void validateLinks() {
+    private void validateLinks() throws IOException {
+        effects.validateHistory(state,ballots.state());
         if(!state.attempts().keySet().containsAll(ballots.state().ballots().keySet()))throw new IllegalStateException("Unrecognized Council ballot in ledger.");
         for(var e:state.attempts().entrySet()) {
             Ballot b=ballots.state().ballots().get(e.getKey());
             boolean pending=state.pending()!=null&&state.pending().ballot().equals(e.getKey());
             if(b==null) { if(pending&&state.pending().operation()==Operation.OPEN)continue;throw new IllegalStateException("Council ballot is missing."); }
             if(!b.definition().equals(e.getValue().definition())||!b.openedBy().equals(e.getValue().openedBy()))throw new IllegalStateException("Council ballot snapshot changed.");
+            if(pending&&state.pending().operation()==Operation.CLOSE&&b.status()==BallotStatus.CLOSED&&!state.pending().actor().equals(b.finishedBy()))
+                throw new IllegalStateException("Saved ballot closer differs from the pending operation.");
             boolean active=e.getKey().equals(state.activeBallot());
             if(!pending && active!=(b.status()==BallotStatus.OPEN))throw new IllegalStateException("Council ballot terminal state differs from its journal.");
             SuccessionState.Round round=state.succession().rounds().get(e.getKey());

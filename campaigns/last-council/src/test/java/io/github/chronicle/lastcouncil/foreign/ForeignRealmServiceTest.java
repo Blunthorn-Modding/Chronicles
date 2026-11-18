@@ -1,0 +1,18 @@
+package io.github.chronicle.lastcouncil.foreign;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
+
+class ForeignRealmServiceTest {
+    static class Store implements ForeignRealmService.Storage { byte[] bytes; boolean after; public byte[] load(){return bytes;} public void save(byte[] b)throws IOException{bytes=b.clone();if(after)throw new IOException("uncertain");} }
+    @Test void editsCasReferencesAndRoundTrip()throws Exception { Store store=new Store(); var service=new ForeignRealmService(store); var a=service.create(0,"North","Description"); var b=service.create(1,"South",""); assertTrue(a.id().startsWith("last_council:realm_")); assertThrows(IllegalStateException.class,()->service.update(1,a.id(),"Stale","")); service.update(2,a.id(),"Northern","Changed"); assertEquals(b,service.get(b.id())); assertThrows(IllegalStateException.class,()->service.delete(3,a.id(),Set.of(a.id()))); service.delete(3,b.id(),Set.of()); assertEquals(service.realms(),new ForeignRealmService(store).realms()); assertEquals(service.revision(),ForeignRealmService.decode(service.exportJson().getBytes(StandardCharsets.UTF_8)).revision()); }
+    @Test void uncertainSaveAndExternalChanges(@TempDir Path dir)throws Exception { Store store=new Store(); var service=new ForeignRealmService(store); store.after=true; assertThrows(IOException.class,()->service.create(0,"North","")); store.after=false; assertThrows(IOException.class,()->service.create(0,"Other","")); service.reload(); assertEquals(1,service.realms().size()); Path path=dir.resolve("realms.json"); var disk=new ForeignRealmService(path); Files.writeString(path,"changed"); assertThrows(IOException.class,disk::verify); assertThrows(IOException.class,()->disk.create(0,"North","")); }
+    @Test void unchangedUpdateVerifiesObservedBytesBeforeReturning(@TempDir Path dir)throws Exception { Path path=dir.resolve("realms.json"); var service=new ForeignRealmService(path); var realm=service.create(0,"North",""); Files.writeString(path,"changed"); assertThrows(IOException.class,()->service.update(1,realm.id(),realm.name(),realm.description())); assertThrows(IOException.class,()->service.update(0,realm.id(),realm.name(),realm.description())); }
+    @Test void strictAndBoundedCatalog()throws Exception { assertThrows(IOException.class,()->ForeignRealmService.decode("{\"schema\":1,\"revision\":0,\"realms\":[],\"x\":1}".getBytes(StandardCharsets.UTF_8))); assertThrows(IOException.class,()->ForeignRealmService.decode(new byte[]{(byte)0xff})); assertThrows(IOException.class,()->ForeignRealmService.decode(new byte[512*1024+1])); var service=new ForeignRealmService(new Store()); assertThrows(IllegalArgumentException.class,()->service.create(0," ","")); assertThrows(IllegalArgumentException.class,()->service.create(0,"a","\ud800")); for(int i=0;i<64;i++)service.create(i,"Realm "+i,""); assertThrows(IllegalStateException.class,()->service.create(64,"Overflow","")); }
+    @Test void byteBudgetIsCheckedBeforePublishing()throws Exception { Store store=new Store(); var service=new ForeignRealmService(store); String large="😀".repeat(4096); boolean refused=false; for(int i=0;i<64;i++){ byte[] before=store.bytes.clone(); long revision=service.revision(); try { service.create(revision,"Realm "+i,large); } catch(IOException tooLarge) { assertArrayEquals(before,store.bytes); assertEquals(revision,service.revision()); refused=true; break; } } assertTrue(refused); }
+}

@@ -41,7 +41,7 @@ public final class ProceedingsStore implements ProceedingsRepository {
         if (!loaded) throw new IOException("Load proceedings before saving");
         try {
             JsonObject root = new JsonObject();
-            root.addProperty("schemaVersion", 3);
+            root.addProperty("schemaVersion", 4);
             root.add("state", JSON.toJsonTree(Objects.requireNonNull(state)));
             byte[] bytes = encodeUtf8(root + "\n");
             if (bytes.length > MAX_BYTES || !decode(decodeUtf8(bytes)).equals(state))
@@ -56,7 +56,7 @@ public final class ProceedingsStore implements ProceedingsRepository {
         JsonObject root = BookConfig.strictObject(text);
         if (!root.keySet().equals(Set.of("schemaVersion", "state"))) throw new IllegalArgumentException("Unexpected root fields");
         JsonElement version = root.get("schemaVersion");
-        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !Set.of("1","2","3").contains(version.getAsString()))
+        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !Set.of("1","2","3","4").contains(version.getAsString()))
             throw new IllegalArgumentException("Unsupported schema version");
         if(version.getAsString().equals("1")) {
             JsonObject state=root.getAsJsonObject("state");
@@ -68,10 +68,17 @@ public final class ProceedingsStore implements ProceedingsRepository {
                 pending.getAsJsonObject().add("result",JsonNull.INSTANCE);
             }
         }
-        if(!version.getAsString().equals("3")) {
+        if(Set.of("1","2").contains(version.getAsString())) {
             JsonObject state=root.getAsJsonObject("state");
             if(state.has("deferredAt"))throw new IllegalArgumentException("Unexpected legacy deferral field");
             state.add("deferredAt",new JsonObject());
+        }
+        if(!version.getAsString().equals("4")) {
+            for(var motion:root.getAsJsonObject("state").getAsJsonObject("motions").asMap().values()) {
+                var object=motion.getAsJsonObject();
+                if(object.has("foreign"))throw new IllegalArgumentException("Unexpected legacy foreign subject");
+                object.add("foreign",JsonNull.INSTANCE);
+            }
         }
         validate(root.get("state"), ProceedingsState.class, 0);
         return Objects.requireNonNull(JSON.fromJson(root.get("state"), ProceedingsState.class));

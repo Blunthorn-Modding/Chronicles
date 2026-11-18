@@ -1,0 +1,20 @@
+package io.github.chronicle.lastcouncil.foreign;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
+
+class ForeignAffairsServiceTest {
+    static class Store implements ForeignAffairsService.Storage { byte[] bytes; boolean after; public byte[] load(){return bytes;} public void save(byte[] b)throws IOException {bytes=b.clone(); if(after)throw new IOException("uncertain");} }
+    static ForeignAffairsService.Effect effect(UUID ballot,long revision,ForeignAffairsService.Kind kind){return new ForeignAffairsService.Effect(ballot,UUID.randomUUID(),"test:realm",revision,kind,"Motion");}
+    @Test void replayIdempotenceAndAba()throws Exception { Store store=new Store(); var service=new ForeignAffairsService(store); var war=effect(UUID.randomUUID(),0,ForeignAffairsService.Kind.DECLARE_WAR); service.apply(war); service.apply(war); assertEquals(1,service.effects().size()); assertThrows(IllegalArgumentException.class,()->service.apply(new ForeignAffairsService.Effect(war.ballot(),UUID.randomUUID(),war.realmId(),0,war.kind(),"Motion"))); service.apply(effect(UUID.randomUUID(),1,ForeignAffairsService.Kind.MAKE_PEACE)); assertThrows(IllegalStateException.class,()->service.apply(effect(UUID.randomUUID(),0,ForeignAffairsService.Kind.DECLARE_WAR))); assertEquals(service.view("test:realm"),new ForeignAffairsService(store).view("test:realm")); assertFalse(service.view("test:realm").atWar()); }
+    @Test void uncertainPublicationPoisonsUntilReload()throws Exception { Store store=new Store(); var service=new ForeignAffairsService(store); var war=effect(UUID.randomUUID(),0,ForeignAffairsService.Kind.DECLARE_WAR); store.after=true; assertThrows(IOException.class,()->service.apply(war)); store.after=false; assertThrows(IOException.class,()->service.apply(war)); service.reload(); service.apply(war); assertEquals(1,service.effects().size()); }
+    @Test void malformedAndInvalidReplayAreRejected()throws Exception { Store store=new Store(); var service=new ForeignAffairsService(store); service.apply(effect(UUID.randomUUID(),0,ForeignAffairsService.Kind.DECLARE_WAR)); String data=new String(store.bytes,StandardCharsets.UTF_8); store.bytes=data.replace("DECLARE_WAR","MAKE_PEACE").getBytes(StandardCharsets.UTF_8); assertThrows(IOException.class,()->new ForeignAffairsService(store)); store.bytes="{\"schema\":1,\"effects\":[],\"extra\":0}".getBytes(StandardCharsets.UTF_8); assertThrows(IOException.class,()->new ForeignAffairsService(store)); store.bytes=new byte[]{(byte)0xff}; assertThrows(IOException.class,()->new ForeignAffairsService(store)); }
+    @Test void externalChangeIsDetected(@TempDir Path dir)throws Exception { Path path=dir.resolve("foreign.json"); var service=new ForeignAffairsService(path); Files.writeString(path,"changed"); assertThrows(IOException.class,service::verify); assertThrows(IOException.class,()->service.apply(effect(UUID.randomUUID(),0,ForeignAffairsService.Kind.DECLARE_WAR))); }
+    @Test void replayVerifiesObservedBytesBeforeReturning(@TempDir Path dir)throws Exception { Path path=dir.resolve("foreign.json"); var service=new ForeignAffairsService(path); var war=effect(UUID.randomUUID(),0,ForeignAffairsService.Kind.DECLARE_WAR); service.apply(war); Files.writeString(path,"changed"); assertThrows(IOException.class,()->service.apply(war)); assertThrows(IOException.class,()->service.apply(effect(UUID.randomUUID(),0,ForeignAffairsService.Kind.DECLARE_WAR))); }
+    @Test void globalLimitPreservesCommittedHistory()throws Exception { Store store=new Store(); var service=new ForeignAffairsService(store); for(int i=0;i<256;i++)service.apply(effect(UUID.randomUUID(),i,i%2==0?ForeignAffairsService.Kind.DECLARE_WAR:ForeignAffairsService.Kind.MAKE_PEACE)); assertThrows(IllegalStateException.class,()->service.apply(effect(UUID.randomUUID(),256,ForeignAffairsService.Kind.DECLARE_WAR))); assertEquals(256,new ForeignAffairsService(store).effects().size()); }
+}
