@@ -1,6 +1,6 @@
 # LC-06 — Rebellion, reinstatement and guarded Regions
 
-Status: planned. Depends on LC-01/02/03; integrate LC-04/05. Brief: §§3, 5.3, 6.2, 8.4–8.5, 11–12, 14.
+Status: [UI proposal](LC06_UI_DESIGN.md) prepared; native implementation awaits owner workflow review. On 18 November the owner confirmed one supervised visit ends on exit, and reinstatement without an eligible Council requires affected-House consent plus public Chancellor confirmation. Depends on LC-01/02/03; integrate LC-04/05. Brief: §§3, 5.3, 6.2, 8.4–8.5, 11–12, 14.
 
 ## Outcome and ownership
 
@@ -14,7 +14,7 @@ Rebellion itself is new Last Council political state. Core's ordinary participan
 2. Refuse membership changes during an open ballot. Between ballots, commit loss of privileges/candidacy, access restriction and public announcement through a recoverable operation.
 3. Preflight the authored outside Point; safely eject an inside rebel and prevent ordinary re-entry. Cover walking, teleport/portal, reconnect, respawn, vehicle/passenger paths and stale server/client state without chunk-forcing or per-tick full-world scans.
 4. Keep rebels active participants with public records and their own agreements/conflicts. Do not call Departure or put them in Spectator.
-5. Restore specified houses only after a successful two-thirds reinstatement motion closes, or an explicitly recorded GM settlement when no Council exists. A temporary supervised visit does not restore a vote. Handle crowned-ruler crises separately.
+5. Restore specified houses only after a successful two-thirds reinstatement motion closes. When no eligible Council exists at all, the confirmed fallback requires each affected House to consent to the exact same terms and the Chancellor to confirm publicly. No forced signatures or substitute for an absent electorate. A supervised visit ends on leaving the palace and never restores a vote. Handle crowned-ruler crises separately; reinstatement cannot return someone to an already locked or advanced succession slate.
 
 ## Acceptance and verification
 
