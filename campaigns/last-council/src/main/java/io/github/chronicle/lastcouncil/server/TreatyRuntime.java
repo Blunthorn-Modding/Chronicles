@@ -81,6 +81,9 @@ public final class TreatyRuntime {
             var old=WORLDS.put(server,next);if(old!=null)for(var session:List.copyOf(old.sessions.values()))revoke(old,session,"Records reloaded. Return to the treaty lectern.");RuntimeHolds.release(server,HOLD);
         }catch(IOException|RuntimeException invalid){var old=WORLDS.remove(server);if(old!=null)for(var session:List.copyOf(old.sessions.values()))revoke(old,session,"Treaty records need repair. Return after recovery.");hold(server);}
     }
+    public static TreatyService authority(MinecraftServer server){return runtime(server).service;}
+    public static void reloadAuthority(MinecraftServer server){start(server);}
+    public static void refreshAuthority(MinecraftServer server){var r=WORLDS.get(server);if(r!=null)refresh(server,r);}
     private static Runtime runtime(MinecraftServer server){var r=WORLDS.get(server);if(r==null)throw new IllegalStateException("Treaty records are unavailable. Ask an operator to recover them.");return r;}
     private static void hold(MinecraftServer server){RuntimeHolds.hold(server,HOLD,"Treaty records need exact reload or stopped-file repair. Use /chronicle council treaties recover.");}
     private static AuthoringSite site(MinecraftServer server,String id){return AuthoringRuntime.get(server).service().state().sites().get(id);}
@@ -104,7 +107,7 @@ public final class TreatyRuntime {
     private static List<Person> people(MinecraftServer server,Runtime r,AuthoringSite.Anchor anchor)throws IOException{
         List<Person> result=new ArrayList<>();for(var s:r.sessions.values())if(present(server,r,s,anchor)&&partyEligible(s.player)){
             var assignment=CouncilRuntime.roster(server).assignments().get(s.player.getUuid());
-            result.add(new Person(s.player.getUuid(),assignment.houseId(),Profiles.publicCard(server,s.player.getUuid(),s.player.getName().getString()).name()));
+            result.add(new Person(s.player.getUuid(),assignment.houseId(),Profiles.publicCard(server,s.player.getUuid(),s.player.getName().getString()).name(),houseTitle(server,assignment.houseId())));
         }result.sort(Comparator.comparing(Person::name).thenComparing(p->p.owner().toString()));return List.copyOf(result);
     }
     private static void receive(ServerPlayerEntity player,Request q){
@@ -135,15 +138,22 @@ public final class TreatyRuntime {
                 case CREATE,EDIT->{
                     if(host)throw new IllegalStateException("The Chancellor cannot create or edit as a House.");
                     var available=people(server,r,s.anchor);var selected=new ArrayList<TreatyService.Party>();
-                    if(new HashSet<>(q.parties()).size()!=q.parties().size()||!q.parties().contains(player.getUuid()))throw new IllegalArgumentException("Include yourself and distinct representatives.");
-                    for(UUID id:q.parties()){var p=available.stream().filter(person->person.owner().equals(id)).findFirst().orElseThrow(()->new IllegalStateException("Every selected party must have this same lectern open."));selected.add(new TreatyService.Party(p.house(),p.owner(),p.name()));}
+                    boolean linked=q.purpose()==TreatyService.Purpose.PEACE||q.purpose()==TreatyService.Purpose.CEASEFIRE;
+                    if(linked){
+                        var required=ConflictRuntime.requiredParties(server,q.conflict(),q.membershipRevision(),q.purpose());
+                        if(required.stream().noneMatch(p->p.owner().equals(player.getUuid())))throw new IllegalStateException("Only a current conflict House may propose its agreement.");
+                        for(var party:required){if(available.stream().noneMatch(p->p.owner().equals(party.owner())&&p.house().equals(party.houseId())))throw new IllegalStateException("Every current conflict House must have this same lectern open.");selected.add(party);}
+                    }else{
+                        if(new HashSet<>(q.parties()).size()!=q.parties().size()||!q.parties().contains(player.getUuid()))throw new IllegalArgumentException("Include yourself and distinct representatives.");
+                        for(UUID id:q.parties()){var p=available.stream().filter(person->person.owner().equals(id)).findFirst().orElseThrow(()->new IllegalStateException("Every selected party must have this same lectern open."));selected.add(new TreatyService.Party(p.house(),p.owner(),p.name()));}
+                    }
                     UUID id=q.treaty().equals(TreatyPayloads.NONE)?q.request():q.treaty();
-                    var doc=new TreatyService.Document(id,q.action()==Action.CREATE?1:Math.addExact(q.revision(),1),q.title().strip(),q.terms().strip(),q.privateTerms()?TreatyService.Visibility.PRIVATE:TreatyService.Visibility.PUBLIC,selected);
+                    var doc=new TreatyService.Document(id,q.action()==Action.CREATE?1:Math.addExact(q.revision(),1),q.title().strip(),q.terms().strip(),q.privateTerms()?TreatyService.Visibility.PRIVATE:TreatyService.Visibility.PUBLIC,selected,q.purpose(),linked?new TreatyService.ConflictLink(q.conflict(),q.membershipRevision()):null);
                     if(q.action()==Action.CREATE)r.service.create(id,player.getUuid(),doc);else r.service.edit(id,q.revision(),player.getUuid(),doc);
                     s.selected=id;message=q.action()==Action.CREATE?"Treaty draft submitted.":"Draft saved. Changed terms require new signatures.";
                 }
-                case SIGN->{if(host)throw new IllegalStateException("The Chancellor cannot sign for a House.");r.service.sign(q.treaty(),q.revision(),player.getUuid());s.selected=q.treaty();message="Your signature is recorded for these exact terms.";}
-                case SANCTIFY->{if(!host)throw new IllegalStateException("Only the assigned Chancellor can sanctify an agreement.");r.service.sanctify(q.treaty(),q.revision(),player.getUuid(),present(server,r,s.anchor));s.selected=q.treaty();message="Agreement sanctified.";}
+                case SIGN->{if(host)throw new IllegalStateException("The Chancellor cannot sign for a House.");if(!ConflictRuntime.currentAgreement(server,current.orElseThrow().document()))throw new IllegalStateException("Conflict membership changed. Revise the draft before signing.");r.service.sign(q.treaty(),q.revision(),player.getUuid());s.selected=q.treaty();message="Your signature is recorded for these exact terms.";}
+                case SANCTIFY->{if(!host)throw new IllegalStateException("Only the assigned Chancellor can sanctify an agreement.");var d=current.orElseThrow().document();if(q.revision()!=d.contentRevision())throw new IllegalStateException("Agreement changed. Review its current exact terms.");if(d.conflictLink()!=null)ConflictRuntime.sanctify(server,d,player.getUuid(),present(server,r,s.anchor));else r.service.sanctify(q.treaty(),q.revision(),player.getUuid(),present(server,r,s.anchor));s.selected=q.treaty();message="Agreement sanctified.";}
                 case BREAK->{if(host)throw new IllegalStateException("Only a party can break its agreement.");r.service.breach(q.treaty(),q.revision(),player.getUuid());s.selected=q.treaty();message="Breach recorded. The agreement's visibility is unchanged.";}
                 default->throw new IllegalArgumentException("Choose a treaty action.");
             }
@@ -160,21 +170,23 @@ public final class TreatyRuntime {
         ServerPlayNetworking.send(s.player,packet);s.sent=project(server,r,s,TreatyPayloads.NONE,false,"");
     }
     private static View project(MinecraftServer server,Runtime r,Session s,UUID request,boolean opening,String message)throws IOException{
+        if(!ConflictRuntime.publicationReady(server))return new View(request,opening,s.token,s.visibleRevision,List.of(),null,List.of(),false,false,false,"Political records need recovery; preserve the saved journals.",0,1);
         boolean host=CouncilRuntime.isChancellor(server,s.player.getUuid()),active=playing(server),actor=partyEligible(s.player),actionable=active&&s.ready;
         var visible=r.service.view(s.player.getUuid(),host);var rows=visible.stream().map(t->new Row(t.document().id(),t.document().title(),status(t.status()),t.document().visibility()==TreatyService.Visibility.PRIVATE)).toList();
         var selected=visible.stream().filter(t->t.document().id().equals(s.selected)).findFirst().orElse(visible.isEmpty()?null:visible.getFirst());
         Detail detail=null;int pages=1;var attendees=present(server,r,s.anchor);
         boolean witness=attendees.stream().anyMatch(id->CouncilRuntime.isChancellor(server,id));
         if(selected!=null){var d=selected.document();s.selected=d.id();pages=Math.max(1,(selected.history().size()+31)/32);s.page=Math.clamp(s.page,0,pages-1);
-            var parties=d.parties().stream().map(p->new PartyView(p.owner(),p.houseId(),p.publicName(),attendees.contains(p.owner()),Objects.equals(selected.signatures().get(p.owner()),d.contentRevision()))).toList();
+            var parties=d.parties().stream().map(p->new PartyView(p.owner(),p.houseId(),p.publicName(),attendees.contains(p.owner()),Objects.equals(selected.signatures().get(p.owner()),d.contentRevision()),houseTitle(server,p.houseId()))).toList();
             boolean own=d.parties().stream().anyMatch(p->p.owner().equals(s.player.getUuid())),draft=selected.status()==TreatyService.Status.DRAFT;
             var history=selected.history().stream().skip(s.page*32L).limit(32).map(TreatyRuntime::history).toList();
             detail=new Detail(d.id(),d.contentRevision(),d.title(),d.terms(),status(selected.status()),d.visibility()==TreatyService.Visibility.PRIVATE,parties,witness,
-                    actionable&&actor&&own&&draft,actionable&&actor&&own&&draft&&!selected.signatures().containsKey(s.player.getUuid()),
-                    actionable&&host&&draft&&witness&&parties.stream().allMatch(p->p.present()&&p.signed()),actionable&&actor&&own&&selected.status()==TreatyService.Status.ACTIVE,history);
+                    actionable&&actor&&own&&draft,actionable&&actor&&own&&draft&&ConflictRuntime.currentAgreement(server,d)&&!selected.signatures().containsKey(s.player.getUuid()),
+                    actionable&&host&&draft&&witness&&ConflictRuntime.currentAgreement(server,d)&&parties.stream().allMatch(p->p.present()&&p.signed()),actionable&&actor&&own&&selected.status()==TreatyService.Status.ACTIVE,history,d.purpose(),d.conflictLink()==null?TreatyPayloads.NONE:d.conflictLink().conflictId(),d.conflictLink()==null?0:d.conflictLink().membershipRevision());
         }else{s.selected=TreatyPayloads.NONE;s.page=0;}
-        return new View(request,opening,s.token,s.visibleRevision,rows,detail,people(server,r,s.anchor),actor,host,active,message.substring(0,Math.min(512,message.length())),s.page,pages);
+        return new View(request,opening,s.token,s.visibleRevision,rows,detail,people(server,r,s.anchor),actor,host,active,message.substring(0,Math.min(512,message.length())),s.page,pages,false,ConflictRuntime.choices(server));
     }
+    private static String houseTitle(MinecraftServer s,String id){var h=CouncilRuntime.houses(s).get(id);return h==null?id:h.title();}
     private static String status(TreatyService.Status status){return switch(status){case DRAFT->"Draft";case ACTIVE->"Active";case BROKEN->"Broken";};}
     static String history(TreatyService.Event event){var d=event.document();String who=d.parties().stream().filter(p->p.owner().equals(event.actor())).map(TreatyService.Party::publicName).findFirst().orElse("Chancellor");String text=event.action()+" / revision "+d.contentRevision()+" / "+who;if(event.action()==TreatyService.Action.CREATED||event.action()==TreatyService.Action.EDITED)text+="\n"+d.title()+"\n"+d.terms();return text;}
     private static void refresh(MinecraftServer server,Runtime r){for(var s:List.copyOf(r.sessions.values()))try{usable(s.player,r,s.anchor);var next=project(server,r,s,TreatyPayloads.NONE,false,"");if(!next.equals(s.sent))send(server,r,s,TreatyPayloads.NONE,false,"");}catch(IOException e){hold(server);}catch(RuntimeException stale){revoke(r,s,"Return to the bound treaty lectern.");}}

@@ -1,6 +1,7 @@
 package io.github.chronicle.lastcouncil.client;
 
 import io.github.chronicle.lastcouncil.network.TreatyPayloads;
+import io.github.chronicle.lastcouncil.treaties.TreatyService.Purpose;
 import io.github.chronicle.lastcouncil.network.TreatyPayloads.*;
 import java.util.*;
 import net.minecraft.client.gui.screen.Screen;
@@ -18,7 +19,9 @@ public final class TreatyScreen extends CouncilScreen {
     public View view(){return view;}
     @Override public void close(){TreatyClient.closed(this);super.close();}
     void accept(View next){if(stateRequests.remove(next.request())&&!next.request().equals(latestState))return;if(next.revision()<view.revision())return;view=next;if(client.currentScreen instanceof Draft draft&&draft.root==this)draft.response(next);if(client.currentScreen==this)rebuildPreservingFocus();}
-    private UUID request(Action action,UUID id,long revision,String title,String terms,boolean privateTerms,List<UUID> parties,int page){UUID request=UUID.randomUUID();if(action==Action.STATE){latestState=request;stateRequests.add(request);if(stateRequests.size()>128)stateRequests.remove(stateRequests.iterator().next());}TreatyClient.send(new Request(request,action,view.token(),id,revision,BlockPos.ORIGIN,title,terms,privateTerms,parties,page));return request;}
+    private UUID request(Action action,UUID id,long revision,String title,String terms,boolean privacy,List<UUID> parties,int page){return request(action,id,revision,title,terms,privacy,parties,page,Purpose.GENERAL,TreatyPayloads.NONE,0);}
+    private UUID request(Action action,UUID id,long revision,String title,String terms,boolean privacy,List<UUID> parties,int page,Purpose purpose,UUID conflict,long membership){UUID request=UUID.randomUUID();if(action==Action.STATE){latestState=request;stateRequests.add(request);if(stateRequests.size()>128)stateRequests.remove(stateRequests.iterator().next());}TreatyClient.send(new Request(request,action,view.token(),id,revision,BlockPos.ORIGIN,title,terms,privacy,parties,page,purpose,conflict,membership));return request;}
+
     private void state(UUID id,int page){request(Action.STATE,id,0,"","",false,List.of(),page);}
     private void openChild(Screen screen){TreatyClient.child(screen);client.setScreen(screen);}
     @Override protected void init(){
@@ -34,7 +37,7 @@ public final class TreatyScreen extends CouncilScreen {
         else {
             cards.add(new SectionCard(d.title(),d.status()+" · "+(d.privateTerms()?"Private":"Public")+" · Revision "+d.revision()));
             cards.add(new SectionCard("Exact terms",d.terms()));
-            StringBuilder parties=new StringBuilder();for(PartyView p:d.parties())parties.append(p.name()).append(" · ").append(p.house()).append(" — ").append(p.present()?"present":"absent").append(", ").append(p.signed()?"signed":"not signed").append('\n');
+            StringBuilder parties=new StringBuilder();for(PartyView p:d.parties())parties.append(p.name()).append(" · ").append(p.houseTitle()).append(" — ").append(p.present()?"present":"absent").append(", ").append(p.signed()?"signed":"not signed").append('\n');
             parties.append("Chancellor — ").append(d.chancellorPresent()?"present":"absent");cards.add(new SectionCard("Signatures and attendance",parties.toString()));
             cards.add(new SectionCard("History ("+(view.historyPages()==0?0:view.historyPage()+1)+" / "+view.historyPages()+")",d.history().isEmpty()?"No history on this page.":String.join("\n",d.history())));
         }
@@ -56,23 +59,33 @@ public final class TreatyScreen extends CouncilScreen {
         Review(TreatyScreen root,Detail detail,Action action){super(action==Action.SIGN?"Sign terms":action==Action.SANCTIFY?"Sanctify agreement":"Break agreement",root);this.detail=detail;this.action=action;}
         @Override protected void init(){frame();int x=left+12,w=panelWidth-24,y=top+38;sections("review",List.of(new SectionCard(detail.title()+" · revision "+detail.revision(),detail.terms()),new SectionCard("Confirm",action==Action.SIGN?"Sign these exact terms for your own house. The Chancellor must still sanctify.":action==Action.SANCTIFY?"Sanctify the exact signed revision.":"Record this agreement as broken.")),x,y,w,panelHeight-110);button("Cancel",x,top+panelHeight-60,(w-4)/2,this::close);button("Confirm",x+(w+4)/2,top+panelHeight-60,(w-4)/2,()->{if(stale(detail.id(),detail.revision())){feedback="This revision changed. Close and review again.";return;}root.request(action,detail.id(),detail.revision(),"","",false,List.of(),0);close();});}
     }
+    private static String purposeLabel(Purpose p){return switch(p){case GENERAL->"General";case ALLIANCE->"Alliance";case NON_AGGRESSION->"Non-aggression";case MUTUAL_DEFENSE->"Mutual defense";case TRADE->"Trade / rights";case PEACE->"Peace";case CEASEFIRE->"Ceasefire";};}
     private static final class Draft extends Child {
-        private final UUID id;private final long revision;private String title,terms;private boolean privacy;private final Set<UUID> selected=new LinkedHashSet<>();private final Map<UUID,String> partyLabels=new LinkedHashMap<>();
-        private Attempt pending;
-        private record Attempt(UUID request,UUID id,String title,String terms,boolean privacy,Set<UUID> parties) { }
-        Draft(TreatyScreen root,Detail d){super(d==null?"Create treaty":"Edit treaty",root);id=d==null?TreatyPayloads.NONE:d.id();revision=d==null?0:d.revision();title=d==null?"":d.title();terms=d==null?"":d.terms();privacy=d!=null&&d.privateTerms();if(d!=null)d.parties().forEach(p->{selected.add(p.owner());partyLabels.put(p.owner(),p.name()+" / "+p.house());});else if(net.minecraft.client.MinecraftClient.getInstance().player!=null)selected.add(net.minecraft.client.MinecraftClient.getInstance().player.getUuid());}
-        @Override public void render(net.minecraft.client.gui.DrawContext context,int mouseX,int mouseY,float delta){if(!id.equals(TreatyPayloads.NONE)&&stale(id,revision))feedback="Draft changed; reopen before submitting.";super.render(context,mouseX,mouseY,delta);}
-        @Override protected void init(){frame();int x=left+12,w=panelWidth-24,y=top+35;TextFieldWidget titleField=addDrawableChild(new TextFieldWidget(textRenderer,x,y,w,20,Text.literal("Title")));titleField.setMaxLength(160);titleField.setText(title);titleField.setPlaceholder(Text.literal("Title"));titleField.setChangedListener(v->title=v);y+=24;EditBoxWidget termsField=addDrawableChild(EditBoxWidget.builder().x(x).y(y).placeholder(Text.literal("Exact terms")).build(textRenderer,w,42,Text.literal("Exact terms")));termsField.setMaxLength(4096);termsField.setText(terms);termsField.setChangeListener(v->terms=v);y+=46;button(privacy?"Private":"Public",x,y,w,()->{privacy=!privacy;rebuildPreservingFocus();});y+=24;
-            button("Representatives ("+selected.size()+" selected)...",x,y,w,()->{PartyPicker picker=new PartyPicker(this);TreatyClient.child(picker);client.setScreen(picker);});
-            button("Cancel",x,top+panelHeight-38,(w-4)/2,this::close);button("Submit",x+(w+4)/2,top+panelHeight-38,(w-4)/2,()->{if(pending!=null)return;if(title.isBlank()||terms.isBlank()){feedback="Enter title and exact terms.";return;}if(!id.equals(TreatyPayloads.NONE)&&stale(id,revision)){feedback="This draft changed. Close and review again.";return;}Set<UUID> present=new HashSet<>();root.view.people().forEach(p->present.add(p.owner()));if(selected.size()<2||selected.size()>16){feedback="Choose 2 to 16 representatives.";return;}if(!present.containsAll(selected)){feedback="Selected representatives must be present.";return;}UUID request=root.request(id.equals(TreatyPayloads.NONE)?Action.CREATE:Action.EDIT,id,revision,title,terms,privacy,List.copyOf(selected),0);pending=new Attempt(request,id.equals(TreatyPayloads.NONE)?request:id,title.strip(),terms.strip(),privacy,Set.copyOf(selected));feedback="Submitting...";for(var child:children())if(child instanceof net.minecraft.client.gui.widget.ClickableWidget widget)widget.active=false;});
-            if(!id.equals(TreatyPayloads.NONE)&&stale(id,revision))message("Draft changed; reopen before submitting.");else message("Select representatives; your house is included.");
+        private final UUID id;private final long revision;private String title,terms;private boolean privacy;private Purpose purpose;private UUID conflict;private long membership;
+        private final Set<UUID> selected=new LinkedHashSet<>();private final Map<UUID,String> partyLabels=new LinkedHashMap<>();private Attempt pending;
+        private record Attempt(UUID request,UUID id,String title,String terms,boolean privacy,Set<UUID> parties,Purpose purpose,UUID conflict,long membership){}
+        Draft(TreatyScreen root,Detail d){super(d==null?"Create treaty":"Edit treaty",root);id=d==null?TreatyPayloads.NONE:d.id();revision=d==null?0:d.revision();title=d==null?"":d.title();terms=d==null?"":d.terms();privacy=d!=null&&d.privateTerms();purpose=d==null?Purpose.GENERAL:d.purpose();conflict=d==null?TreatyPayloads.NONE:d.conflict();membership=d==null?0:d.membershipRevision();if(d!=null)d.parties().forEach(p->{selected.add(p.owner());partyLabels.put(p.owner(),p.name()+" / "+p.houseTitle());});else if(net.minecraft.client.MinecraftClient.getInstance().player!=null)selected.add(net.minecraft.client.MinecraftClient.getInstance().player.getUuid());}
+        boolean linked(){return purpose==Purpose.PEACE||purpose==Purpose.CEASEFIRE;}
+        void selectConflict(ConflictChoice choice){conflict=choice.id();membership=choice.membershipRevision();selected.clear();partyLabels.clear();for(var p:choice.required()){selected.add(p.owner());partyLabels.put(p.owner(),p.name()+" / "+p.houseTitle());}}
+        @Override public void render(net.minecraft.client.gui.DrawContext c,int mx,int my,float delta){if(!id.equals(TreatyPayloads.NONE)&&stale(id,revision))feedback="Draft changed; reopen before submitting.";super.render(c,mx,my,delta);}
+        @Override protected void init(){frame();int x=left+12,w=panelWidth-24,y=top+35;
+            TextFieldWidget tf=addDrawableChild(new TextFieldWidget(textRenderer,x,y,w,20,Text.literal("Title")));tf.setMaxLength(160);tf.setText(title);tf.setPlaceholder(Text.literal("Title"));tf.setChangedListener(v->title=v);y+=24;
+            int th=Math.clamp(panelHeight-225,24,64);EditBoxWidget ef=addDrawableChild(EditBoxWidget.builder().x(x).y(y).placeholder(Text.literal("Exact terms")).build(textRenderer,w,th,Text.literal("Exact terms")));ef.setMaxLength(4096);ef.setText(terms);ef.setChangeListener(v->terms=v);y+=th+4;
+            button("Type: "+purposeLabel(purpose),x,y,w,()->picker("Agreement type",Arrays.stream(Purpose.values()).map(p->new Choice(p.name(),purposeLabel(p))).toList(),value->{purpose=Purpose.valueOf(value);if(!linked()){conflict=TreatyPayloads.NONE;membership=0;}else{var choices=root.view.conflicts().stream().filter(c->purpose==Purpose.PEACE||c.active()).toList();if(choices.stream().noneMatch(c->c.id().equals(conflict))&&!choices.isEmpty())selectConflict(choices.getFirst());}}));y+=24;
+            int half=(w-4)/2;button(privacy?"Private":"Public",x,y,half,()->{privacy=!privacy;rebuildPreservingFocus();});button(linked()?"Required houses ("+selected.size()+")":"Representatives ("+selected.size()+")",x+half+4,y,half,()->{PartyPicker picker=new PartyPicker(this);TreatyClient.child(picker);client.setScreen(picker);});y+=24;
+            if(linked()){var choice=root.view.conflicts().stream().filter(c->c.id().equals(conflict)).findFirst();String label=choice.map(ConflictChoice::title).orElse("Choose conflict");var b=button(textRenderer.trimToWidth("Conflict: "+label,w-8),x,y,w,()->picker("Conflict",root.view.conflicts().stream().filter(c->purpose==Purpose.PEACE||c.active()).map(c->new Choice(c.id().toString(),c.title())).toList(),value->selectConflict(root.view.conflicts().stream().filter(c->c.id().toString().equals(value)).findFirst().orElseThrow())));b.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(Text.literal(label)));}
+            button("Cancel",x,top+panelHeight-38,(w-4)/2,this::close);button("Submit",x+(w+4)/2,top+panelHeight-38,(w-4)/2,this::submit).active=pending==null;
+            if(pending!=null)message("Submitting...");else if(linked()&&root.view.conflicts().stream().noneMatch(c->c.id().equals(conflict)&&c.membershipRevision()==membership))message("Conflict changed. Choose its current houses again.");else message("Changed terms require every house to sign again.");
         }
-        private void response(View next){
-            if(pending==null||!pending.request().equals(next.request()))return;
-            Attempt attempt=pending;pending=null;Detail d=next.detail();
-            if(d!=null&&d.id().equals(attempt.id())&&d.title().equals(attempt.title())&&d.terms().equals(attempt.terms())&&d.privateTerms()==attempt.privacy()&&d.parties().stream().map(PartyView::owner).collect(java.util.stream.Collectors.toSet()).equals(attempt.parties()))close();
-            else {rebuildPreservingFocus();feedback=next.message().isBlank()?"Draft was not saved. Review and try again.":next.message();}
-        }
+        private void picker(String title,List<Choice> choices,java.util.function.Consumer<String> accept){var picker=new DraftPicker(this,title,choices,accept);TreatyClient.child(picker);client.setScreen(picker);}
+        private void submit(){if(pending!=null)return;if(title.isBlank()||terms.isBlank()){feedback="Enter title and exact terms.";return;}if(!id.equals(TreatyPayloads.NONE)&&stale(id,revision)){feedback="This draft changed. Close and review again.";return;}Set<UUID> present=new HashSet<>();root.view.people().forEach(p->present.add(p.owner()));if(selected.size()<2||selected.size()>16||!present.containsAll(selected)){feedback=linked()?"All current conflict houses must open this lectern.":"Choose 2 to 16 present representatives.";return;}UUID request=root.request(id.equals(TreatyPayloads.NONE)?Action.CREATE:Action.EDIT,id,revision,title,terms,privacy,List.copyOf(selected),0,purpose,conflict,membership);pending=new Attempt(request,id.equals(TreatyPayloads.NONE)?request:id,title.strip(),terms.strip(),privacy,Set.copyOf(selected),purpose,conflict,membership);feedback="Submitting...";for(var child:children())if(child instanceof net.minecraft.client.gui.widget.ClickableWidget widget)widget.active=false;}
+        private void response(View next){if(pending==null||!pending.request().equals(next.request()))return;Attempt a=pending;pending=null;Detail d=next.detail();if(d!=null&&d.id().equals(a.id())&&d.title().equals(a.title())&&d.terms().equals(a.terms())&&d.privateTerms()==a.privacy()&&d.purpose()==a.purpose()&&d.conflict().equals(a.conflict())&&d.membershipRevision()==a.membership()&&d.parties().stream().map(PartyView::owner).collect(java.util.stream.Collectors.toSet()).equals(a.parties()))close();else{rebuildPreservingFocus();feedback=next.message().isBlank()?"Draft was not saved. Review and try again.":next.message();}}
+    }
+    private static final class DraftPicker extends CouncilScreen {
+        final Draft draft;final List<Choice> choices;final java.util.function.Consumer<String> accept;
+        DraftPicker(Draft d,String title,List<Choice> choices,java.util.function.Consumer<String> accept){super(title,d);draft=d;this.choices=List.copyOf(choices);this.accept=accept;}
+        @Override protected void init(){frame();rows("choices",choices,"",left+12,top+36,panelWidth-24,panelHeight-90,id->{accept.accept(id);close();});button("Back",left+12,top+panelHeight-38,panelWidth-24,this::close);}
+        @Override public void close(){TreatyClient.child(draft);client.setScreen(draft);}
     }
     private static final class PartyPicker extends CouncilScreen {
         private final Draft draft;
@@ -81,20 +94,20 @@ public final class TreatyScreen extends CouncilScreen {
         @Override protected void init(){
             frame();int x=left+12,w=panelWidth-24,y=top+36;
             Map<UUID,String> available=new LinkedHashMap<>();
-            draft.root.view.people().forEach(p->{String label=p.name()+" / "+p.house();available.put(p.owner(),label);draft.partyLabels.put(p.owner(),label);});
+            draft.root.view.people().forEach(p->{String label=p.name()+" / "+p.houseTitle();available.put(p.owner(),label);draft.partyLabels.put(p.owner(),label);});
             List<Choice> choices=new ArrayList<>();
             available.forEach((id,label)->choices.add(new Choice(id.toString(),(draft.selected.contains(id)?"[x] ":"[ ] ")+label)));
             for(UUID id:draft.selected)if(!available.containsKey(id))choices.add(new Choice(id.toString(),"[x] "+draft.partyLabels.getOrDefault(id,"Representative")+" / absent"));
             rows("party-picker",choices,"",x,y,w,Math.max(44,panelHeight-110),s->{
                 UUID id=UUID.fromString(s),self=client.player==null?TreatyPayloads.NONE:client.player.getUuid();
-                if(id.equals(self))return;
+                if(draft.linked()||id.equals(self))return;
                 if(draft.selected.contains(id))draft.selected.remove(id);
                 else if(draft.root.view.people().stream().anyMatch(p->p.owner().equals(id))&&draft.selected.size()<16)draft.selected.add(id);
                 else if(draft.selected.size()>=16)feedback="At most 16 representatives.";
                 rebuildPreservingFocus();
             });
             button("Done",x,top+panelHeight-38,w,this::close);
-            message(draft.selected.size()+" selected / your house is included.");
+            message(draft.linked()?"Every current conflict house is required.":draft.selected.size()+" selected / your house is included.");
         }
     }
 

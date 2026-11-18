@@ -2,7 +2,7 @@
 
 ## Status
 
-This is a renewed interactive proposal for review, not native implementation approval. It represents the confirmed Challenge-token and exact-consent rules without adding a Council outcome, forced PvP, resource change, timer, resume mechanism, or winner.
+The owner approved the revised workflow and authorized native implementation. It represents the confirmed Challenge-token and exact-consent rules without adding a Council outcome, forced PvP, resource change, timer, resume mechanism, or winner. The native implementation and verification are in progress on dev.15; the earlier browser results below certify the proposal only.
 
 Prototype: [`last-council-conflicts.html`](../../design/last-council-conflicts.html).
 
@@ -20,7 +20,7 @@ The existing type picker includes **General, Alliance, Non-aggression, Mutual de
 
 Each current house signs the exact terms separately. The Chancellor is not a party signer: after every required house has signed, the assigned Chancellor performs the existing separate **Sanctify agreement** witness action at the same lectern. This is not Council permission.
 
-Before sanctification, membership changes invalidate signatures and retain the typed terms for review in a fresh exact-consent draft. Peace records the conflict as **Ended**; Ceasefire records it as **Paused**. Public history records only the agreement/status, not freeform terms. Terms remain roleplayed promises. Paused resumption is deliberately omitted and remains a later review question.
+Before sanctification, membership changes invalidate signatures and retain the typed terms for review in a fresh exact-consent draft. Peace records the conflict as **Ended**; Ceasefire records it as **Paused**. Public history records only the status change, not private agreement details. Terms remain roleplayed promises. Renewed hostilities after either agreement use another normal physical declaration and a new conflict record. Only an Active conflict between the same founding houses prevents a duplicate declaration. There is no separate resume control.
 
 ## Geometry and fixture controls
 
@@ -41,4 +41,4 @@ Lead consolidated the fixture handlers, removing superseded consent implementati
 
 Replays: ignored `output/playwright/conflicts-v2-smoke.js` and `conflicts-v2-agreements.js`; result JSON and prototype hash: `../reports/lc05a-prototype-v2-validation.json` relative to repository root. Static inline JavaScript syntax, UTF-8/no-BOM, local Markdown links, unchanged brief hash and scoped diff checks also pass. Earlier draft fixture issues were corrected before final evidence.
 
-This is renewed workflow review, not native implementation or multiplayer/privacy certification. No gameplay code, version, client pack or played world changes. Gradle/game tests are not needed for this HTML/documentation slice. Ceasefire resumption remains an explicit open design point before completing its native lifecycle.
+These are historical browser-review results, not native implementation or multiplayer/privacy certification. The owner subsequently approved the flow and chose a new normal declaration for renewed hostilities after both agreement types. Native evidence is recorded separately.

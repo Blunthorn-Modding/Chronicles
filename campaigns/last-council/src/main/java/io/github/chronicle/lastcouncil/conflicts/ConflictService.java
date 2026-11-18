@@ -40,7 +40,7 @@ public final class ConflictService {
         }
     }
     public record PublicEvent(Action action, House actor, String detail, long recordRevision) {
-        public PublicEvent {Objects.requireNonNull(action);Objects.requireNonNull(actor);plain(detail,256,false);if(recordRevision<1)throw new IllegalArgumentException("Invalid revision");}
+        public PublicEvent {Objects.requireNonNull(action);Objects.requireNonNull(actor);plain(detail,256,true);if(recordRevision<1)throw new IllegalArgumentException("Invalid revision");}
     }
     public record View(Record record, List<PublicEvent> history) { public View {Objects.requireNonNull(record);history=List.copyOf(history);} }
     /** Safe for clients/list/detail views: excludes request IDs and agreement links. */
@@ -65,10 +65,11 @@ public final class ConflictService {
     public synchronized void checkpoint()throws IOException {requireWritable();storage.save(encode(revision,conflicts));}
     public synchronized List<View> records(){return conflicts.values().stream().map(c->new View(c.record,c.history)).toList();}
     public synchronized List<PublicView> publicViews(){return conflicts.values().stream().map(c->new PublicView(publicRecord(c))).toList();}
+    public synchronized String sideAt(UUID conflictId,long recordRevision,String house){var c=require(conflictId);if(recordRevision<1||recordRevision>c.snapshots.size())throw new IllegalArgumentException("Unknown conflict revision");var r=c.snapshots.get(Math.toIntExact(recordRevision-1));return contains(r.firstSide,house)?r.initiator.houseId:contains(r.secondSide,house)?r.target.houseId:"";}
     public synchronized Agreement agreement(UUID conflictId){return require(conflictId).record.agreement;}
     public synchronized void preview(Mutation mutation)throws IOException {requireWritable(); Memory m=new Memory(encode(revision,conflicts)); ConflictService copy=new ConflictService(m);mutation.apply(copy);if(encode(copy.revision,copy.conflicts).length>MAX_BYTES)throw new IOException("Conflict data too large");}
     public synchronized void declare(UUID id,UUID requestId,House initiator,House target,String reason)throws IOException {
-        requireWritable();Objects.requireNonNull(id);Objects.requireNonNull(requestId);Objects.requireNonNull(initiator);Objects.requireNonNull(target);plain(reason,256,false);
+        requireWritable();Objects.requireNonNull(id);Objects.requireNonNull(requestId);Objects.requireNonNull(initiator);Objects.requireNonNull(target);plain(reason,256,true);
         Conflict old=conflicts.get(id);if(old!=null){Record r=old.record;if(r.requestId.equals(requestId)&&r.initiator.equals(initiator)&&r.target.equals(target)&&old.history.get(0).detail.equals(reason))return;throw new IllegalArgumentException("Conflict ID already used");}
         if(conflicts.size()>=MAX_CONFLICTS)throw new IllegalStateException("Conflict limit reached");
         for(Conflict c:conflicts.values())if(c.record.status==Status.ACTIVE&&sameFounders(c.record,initiator,target))throw new IllegalStateException("Active conflict already exists for these houses");

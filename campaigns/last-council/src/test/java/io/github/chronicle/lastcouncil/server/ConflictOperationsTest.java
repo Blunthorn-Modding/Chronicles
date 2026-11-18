@@ -28,6 +28,10 @@ class ConflictOperationsTest {
         store.fail=true;assertThrows(IOException.class,()->journal.begin(op,conflicts,treaties));assertEquals(Status.ACTIVE,treaties.get(tid).status());store.fail=false;
         var loaded=new ConflictService(store);new ConflictOperations(dir.resolve("operations.json")).recover(loaded,new TreatyService(dir.resolve("treaties.json")));assertEquals(ConflictService.Status.ENDED,loaded.records().getFirst().record().status());assertEquals(4,new TreatyService(dir.resolve("treaties.json")).get(tid).history().size());assertEquals(2,loaded.records().getFirst().history().size());
     }
+    @Test void publicPactsBetweenOtherHousesDoNotWarnOrBreakForTheActor()throws Exception{
+        var treaties=new TreatyService(dir.resolve("treaties.json"));UUID id=UUID.randomUUID();var doc=new Document(id,1,"Public pact","Terms",Visibility.PUBLIC,parties(),Purpose.NON_AGGRESSION,null);treaties.create(id,a.owner(),doc);treaties.sign(id,1,a.owner());treaties.sign(id,1,b.owner());treaties.sanctify(id,1,gm,Set.of(gm,a.owner(),b.owner()));
+        assertTrue(ConflictOperations.applicableNonAggression(treaties.get(id),a,b));var other=new House("house:other",UUID.randomUUID(),"Other");assertFalse(ConflictOperations.applicableNonAggression(treaties.get(id),other,b));treaties.breach(id,1,a.owner());assertFalse(ConflictOperations.applicableNonAggression(treaties.get(id),a,b));
+    }
     @Test void malformedIntentIsRejectedAndPreserved()throws Exception{
         var conflicts=new ConflictService(new Store());var treaties=new TreatyService(dir.resolve("treaties.json"));var journal=new ConflictOperations(dir.resolve("operations.json"));UUID id=UUID.randomUUID();var op=new ConflictOperations.Operation(ConflictOperations.Kind.DECLARATION,id,a.owner(),a,b,"Road",List.of(),null,Set.of(),0);
         Store failing=new Store();failing.fail=true;var c=new ConflictService(failing);assertThrows(IOException.class,()->journal.begin(op,c,treaties));byte[] original=Files.readAllBytes(dir.resolve("operations.json"));

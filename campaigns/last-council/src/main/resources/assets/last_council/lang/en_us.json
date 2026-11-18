@@ -10,5 +10,6 @@
   "message.last_council.banquet.poisoned": "You poison the %s",
   "death.attack.last_council.poison": "%1$s was killed by poison",
   "death.attack.last_council.poison.player": "%1$s was killed by poison",
-  "death.attack.last_council.poison.item": "%1$s was killed by poison"
+  "death.attack.last_council.poison.item": "%1$s was killed by poison",
+  "item.last_council.challenge_token": "Challenge token"
 }

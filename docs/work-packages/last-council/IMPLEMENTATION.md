@@ -1,6 +1,8 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.14`. Branch: `feat/last-council`.
+Source development version: `0.2.0-dev.15`. Branch: `feat/last-council-conflicts`.
+
+Current delivery: [LC05A conflicts, typed treaties and recovery](LC05A_RESULTS.md). Both e4mc review packs are built; human multiplayer acceptance remains deferred.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
 
 ## Current delivery

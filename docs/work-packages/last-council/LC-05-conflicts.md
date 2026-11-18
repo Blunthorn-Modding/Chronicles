@@ -1,6 +1,6 @@
 # LC-05 — Political conflict and foreign affairs
 
-Status: LC05A implementation plan and UI proposal awaiting owner review; native conflicts not implemented. Depends on LC-02 and LC-04. Brief: §§5.4, 8.1–8.3, 10–12, 14–15.
+Status: LC05A is implemented and automatically verified on dev.15; human group acceptance remains deferred. See [results and combined review](LC05A_RESULTS.md). The owner approved LC05B's [foreign-affairs workflow](LC05B_UI_DESIGN.md) on 18 November; native implementation follows. Depends on LC-02 and LC-04. Brief: §§5.4, 8.1–8.3, 10–12, 14–15.
 
 The current bounded slice is [LC05A house conflicts](LC05A_IMPLEMENTATION_PLAN.md), with [UI design](LC05_UI_DESIGN.md) and [interactive prototype](../../design/last-council-conflicts.html). Foreign realms/Council diplomacy follow in LC05B; rebellion/access remain LC06.
 

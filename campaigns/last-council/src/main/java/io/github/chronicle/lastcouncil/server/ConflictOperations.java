@@ -42,6 +42,11 @@ public final class ConflictOperations {
         }
         write(null);
     }
+    public static boolean applicableNonAggression(TreatyService.View treaty,House initiator,House target){
+        return treaty.status()==TreatyService.Status.ACTIVE&&treaty.document().purpose()==TreatyService.Purpose.NON_AGGRESSION
+            &&treaty.document().parties().stream().anyMatch(p->p.houseId().equals(initiator.houseId())&&p.owner().equals(initiator.owner()))
+            &&treaty.document().parties().stream().anyMatch(p->p.houseId().equals(target.houseId())&&p.owner().equals(target.owner()));
+    }
     public static void validate(Operation op,ConflictService conflicts,TreatyService treaties)throws IOException{
         conflicts.verify();treaties.verify();
         if(op.kind()==Kind.DECLARATION){conflicts.preview(c->c.declare(op.id(),op.id(),op.initiator(),op.target(),op.reason()));

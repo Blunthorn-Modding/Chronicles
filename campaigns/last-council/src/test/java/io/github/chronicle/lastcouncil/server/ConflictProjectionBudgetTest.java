@@ -1,0 +1,5 @@
+package io.github.chronicle.lastcouncil.server;
+import io.github.chronicle.lastcouncil.network.ConflictPayloads.*;import io.github.chronicle.lastcouncil.network.ConflictPayloads;import java.util.*;import org.junit.jupiter.api.Test;import static org.junit.jupiter.api.Assertions.*;
+class ConflictProjectionBudgetTest {
+ @Test void maximumEscapedRuntimeNamesAndHistoryFit() {String title="<".repeat(80),reason="<".repeat(256);var houses=new ArrayList<House>();for(int i=0;i<16;i++)houses.add(new House("house:h"+i,title,title));var rows=new ArrayList<Row>();for(int i=0;i<64;i++)rows.add(new Row(UUID.randomUUID(),title+" / "+title,"ACTIVE"));List<String> history=new ArrayList<>();history.add(title+" declared war: "+reason);for(int i=1;i<128;i++)history.add(title+" changed allegiance to "+title+".");UUID id=rows.getFirst().id();var detail=new Detail(id,128,title+" / "+title,"Civil war / ACTIVE",reason,houses.subList(0,8),houses.subList(8,16),history,"house:h0",true,true);var view=new View(UUID.randomUUID(),true,1,1,rows,detail,null,false,false,4,"",false);assertTrue(ConflictPayloads.fits(view));}
+}

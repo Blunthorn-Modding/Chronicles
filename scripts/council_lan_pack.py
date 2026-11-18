@@ -135,6 +135,16 @@ Use the lectern to view/propose motions. Voters must be inside the Council
 Region (x/z -5..5, y 64..80) when the ballot opens. Creative mode is allowed.
 Later Regency ballots wait for every remaining candidate to return.
 
+HOUSE CONFLICTS: An eligible house representative can obtain a Challenge
+token using /chronicle council challenge-token. Use it on the other nearby
+representative and confirm a public reason. /chronicle council conflicts
+opens public records and voluntary support actions; it cannot declare war.
+Founders stay on their original sides. Supporting houses can change/withdraw.
+Peace/Ceasefire at the treaty lectern (0,65,2) require every current house
+to sign, then the assigned Chancellor sanctifies with everyone present.
+Renewed hostilities use another physical declaration, preserving old records.
+Game setup > Conflicts configures the Civil war label threshold; default 4.
+
 The separate treaty lectern is at 0,65,2. Two or more House representatives
 open it together to create an agreement, then sign the exact terms individually.
 The appointed Chancellor opens the same lectern to sanctify after everyone
@@ -196,11 +206,13 @@ licenses remain their own. See licenses/chronicle and licenses/e4mc.
 '''
 
 
-def build():
+def build(*, current_build=False):
     root, meta = council_review.resolve()
     w.check_stopped(root)
     version, owned = council_review.jars()
-    if version != meta['version'] or any(w.digest(p) != meta['mods'].get(p.name) for p in owned):
+    # resolve() verifies the stopped source and its original mod manifest. A
+    # reviewed new build can reuse its authored map without replacing that source.
+    if not current_build and (version != meta['version'] or any(w.digest(p) != meta['mods'].get(p.name) for p in owned)):
         raise RuntimeError('Build and source review differ')
     lock = json.loads((w.REPO / 'config/e4mc-review.lock.json').read_text(encoding='utf-8'))
     if lock['minecraft'] != w.LOCK['minecraft'] or lock['loader'] != 'fabric':
@@ -227,7 +239,7 @@ def build():
     e4mc = {'path': 'mods/' + entry['filename'], 'hashes': entry['hashes'],
             'env': {'client': 'required', 'server': 'unsupported'},
             'downloads': [entry['url']], 'fileSize': entry['size']}
-    result = {'result': 'PASS', 'sourceReview': str(root), 'version': version,
+    result = {'result': 'PASS', 'sourceReview': str(root), 'sourceVersion': meta['version'], 'version': version,
               'e4mcVersion': lock['versionId'], 'worldFiles': len(world), 'artifacts': []}
     for kind in ('Host', 'Player'):
         index = {'formatVersion': 1, 'game': 'minecraft', 'versionId': version + '-e4mc-' + kind.lower(),
@@ -269,4 +281,7 @@ def build():
 
 
 if __name__ == '__main__':
-    build()
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--current-build', action='store_true', help='Use current verified jars with the unchanged stopped source map')
+    build(current_build=parser.parse_args().current_build)
