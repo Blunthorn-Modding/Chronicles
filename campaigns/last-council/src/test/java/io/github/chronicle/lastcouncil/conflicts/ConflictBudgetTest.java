@@ -175,4 +175,3 @@ class ConflictBudgetTest {
         return header.length() + (long) count * endedSize + count + activeSize + 3; // ]} and newline
     }
 }
-

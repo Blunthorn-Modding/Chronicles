@@ -1,6 +1,6 @@
 # LC05B foreign affairs — UI proposal
 
-Status: proposed for lead and owner review; no native implementation or policy approval is implied. [Interactive prototype](../../design/last-council-foreign-affairs.html). Northreach and its history are illustrative fixture content, not canon.
+Status: owner approved the workflow on 18 November 2026 after re-reviewing the refreshed site. Native implementation is authorized; the prototype itself is not implemented gameplay. [Interactive prototype](../../design/last-council-foreign-affairs.html). Northreach and its history are illustrative fixture content, not canon.
 
 ## Workflow
 
@@ -28,4 +28,4 @@ No armies, resources, map, PvP changes, forced winner or Council control of volu
 
 ## Proposal verification — 17 November 2026
 
-The dedicated UI agent refined the proposal after lead review: neutral initial state, external-only tally simulation, pinned realm revision including intervening war/peace, referenced deletion refusal and world-owned history. Installed Edge through the cached Playwright CLI passed 31 focused checks with no page errors, including both two-thirds outcomes, failed/void results, stale decisions and compact frame/dialog bounds. Evidence: `../reports/lc05b-prototype-validation.json`; screenshots and replay are under ignored `output/playwright/foreign-*`. The lead inspected the normal record and compact dialog captures. This validates the interactive proposal only. Owner workflow review remains required before native controls; multiplayer, persistence and result-recovery behavior are not certified by these browser checks.
+The dedicated UI agent refined the proposal after lead review: neutral initial state, external-only tally simulation, pinned realm revision including intervening war/peace, referenced deletion refusal and world-owned history. Installed Edge through the cached Playwright CLI passed 31 focused checks with no page errors, including both two-thirds outcomes, failed/void results, stale decisions and compact frame/dialog bounds. Evidence: `../reports/lc05b-prototype-validation.json`; screenshots and replay are under ignored `output/playwright/foreign-*`. The lead inspected the normal record and compact dialog captures. This validates the interactive proposal only. The owner subsequently approved this workflow on 18 November. Multiplayer, persistence and result-recovery behavior are not certified by these browser checks.
