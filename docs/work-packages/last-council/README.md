@@ -1,6 +1,6 @@
 # The Last Council work-package tree
 
-**Current slice:** [LC05B foreign affairs](LC05B_IMPLEMENTATION_PLAN.md), using the owner-approved [UI workflow](LC05B_UI_DESIGN.md). Foreign war and peace both require two-thirds. Native implementation and its four-client recovery run pass; [final checks and packs](LC05B_RESULTS.md) pass. [LC05A house conflicts](LC05A_RESULTS.md) are delivered on dev.15. Treaty, complication and conflict group reviews remain deferred, not passed. [LC06 rebellion UI](LC06_UI_DESIGN.md) is a separate design draft awaiting policy answers and workflow review.
+**Current slice:** [LC05B foreign affairs](LC05B_IMPLEMENTATION_PLAN.md), using the owner-approved [UI workflow](LC05B_UI_DESIGN.md). Foreign war and peace both require two-thirds. Native implementation and its four-client recovery run pass; [final checks and packs](LC05B_RESULTS.md) pass. [LC05A house conflicts](LC05A_RESULTS.md) are delivered on dev.15. Treaty, complication and conflict group reviews remain deferred, not passed. [LC06 rebellion UI](LC06_UI_DESIGN.md) is being simplified after owner feedback; its revised workflow still requires review.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
@@ -60,7 +60,7 @@ Keep builds/native clients serialized where they share class directories or test
 - **LC-01:** first release uses one representative per house, matching the brief's default. If multiple simultaneous representatives are required, decide delegation before implementing casting/signature authority; there is still only one vote per house.
 - **LC-02:** technical void with a public reason and a new replacement ballot is confirmed. Confirmed access uses a configurable hotkey and command. Voided regency permits same-meeting replacement; only completed regency consumes that meeting slot. Recovery resumes the same saved attempt without a fresh snapshot.
 - **LC-04:** signatures persist departure/reconnect; everyone returns to the same lectern for sanctification. Private existence/breaches/history stay private. Active amendments, deliberate reveal and realm ratification remain future decisions. Never disclose private terms merely because a public war was declared.
-- **LC-06:** define the narrow supervised-visit exception and the separate crowned-ruler abdication/deposition procedure before exposing those controls.
+- **LC-06:** one simple Chancellor visit action is confirmed; the no-Council reinstatement fallback has been removed. Crowned-ruler abdication/deposition remains separate future work.
 - **LC-07:** review dose counts, onset/duration, symptoms and antidote strength; the brief deliberately leaves those numbers open. Banquet poisoning remains optional.
 - **LC-01B/LC-08:** review pool content, draw quantities, repetition policies and compatibility rules for replayable characters. Cross-house knowledge must resolve to the same draw's assigned facts. The brief's fixed eight-house example is illustrative, not final canon.
 - **LC-08B:** complication total across the evening and the current-meeting regency horizon are confirmed. Review hidden allocation/rescheduling, spacing and Council-recess presentation with the UI. No per-run GM choice or preview of future crises.
