@@ -1,6 +1,6 @@
 # Council review - development build 0.2.0-dev.7
 
-Current review build: **0.2.0-dev.15**, matching e4mc [Host](../../../../client/Chronicle-Last-Council-0.2.0-dev.15-e4mc-Host.mrpack) / [Player](../../../../client/Chronicle-Last-Council-0.2.0-dev.15-e4mc-Player.mrpack) packs. See [the current conflict/typed-agreement review](LC05A_RESULTS.md). No dedicated local review server is running. Existing treaty and complication group acceptance remains deferred. Earlier dated instructions below describe their respective checkpoints.
+Current review build: **0.2.0-dev.16**, matching e4mc [Host](../../../../client/Chronicle-Last-Council-0.2.0-dev.16-e4mc-Host.mrpack) / [Player](../../../../client/Chronicle-Last-Council-0.2.0-dev.16-e4mc-Player.mrpack) packs. See [foreign affairs](LC05B_RESULTS.md) and [conflicts/typed agreements](LC05A_RESULTS.md). No dedicated local review server is running. Existing treaty and complication group acceptance remains deferred. Earlier dated instructions below describe their respective checkpoints.
 
 
 **9 November follow-up:** the available review looks good to the owner. Human complication/recess/Regency testing with a larger group is explicitly deferred and remains an acceptance task. It does not block development. Dev.7 repairs the pool frame/footer, adds reusable pool/settings export/import and implements the initial treaty ceremony. Review deliveries are e4mc Host and Player only.

@@ -9,6 +9,8 @@ import net.minecraft.text.Text;
 public final class CouncilBusinessScreen extends CouncilScreen {
     private View view;
     private boolean invalidated;
+    private MotionDraftScreen retainedDraft;
+    private UUID draftRequest;
     private final Map<UUID,Action> pending=new HashMap<>();
     private final Map<UUID,Integer> ages=new HashMap<>();
     CouncilBusinessScreen(View view,Screen parent) {
@@ -20,8 +22,10 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         if(value.mode()!=view.mode())return;
         if(!value.request().equals(CouncilPayloads.NONE)&&pending.remove(value.request())==null)return;
         ages.remove(value.request());
+        if(value.request().equals(draftRequest)){draftRequest=null;retainedDraft=null;}
         if(value.revision()<view.revision())return;
         view=value;
+        if(client.currentScreen instanceof MotionDraftScreen draft&&draft.ownerBusiness()==this)draft.refreshRealms(value.foreignRealms());
         invalidated=false;
         if(!value.message().isBlank())feedback=value.message();
         if(client.currentScreen==this)rebuildPreservingFocus();
@@ -32,6 +36,10 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             if(global)invalidated=true;
             ages.remove(value.request());
             feedback=value.message();
+            if(value.request().equals(draftRequest)){
+                draftRequest=null;
+                if(retainedDraft!=null){retainedDraft.refused(value.message());if(client.currentScreen==this){client.setScreen(retainedDraft);return;}}
+            }
             if(client.currentScreen==this)rebuildPreservingFocus();
         }
     }
@@ -49,14 +57,18 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         send(action,ref,text,title,secret,thirds,0);
     }
     private void send(Action action,UUID ref,String text,String title,boolean secret,boolean thirds,int historyPage) {
+        send(action,ref,text,title,secret,thirds,historyPage,Category.GENERAL,"",0);
+    }
+    private void send(Action action,UUID ref,String text,String title,boolean secret,boolean thirds,int historyPage,Category category,String realm,long realmRevision) {
         boolean read=action==Action.STATE||action==Action.MOTIONS||action==Action.BALLOT;
         if(pending.containsValue(action)||(!read&&pending.values().stream().anyMatch(a->a!=Action.STATE&&a!=Action.MOTIONS&&a!=Action.BALLOT))||!ClientPlayNetworking.canSend(Request.ID))return;
         feedback="";
         UUID id=UUID.randomUUID();
         pending.put(id,action);
+        if((action==Action.PREPARE||action==Action.PROPOSE)&&retainedDraft!=null)draftRequest=id;
         ages.put(id,0);
         if(action==Action.BALLOT)BallotAccess.expectOpening(id,this,ref);
-        ClientPlayNetworking.send(new Request(id,action,view.revision(),ref,view.site(),text,title,secret,thirds,historyPage));
+        ClientPlayNetworking.send(new Request(id,action,view.revision(),ref,view.site(),text,title,secret,thirds,historyPage,category,realm,realmRevision));
     }
     private void send(Action action,UUID ref) {
         send(action,ref,"","",false,false);
@@ -150,6 +162,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         else {
             List<SectionCard> cards=new ArrayList<>();
             CouncilBallotSections.motion(cards,d);
+            if(d.category()!=Category.GENERAL)cards.add(new SectionCard("Foreign affairs",(d.category()==Category.DECLARE_WAR?"Declare foreign war":"Make peace")+" / "+d.realmTitle()));
             if(!view.problem().isBlank())cards.add(new SectionCard("Notice",view.problem()));
             if(proceedings&&view.progress()!=null) {
                 var progress=view.progress();
@@ -205,15 +218,19 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             feedback="Wait for the current action to finish.";
             return;
         }
-        client.setScreen(new MotionDraftScreen(this,(title,text,secret,thirds)->send(action,CouncilPayloads.NONE,
-                text,title,secret,thirds)));
+        if(retainedDraft==null)retainedDraft=new MotionDraftScreen(this,view.foreignRealms(),(title,text,secret,thirds,category,realm,revision)->send(action,CouncilPayloads.NONE,
+                text,title,secret,thirds,0,category,realm,revision));
+        client.setScreen(retainedDraft);
     }
+    void refreshRealms(){send(view.mode()==Mode.PROCEEDINGS?Action.STATE:Action.MOTIONS,selected());}
+    void discardDraft(MotionDraftScreen draft){if(retainedDraft==draft&&draftRequest==null)retainedDraft=null;}
     @Override public void tick() {
         for(UUID id:new ArrayList<>(ages.keySet())) {
             int age=ages.get(id)+1;
             if(age>200) {
                 ages.remove(id);
                 pending.remove(id);
+                if(id.equals(draftRequest))draftRequest=null;
                 feedback="The server did not answer. Reopen proceedings before retrying.";
             }
             else ages.put(id,age);

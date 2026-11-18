@@ -2,7 +2,7 @@
 
 ## Status
 
-The owner approved the revised workflow and authorized native implementation. It represents the confirmed Challenge-token and exact-consent rules without adding a Council outcome, forced PvP, resource change, timer, resume mechanism, or winner. The native implementation and verification are in progress on dev.15; the earlier browser results below certify the proposal only.
+The owner approved the revised workflow and authorized native implementation. It represents the confirmed Challenge-token and exact-consent rules without adding a Council outcome, forced PvP, resource change, timer, resume mechanism, or winner. The native implementation was delivered and automatically verified on dev.15; see [results](LC05A_RESULTS.md). The earlier browser results below certify the proposal only.
 
 Prototype: [`last-council-conflicts.html`](../../design/last-council-conflicts.html).
 

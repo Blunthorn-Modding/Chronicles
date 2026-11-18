@@ -14,6 +14,7 @@ public final class LastCouncilClient implements ClientModInitializer {
         PaperCopiesClient.register();
         TreatyClient.register(()->active);
         ConflictClient.register();
+        ForeignClient.register();
         ConflictNativeProbe.register();
         ComplicationSettingsClient.register();
         BanquetClient.register();
@@ -37,21 +38,23 @@ public final class LastCouncilClient implements ClientModInitializer {
             CouncilSmoke.admin(view);CouncilBallotsSmoke.admin(view);CouncilSuccessionSmoke.admin(view);CouncilEditorSmoke.admin(view);PaperCopiesSmoke.admin(view);var client=context.client();if(view.opening())client.setScreen(new HouseSetupScreen(view));else if(client.currentScreen instanceof HouseSetupScreen screen)screen.accept(view);
         }));
         ClientPlayNetworking.registerGlobalReceiver(ProceedingsPayloads.View.ID,(view,context)->context.client().execute(()->{
-            CouncilBallotsSmoke.view(view);CouncilSuccessionSmoke.view(view);var client=context.client();
+            ConflictNativeProbe.proceedings(view);CouncilBallotsSmoke.view(view);CouncilSuccessionSmoke.view(view);var client=context.client();
             if(view.opening()){if(view.mode()==ProceedingsPayloads.Mode.PROCEEDINGS)ProceedingsAccess.openResponse(view,client);else client.setScreen(new CouncilBusinessScreen(view,null));}
             else if(client.currentScreen instanceof CouncilBusinessScreen screen)screen.accept(view);
+            else if(client.currentScreen instanceof MotionDraftScreen draft&&draft.ownerBusiness()!=null)draft.ownerBusiness().accept(view);
         }));
         ClientPlayNetworking.registerGlobalReceiver(ProceedingsPayloads.Vote.ID,(view,context)->context.client().execute(()->{
-            CouncilBallotsSmoke.vote(view);CouncilSuccessionSmoke.vote(view);var client=context.client();
+            ConflictNativeProbe.vote(view);CouncilBallotsSmoke.vote(view);CouncilSuccessionSmoke.vote(view);var client=context.client();
             if(view.opening())BallotAccess.openResponse(view,client);
             else if(client.currentScreen instanceof BallotScreen screen)screen.accept(view);
         }));
         ClientPlayNetworking.registerGlobalReceiver(CouncilPayloads.Notice.ID,(notice,context)->context.client().execute(()->{
-            PaperCopiesSmoke.notice(notice);
+            ConflictNativeProbe.notice(notice);PaperCopiesSmoke.notice(notice);
             if(PaperCopiesClient.notice(notice,context.client()))return;
             CouncilSmoke.notice(notice);CouncilBallotsSmoke.notice(notice);CouncilSuccessionSmoke.notice(notice);if(context.client().currentScreen instanceof PersonalScreen screen)screen.notice(notice);
             else if(context.client().currentScreen instanceof HouseSetupScreen screen)screen.notice(notice);
             else if(context.client().currentScreen instanceof CouncilBusinessScreen screen)screen.notice(notice);
+            else if(context.client().currentScreen instanceof MotionDraftScreen draft&&draft.ownerBusiness()!=null)draft.ownerBusiness().notice(notice);
             else if(context.client().currentScreen instanceof BallotScreen screen)screen.notice(notice);
         }));
     }

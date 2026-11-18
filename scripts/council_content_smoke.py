@@ -37,7 +37,7 @@ def run():
         clients=[fabric_smoke._client(w,launch,root,reports,'ChronicleFabricA',name,{
             'CHRONICLE_SCENARIO_SMOKE':str(output),'CHRONICLE_SCENARIO_MODE':'portable',
             'CHRONICLE_ROLES_SERVER_DIR':str(root),'CHRONICLE_MENU_WIDTH':str(width),'CHRONICLE_MENU_HEIGHT':str(height),
-            'CHRONICLE_SCENARIO_POOLS':str(expected_pools),'CHRONICLE_SCENARIO_EXTENSIONS':'4'})]
+            'CHRONICLE_SCENARIO_POOLS':str(expected_pools),'CHRONICLE_SCENARIO_EXTENSIONS':'5'})]
         fabric_smoke._await_clients(clients,[output],timeout=160)
         for _,handle in clients:handle.close()
         clients=[];fabric_smoke._stop(server);server=None;log.close();log=None
@@ -84,6 +84,7 @@ def run():
         source=fresh();config=source/'config/chronicle'
         banquet={'schema':2,'enabled':True,'onsetMinutes':3,'symptomMinutes':4,'poisonMinutes':5}
         conflicts={'schema':1,'civilWarThreshold':7}
+        realms={'schema':1,'revision':3,'realms':[{'id':'last_council:northreach','name':'Northreach','description':'Reusable foreign realm.'}]}
         (config/'last-council').mkdir()
         (config/'last-council/houses.json').write_text(json.dumps(houses)+'\n',encoding='utf-8')
         (config/'scenario-selection.json').write_text('{"schema":1,"scenarioId":"last_council:scenario"}\n',encoding='utf-8')
@@ -91,6 +92,7 @@ def run():
         (config/'last-council-complications.json').write_text(json.dumps(settings)+'\n',encoding='utf-8')
         (config/'last-council-banquet.json').write_text(json.dumps(banquet)+'\n',encoding='utf-8')
         (config/'last-council-conflicts.json').write_text(json.dumps(conflicts)+'\n',encoding='utf-8')
+        (config/'last-council-foreign-realms.json').write_text(json.dumps(realms)+'\n',encoding='utf-8')
         # Real valid private schedule differs from the reusable settings. It must never be captured.
         private=source/'world/chronicle/last-council';private.mkdir(parents=True)
         secret=str(uuid.uuid4())
@@ -117,6 +119,7 @@ def run():
         assert content['extensions']['last_council:complications']==settings
         assert content['extensions']['last_council:banquet']==banquet
         assert content['extensions']['last_council:conflicts']==conflicts
+        assert content['extensions']['last_council:foreign_realms']==realms
         assert house_fields(content['extensions']['last_council:houses'])==house_fields(houses)
         assert secret not in exported.read_text(encoding='utf-8')
         assert '73971932736431' not in exported.read_text(encoding='utf-8')
@@ -132,6 +135,7 @@ def run():
         assert json.loads((catalogs/'last-council-complications.json').read_text(encoding='utf-8'))==settings
         assert json.loads((catalogs/'last-council-banquet.json').read_text(encoding='utf-8'))==banquet
         assert json.loads((catalogs/'last-council-conflicts.json').read_text(encoding='utf-8'))==conflicts
+        assert json.loads((catalogs/'last-council-foreign-realms.json').read_text(encoding='utf-8'))==realms
         assert house_fields(json.loads((catalogs/'last-council/houses.json').read_text(encoding='utf-8')))==house_fields(houses)
         assert not (imported/'world/chronicle/last-council/complications.json').exists()
         assert not (imported/'world/chronicle/last-council/cast.json').exists()
@@ -142,6 +146,8 @@ def run():
         pools['pools'][0]['entries'][0]['weight']=9;settings['total']=0
         banquet.update(enabled=False,poisonMinutes=7)
         conflicts['civilWarThreshold']=9
+        realms['revision']=4;realms['realms'][0]['description']='Edited reusable realm.'
+        (catalogs/'last-council-foreign-realms.json').write_text(json.dumps(realms)+'\n',encoding='utf-8')
         (catalogs/'last-council-conflicts.json').write_text(json.dumps(conflicts)+'\n',encoding='utf-8')
         (catalogs/'last-council-banquet.json').write_text(json.dumps(banquet)+'\n',encoding='utf-8')
         houses['knowledgeChancePercent']=19
@@ -155,11 +161,13 @@ def run():
         assert house_fields(round_trip['extensions']['last_council:houses'])==house_fields(houses)
         assert round_trip['extensions']['last_council:banquet']==banquet
         assert round_trip['extensions']['last_council:conflicts']==conflicts
+        assert round_trip['extensions']['last_council:foreign_realms']==realms
         result['checks'].append('conflict threshold exports/imports and preserves stopped configuration edits across restart')
         result['checks'].append('actual restart and re-export preserve edited catalog weights/disabled settings without reseeding')
         refusal(imported,'missing-settings',catalogs/'last-council-complications.json')
         refusal(imported,'missing-banquet',catalogs/'last-council-banquet.json')
         refusal(imported,'missing-houses',catalogs/'last-council/houses.json')
+        refusal(imported,'missing-realms',catalogs/'last-council-foreign-realms.json')
         # Empty custom authoring never inherits installed scenario defaults.
         empty_content=dict(content,scenarioId='custom:empty_council',events=[],eventPools=[],extensions={},flags={})
         empty_profile=dict(profile,identity=str(uuid.uuid4()),title='Empty Council',content=empty_content)
@@ -168,6 +176,7 @@ def run():
         empty_houses=empty_export['extensions']['last_council:houses']
         assert empty_export['extensions']['last_council:banquet']=={'schema':2,'enabled':False,'onsetMinutes':2,'symptomMinutes':2,'poisonMinutes':2}
         assert empty_export['extensions']['last_council:conflicts']=={'schema':1,'civilWarThreshold':4}
+        assert empty_export['extensions']['last_council:foreign_realms']=={'schema':1,'revision':0,'realms':[]}
         assert not empty_houses['houses'] and not empty_houses['secrets'] and not empty_houses['goals']
         result['checks'].append('fresh empty authoring profile suppresses installed House/secret/goal defaults')
         # Emulate the dev.7 profile: generic marker exists, House config still uses its old normal path.

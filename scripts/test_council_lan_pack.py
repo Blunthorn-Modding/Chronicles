@@ -22,13 +22,13 @@ class CouncilLanPackTest(unittest.TestCase):
         return {'schemaVersion': schema, 'state': state}
 
     def test_supported_schemas_export_clean_authored_content(self):
-        for schema in (1, 2, 3):
+        for schema in (1, 2, 3, 4):
             with self.subTest(schema=schema):
                 source = self.fixture(schema)
                 saved = repr(source)
                 clean = pack.review_proceedings(source)
                 self.assertEqual(saved, repr(source))
-                self.assertEqual(clean['schemaVersion'], 3)
+                self.assertEqual(clean['schemaVersion'], 4)
                 state = clean['state']
                 self.assertEqual(set(state['motions']), {'ordinary'})
                 self.assertEqual(state['motions']['ordinary']['title'], 'Road')
@@ -41,7 +41,7 @@ class CouncilLanPackTest(unittest.TestCase):
 
     def test_unknown_schema_is_not_silently_exported(self):
         with self.assertRaises(RuntimeError):
-            pack.review_proceedings({'schemaVersion': 4, 'state': {}})
+            pack.review_proceedings({'schemaVersion': 5, 'state': {}})
 
     def test_treaty_map_binding_travels_without_private_consent(self):
         with TemporaryDirectory() as directory:

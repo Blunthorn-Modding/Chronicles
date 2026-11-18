@@ -170,6 +170,9 @@ The native subtype fixture checks the actual merged dispatcher, removed roots, o
 | `/chronicle council proceedings` | Call/open meetings, agenda, individual ballots, regency, recess and archived results | Explicitly appointed Chancellor; most mutations active play |
 | `/chronicle council vote` | Deliberately open the current ballot | Captured representative or read-only Chancellor; cast still needs eligibility and Region presence |
 | `/chronicle council treaties recover` | Reload the exact saved treaty journal and lectern bindings after a storage hold | Operator level2; no consent is invented or ceremony replayed |
+| `/chronicle council foreign-affairs` | Public external-realm diplomacy and history; also selected from Conflicts | Public read-only records |
+| `/chronicle council foreign-affairs settings` | Reusable realm catalogue, also in Game setup | Operator level2; saving requires non-active Editing, generated IDs and revision checks |
+| `/chronicle council recover` | Reload ballot/proceedings and foreign authorities, finish exact saved operations | Operator level2; works after initial load failure; does not override remaining holds or choose outcomes |
 | `/chronicle council conflicts` | Public house-conflict register and voluntary supporter actions | Read-only public view; mutations require an eligible participating house and active play |
 | `/chronicle council conflicts settings` | Open the Civil war threshold configuration, also in Game setup | Operator level2; saving requires non-active Editing |
 | `/chronicle council conflicts recover` | Reload political journals and finish the exact pinned operation/source receipts | Operator level2; preserves original parties, consent and intended result |

@@ -81,7 +81,7 @@ def snapshot(root):
 def review_proceedings(document):
     """Reset the exported fixture, accepting each supported on-disk schema."""
     schema = document['schemaVersion']
-    if schema not in (1, 2, 3):
+    if schema not in (1, 2, 3, 4):
         raise RuntimeError('Unsupported Council proceedings schema')
     state = document['state']
     rounds = {} if schema == 1 else state['succession']['rounds']
@@ -90,10 +90,10 @@ def review_proceedings(document):
     for identity, motion in state['motions'].items():
         if not motion['hostPrepared'] or identity in regency_motions:
             continue
-        clean = dict(motion, sponsors=[], status='AGENDA', ballots=[], notes=[])
+        clean = dict(motion, sponsors=[], status='AGENDA', ballots=[], notes=[], foreign=motion.get('foreign'))
         motions[identity] = clean
     return {
-        'schemaVersion': 3,
+        'schemaVersion': 4,
         'state': {'revision': 0, 'meeting': 0, 'phase': 'BETWEEN',
                   'votingRegion': state['votingRegion'], 'lecterns': state['lecterns'],
                   'motions': motions, 'attempts': {}, 'activeBallot': None,
@@ -144,6 +144,15 @@ Peace/Ceasefire at the treaty lectern (0,65,2) require every current house
 to sign, then the assigned Chancellor sanctifies with everyone present.
 Renewed hostilities use another physical declaration, preserving old records.
 Game setup > Conflicts configures the Civil war label threshold; default 4.
+
+FOREIGN AFFAIRS: While play is paused and Editing is enabled, Game setup >
+Foreign realms creates named external realms. The fresh catalogue is empty.
+Use the motion lectern or Chancellor's Prepare motion to select Declare
+foreign war / Make peace and an eligible realm. Both require two-thirds of
+the electorate captured at opening. Failed/void ballots change no diplomacy.
+Conflicts > Foreign affairs shows the public record. House peace agreements
+remain separate. /chronicle council recover reloads exact ballot/foreign
+authority after a storage hold; it cannot choose a different outcome.
 
 The separate treaty lectern is at 0,65,2. Two or more House representatives
 open it together to create an agreement, then sign the exact terms individually.
