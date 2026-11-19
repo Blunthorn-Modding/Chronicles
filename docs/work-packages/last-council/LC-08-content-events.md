@@ -1,5 +1,8 @@
 # LC-08 — Content, complications and existing Event integration
 
+Current status (19 November): Event-pool/settings export and character-template authoring/copies are implemented. The additional public political Event/flag source links are implemented and automatically verified in dev.19; see POLITICAL_FOLLOWUPS_PLAN.md. Final narrative pool content and human pacing/group review remain. Older export/character-delivery pending labels below describe earlier slices.
+
+
 Status: LC08A/B implemented in dev.6, native functional review pending. LC08C content, export and additional political source links remain outstanding. See [current implementation evidence](LC08_IMPLEMENTATION.md). Depends on LC-01; integrate each delivered operation from LC-02–07. Brief: §§3, 10–13, 15–16.
 
 ## Outcome and ownership

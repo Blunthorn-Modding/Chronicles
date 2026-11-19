@@ -1,5 +1,8 @@
 # LC-03 — Succession and constitutional outcomes
 
+Current status (19 November): present-character Regency, absolute majority, locked later slate, void replacement, durable outcomes, actual complication gates and rebellion/reinstatement integration are implemented. The current coding follow-up is the meeting-capacity warning and explicit candidate-withdrawal/unresolved-end controls; see ELECTION_MANAGEMENT_UI.md. Those controls await owner workflow approval. Older pending integration/candidate-threshold language below is historical.
+
+
 **Next review work:** The 7 November group review changes Regency presentation to present eligible characters rather than every configured House. Presence versus the locked slate and the ambiguous two-thirds remark need resolution before implementation. See [recorded feedback](REVIEW_FEEDBACK_2026-11-07.md).
 
 Status: in implementation. Pure rules, durable regency intents/history and native proceedings integration are implemented; native verification and actual LC08 progression integration are tracked separately. Depends on LC-02. Brief: §§3.3, 4, 6, 12, 14–15.

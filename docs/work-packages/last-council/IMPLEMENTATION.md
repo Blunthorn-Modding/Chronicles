@@ -1,5 +1,8 @@
 # Last Council implementation
 
+Current work after dev.18: `feat/council-progression-sources`, dev.19, adds public completed political Event sources. Domain/runtime builds, focused tests and all three native integration suites pass; see [results](POLITICAL_SOURCES_RESULTS.md). Explicit election-management controls and meeting-capacity warning await the owner-approved [UI proposal](ELECTION_MANAGEMENT_UI.md). Current outstanding engineering is tracked in [the follow-up plan](POLITICAL_FOLLOWUPS_PLAN.md); older ?pending? sections below are historical slice snapshots, not an authoritative backlog.
+
+
 Latest slice: **dev.18**, branch `feat/core-voice-rooms`, implements the owner-approved automatic Voice room Region subtype in optional Core integration. See [LC10 results](LC10_RESULTS.md) for exact verification and limits. Existing Council decisions already use the binding motion/result flow; no separate realm ratification feature is added. Older checkpoints below retain their historical evidence.
 
 
@@ -62,7 +65,7 @@ The sample eight-house pool is intentionally illustrative, not final lore. On fi
 
 Open the existing Players menu, select a character and choose House & papers. `/chronicle council characters` is an operator fallback. Pause and enable Editing to assign houses and appoint a separate Chancellor. Private papers issue automatically when active play begins; early preview/commit remains optional. `/chronicle council` (or existing own-card access) opens the personal view. Saving a public character card never changes a house assignment.
 
-## Still pending
+## Historical pending at the original foundation checkpoint
 
 This is not all of LC-01. Core pool authoring/export and recipient-specific physical book grants, their inventory-full/interruption recovery, and the polished full cast-preview workflow remain pending. Fixed Player Role books are unchanged. LC02 adds ballots, motion lecterns and proceedings as described below. Treaty, war, rebellion, banquet and complication gameplay remain pending. Voice/acoustics remains a separate review.
 
