@@ -32,7 +32,10 @@
     "RegionAccessEntityMixin",
     "RegionAccessNetworkMixin",
     "RegionAccessPlayerMixin",
-    "RegionAccessPlayerManagerMixin"
+    "RegionAccessPlayerManagerMixin",
+    "VoiceRoomPositionMixin",
+    "VoiceRoomTransferMixin",
+    "VoiceRoomPlayerManagerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

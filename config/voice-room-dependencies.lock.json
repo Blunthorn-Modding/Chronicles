@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "minecraft": "1.21.10",
+  "api": {
+    "coordinate": "de.maxhenkel.voicechat:voicechat-api:2.6.20",
+    "repository": "https://maven.maxhenkel.de/repository/public",
+    "sha256": "d827114efa4913c2727e8ec92ef4b1473a93a47452f5b05a72e6a3cbacda22ed",
+    "scope": "compileOnly and testImplementation; not bundled"
+  },
+  "runtime": {
+    "url": "https://cdn.modrinth.com/data/9eGKb6K1/versions/9074luJy/voicechat-fabric-1.21.10-2.6.22.jar",
+    "slug": "simple-voice-chat",
+    "filename": "voicechat-fabric-1.21.10-2.6.22.jar",
+    "size": 5529164,
+    "version": "fabric-1.21.10-2.6.22",
+    "sha1": "45645b70dc3d88067655faedb1cf4e8a2c788523",
+    "sha512": "7e33f97c3c9b55f86e2a3e79e4ee3d0101950fe63d2ada3a7ad84ba53202bab4356472cda08ffdae697e864f038de0641fdbaf248777d37c7126ba50ec94fff2",
+    "project_id": "9eGKb6K1",
+    "version_id": "9074luJy"
+  },
+  "integration": "Public Simple Voice Chat API directly; Enhanced Groups not required; no third-party code/assets copied"
+}

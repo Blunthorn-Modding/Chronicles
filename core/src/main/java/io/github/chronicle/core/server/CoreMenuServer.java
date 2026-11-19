@@ -801,6 +801,12 @@ public final class CoreMenuServer {
                 var access=id.isBlank()?java.util.Optional.<io.github.chronicle.core.access.RegionAccessStore.Binding>empty():RegionAccess.binding(server,id);
                 if(access.isPresent()){var binding=access.get();controls.add(control(Action.REGION_ACCESS_POINT_OPEN,binding.outsidePointId().isBlank()?"Choose outside Point":shortText("Outside Point: "+binding.outsidePointId(),96),canEdit,editReason,false,""));}
                 var linked=id.isBlank()?java.util.Optional.<io.github.chronicle.core.areas.AreaChange>empty():AreaChanges.forRegion(server,id);if(linked.isPresent()){var capability=CoreAreaMenu.detail(player,linked.orElseThrow().id());areaForm=capability.area();controls.addAll(capability.controls().stream().filter(control->control.action()!=Action.AREA_PREVIEW).toList());facts.addAll(capability.facts());description="This Region can capture and apply saved Start and End states, including container contents.";}
+                if(VoiceRooms.assigned(server,id)) {
+                    description="People inside share a private voice room. Entering joins automatically; leaving returns to proximity voice.";
+                    String voiceStatus=VoiceRooms.status(server,id);
+                    facts.add(new Fact("Voice room",shortText(voiceStatus,1024)));
+                    if(voiceStatus.startsWith("Unavailable:")||voiceStatus.startsWith("Waiting"))description="Voice room unavailable. Check Simple Voice Chat and the server's room setup before relying on privacy.";
+                }
                 if(draft!=null&&draft.id().equals(id)) {
                     title="Region draft · "+draft.id();region=new RegionForm(draft.id(),draft.dimension(),draft.baseRevision(),coordinates(draft.first()),coordinates(draft.second()));
                     facts.add(new Fact("Step 1","Continue in world; stand at a corner and run /chronicle regions pos1 or pos2. Each changes only its own position."));

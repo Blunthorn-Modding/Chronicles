@@ -19,6 +19,7 @@ WORLD_MAP_FILES = {
     'managed-blocks.json', 'player-roles.json', 'player-roles.yaml',
     'player-roles.yaml.initialized', 'encounter-authoring.json',
     'encounter-authoring.initialized', 'region-access.json', 'region-access.initialized',
+    'voice-rooms.json', 'voice-rooms.initialized',
 }
 TERRAIN = {'region', 'entities', 'poi', 'DIM-1', 'DIM1', 'data', 'datapacks'}
 
@@ -103,7 +104,17 @@ def review_proceedings(document):
     }
 
 
-def instructions(version):
+def instructions(version, *, voice=False):
+    voice_notes = '''Simple Voice Chat is included as an optional external mod. In Regions >
+Choose subtypes, enable Voice room to create its private group automatically.
+Players join on entry and return to proximity voice on exit. No separate group
+creation or group ID is needed. Disable the subtype before changing its bounds.
+Voice diagnostics are under Debug. A missing/unavailable voice service must be
+fixed before relying on room privacy. Both players need working voice clients.
+Simple Voice Chat needs its own working UDP connection; the e4mc game address
+alone is not a tested voice relay. Follow https://modrepo.de/minecraft/voicechat/wiki/server_setup
+for voice networking; ordinary Council review still works without speaking.
+''' if voice else 'Simple Voice Chat is omitted for this test. Use your usual external call.\n'
     return f'''Chronicle Council review {version} - e4mc
 
 ONE PERSON HOSTS. Everyone imports their pack as a NEW launcher instance.
@@ -215,7 +226,7 @@ player inventories and personal cards were omitted. Terrain, map bindings,
 scenario settings, Chancellor and placeholder setup are retained. The source
 dedicated review world is unchanged. Use a fresh import to repeat setup later.
 
-Simple Voice Chat is omitted for this test. Use your usual external call.
+{voice_notes}
 Only the host pack includes e4mc. The host's game must remain running.
 e4mc opens a temporary public game connection through its relay. Share the
 address with your intended reviewers. No launcher accounts, access tokens,
@@ -227,7 +238,7 @@ licenses remain their own. See licenses/chronicle and licenses/e4mc.
 '''
 
 
-def build(*, current_build=False):
+def build(*, current_build=False, voice=False):
     root, meta = council_review.resolve()
     w.check_stopped(root)
     version, owned = council_review.jars()
@@ -246,7 +257,7 @@ def build(*, current_build=False):
     if w.digest(license_path) != lock['licenseSHA256']:
         raise RuntimeError('e4mc license changed')
     world = snapshot(root)
-    readme = instructions(version).encode('utf-8')
+    readme = instructions(version, voice=voice).encode('utf-8')
     common = {'options.txt': w.client_options().encode('utf-8'),
               client_defaults.FANCY_PATH: (w.REPO / 'config/client/fancymenu/options.txt').read_bytes(),
               client_defaults.SERVERS_PATH: encoded({'version': 1, 'servers': []}),
@@ -256,7 +267,7 @@ def build(*, current_build=False):
               'licenses/e4mc/LICENSE.txt': license_path.read_bytes()}
     files = [{'path': 'mods/' + m['filename'], 'hashes': {'sha1': m['sha1'], 'sha512': m['sha512']},
               'env': {'client': 'required', 'server': 'required'}, 'downloads': [m['url']], 'fileSize': m['size']}
-             for m in w.LOCK['mods'] if m['slug'] == 'fabric-api']
+             for m in w.LOCK['mods'] if m['slug'] == 'fabric-api' or voice and m['slug'] == 'simple-voice-chat']
     e4mc = {'path': 'mods/' + entry['filename'], 'hashes': entry['hashes'],
             'env': {'client': 'required', 'server': 'unsupported'},
             'downloads': [entry['url']], 'fileSize': entry['size']}
@@ -265,7 +276,8 @@ def build(*, current_build=False):
     for kind in ('Host', 'Player'):
         index = {'formatVersion': 1, 'game': 'minecraft', 'versionId': version + '-e4mc-' + kind.lower(),
                  'name': 'Chronicle Council review - ' + kind,
-                 'summary': 'Council review; voice chat omitted; one person hosts through e4mc',
+                 'summary': ('Council review; optional Simple Voice Chat included; one e4mc host' if voice
+                             else 'Council review; voice chat omitted; one person hosts through e4mc'),
                  'files': files + ([e4mc] if kind == 'Host' else []),
                  'dependencies': {'minecraft': w.LOCK['minecraft'], 'fabric-loader': w.LOCK['loader']}}
         target = w.WORK / 'client' / f'Chronicle-Last-Council-{version}-e4mc-{kind}.mrpack'
@@ -305,4 +317,6 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--current-build', action='store_true', help='Use current verified jars with the unchanged stopped source map')
-    build(current_build=parser.parse_args().current_build)
+    parser.add_argument('--voice', action='store_true', help='Reference the locked optional Simple Voice Chat mod in both packs')
+    args = parser.parse_args()
+    build(current_build=args.current_build, voice=args.voice)

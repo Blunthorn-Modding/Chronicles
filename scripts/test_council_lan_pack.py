@@ -57,14 +57,26 @@ class CouncilLanPackTest(unittest.TestCase):
             bindings=b'{"schemaVersion":1,"bindings":[]}'
             (world/'chronicle/region-access.json').write_bytes(bindings)
             (world/'chronicle/region-access.initialized').write_bytes(b'chronicle-region-access-v1\n')
+            (world/'chronicle/voice-rooms.json').write_bytes(bindings)
+            (world/'chronicle/voice-rooms.initialized').write_bytes(b'chronicle-voice-rooms-v1\n')
             (council/'rebellions.json').write_text('live memberships and grants',encoding='utf-8')
             (council/'rebellions-initialized').write_bytes(b'1\n')
             with patch.object(pack.w,'check_stopped'),patch.object(pack,'level_data',return_value=b'clean level'):
                 result=pack.snapshot(root)
             self.assertEqual(result['chronicle/region-access.json'],bindings)
             self.assertEqual(result['chronicle/region-access.initialized'],b'chronicle-region-access-v1\n')
+            self.assertEqual(result['chronicle/voice-rooms.json'],bindings)
+            self.assertEqual(result['chronicle/voice-rooms.initialized'],b'chronicle-voice-rooms-v1\n')
             self.assertNotIn('chronicle/last-council/rebellions.json',result)
             self.assertNotIn('chronicle/last-council/rebellions-initialized',result)
+
+    def test_voice_review_instructions_do_not_claim_e4mc_relays_voice(self):
+        default = pack.instructions('test')
+        voice = pack.instructions('test', voice=True)
+        self.assertIn('Simple Voice Chat is omitted', default)
+        self.assertNotIn('Simple Voice Chat is omitted', voice)
+        self.assertIn('group automatically', voice)
+        self.assertIn('own working UDP connection', voice)
 
     def test_treaty_map_binding_travels_without_private_consent(self):
         with TemporaryDirectory() as directory:

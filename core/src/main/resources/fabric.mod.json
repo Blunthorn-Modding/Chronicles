@@ -15,7 +15,14 @@
     ],
     "client": [
       "io.github.chronicle.core.client.ChronicleCoreClient"
+    ],
+    "voicechat": [
+      "io.github.chronicle.core.voice.ChronicleVoicechatPlugin"
     ]
+  },
+  "breaks": {
+    "voicechat_api": "<2.6.20",
+    "voicechat": "<1.21.10-2.6.22"
   },
   "depends": {
     "fabricloader": ">=0.19.5",

@@ -12,6 +12,10 @@ loom {
 }
 
 dependencies {
+    // Optional Simple Voice Chat API only; no voice implementation is bundled.
+    // Matches the API embedded in our locked 1.21.10 / 2.6.22 voice mod.
+    compileOnly 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
+    testImplementation 'de.maxhenkel.voicechat:voicechat-api:2.6.20'
     // Data-only YAML parsing for campaign-supplied Player Role defaults and the
     // operator-editable player-roles.yaml file. Apache-2.0 notice is packaged.
     implementation "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"

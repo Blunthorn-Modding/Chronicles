@@ -13,6 +13,7 @@ SUITES = {name: (script, prefix) for name, script, prefix in [
     ('foundation', 'last_council_smoke.py', 'last-council-'),
     *[(name, f'council_{name}_smoke.py', f'council-{name}-') for name in
       ('ballots', 'succession', 'treaties', 'conflicts', 'foreign', 'rebellion', 'content')],
+    ('voice', 'voice_rooms_smoke.py', 'voice-rooms-'),
 ]}
 OUTPUT_LIMIT = 256 * 1024
 

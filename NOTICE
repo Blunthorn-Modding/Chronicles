@@ -13,6 +13,9 @@ Third-party materials retain their own licenses:
 - Fabric API, Simple Voice Chat, SpiffyHUD, FancyMenu, Konkrete and Melody
   are separate mods. Their own licenses apply. They are not included in
   Chronicle's mod JARs. Pack files reference official downloads.
+- The optional Voice room integration compiles against the publisher's Simple
+  Voice Chat API 2.6.20 without including it in Chronicle. See
+  config/voice-room-dependencies.lock.json for the exact SDK/runtime pins.
 - Vitality-state sculk visuals adapt Minecraft's sculk textures and models.
   Chronicle's modifications are MIT; the underlying Minecraft artwork remains
   the property of Mojang/Microsoft. This notice does not relicense it.

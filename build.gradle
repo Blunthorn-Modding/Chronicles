@@ -13,6 +13,10 @@ configure([project(':core'), project(':campaigns:quiet-below'), project(':campai
     repositories {
         mavenCentral()
         maven { url = 'https://maven.fabricmc.net/' }
+        maven {
+            url = 'https://maven.maxhenkel.de/repository/public'
+            content { includeGroup 'de.maxhenkel.voicechat' }
+        }
         // Official source for the optional FancyMenu/SpiffyHUD compile-only APIs.
         maven {
             url = 'https://api.modrinth.com/maven'
