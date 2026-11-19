@@ -31,6 +31,7 @@ class ForeignMigrationTest {
     @Test void legacySchemaCannotSmuggleANewForeignSubject()throws Exception {
         Path path=directory.resolve("legacy.json");var f=fixture();var store=new ProceedingsStore(path);store.load();store.save(f.service().state());
         var root=JsonParser.parseString(Files.readString(path)).getAsJsonObject();root.addProperty("schemaVersion",3);
+        root.getAsJsonObject("state").getAsJsonObject("motions").asMap().values().forEach(m->m.getAsJsonObject().remove("reinstatement"));
         // Even null is a schema-4 field and must not be silently accepted as legacy.
         String retained=root.toString();Files.writeString(path,retained);assertThrows(IOException.class,()->new ProceedingsStore(path).load());assertEquals(retained,Files.readString(path));
     }

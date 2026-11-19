@@ -22,13 +22,13 @@ class CouncilLanPackTest(unittest.TestCase):
         return {'schemaVersion': schema, 'state': state}
 
     def test_supported_schemas_export_clean_authored_content(self):
-        for schema in (1, 2, 3, 4):
+        for schema in (1, 2, 3, 4, 5):
             with self.subTest(schema=schema):
                 source = self.fixture(schema)
                 saved = repr(source)
                 clean = pack.review_proceedings(source)
                 self.assertEqual(saved, repr(source))
-                self.assertEqual(clean['schemaVersion'], 4)
+                self.assertEqual(clean['schemaVersion'], 5)
                 state = clean['state']
                 self.assertEqual(set(state['motions']), {'ordinary'})
                 self.assertEqual(state['motions']['ordinary']['title'], 'Road')
@@ -39,9 +39,32 @@ class CouncilLanPackTest(unittest.TestCase):
                 self.assertIsNone(state['pending'])
                 self.assertEqual(state['succession']['stage'], 'NOT_STARTED')
 
+    def test_reinstatement_with_live_memberships_is_not_exported(self):
+        source=self.fixture(5)
+        source['state']['motions']['ordinary']['reinstatement']={'targets': ['live-target']}
+        self.assertNotIn('ordinary',pack.review_proceedings(source)['state']['motions'])
+
     def test_unknown_schema_is_not_silently_exported(self):
         with self.assertRaises(RuntimeError):
-            pack.review_proceedings({'schemaVersion': 5, 'state': {}})
+            pack.review_proceedings({'schemaVersion': 6, 'state': {}})
+
+    def test_guarded_map_travels_without_live_rebellion_progress(self):
+        with TemporaryDirectory() as directory:
+            root=Path(directory);world=root/'world';council=world/'chronicle/last-council';council.mkdir(parents=True)
+            (world/'level.dat').write_bytes(b'level')
+            (council/'proceedings.json').write_text(json.dumps(self.fixture(5)),encoding='utf-8')
+            for name in ('chancellor.json','roster.json'):(council/name).write_text('{}',encoding='utf-8')
+            bindings=b'{"schemaVersion":1,"bindings":[]}'
+            (world/'chronicle/region-access.json').write_bytes(bindings)
+            (world/'chronicle/region-access.initialized').write_bytes(b'chronicle-region-access-v1\n')
+            (council/'rebellions.json').write_text('live memberships and grants',encoding='utf-8')
+            (council/'rebellions-initialized').write_bytes(b'1\n')
+            with patch.object(pack.w,'check_stopped'),patch.object(pack,'level_data',return_value=b'clean level'):
+                result=pack.snapshot(root)
+            self.assertEqual(result['chronicle/region-access.json'],bindings)
+            self.assertEqual(result['chronicle/region-access.initialized'],b'chronicle-region-access-v1\n')
+            self.assertNotIn('chronicle/last-council/rebellions.json',result)
+            self.assertNotIn('chronicle/last-council/rebellions-initialized',result)
 
     def test_treaty_map_binding_travels_without_private_consent(self):
         with TemporaryDirectory() as directory:

@@ -18,7 +18,7 @@ WORLD_MAP_FILES = {
     'authoring.json', 'map-assignments.json', 'scenario-selection.json',
     'managed-blocks.json', 'player-roles.json', 'player-roles.yaml',
     'player-roles.yaml.initialized', 'encounter-authoring.json',
-    'encounter-authoring.initialized',
+    'encounter-authoring.initialized', 'region-access.json', 'region-access.initialized',
 }
 TERRAIN = {'region', 'entities', 'poi', 'DIM-1', 'DIM1', 'data', 'datapacks'}
 
@@ -81,19 +81,19 @@ def snapshot(root):
 def review_proceedings(document):
     """Reset the exported fixture, accepting each supported on-disk schema."""
     schema = document['schemaVersion']
-    if schema not in (1, 2, 3, 4):
+    if schema not in (1, 2, 3, 4, 5):
         raise RuntimeError('Unsupported Council proceedings schema')
     state = document['state']
     rounds = {} if schema == 1 else state['succession']['rounds']
     regency_motions = {state['attempts'][identity]['motion'] for identity in rounds}
     motions = {}
     for identity, motion in state['motions'].items():
-        if not motion['hostPrepared'] or identity in regency_motions:
+        if not motion['hostPrepared'] or identity in regency_motions or motion.get('reinstatement') is not None:
             continue
-        clean = dict(motion, sponsors=[], status='AGENDA', ballots=[], notes=[], foreign=motion.get('foreign'))
+        clean = dict(motion, sponsors=[], status='AGENDA', ballots=[], notes=[], foreign=motion.get('foreign'), reinstatement=None)
         motions[identity] = clean
     return {
-        'schemaVersion': 4,
+        'schemaVersion': 5,
         'state': {'revision': 0, 'meeting': 0, 'phase': 'BETWEEN',
                   'votingRegion': state['votingRegion'], 'lecterns': state['lecterns'],
                   'motions': motions, 'attempts': {}, 'activeBallot': None,
@@ -153,6 +153,18 @@ the electorate captured at opening. Failed/void ballots change no diplomacy.
 Conflicts > Foreign affairs shows the public record. House peace agreements
 remain separate. /chronicle council recover reloads exact ballot/foreign
 authority after a storage hold; it cannot choose a different outcome.
+
+REBELLIONS: Before play, enable Editing and create an outside Point in
+Locations on the platform at 7.5,65,0.5. In Regions, select council > Choose
+subtypes > Region access, then Choose outside Point. Complete this before
+guests enter the Region. Core refuses entry until a safe exit is configured.
+During play, /chronicle council > My house > Rebellions (or /chronicle council
+rebellions) shows the public factions and declare/join confirmations. Rebels
+remain participants but lose their Council rights and palace access. The
+Chancellor's Allow visit action grants one visit ending on exit; it restores
+no vote. Reinstate Houses is a two-thirds motion. Failed/void votes change
+nothing. Council recovery resumes exact saved outcomes; reopen registries
+after recovery. There is no reinstatement without a Council.
 
 The separate treaty lectern is at 0,65,2. Two or more House representatives
 open it together to create an agreement, then sign the exact terms individually.

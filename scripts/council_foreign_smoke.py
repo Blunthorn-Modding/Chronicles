@@ -228,7 +228,7 @@ def reconstruct_pending(root, motion, ballot):
     # Recreate the exact durable CLOSE boundary after a completed, already-applied peace.
     path = root / 'world/chronicle/last-council/proceedings.json'
     doc = json.loads(path.read_text(encoding='utf-8')); state = doc['state']
-    assert doc['schemaVersion'] == 4 and state['pending'] is None and state['activeBallot'] is None
+    assert doc['schemaVersion'] == 5 and state['pending'] is None and state['activeBallot'] is None
     assert state['motions'][motion]['status'] == 'RECORDED'
     assert state['attempts'][ballot]['motion'] == motion and state['phase'] == 'DISCUSSION'
     state['motions'][motion]['status'] = 'VOTING'; state['activeBallot'] = ballot
