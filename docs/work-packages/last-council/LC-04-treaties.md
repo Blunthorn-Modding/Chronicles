@@ -1,6 +1,6 @@
 # LC-04 — Treaties and explicit consent
 
-Status: initial house-agreement ceremony implemented, human acceptance deferred by the owner to the next group review cycle and not a development blocker; owner approved the UI and policies on 9 November. Realm ratification and active amendments remain pending. Depends on LC-01; realm ratification also needs LC-02. Brief: §§7, 10–12, 14.
+Status: initial house-agreement ceremony implemented, human acceptance deferred by the owner to the next group review cycle and not a development blocker; owner approved the UI and policies on 9 November. The owner clarified on 19 November that binding Council decisions use ordinary proceedings, with no separate realm-ratification feature. Active amendments are optional future scope, not a completion gate. See [authority clarification](COUNCIL_AUTHORITY_AND_VOICE_CLARIFICATION.md). Depends on LC-01. Brief: §§7, 10–12, 14.
 
 ## Outcome and ownership
 
@@ -14,15 +14,15 @@ No treaty/signature system exists in Core today. Do not make a generic Core agre
    The current UI clarification requires **Create treaty** and multiple independent records: select parties only from representatives simultaneously using that same lectern, include the initiator, require at least two distinct houses, and revalidate sessions on submission. Create does not overwrite another agreement. Signing and sanctification remain separate.
 2. Invalidate pending consent when terms/parties change; reject stale signing and signatures on another player's behalf. No duplicate signature or operator force-sign button.
 3. Public/private visibility is server enforced. Private terms/history are available to signatories and GM; private breaches preserve private existence, terms and history. Deliberate reveal remains a later decision.
-4. House agreements require all signatures plus Chancellor sanctification while required people are present. Revalidate at commitment; missing attendance suspends completion rather than inventing consent. Realm-wide agreements additionally require the designated Council ratification outcome, applied once. Neither witness presence nor a ballot substitutes for the parties' exact consent.
+4. House agreements require all signatures plus Chancellor sanctification while required people are present. Revalidate at commitment; missing attendance suspends completion rather than inventing consent. Any proposal decided by the Council instead uses the existing binding Council-decision flow. It has no unilateral House-treaty breach action and no additional ratification stage. Witnessing a House agreement is distinct from a Council vote.
 5. Preserve broken agreements as history. Voting promises never force a choice; defense pacts notify rather than enlist allies.
 
 ## Acceptance and verification
 
-Two native players can review/sign at the bound lectern with the Chancellor, who sanctifies only once when required attendance and consent are valid. Outsiders cannot obtain private terms through list/detail/picker/debug/packet/history routes. Changed terms reject old consent. Restart mid-signature/sanctification/ratification cannot activate twice. Leaving before commitment blocks completion; signature retention/re-entry behavior follows the reviewed policy. Breaking remains possible and preserves permitted history.
+Two native players can review/sign at the bound lectern with the Chancellor, who sanctifies only once when required attendance and consent are valid. Outsiders cannot obtain private terms through list/detail/picker/debug/packet/history routes. Changed terms reject old consent. Restart mid-signature/sanctification cannot activate twice. Leaving before commitment blocks completion; signature retention/re-entry behavior follows the reviewed policy. Breaking remains possible and preserves permitted history.
 
-Test realm-ratification refusal/passage, parties losing Council privileges, private disclosure, duplicate requests and absent signatories. Political eligibility is distinct from being a treaty party; rebels remain able to negotiate where the brief permits.
+Test the separation of binding Council decisions from breakable House agreements, parties losing Council privileges, private disclosure, duplicate requests and absent signatories. Political eligibility is distinct from being a treaty party; rebels remain able to negotiate where the brief permits.
 
 ## Review gate
 
-Review consent UX, amendment rules and the public record of private breaches before LC-05 consumes agreement state. Independent privacy/transaction review is required; secret ballot privacy remains stricter than GM visibility of treaties.
+Review consent UX and the public record of private breaches before LC-05 consumes agreement state. Independent privacy/transaction review is required; secret ballot privacy remains stricter than GM visibility of treaties.

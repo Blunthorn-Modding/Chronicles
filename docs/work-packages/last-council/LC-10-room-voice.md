@@ -1,6 +1,6 @@
 # LC-10 — Room acoustics and Simple Voice Chat
 
-Status: **Deferred by the owner on 19 November 2026** while integrated verification tooling is completed. No physical-acoustics or private-Region policy is selected. Existing listening samples remain available for a later decision. Voice integration and human audibility acceptance remain unpassed. The investigation below is retained; no voice dependency or adapter is added.
+Status: voice implementation is deferred. The owner subsequently supplied the Clocktower pack's automatic location-based groups as a concrete reference on 19 November; [research and proposed Core Region integration](COUNCIL_AUTHORITY_AND_VOICE_CLARIFICATION.md) are recorded. No adapter, dependency installation or native UI is implemented or approved by that example alone. The earlier investigation below is retained.
 
 ## Desired experience
 
