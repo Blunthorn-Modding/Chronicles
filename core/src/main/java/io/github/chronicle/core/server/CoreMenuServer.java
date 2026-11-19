@@ -165,7 +165,7 @@ public final class CoreMenuServer {
     private static io.github.chronicle.core.areas.AreaChange area(MinecraftServer server,String id){return Optional.ofNullable(AreaChanges.catalog(server).areas().get(id)).orElseThrow(()->new IllegalStateException("Choose an existing Area change."));}
     private static void requireAreaOperator(ServerPlayerEntity player){if(!player.getCommandSource().hasPermissionLevel(2)||(!ChronicleRuntime.service(player.getEntityWorld().getServer()).state().phase().name().equals("ACTIVE")&&!AuthoringRuntime.isAuthor(player)))throw new IllegalStateException("Enable Editing, or apply during active play.");}
     private static boolean publicAction(Action action){return switch(action){case OPEN,REOPEN,REFRESH,CARD_OPEN,PARTICIPANT_ADD,PARTICIPANT_REMOVE,LEAVE,ROLE_CHOICE_OPEN,ROLE_CHOOSE->true;default->false;};}
-    private static void invalidate(Context c){c.token=0;c.observation=null;c.eventReview=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;c.sourceReview=null;c.sourceReviewEvent="";c.encounterReview=null;c.encounterReviewEvent="";c.encounterReviewAt=0;c.scenarioPinned=null;clearGive(c);c.pendingRole="";c.roleReview=null;}
+    private static void invalidate(Context c){c.accessPoints=Map.of();c.accessRegion="";c.token=0;c.observation=null;c.eventReview=null;c.reviewId="";c.reviewFrame=null;c.reviewTime=0;c.sourceReview=null;c.sourceReviewEvent="";c.encounterReview=null;c.encounterReviewEvent="";c.encounterReviewAt=0;c.scenarioPinned=null;clearGive(c);c.pendingRole="";c.roleReview=null;}
     private static void clearGive(Context c){c.giveBook="";c.giveTarget="";c.giveDefinition=null;c.giveAt=0;}
 
     private static String sourceRecoveryDescription(MinecraftServer server,io.github.chronicle.core.progression.SourceLedger.Receipt receipt)throws IOException {
@@ -208,6 +208,15 @@ public final class CoreMenuServer {
                 c.scenarioResult=new ScenarioResult(ScenarioAuthoringProfiles.active().isPresent()?"PROFILE":"CONTENT",exported,c.scenarioPinned.content().scenarioId(),request.token());
                 player.sendMessage(Text.literal("Scenario content export: "+exported),false);
                 return "Exported. The full server path is in your chat.";
+            }
+            case REGION_ACCESS_POINT_OPEN -> {
+                if(c.page!=Page.REGIONS||!(sites(server).get(id) instanceof AuthoringSite.Region)||RegionAccess.binding(server,id).isEmpty())throw new IllegalStateException("Choose a Region with Region access.");
+                var points=sites(server).values().stream().filter(AuthoringSite.Location.class::isInstance).filter(point->point.id().toLowerCase(Locale.ROOT).contains(request.query().toLowerCase(Locale.ROOT))).sorted(java.util.Comparator.comparing(AuthoringSite::id)).toList();int pages=Math.max(1,(points.size()+11)/12),page=Math.min(request.index(),pages-1);var choices=points.subList(page*12,Math.min(points.size(),page*12+12));c.accessRegion=id;c.accessPoints=choices.stream().collect(java.util.stream.Collectors.toMap(AuthoringSite::id,AuthoringSite::revision));c.picker=new Picker("REGION_ACCESS_POINT",request.query(),page,pages,choices.stream().map(point->new Entry(point.id(),point.id(),"Outside Point","POINT",point.id(),point.revision())).toList());c.index=0;return "";
+            }
+            case REGION_ACCESS_POINT_SET -> {
+                editor(player);if(c.page!=Page.REGIONS||!id.equals(c.accessRegion)||!c.accessPoints.containsKey(arg))throw new IllegalStateException("Choose an outside Point first.");
+                var expected=c.accessPoints.get(arg);var point=sites(server).get(arg);
+                if(!(point instanceof AuthoringSite.Location)||point.revision()!=expected)throw new IllegalStateException("The Point changed. Reopen the picker.");RegionAccess.setOutsidePoint(source,id,arg);c.accessPoints=Map.of();c.accessRegion="";c.picker=null;return "Outside Point saved.";
             }
             case SITE_SUBTYPES_OPEN -> {
                 if(c.page!=Page.REGIONS&&c.page!=Page.LOCATIONS)throw new IllegalArgumentException("Choose a Region or Location first.");
@@ -789,6 +798,8 @@ public final class CoreMenuServer {
                     title=saved.id();description="A named part of the world. Edit its bounds with the Debug shovel; optional subtypes add behavior.";facts.add(new Fact("Saved bounds",saved.min()+" to "+saved.max()));facts.add(regionUsage(server,id));facts.add(new Fact("Other references",nonRegionReferences(server,id)));
                     controls.add(control(Action.SHOW,"Preview bounding box",true,"",false,""));controls.add(control(Action.SITE_SUBTYPES_OPEN,"Choose subtypes",true,"",false,""));controls.add(control(Action.REGION_EDIT,"Edit region",canEdit,editReason,draft!=null&&!draft.id().equals(id),""));controls.add(control(Action.SITE_DELETE,"Delete region",canEdit,editReason,true,""));
                 }
+                var access=id.isBlank()?java.util.Optional.<io.github.chronicle.core.access.RegionAccessStore.Binding>empty():RegionAccess.binding(server,id);
+                if(access.isPresent()){var binding=access.get();controls.add(control(Action.REGION_ACCESS_POINT_OPEN,binding.outsidePointId().isBlank()?"Choose outside Point":"Outside Point: "+binding.outsidePointId(),canEdit,editReason,false,""));}
                 var linked=id.isBlank()?java.util.Optional.<io.github.chronicle.core.areas.AreaChange>empty():AreaChanges.forRegion(server,id);if(linked.isPresent()){var capability=CoreAreaMenu.detail(player,linked.orElseThrow().id());areaForm=capability.area();controls.addAll(capability.controls().stream().filter(control->control.action()!=Action.AREA_PREVIEW).toList());facts.addAll(capability.facts());description="This Region can capture and apply saved Start and End states, including container contents.";}
                 if(draft!=null&&draft.id().equals(id)) {
                     title="Region draft · "+draft.id();region=new RegionForm(draft.id(),draft.dimension(),draft.baseRevision(),coordinates(draft.first()),coordinates(draft.second()));
@@ -1042,6 +1053,7 @@ public final class CoreMenuServer {
     private record Frame(boolean gm,Object campaign,Object sites,Object encounters,Object chests,Object spawns,Object loot,Object books,Object bookDelivery,Object automatic,Object roles,Object areas,Object departures,Object play,Object assignmentRevision,Object managedRevision,Object toolRevisions,String dimension,boolean editing,boolean building,String hold,List<UUID> online,List<UUID> eligible,Object selection,Object draft,String target) { }
     private record Navigation(Page page,String selected,int index,String filter) { }
     private static final class Context {
+        String accessRegion="";Map<String,Long> accessPoints=Map.of();
         Navigation navigation=new Navigation(Page.SESSION,"",0,"POINT");
         long token,window,reviewTime,managedPolicyRevision;int requests,index;Page page=Page.SESSION;String filter="POINT",selected="",reviewId="",keepBook="",keepTable="";Frame frame,reviewFrame;
         PlayRuntime.Preview observation;EventRuntime.Review eventReview;EventConfiguration expectedEvent;EventEditorForm eventEditor;EncounterEditorForm encounterEditor;String eventSelection="";LootType expectedLoot;BookDefinition expectedBook,giveDefinition;Picker picker;ScenarioContentRuntime.Pinned scenarioPinned;ScenarioResult scenarioResult;

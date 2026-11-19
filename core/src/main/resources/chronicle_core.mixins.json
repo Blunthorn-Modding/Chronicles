@@ -28,7 +28,11 @@
     "BookPickupDiscoveryMixin",
     "ServerPlayerInteractionManagerEventSourceMixin",
     "WrittenBookItemEventSourceMixin",
-    "EntitySpawnEventSourceMixin"
+    "EntitySpawnEventSourceMixin",
+    "RegionAccessEntityMixin",
+    "RegionAccessNetworkMixin",
+    "RegionAccessPlayerMixin",
+    "RegionAccessPlayerManagerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

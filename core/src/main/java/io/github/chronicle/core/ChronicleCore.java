@@ -102,6 +102,7 @@ public final class ChronicleCore implements ModInitializer {
         ServerLifecycleEvents.SERVER_STARTED.register(ChronicleRuntime::start);
         ServerLifecycleEvents.SERVER_STARTED.register(Profiles::start);
         ServerLifecycleEvents.SERVER_STARTED.register(AuthoringRuntime::start);
+        io.github.chronicle.core.server.RegionAccess.register();
         ServerLifecycleEvents.SERVER_STARTED.register(MapSiteAssignments::start);
         ManagedBlocks.register();
         ChestAuthoring.register();

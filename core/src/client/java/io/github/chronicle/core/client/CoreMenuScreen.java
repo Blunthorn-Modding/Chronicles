@@ -19,6 +19,7 @@ import io.github.chronicle.core.menu.CoreMenuModel.EventForm;
 import io.github.chronicle.core.menu.EventEditorForm;
 import io.github.chronicle.core.menu.EncounterEditorForm;
 import io.github.chronicle.core.menu.CoreMenuModel.Page;
+import io.github.chronicle.core.menu.CoreMenuModel.Picker;
 import io.github.chronicle.core.menu.CoreMenuModel.RegionForm;
 import io.github.chronicle.core.menu.CoreMenuModel.RoleAssignmentForm;
 import io.github.chronicle.core.menu.CoreMenuModel.RoleForm;
@@ -318,6 +319,17 @@ public final class CoreMenuScreen extends Screen {
             DepartureEditorScreen retry = failedDepartureEditor; failedDepartureEditor = null;
             retry.serverRejected(blank(updated.message(), "The server rejected this departure. Correct it and save again."));
             client.setScreen(retry); return;
+        }
+        if(receivedFor==Action.REGION_ACCESS_POINT_OPEN&&updated.success()&&updated.picker()!=null){
+            client.setScreen(new CatalogAddPopup(this,Text.literal("Choose outside Point"),false,new CatalogAddPopup.Owner(){
+                boolean first=true;
+                public void requestPage(CatalogAddPopup popup,String query,int page){if(first&&query.isBlank()&&page==0){first=false;popup.replacePage(updated.picker());return;}first=false;request(Action.REGION_ACCESS_POINT_OPEN,state.page(),detailId(),"",page,state.filter(),query,false);}
+                public String validate(Entry entry,String quantity){return "";}
+                public void add(Entry entry,String quantity){client.setScreen(CoreMenuScreen.this);request(Action.REGION_ACCESS_POINT_SET,state.page(),detailId(),entry.id(),state.index(),state.filter(),"",false);}
+                public void cancel(){client.setScreen(CoreMenuScreen.this);}
+                public void serverUpdated(CatalogAddPopup popup,View value){acceptWhileEditorOpen(value);if(!value.success()){popup.markStale();return;}if(value.picker()!=null&&value.picker().kind().equals("REGION_ACCESS_POINT"))popup.replacePage(value.picker());}
+                public void tick(CatalogAddPopup popup){if(pending&&++pendingTicks>=RESPONSE_TIMEOUT){pending=false;requestedAction=null;notice="The server did not respond. Reopen this picker.";popup.markStale();}}
+            }));return;
         }
         if (receivedFor == Action.SITE_SUBTYPES_OPEN && updated.success() && updated.picker() != null && updated.picker().kind().equals("SITE_SUBTYPES")) {
             client.setScreen(new SiteSubtypeScreen(this, updated.picker().entries(), selectedTypes -> {
