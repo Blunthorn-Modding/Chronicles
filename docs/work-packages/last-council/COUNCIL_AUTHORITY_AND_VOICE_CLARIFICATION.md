@@ -2,6 +2,9 @@
 
 The owner's 19 November clarification supersedes the earlier separate realm-ratification interpretation, including the unchanged source brief. This records policy and investigation only; no gameplay code, dependencies or review packs change here.
 
+
+Current update: the owner subsequently requested implementation and approved the automatic Voice room subtype workflow. The optional Core integration is now implemented in dev.18; see [LC10 results](LC10_RESULTS.md). Earlier research below records the investigation, not the current delivery status. No Enhanced Groups or Clocktower code/assets were copied. Human microphone/audibility review remains outstanding.
+
 ## Council authority
 
 A passed Council motion is a binding Council decision, regardless of whether its subject affects one House, several Houses or the realm. It is recorded through the existing proceedings/ballot system. Players cannot unilaterally break that decision through the House treaty action. A realm agreement proposed to the Council uses the same motion/vote flow; do not introduce a second ratification screen, signature phase or special realm-treaty lifecycle.

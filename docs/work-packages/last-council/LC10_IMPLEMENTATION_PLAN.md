@@ -1,0 +1,33 @@
+# LC10 automatic voice rooms - implementation plan
+
+Owner approved the workflow on 19 November 2026. Branch `feat/core-voice-rooms`, from `cb5e7f6`; development version `0.2.0-dev.18`. See [UI design](LC10_UI_DESIGN.md) and [Council clarification](COUNCIL_AUTHORITY_AND_VOICE_CLARIFICATION.md).
+
+## Outcome and boundaries
+
+Existing Regions / Choose subtypes gains Voice room. Enabling it automatically creates a hidden isolated group named from the Region. No separate group setup, IDs, picker, catalogue or permission levels. Everyone physically inside joins, regardless of House, participation, operator, Creative/Spectator or session phase. Exit returns to proximity voice. Disabling removes only Chronicle-owned groups. Normal descriptions remain concise; diagnostics use existing Debug. Unavailable integration must never claim active privacy. Reject overlapping enabled rooms in one dimension; adjacent rooms and different dimensions remain valid. Disable the subtype before changing its pinned bounds.
+
+Core owns this optional reusable integration. Last Council adds no political voice policy. Use the public Simple Voice Chat API directly; Enhanced Groups and the Clocktower datapack are not copied, installed or required. No third-party source/assets are relicensed. General Council outcomes remain binding through existing proceedings; there is no separate realm-ratification implementation or new treaty amendment requirement.
+
+## Dependency contract
+
+Compile/test only `de.maxhenkel.voicechat:voicechat-api:2.6.20`, from the publisher's Maven repository. The locked optional runtime is Minecraft 1.21.10 Simple Voice Chat 2.6.22 (Modrinth `9074luJy`), containing API 2.6.20. Core without voice still loads; optional voice entrypoint classes contain all API references. Incompatible installed voice/API versions refuse load instead of falling through to a broken adapter. The API and voice implementation are not bundled in Core. The pinned runtime caps group display names at 16 characters and its getGroup(missing ID) returns a broken non-null wrapper; the adapter uses bounded generated names and the public group collection instead. Groups remain identified by owned UUID, never by a potentially truncated display name. Real remote voice requires a working Simple Voice Chat UDP connection independently of the game connection; e4mc alone is not a tested voice transport.
+
+## Authority, data and lifecycle
+
+World-owned `chronicle/voice-rooms.json` schema 1 pins exact saved Region revisions. `voice-rooms.initialized` is an initialization witness. No legacy voice schema exists: missing/corrupt witnesses and changed live bytes fail closed. Map export retains these definitions; no group UUID or live player membership enters reusable content/defaults.
+
+A bounded pure geometry catalog rejects missing/changed/non-Region references and inclusive overlapping cuboids. Player feet determine membership. Runtime groups have fresh random identities; SVC persistent means retaining an empty group in the current server manager, not Chronicle disk storage. Standard SVC constructs a fresh group manager on restart; Chronicle reconstructs rooms from world definitions. Native restart evidence must verify this distinction, rather than assuming Enhanced Groups persistence.
+
+The group coordinator uses idempotent ensure/remove adapter contracts and tracks uncertain creation/removal. Unknown ownership is never deleted. Invalid inputs, uncertain state and changed privacy metadata block routing. An immutable volatile adapter/controller pair prevents a new voice instance reading the previous instance's authorization. Per-recipient voice events enforce same-room membership in both directions, including proximity and spectator paths. Ordinary outside groups are unaffected. Manual join/leave/create/remove requests cannot bypass an authored room. Only Chronicle's own synchronous API mutations bypass those UI-request guards. Plugin-generated ambient/game audio is separate from player speech.
+
+Invalidate routing before an authoritative position change crosses a room boundary. Reconcile after commit; nested teleport/login/respawn/disconnect operations keep routing blocked until their final position/roster is committed. END tick reconciles cancelled operations whose RETURN injection was skipped. Do not read world/files on audio callbacks. Session pauses/Building Mode do not stop voice membership updates. Initialized store failures hold play and require stopped-data repair; a temporarily unavailable voice server holds configured room privacy until its adapter is ready.
+
+## Sequence and verification
+
+1. Dedicated UI designer: existing three-column authoring layout and subtype popup; lead browser/visual review; owner workflow approval. Approved 19 November. Mockup checks covered toggle/cancel, dependency/overlap/role guards and normal/compact frames.
+2. Pure store/catalog worker: strict data and geometry tests. Lead: automatic group coordinator, failure/retry/privacy snapshots and idempotent ownership contracts. Independent reviewer identified and lead corrected creation uncertainty, membership-limit/stale authorization, removal uncertainty and missing witnesses.
+3. Lead: optional real API adapter/plugin, Core lifecycle, exact authoring guards, native subtype registration and Debug descriptions. Independent reviewer identified movement-cache and adapter-publication windows; synchronous movement invalidation and atomic publication address them.
+4. Independent worker: proxy-backed public API adapter tests. Separate opt-in loopback fixture with real Fabric/SVC and two Minecraft clients/bots proves automatic group creation/membership/removal, unrelated-group preservation and restart reconstruction. No production-map mutations or persistent forced chunks. No native job may share the build's ports/class directories concurrently.
+5. Lead: final diff/source review, full offline build and appropriate Python/module/native regressions; absent-SVC launch, matching review packs, protected source/prior-pack checks and disposable fixture cleanup. Do not mark actual voice audibility or human multiplayer acceptance passed from API/projection tests alone.
+
+Exact focused test: workspace toolchain wrapper invoking `gradlew.bat --offline --no-daemon :core:test --tests io.github.chronicle.core.voice.*`. Full integration adds `build :campaigns:last-council:writeSmokeClientLaunch`. Native fixture: `python scripts/voice_rooms_smoke.py`, or `python scripts/council_suite.py --suite voice`. [Results](LC10_RESULTS.md) record actual runs, corrected SDK assumptions and remaining human review.

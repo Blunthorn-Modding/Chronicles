@@ -1,5 +1,8 @@
 # Last Council implementation
 
+Latest slice: **dev.18**, branch `feat/core-voice-rooms`, implements the owner-approved automatic Voice room Region subtype in optional Core integration. See [LC10 results](LC10_RESULTS.md) for exact verification and limits. Existing Council decisions already use the binding motion/result flow; no separate realm ratification feature is added. Older checkpoints below retain their historical evidence.
+
+
 Source development version: `0.2.0-dev.17`. Branch: `feat/last-council-rebellion`.
 
 Current implementation: [LC06 rebellion and guarded Regions](LC06_RESULTS.md). Core owns generic Region access; Last Council owns rebellion, one-visit permission and exact two-thirds reinstatement. Automated evidence and remaining human review gates are recorded there.

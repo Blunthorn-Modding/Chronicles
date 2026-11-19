@@ -1,6 +1,16 @@
-# Council review - development build 0.2.0-dev.17
+# Council review - development build 0.2.0-dev.18
 
-Current review build: **0.2.0-dev.17**, matching e4mc [Host](../../../../client/Chronicle-Last-Council-0.2.0-dev.17-e4mc-Host.mrpack) / [Player](../../../../client/Chronicle-Last-Council-0.2.0-dev.17-e4mc-Player.mrpack) packs. See [rebellion and Region access](LC06_RESULTS.md), [foreign affairs](LC05B_RESULTS.md) and [conflicts/typed agreements](LC05A_RESULTS.md). No dedicated local review server is running. Human multiplayer acceptance remains deferred.
+Current review build: **0.2.0-dev.18**, matching e4mc [Host](../../../../client/Chronicle-Last-Council-0.2.0-dev.18-e4mc-Host.mrpack) / [Player](../../../../client/Chronicle-Last-Council-0.2.0-dev.18-e4mc-Player.mrpack) packs. See [automatic Voice rooms](LC10_RESULTS.md), [rebellion and Region access](LC06_RESULTS.md), [foreign affairs](LC05B_RESULTS.md) and [conflicts/typed agreements](LC05A_RESULTS.md). No dedicated local review server is running. Human multiplayer acceptance remains deferred.
+
+## Voice room review
+
+1. Import matching dev.18 Host and Player packs. Both reference the official Simple Voice Chat runtime; only the Host opens the bundled world. Each person must establish a working voice connection. An e4mc game address alone is not a tested Simple Voice Chat UDP relay.
+2. Pause play and enable Editing. In **Regions**, select or create a room, then **Choose subtypes > Voice room > Apply**. The group is created automatically, including while the room is empty. Configure a second non-overlapping room if desired. No group picker or manual group creation is needed.
+3. With two people and microphones, check same-room conversation, inside/outside isolation in both directions, adjacent rooms, fast entry/exit, reconnect and teleport. Leaving returns to proximity voice. Membership continues during paused play and Building Mode. Doors do not change a Region boundary.
+4. Cancel an unsaved checkbox change; reopen to confirm it did not apply. Disable the subtype to remove its group. Disable before changing/deleting the Region bounds. Debug shows group status/member count; ordinary view remains concise. Restart the Host and confirm the enabled rooms reconstruct automatically.
+5. Outside rooms, ordinary manual groups should still work. Inside a room, manual join/leave/create cannot bypass room membership.
+
+Automated evidence covers real native clients and the public server API, including interrupted authorization and restart; it does not certify microphone intelligibility or remote UDP delivery.
 
 ## Rebellion review
 

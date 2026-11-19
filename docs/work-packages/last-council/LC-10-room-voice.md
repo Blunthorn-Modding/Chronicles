@@ -1,5 +1,8 @@
 # LC-10 — Room acoustics and Simple Voice Chat
 
+Current implementation: the owner chose automatic, isolated room groups and approved the native workflow on 19 November. This supersedes the investigation options below. [LC10 results](LC10_RESULTS.md) and [the implementation plan](LC10_IMPLEMENTATION_PLAN.md) describe the optional Core subtype, dependency, failure handling and evidence. No wall/door acoustics or low-pass muffling is implemented. Human audibility and representative voice load remain acceptance gates.
+
+
 Status: voice implementation is deferred. The owner subsequently supplied the Clocktower pack's automatic location-based groups as a concrete reference on 19 November; [research and proposed Core Region integration](COUNCIL_AUTHORITY_AND_VOICE_CLARIFICATION.md) are recorded. No adapter, dependency installation or native UI is implemented or approved by that example alone. The earlier investigation below is retained.
 
 ## Desired experience

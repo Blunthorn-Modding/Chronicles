@@ -1,10 +1,10 @@
 # The Last Council work-package tree
 
-**Current slice:** [LC06 rebellion and Region access](LC06_RESULTS.md), approved by the owner, implemented and automatically verified. Matching dev.17 e4mc Host/Player packs include the new screens and setup instructions. [LC05B foreign affairs](LC05B_RESULTS.md) and [LC05A house conflicts](LC05A_RESULTS.md) remain delivered. Treaty, complication, conflict and rebellion group reviews remain deferred, not passed. [LC09](LC-09-verification-release.md) now includes an explicit sequential native-suite coordinator; final map/group rehearsal and publication are still separate gates. Voice implementation remains deferred; the owner supplied Clocktower automatic room groups as the next design reference. See [the Council authority and voice clarification](COUNCIL_AUTHORITY_AND_VOICE_CLARIFICATION.md).
+**Current slice:** [LC10 automatic Voice rooms](LC10_RESULTS.md), approved through the existing Regions subtype workflow and implemented in optional Chronicle Core integration. Matching dev.18 e4mc Host/Player packs include the official pinned Simple Voice Chat dependency. Enabling a Region creates its group automatically; no manual group setup is needed. Microphone/audibility, representative load and the final map/group rehearsal remain unpassed. The Council authority clarification uses existing motions and votes, without a separate ratification system. Earlier [LC06](LC06_RESULTS.md), [LC05B](LC05B_RESULTS.md) and [LC05A](LC05A_RESULTS.md) remain delivered; their deferred human reviews remain pending.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
-Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/last-council-rebellion`, branched from dev.16 `5bd11b8` on `feat/last-council-foreign-affairs`, which follows verified dev.15 `a82002b` on `feat/last-council-conflicts`, originally from accepted dev.14 commit `aad0e20` on `feat/last-council` (original release baseline `4d73742`). Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The current automatically verified development version is **0.2.0-dev.17**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
+Worktree: `E:\Coding\MC RP\Chronicles-last-council` on `feat/core-voice-rooms` (from `cb5e7f6` on `feat/last-council-rebellion`), branched from dev.16 `5bd11b8` on `feat/last-council-foreign-affairs`, which follows verified dev.15 `a82002b` on `feat/last-council-conflicts`, originally from accepted dev.14 commit `aad0e20` on `feat/last-council` (original release baseline `4d73742`). Chronicle Core and The Quiet Below's latest released version remains **0.1.0-alpha.1**, Minecraft **1.21.10**. The current development version is **0.2.0-dev.18**. The released **0.1.0-alpha.1** artifacts remain unchanged. See [implementation status](IMPLEMENTATION.md) for delivered slices, current evidence and omissions.
 
 The Last Council is the next concrete **Intrigue** campaign: one evening of player-directed politics, with several formal Council meetings inside it. A Council meeting is not a Chronicle play-session boundary. Electing a monarch does not stop laws, treaties or roleplay.
 
@@ -12,7 +12,7 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 
 **Further clarification:** secrets may be known by zero, one or several other houses; the owner gets no indication of exposure. Complications are Events; banquet and treaties are new scenario mechanics, not starting-gear/book systems. Shared UI utilities are not gameplay reuse. Room voice/acoustics has its own LC-10 investigation, with existing mod support evaluated before custom routing.
 
-**Random complications:** a reusable Event pool surprises everyone, including the GM, with hidden selection and arrival. The configured total spans the evening, not one per meeting; delivery happens during Council meetings before that meeting's regency vote. A late event creates a Council recess with normal gameplay still active. See [the confirmed count/timing rules](RANDOM_COMPLICATIONS.md). The owner will evaluate the sound mod tomorrow; no new voice dependency is selected by this plan.
+**Random complications:** a reusable Event pool surprises everyone, including the GM, with hidden selection and arrival. The configured total spans the evening, not one per meeting; delivery happens during Council meetings before that meeting's regency vote. A late event creates a Council recess with normal gameplay still active. See [the confirmed count/timing rules](RANDOM_COMPLICATIONS.md). That timing plan selected no voice dependency; the later LC10 decision now supplies optional Simple Voice Chat room groups.
 
 ## Package order and dependencies
 
@@ -27,11 +27,11 @@ The Last Council is the next concrete **Intrigue** campaign: one evening of play
 | [LC-07](LC-07-banquet.md) | Optional drinks, delayed illness and antidote | LC-01, existing Core clocks/items | Dev.13 food poisoning and dev.14 feedback/loot corrections accepted by owner; see LC07B_RESULTS.md and DEV14_BANQUET_FEEDBACK.md |
 | [LC-08](LC-08-content-events.md) | Core Event pools; random Council complications, character content and source/flag links | LC-01B/C for handouts; LC-02 progression gate for timing; integrate delivered operations | In implementation: pools/timing/gates and portable export; final content/source links pending |
 | [LC-09](LC-09-verification-release.md) | Native multi-client rehearsal, map/group gates and separate release | LC-01–06, LC-08, chosen LC-10 voice behavior; LC-07 when enabled | Native coordinator delivered; map/group/voice/release gates pending |
-| [LC-10](LC-10-room-voice.md) | Shared room-voice/acoustics investigation using Regions and Simple Voice Chat | Existing Regions/voice setup | Investigate early; implementation choice needs prototype review |
+| [LC-10](LC-10-room-voice.md) | Automatic optional Core Voice rooms using Regions and Simple Voice Chat | Existing Regions/voice setup | Approved and implemented in dev.18; human microphone/remote UDP and representative load review pending |
 
 The political critical path is LC-01A → LC-02 → LC-03, then peace-agreement/access integration and LC-09. LC-01B/C add the randomizer and Last Council bindings; they must be complete before randomized handout delivery/content review, but need not block the ballot-domain work. Treaties and banquet work need not wait for succession. Packages describe coherent deliverables, not instructions to implement everything concurrently.
 
-LC-10 can be investigated early and independently. Its later ID does not mean room acoustics waits until after release. Reuse existing physical-acoustics support if it satisfies the map; build custom Region routing/filtering only after reviewing the demonstrated gap.
+LC-10 now supplies the approved isolated room-group behavior independently of Council politics. Physical wall/door attenuation and boundary muffling are not part of this implementation.
 
 ## What is already available
 
@@ -64,6 +64,6 @@ Keep builds/native clients serialized where they share class directories or test
 - **LC-07:** review dose counts, onset/duration, symptoms and antidote strength; the brief deliberately leaves those numbers open. Banquet poisoning remains optional.
 - **LC-01B/LC-08:** review pool content, draw quantities, repetition policies and compatibility rules for replayable characters. Cross-house knowledge must resolve to the same draw's assigned facts. The brief's fixed eight-house example is illustrative, not final canon.
 - **LC-08B:** complication total across the evening and the current-meeting regency horizon are confirmed. Review hidden allocation/rescheduling, spacing and Council-recess presentation with the UI. No per-run GM choice or preview of future crises.
-- **LC-10:** compare natural wall/door attenuation with hard room privacy or boundary muffling. Automatic group membership is a possible implementation, not a substitute for choosing and testing the acoustic behavior.
+- **LC-10:** automatically managed isolated room groups are implemented; microphone audibility and remote UDP delivery still need owner review.
 
 These are tracked design decisions, not reasons to delay the work-package tree or invent new rules now. The source brief remains authoritative where it already gives an answer.
