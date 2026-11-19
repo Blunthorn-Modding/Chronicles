@@ -10,6 +10,7 @@ public final class LastCouncil implements ModInitializer {
     @Override public void onInitialize(){
         ScenarioContentRuntime.registerScenario(SCENARIO,"The Last Council",MECHANICS);
         CouncilPayloads.register();
+        io.github.chronicle.lastcouncil.network.RebellionPayloads.register();
         io.github.chronicle.lastcouncil.network.ForeignPayloads.register();
         io.github.chronicle.lastcouncil.network.ConflictPayloads.register();
         io.github.chronicle.lastcouncil.network.TreatyPayloads.register();
@@ -25,6 +26,7 @@ public final class LastCouncil implements ModInitializer {
         io.github.chronicle.lastcouncil.server.CouncilContentEditorRuntime.register();
         io.github.chronicle.lastcouncil.server.HousePaperCopyRuntime.register();
         io.github.chronicle.lastcouncil.server.ForeignRuntime.register();
+        io.github.chronicle.lastcouncil.server.RebellionRuntime.register();
         io.github.chronicle.lastcouncil.server.ProceedingsRuntime.register();
         io.github.chronicle.lastcouncil.server.ComplicationsRuntime.register();
         io.github.chronicle.lastcouncil.server.BanquetRuntime.register();

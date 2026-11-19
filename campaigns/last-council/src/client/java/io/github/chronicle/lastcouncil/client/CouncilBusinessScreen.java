@@ -25,7 +25,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         if(value.request().equals(draftRequest)){draftRequest=null;retainedDraft=null;}
         if(value.revision()<view.revision())return;
         view=value;
-        if(client.currentScreen instanceof MotionDraftScreen draft&&draft.ownerBusiness()==this)draft.refreshRealms(value.foreignRealms());
+        if(client.currentScreen instanceof MotionDraftScreen draft&&draft.ownerBusiness()==this)draft.refreshRealms(value.foreignRealms(),value.rebelHouses());
         invalidated=false;
         if(!value.message().isBlank())feedback=value.message();
         if(client.currentScreen==this)rebuildPreservingFocus();
@@ -38,7 +38,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             feedback=value.message();
             if(value.request().equals(draftRequest)){
                 draftRequest=null;
-                if(retainedDraft!=null){retainedDraft.refused(value.message());if(client.currentScreen==this){client.setScreen(retainedDraft);return;}}
+                if(retainedDraft!=null){retainedDraft.refused(value.message());refreshRealms();if(client.currentScreen==this){client.setScreen(retainedDraft);return;}}
             }
             if(client.currentScreen==this)rebuildPreservingFocus();
         }
@@ -60,6 +60,9 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         send(action,ref,text,title,secret,thirds,historyPage,Category.GENERAL,"",0);
     }
     private void send(Action action,UUID ref,String text,String title,boolean secret,boolean thirds,int historyPage,Category category,String realm,long realmRevision) {
+        send(action,ref,text,title,secret,thirds,historyPage,category,realm,realmRevision,List.of());
+    }
+    private void send(Action action,UUID ref,String text,String title,boolean secret,boolean thirds,int historyPage,Category category,String realm,long realmRevision,List<io.github.chronicle.lastcouncil.rebellion.RebellionService.Target> targets) {
         boolean read=action==Action.STATE||action==Action.MOTIONS||action==Action.BALLOT;
         if(pending.containsValue(action)||(!read&&pending.values().stream().anyMatch(a->a!=Action.STATE&&a!=Action.MOTIONS&&a!=Action.BALLOT))||!ClientPlayNetworking.canSend(Request.ID))return;
         feedback="";
@@ -68,7 +71,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         if((action==Action.PREPARE||action==Action.PROPOSE)&&retainedDraft!=null)draftRequest=id;
         ages.put(id,0);
         if(action==Action.BALLOT)BallotAccess.expectOpening(id,this,ref);
-        ClientPlayNetworking.send(new Request(id,action,view.revision(),ref,view.site(),text,title,secret,thirds,historyPage,category,realm,realmRevision));
+        ClientPlayNetworking.send(new Request(id,action,view.revision(),ref,view.site(),text,title,secret,thirds,historyPage,category,realm,realmRevision,targets));
     }
     private void send(Action action,UUID ref) {
         send(action,ref,"","",false,false);
@@ -97,7 +100,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         if(invalidated){body("The server could not update this view. Close and reopen it.\n\n"+feedback,left+12,top+36,panelWidth-24,panelHeight-68);return;}
         int x=left+10,y=top+32,h=panelHeight-62,w=panelWidth-20;
         boolean proceedings=view.mode()==Mode.PROCEEDINGS;
-        boolean compact=panelWidth<380;
+        boolean compact=panelWidth<380||panelHeight<260;
         int nav=proceedings?(compact?0:100):0;
         int list=compact?0:(proceedings?105:142);
         int listX=x+(proceedings&&!compact?nav+4:0), detailX=compact?x:listX+list+4, detailW=left+panelWidth-10-detailX;
@@ -111,7 +114,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
                 actions.add(new Choice("call","Call meeting")); actions.add(new Choice("phase",phaseAction==Action.RECESS?"Recess":phaseAction==Action.RESUME?"Resume":"Open meeting"));
                 actions.add(new Choice("prepare","Prepare motion...")); actions.add(new Choice("motions","Motions"));
                 actions.add(new Choice("ballot",view.recoverable()?"Recover":active?"View ballot":"Ballot history"));
-                actions.add(new Choice("regency","Regency vote...")); actions.add(new Choice("finish","Close meeting"));
+                actions.add(new Choice("visit","Allow one palace visit...")); actions.add(new Choice("regency","Regency vote...")); actions.add(new Choice("finish","Close meeting"));
                 compactRows("proceedings-actions",actions,"",x,y,w,true,id->{
                     switch(id) {
                         case "call" -> { if(view.playing()&&!view.recoverable())send(Action.CALL); }
@@ -119,6 +122,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
                         case "prepare" -> draft(Action.PREPARE);
                         case "motions" -> { if(!active)send(Action.STATE,CouncilPayloads.NONE); }
                         case "ballot" -> { if(view.recoverable())send(Action.RECOVER); else if(active)send(Action.BALLOT,view.activeBallot()); else choose("Recorded ballots",view.history().stream().map(v->new Choice(v.id().toString(),v.title())).toList(),v->send(Action.BALLOT,UUID.fromString(v))); }
+                        case "visit" -> RebellionClient.visits(this);
                         case "regency" -> { if(view.regency().canOpen())confirm("Open the regency ballot?","The electorate is fixed at opening.",()->send(Action.OPEN_REGENCY,CouncilPayloads.NONE)); else feedback=view.regency().summary(); }
                         case "finish" -> { if(!active&&(phase.equals("DISCUSSION")||phase.equals("RECESS")))confirm("Close meeting?","This closes the current meeting.",()->send(Action.FINISH)); }
                     }
@@ -139,6 +143,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             if(view.recoverable()) button("Recover",x,y+88,nav,()->send(Action.RECOVER));
             else if(active) button("View ballot",x,y+88,nav,()->send(Action.BALLOT,view.activeBallot()));
             else button("Ballot history",x,y+88,nav,()->choose("Recorded ballots",view.history().stream().map(v->new Choice(v.id().toString(),v.title())).toList(),id->send(Action.BALLOT,UUID.fromString(id))));
+            button("Allow visit...",x,y+110,nav,()->RebellionClient.visits(this));
             var regencyButton=button("Regency vote...",x,y+h-42,nav,()->confirm("Open the regency ballot?","The electorate is fixed at opening.",()->send(Action.OPEN_REGENCY,CouncilPayloads.NONE)));
             regencyButton.active=view.regency().canOpen();
             regencyButton.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(Text.literal(view.regency().summary().isBlank()?"Regency":view.regency().summary())));
@@ -162,7 +167,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         else {
             List<SectionCard> cards=new ArrayList<>();
             CouncilBallotSections.motion(cards,d);
-            if(d.category()!=Category.GENERAL)cards.add(new SectionCard("Foreign affairs",(d.category()==Category.DECLARE_WAR?"Declare foreign war":"Make peace")+" / "+d.realmTitle()));
+            if(d.category()!=Category.GENERAL&&d.category()!=Category.REINSTATE_HOUSES)cards.add(new SectionCard("Foreign affairs",(d.category()==Category.DECLARE_WAR?"Declare foreign war":"Make peace")+" / "+d.realmTitle()));
             if(!view.problem().isBlank())cards.add(new SectionCard("Notice",view.problem()));
             if(proceedings&&view.progress()!=null) {
                 var progress=view.progress();
@@ -218,8 +223,8 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             feedback="Wait for the current action to finish.";
             return;
         }
-        if(retainedDraft==null)retainedDraft=new MotionDraftScreen(this,view.foreignRealms(),(title,text,secret,thirds,category,realm,revision)->send(action,CouncilPayloads.NONE,
-                text,title,secret,thirds,0,category,realm,revision));
+        if(retainedDraft==null)retainedDraft=new MotionDraftScreen(this,view.foreignRealms(),view.rebelHouses(),(title,text,secret,thirds,category,realm,revision,targets)->send(action,CouncilPayloads.NONE,
+                text,title,secret,thirds,0,category,realm,revision,targets));
         client.setScreen(retainedDraft);
     }
     void refreshRealms(){send(view.mode()==Mode.PROCEEDINGS?Action.STATE:Action.MOTIONS,selected());}

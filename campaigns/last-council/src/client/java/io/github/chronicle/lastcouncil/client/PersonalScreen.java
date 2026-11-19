@@ -13,6 +13,7 @@ public final class PersonalScreen extends CouncilScreen {
     private DossierScreen cardEditor;
     private int tab,offset,waitingTicks;
     private Section section=Section.INFORMATION;
+    private boolean rebellions;
     private String otherHouse="";
     private UUID pending;
     private UUID copyPending;private int copyTicks;
@@ -26,7 +27,7 @@ public final class PersonalScreen extends CouncilScreen {
     @Override protected void init(){
         if(cardEditor!=null){card=cardEditor.snapshot();cardEditor=null;}
         frame();int inner=panelWidth-24,tabWidth=(inner-8)/3;
-        String[] labels={"Character","My house","Other houses"};for(int i=0;i<3;i++){final int index=i;button(labels[i],left+12+i*(tabWidth+4),top+35,tabWidth,()->{tab=index;clearAndInit();if(index==1)request();}).active=index!=tab;}
+        String[] labels={"Character","My house","Other houses"};for(int i=0;i<3;i++){final int index=i;button(labels[i],left+12+i*(tabWidth+4),top+35,tabWidth,()->{tab=index;if(index!=1&&rebellions){rebellions=false;RebellionClient.close();}clearAndInit();if(index==1)request();}).active=index!=tab;}
         int x=left+12,y=top+65,w=inner,h=panelHeight-112;
         if(tab==0){body(card.name()+"\n"+card.pronouns()+"\n\n"+card.description(),x,y,w,h-28);button("Edit character card…",x,top+panelHeight-44,w,()->{cardEditor=new DossierScreen(card,this);client.setScreen(cardEditor);});}
         else if(view==null)body(pending==null?"Refresh to read your house information.":"Reading house information…",x,y,w,h);
@@ -38,9 +39,12 @@ public final class PersonalScreen extends CouncilScreen {
     private void ownHouse(int x,int y,int w,int h){
         if(view.ownHouse().isBlank()){body(view.message(),x,y,w,h);return;}
         var own=view.houses().stream().filter(v->v.id().equals(view.ownHouse())).findFirst().orElse(null);
-        int list=panelWidth<380?98:126;int bodyY=y;h-=24;
-        rows("papers",Arrays.stream(Section.values()).map(s->new Choice(s.name(),sectionName(s))).toList(),section.name(),x,y,list,h,id->{section=Section.valueOf(id);offset=0;request();clearAndInit();});
+        int list=panelWidth<380?98:126;int bodyY=y;if(!rebellions)h-=24;
+        List<Choice> navigation=new ArrayList<>(Arrays.stream(Section.values()).map(s->new Choice(s.name(),sectionName(s))).toList());
+        navigation.add(new Choice("REBELLIONS","Rebellions"));
+        rows("papers",navigation,rebellions?"REBELLIONS":section.name(),x,y,list,h,id->{rebellions=id.equals("REBELLIONS");if(rebellions){RebellionClient.open(this);clearAndInit();return;}RebellionClient.close();section=Section.valueOf(id);offset=0;request();clearAndInit();});
         x+=list+6;w-=list+6;
+        if(rebellions){RebellionScreen.panel(this,x,bodyY,w,h);return;}
         String text=(own==null?"":own.title()+"\n\n")+(view.section()==section?String.join("\n\n",view.paragraphs()):"Reading…");
         if(view.section()==section&&view.paragraphs().isEmpty())text+=view.message().isBlank()?"No information in this section.":view.message();
         if(view.section()==section&&section==Section.INFORMATION&&own!=null)sections("own-house",List.of(
@@ -82,5 +86,6 @@ public final class PersonalScreen extends CouncilScreen {
         ),x+list+6,y,w-list-6,h);
     }
     private static String sectionName(Section section){return switch(section){case INFORMATION->"House information";case SECRETS->"Secrets";case GOALS->"Goals";case KNOWN_SECRETS->"Other houses' secrets";};}
+    @Override public void close(){if(rebellions)RebellionClient.close();super.close();}
     @Override public void tick(){if(pending!=null&&++waitingTicks>200){pending=null;feedback="The server did not answer. Refresh to retry.";}if(copyPending!=null&&++copyTicks>200){copyPending=null;feedback="Copy response delayed. Check your inventory before requesting another copy.";rebuildPreservingFocus();}}
 }

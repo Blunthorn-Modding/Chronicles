@@ -61,8 +61,9 @@ public final class CouncilRuntime {
     private static void sendCapability(ServerPlayerEntity player){if(ServerPlayNetworking.canSend(player,Capability.ID))ServerPlayNetworking.send(player,new Capability(active(),isChancellor(player.getEntityWorld().getServer(),player.getUuid())));}
     public static HouseRoster roster(MinecraftServer server) {
         if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House assignments unavailable.");
-        return WORLDS.get(server).rosterSnapshot();
+        return RebellionRuntime.project(server,WORLDS.get(server).rosterSnapshot());
     }
+    public static HouseRoster rawRoster(MinecraftServer server){if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House assignments unavailable.");return WORLDS.get(server).rosterSnapshot();}
     /** Reusable definitions only; administrative projections must enforce their own permission. */
     public static CouncilContent content(MinecraftServer server) {
         if(!server.isOnThread()||!WORLDS.containsKey(server))throw new IllegalStateException("House definitions unavailable.");
@@ -155,7 +156,7 @@ public final class CouncilRuntime {
         for(var house:state.content.houses().values().stream().sorted(Comparator.comparing(HouseDefinition::title).thenComparing(HouseDefinition::id)).toList()){
             var assignment=state.rosterSnapshot().assignments().values().stream().filter(a->a.houseId().equals(house.id())).findFirst().orElse(null);
             String representative="";if(assignment!=null){var online=server.getPlayerManager().getPlayer(assignment.owner());representative=Profiles.publicCard(server,assignment.owner(),online==null?"Assigned character":online.getName().getString()).name();}
-            result.add(new PublicHouse(house.id(),house.title(),house.reputation(),house.description(),house.interests(),representative,assignment!=null&&assignment.councilMember(),assignment!=null&&ProceedingsRuntime.candidate(server,house.id(),assignment.candidate()),house.defaultCandidate()));
+            result.add(new PublicHouse(house.id(),house.title(),house.reputation(),house.description(),house.interests(),representative,assignment!=null&&RebellionRuntime.seated(server,assignment),assignment!=null&&ProceedingsRuntime.candidate(server,house.id(),assignment.candidate()),house.defaultCandidate()));
         }
         return result;
     }

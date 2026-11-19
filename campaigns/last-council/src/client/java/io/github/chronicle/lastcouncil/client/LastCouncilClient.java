@@ -14,6 +14,7 @@ public final class LastCouncilClient implements ClientModInitializer {
         PaperCopiesClient.register();
         TreatyClient.register(()->active);
         ConflictClient.register();
+        RebellionClient.register();
         ForeignClient.register();
         ConflictNativeProbe.register();
         ComplicationSettingsClient.register();

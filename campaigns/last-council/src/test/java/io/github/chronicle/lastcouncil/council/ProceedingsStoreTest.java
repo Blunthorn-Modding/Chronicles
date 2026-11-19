@@ -28,7 +28,7 @@ class ProceedingsStoreTest {
                 valid.replace("\"revision\":0", "\"revision\":\"0\""),
                 valid.replace("\"revision\":0", "\"revision\":null"),
                 valid.replace("\"revision\":0", "\"revision\":0,\"revision\":0"),
-                valid.replace("\"schemaVersion\":4", "\"schemaVersion\":4,\"extra\":true"),
+                valid.replace("\"schemaVersion\":5", "\"schemaVersion\":5,\"extra\":true"),
                 valid.replace("\"activeBallot\":null", "\"activeBallot\":\"AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA\"")
         }) {
             assertNotEquals(valid, malformed);

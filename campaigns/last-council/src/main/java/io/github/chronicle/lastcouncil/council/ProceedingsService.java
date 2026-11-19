@@ -25,7 +25,7 @@ public final class ProceedingsService {
         void verifyUnchanged() throws IOException;
     }
     private static final MotionEffects NO_FOREIGN=new MotionEffects() {
-        public void validate(Motion m){if(m.foreign()!=null)throw new IllegalStateException("Foreign affairs authority is required.");}
+        public void validate(Motion m){if(m.foreign()!=null||m.reinstatement()!=null)throw new IllegalStateException("Foreign affairs authority is required.");}
         public void apply(Motion m,Ballot b){validate(m);}
         public void validateHistory(ProceedingsState s,BallotState b){s.motions().values().forEach(this::validate);}
         public void verifyUnchanged(){}

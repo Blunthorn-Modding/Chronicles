@@ -96,13 +96,14 @@ public final class ProceedingsRuntime {
         try {
             var root=server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/last-council");
             ForeignRuntime.reloadAuthority(server);
+            RebellionRuntime.reloadAuthority(server);
             var ballots=new BallotService(new BallotStore(root.resolve("ballots.json")),Clock.systemUTC());
             var service=new ProceedingsService(new ProceedingsStore(root.resolve("proceedings.json")),ballots,Clock.systemUTC(),new java.security.SecureRandom()::nextInt,new ProceedingsService.ProgressionGate() {
                 public void beforeRegency(int meeting)throws IOException{ComplicationsRuntime.beforeBoundary(server,meeting);}
                 public void beforeMeetingClose(int meeting)throws IOException{ComplicationsRuntime.beforeBoundary(server,meeting);}
-            },ForeignRuntime.effects(server));
+            },ReinstatementMotionEffects.combine(ForeignRuntime.effects(server),RebellionRuntime.effects(server)));
             Runtime r=new Runtime(service);WORLDS.put(server,r);
-            recoverAndNotify(server,r);reconcileCalls(server,r);RuntimeHolds.release(server,HOLD);
+            recoverAndNotify(server,r);RebellionRuntime.reconcile(server);RegionAccess.recoverPolicy(server,RebellionRuntime.POLICY);reconcileCalls(server,r);RuntimeHolds.release(server,HOLD);
         }catch(EventSources.Unavailable sourceOwned){RuntimeHolds.release(server,HOLD);}
         catch(Exception failure){hold(server,failure);}
     }
@@ -117,7 +118,17 @@ public final class ProceedingsRuntime {
     public static void complicationChanged(MinecraftServer server){var r=WORLDS.get(server);if(r!=null)refresh(server,r);}
     public static boolean successionStarted(MinecraftServer server){Runtime r=WORLDS.get(server);return r!=null&&r.service.state().succession().started();}
     public static boolean candidate(MinecraftServer server,String house,boolean configured) {
-        Runtime r=WORLDS.get(server);return r!=null&&r.service.state().succession().started()?r.service.state().succession().stage()==SuccessionState.Stage.CONTESTED&&r.service.state().succession().remaining().contains(house):configured;
+        Runtime r=WORLDS.get(server);if(RebellionRuntime.rebel(server,house))return false;return r!=null&&r.service.state().succession().started()?r.service.state().succession().stage()==SuccessionState.Stage.CONTESTED&&r.service.state().succession().remaining().contains(house):configured;
+    }
+    public static void preflightRebellion(MinecraftServer server,String house,UUID owner){
+        var r=WORLDS.get(server);if(r==null||r.failed||r.service.state().pending()!=null)throw new IllegalStateException("Recover Council records first.");
+        if(ballotOpen(server))throw new IllegalStateException("Close or void the open ballot before changing rebellion membership.");
+        var election=r.service.state().succession();if(election.crowned().equals(house))throw new IllegalStateException("The crowned House cannot declare ordinary rebellion.");
+        if(election.stage()==SuccessionState.Stage.CONTESTED&&election.remaining().contains(house))election.withdraw(house,owner,"House entered rebellion.",r.service.state().meeting());
+    }
+    public static void reconcileRebel(MinecraftServer server,String house,UUID owner)throws IOException{
+        var r=WORLDS.get(server);if(r==null)throw new IOException("Council records unavailable.");
+        var election=r.service.state().succession();if(election.stage()==SuccessionState.Stage.CONTESTED&&election.remaining().contains(house))r.service.withdrawCandidate(house,owner,"House entered rebellion.");
     }
     public static boolean ballotOpen(MinecraftServer server){Runtime r=WORLDS.get(server);return r!=null&&r.service.state().activeBallot()!=null;}
     private static Runtime runtime(ServerPlayerEntity player) {
@@ -159,10 +170,12 @@ public final class ProceedingsRuntime {
                 case PROPOSE,PREPARE -> {
                     boolean prepared=q.action()==Action.PREPARE;HouseAssignment member=prepared?null:member(player,true);
                     UUID id=q.reference().equals(CouncilPayloads.NONE)?UUID.randomUUID():q.reference();
-                    ForeignSubject subject=q.category()==Category.GENERAL?null:new ForeignSubject(ForeignKind.valueOf(q.category().name()),q.realm(),q.realmRevision());
+                    ForeignSubject subject=(q.category()==Category.GENERAL||q.category()==Category.REINSTATE_HOUSES)?null:new ForeignSubject(ForeignKind.valueOf(q.category().name()),q.realm(),q.realmRevision());
                     if(subject==null&&(!q.realm().isEmpty()||q.realmRevision()!=0))throw new IllegalArgumentException("General motions have no foreign realm.");
+                    ReinstatementSubject reinstatement=q.category()==Category.REINSTATE_HOUSES?new ReinstatementSubject(q.targets()):null;
+                    if(reinstatement==null&&!q.targets().isEmpty())throw new IllegalArgumentException("This motion cannot have reinstatement targets.");
                     var motion=new Motion(id,q.title(),q.text(),player.getUuid(),member==null?"":member.houseId(),q.secret()?BallotVisibility.SECRET:BallotVisibility.PUBLIC,
-                            subject!=null||q.twoThirds()?Threshold.TWO_THIRDS:Threshold.MAJORITY,prepared,Set.of(),MotionStatus.SUBMITTED,List.of(),List.of(),subject);
+                            subject!=null||reinstatement!=null||q.twoThirds()?Threshold.TWO_THIRDS:Threshold.MAJORITY,prepared,Set.of(),MotionStatus.SUBMITTED,List.of(),List.of(),subject,reinstatement);
                     r.service.propose(motion);selected=id;message=prepared?"Motion added to the agenda.":"Proposal submitted.";
                 }
                 case SPONSOR -> {r.service.sponsor(q.reference(),member(player,true).houseId());message="Sponsorship recorded.";}
@@ -269,6 +282,7 @@ public final class ProceedingsRuntime {
         String reason=voteRefusal(p,r,id);
         var motion=r.service.state().motions().get(attempt.motion());
         String description=motion.foreign()==null?motion.text():(motion.foreign().kind()==ForeignKind.DECLARE_WAR?"Declare war on ":"Make peace with ")+ForeignRuntime.title(p.getEntityWorld().getServer(),motion.foreign().realmId())+"\n\n"+motion.text();
+        if(motion.reinstatement()!=null)description="Reinstate: "+String.join(", ",motion.reinstatement().targets().stream().map(t->house(p.getEntityWorld().getServer(),t.houseId())).toList())+"\n\n"+motion.text();
         var regency=r.service.state().succession().rounds().get(id);
         if(regency!=null&&regency.result()!=null)description+="\n\n"+regencyOutcome(p.getEntityWorld().getServer(),regency.result());
         List<Voter> voters=attempt.definition().electorate().entrySet().stream().sorted(Map.Entry.comparingByKey()).map(e->new Voter(e.getKey(),e.getValue().actor(),e.getValue().label())).toList();
@@ -296,7 +310,7 @@ public final class ProceedingsRuntime {
                     gm&&playing(server)&&awaiting&&motion.ready(1),gm&&playing(server)&&state.phase()==Phase.DISCUSSION&&state.activeBallot()==null&&!deferred&&motion.status()==MotionStatus.AGENDA,
                     gm&&playing(server)&&state.activeBallot()==null&&!deferred&&(state.phase()==Phase.DISCUSSION||state.phase()==Phase.RECESS)
                         &&(motion.status()==MotionStatus.SUBMITTED||motion.status()==MotionStatus.AGENDA),
-                    ProceedingsPayloads.attemptPage(motion.ballots(),page).stream().map(id->{Attempt a=state.attempts().get(id);BallotView view=historyProjection(id,state.pending(),()->r.service.view(id,null));return view==null?null:new AttemptView(id,a.meeting(),view,voters(a));}).filter(Objects::nonNull).toList(),page,pages,motion.foreign()==null?Category.GENERAL:Category.valueOf(motion.foreign().kind().name()),motion.foreign()==null?"":ForeignRuntime.title(server,motion.foreign().realmId()));
+                    ProceedingsPayloads.attemptPage(motion.ballots(),page).stream().map(id->{Attempt a=state.attempts().get(id);BallotView view=historyProjection(id,state.pending(),()->r.service.view(id,null));return view==null?null:new AttemptView(id,a.meeting(),view,voters(a));}).filter(Objects::nonNull).toList(),page,pages,motion.reinstatement()!=null?Category.REINSTATE_HOUSES:motion.foreign()==null?Category.GENERAL:Category.valueOf(motion.foreign().kind().name()),motion.foreign()==null?"":ForeignRuntime.title(server,motion.foreign().realmId()));
         }
         List<History> history=state.attempts().values().stream().map(a->{BallotView v;try{v=r.service.view(a.definition().id(),p.getUuid());}catch(RuntimeException absent){return null;}return new History(v.id(),shortLabel(v.title(),48),v.status().name());}).filter(Objects::nonNull).sorted(Comparator.comparing(History::title).thenComparing(History::id)).toList();
         String problem=state.pending()!=null?"A saved Council operation needs recovery.":r.failed?"Council records need recovery.":RuntimeHolds.reason(server)!=null?"A Chronicle operation hold is active.":playing(server)?"":"Play is paused or stopped.";
@@ -304,7 +318,7 @@ public final class ProceedingsRuntime {
         r.selected.put(p.getUuid(),selected);
         Progress progress=mode==Mode.PROCEEDINGS&&gm?progress(r):null;
         Regency regency=regencyView(server,r);
-        View packet=new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regency,mode==Mode.MOTIONS&&!gm&&own!=null&&own.councilMember()&&eligible,progress,mode==Mode.PROCEEDINGS&&gm?ComplicationsRuntime.revealed(server,p.getUuid()).stream().map(c->new RevealedComplication(c.meeting(),c.label(),c.message())).toList():List.of(),ForeignRuntime.choices(server));
+        View packet=new View(request,opening,mode,mode==Mode.MOTIONS?r.readers.get(p.getUuid()).anchor().id():"",state.revision(),state.meeting(),state.phase().name(),rows,detail,history,state.activeBallot(),gm,playing(server),state.pending()!=null||r.failed,problem,message,regency,mode==Mode.MOTIONS&&!gm&&own!=null&&own.councilMember()&&eligible,progress,mode==Mode.PROCEEDINGS&&gm?ComplicationsRuntime.revealed(server,p.getUuid()).stream().map(c->new RevealedComplication(c.meeting(),c.label(),c.message())).toList():List.of(),ForeignRuntime.choices(server),RebellionRuntime.choices(server));
         if(!ProceedingsPayloads.fitsView(packet))throw new IllegalStateException("This motion's ballot history is too large to display safely.");
         if(mode==Mode.PROCEEDINGS){r.sentProgress.put(p.getUuid(),progress);r.sentRegency.put(p.getUuid(),regency);}
         ServerPlayNetworking.send(p,packet);
