@@ -68,6 +68,7 @@ public final class RebellionRuntime {
             var root=s.getSavePath(WorldSavePath.ROOT).resolve("chronicle/last-council");var marker=new AtomicDataFile(root.resolve("rebellions-initialized"),32);byte[] mark=marker.load();
             if(mark!=null&&(!Arrays.equals(mark,new byte[]{'1','\n'})||!Files.isRegularFile(root.resolve("rebellions.json"),LinkOption.NOFOLLOW_LINKS)))throw new IOException("Initialized rebellion journal is missing; restore it.");
             var next=new State(new RebellionService(root.resolve("rebellions.json")),marker);if(mark==null)marker.save(new byte[]{'1','\n'});
+            next.service.observer(facts->PoliticalSourcesRuntime.prepare(s,facts));
             WORLDS.put(s,next);RuntimeHolds.release(s,HOLD);
         }catch(IOException|RuntimeException failure){hold(s);throw failure;}
     }
@@ -79,6 +80,9 @@ public final class RebellionRuntime {
         public void apply(ProceedingsState.Motion m,io.github.chronicle.core.ballots.Ballot b)throws IOException{verify(r);delegate.apply(m,b);}
         public void validateHistory(ProceedingsState state,io.github.chronicle.core.ballots.BallotState ballots)throws IOException{verify(r);delegate.validateHistory(state,ballots);}
     };}
+    public static boolean sourcesReady(MinecraftServer s){var r=WORLDS.get(s);return r!=null&&!r.failed&&!r.service.needsReload();}
+    public static List<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence> politicalEvidence(MinecraftServer s,String authority)throws IOException{var r=runtime(s);verify(r);return r.service.politicalEvidence(authority);}
+    public static List<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence> planReinstatement(MinecraftServer s,io.github.chronicle.lastcouncil.rebellion.RebellionService.Effect effect)throws IOException{var r=runtime(s);verify(r);return r.service.politicalPlan(copy->copy.apply(effect));}
     private static void verify(State r)throws IOException{r.marker.verifyUnchanged();r.service.verify();}
     public static boolean seated(MinecraftServer s,HouseAssignment a){var r=WORLDS.get(s);return a.councilMember()&&r!=null&&!r.failed&&!r.service.needsReload()&&r.service.membership(a.houseId())==null;}
     public static HouseRoster project(MinecraftServer s,HouseRoster raw){

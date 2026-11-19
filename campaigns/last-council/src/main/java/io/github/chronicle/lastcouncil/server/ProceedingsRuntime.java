@@ -103,9 +103,24 @@ public final class ProceedingsRuntime {
                 public void beforeMeetingClose(int meeting)throws IOException{ComplicationsRuntime.beforeBoundary(server,meeting);}
             },ReinstatementMotionEffects.combine(ForeignRuntime.effects(server),RebellionRuntime.effects(server)));
             Runtime r=new Runtime(service);WORLDS.put(server,r);
+            service.observer(facts->{
+                PoliticalSourcesRuntime.prepare(server,facts);
+                var vote=facts.stream().filter(f->f.type().equals("last_council:vote_completed")&&f.activity().equals("passed")).findFirst();
+                if(vote.isPresent()){
+                    UUID ballot=UUID.fromString(vote.get().authority().substring("council-outcome:".length()));
+                    var attempt=service.state().attempts().get(ballot);var motion=service.state().motions().get(attempt.motion());
+                    if(motion.reinstatement()!=null)PoliticalSourcesRuntime.prepare(server,RebellionRuntime.planReinstatement(server,
+                        new io.github.chronicle.lastcouncil.rebellion.RebellionService.Effect(ballot,motion.id(),motion.reinstatement().targets(),motion.title())));
+                }
+            });
             recoverAndNotify(server,r);RebellionRuntime.reconcile(server);RegionAccess.recoverPolicy(server,RebellionRuntime.POLICY);reconcileCalls(server,r);RuntimeHolds.release(server,HOLD);
         }catch(EventSources.Unavailable sourceOwned){RuntimeHolds.release(server,HOLD);}
         catch(Exception failure){hold(server,failure);}
+    }
+    public static List<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence> politicalEvidence(MinecraftServer server,String authority)throws IOException{var r=WORLDS.get(server);if(r==null)throw new IOException("Council records unavailable");return r.service.politicalEvidence(authority);}
+    public static List<EventSources.Choice> motionSourceChoices(MinecraftServer server){
+        var choices=new ArrayList<EventSources.Choice>();choices.add(new EventSources.Choice("*","Any Council vote","A completed ballot, without individual secret choices."));choices.add(new EventSources.Choice("regency","Regency ballot","Any completed Regency round."));
+        var r=WORLDS.get(server);if(r!=null){var state=r.service.state();var regency=new HashSet<UUID>();state.succession().rounds().keySet().forEach(id->regency.add(state.attempts().get(id).motion()));state.motions().values().stream().filter(m->!regency.contains(m.id())).sorted(Comparator.comparing(Motion::title).thenComparing(m->m.id().toString())).forEach(m->choices.add(new EventSources.Choice(m.id().toString(),m.title(),"This motion's completed ballot.")));}return List.copyOf(choices);
     }
     public static boolean effectsReady(MinecraftServer server){var r=WORLDS.get(server);return r!=null&&!r.failed&&r.service.state().pending()==null;}
     /** Operator command may call this even when initial authority loading never produced a runtime. */

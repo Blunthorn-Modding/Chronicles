@@ -116,6 +116,7 @@ public final class CouncilSuccessionSmoke {
             case 60 -> { noFailure(); if(admin==null)return;
                 command(c,"fill -5 64 -5 5 64 5 minecraft:stone"); command(c,"setblock 0 65 4 minecraft:lectern");
                 command(c,"tp ChronicleFabricB 0 65 0"); command(c,"tp ChronicleFabricC 1 65 0"); command(c,"tp ChronicleFabricD 2 65 0"); command(c,"tp ChronicleFabricA 10 65 0");
+                for(String activity:List.of("eliminated","crowned"))command(c,"chronicle_event_sources_trial arm \"last_council:succession_result\" \"election\" \""+activity+"\"");
                 command(c,"chronicle editing off"); wait=30; mark("join","ready"); step=7; }
             case 7 -> { if(!has("joined-B")||!has("joined-C")||!has("joined-D"))return; command(c,"chronicle session start"); wait=30; step=8; }
             case 8 -> { request(Action.STATE,0,NONE,""); step=9; }

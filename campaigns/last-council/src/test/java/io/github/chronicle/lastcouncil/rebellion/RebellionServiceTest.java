@@ -313,4 +313,39 @@ class RebellionServiceTest {
             if (failAfter) throw new IOException("Failed after publishing");
         }
     }
+    @Test void politicalObserverIsPrewriteAndRestoreReportsEveryHouse(@TempDir Path directory) throws Exception {
+        var service=new RebellionService(directory.resolve("rebellion.json")); UUID faction=UUID.randomUUID(),join=UUID.randomUUID();
+        service.observer(events->{throw new IOException("refuse");});
+        assertThrows(IOException.class,()->service.declare(faction,0,ROWAN,"Cause"));
+        String declaration=service.politicalPlan(copy->copy.declare(faction,0,ROWAN,"Cause")).getFirst().authority();
+        assertTrue(service.politicalEvidence(declaration).isEmpty());
+        var seen=new ArrayList<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence>(); service.observer(seen::addAll);
+        service.declare(faction,0,ROWAN,"Cause"); service.join(join,1,MERE,faction);
+        var targets=service.targets(List.of(ROWAN.houseId(),MERE.houseId())); UUID ballot=UUID.randomUUID();
+        var effect=new Effect(ballot,UUID.randomUUID(),targets,"Reinstate");
+        var planned=service.politicalPlan(copy->copy.apply(effect)); assertEquals(2,planned.size());
+        String authority=planned.getFirst().authority();
+        assertTrue(service.politicalEvidence(authority).isEmpty()); service.apply(effect);
+        var facts=service.politicalEvidence(authority);
+        assertEquals(2,facts.size()); assertEquals(java.util.Set.of(ROWAN.houseId(),MERE.houseId()),facts.stream().map(x->x.target()).collect(java.util.stream.Collectors.toSet()));
+        assertTrue(facts.stream().allMatch(x->x.activity().equals("reinstated")));
+        int count=seen.size(); service.apply(effect); service.reload(); assertEquals(count,seen.size());
+        assertEquals(facts,service.politicalEvidence(authority));
+    }
+    @Test void politicalEvidenceRecoversAfterUncertainPublication() throws Exception {
+        var storage=new MemoryStorage(); var service=new RebellionService(storage); var id=UUID.randomUUID();
+        var seen=new ArrayList<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence>(); service.observer(seen::addAll);
+        String authority=service.politicalPlan(copy->copy.declare(id,0,ROWAN,"Cause")).getFirst().authority();
+        storage.failAfter=true; assertThrows(IOException.class,()->service.declare(id,0,ROWAN,"Cause"));
+        assertThrows(IOException.class,()->service.politicalEvidence(authority));
+        storage.failAfter=false; service.reload(); assertEquals(seen,service.politicalEvidence(authority));
+    }
+    @Test void politicalEvidenceRejectsDifferentValidJournalPrefix(@TempDir Path directory) throws Exception {
+        var first=new RebellionService(directory.resolve("first.json")); var other=new RebellionService(directory.resolve("other.json"));
+        first.declare(UUID.randomUUID(),0,ROWAN,"Cause"); other.declare(UUID.randomUUID(),0,MERE,"Cause");
+        UUID operation=UUID.randomUUID(); String authority=first.politicalPlan(copy->copy.join(operation,1,HART,first.snapshot().factions().keySet().iterator().next())).getFirst().authority();
+        assertThrows(IOException.class,()->other.politicalEvidence(authority));
+        other.join(operation,1,HART,other.snapshot().factions().keySet().iterator().next());
+        assertThrows(IOException.class,()->other.politicalEvidence(authority));
+    }
 }

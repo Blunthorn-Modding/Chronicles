@@ -124,4 +124,32 @@ class ProceedingsServiceTest {
         assertThrows(IllegalStateException.class,()->CouncilCallEvidence.accepted(receipt,calls,"source:other"));
         assertThrows(IllegalStateException.class,()->CouncilCallEvidence.accepted(receipt,Map.of(id,new Call(id,A,"2026-01-01T00:00:00Z",1)),"source:test"));
     }
+    @Test void politicalCloseObserverAndRecoveryAreActorless() throws Exception {
+        var f=fixture(); var s=f.service(); var ballot=s.open(f.motion(),HOST,REGION,ELECTORS); var id=ballot.definition().id();
+        s.cast(id,A,"yes"); s.cast(id,B,"yes");
+        var observed=new ArrayList<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence>();
+        s.observer(facts->{observed.addAll(facts);throw new IOException("refuse");});
+        assertThrows(IOException.class,()->s.close(id,HOST));
+        assertTrue(s.closeSourceAbsent(id)); assertEquals(BallotStatus.OPEN,f.ballots().state().ballots().get(id).status());
+        assertEquals("passed",observed.getFirst().activity()); assertEquals(f.motion().toString(),observed.getFirst().target());
+        s.observer(facts->{}); f.repo().failAt=f.repo().saves+2;
+        assertThrows(IOException.class,()->s.close(id,HOST));
+        var restarted=new ProceedingsService(f.repo(),new BallotService(f.ledger(),Clock.systemUTC()),Clock.systemUTC());
+        assertThrows(IOException.class,()->restarted.politicalEvidence("council-outcome:"+id));
+        restarted.recover(); assertEquals(observed,restarted.politicalEvidence("council-outcome:"+id));
+        assertThrows(IOException.class,()->restarted.politicalEvidence("council-outcome:"+UUID.randomUUID()));
+    }
+    @Test void regencyEvidenceContainsOnlyPublicOutcomeMetadata() throws Exception {
+        Repo repo=new Repo(); Ballots ledger=new Ballots();
+        var service=new ProceedingsService(repo,new BallotService(ledger,Clock.systemUTC()),Clock.systemUTC());
+        service.region(REGION.id()); service.openMeeting();
+        var ballot=service.openRegency(HOST,REGION,ELECTORS,Map.of("c:a","A","c:b","B"));
+        UUID id=ballot.definition().id(); service.cast(id,A,"c:a"); service.cast(id,B,"c:a");
+        var seen=new ArrayList<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence>(); service.observer(seen::addAll);
+        service.close(id,HOST); assertEquals(2,seen.size());
+        assertEquals("regency",seen.get(0).target()); assertEquals("passed",seen.get(0).activity());
+        assertEquals("election",seen.get(1).target()); assertEquals("crowned",seen.get(1).activity());
+        assertEquals(seen,service.politicalEvidence("council-outcome:"+id));
+        assertTrue(seen.stream().noneMatch(f->f.toString().contains(A.toString())||f.toString().contains(B.toString())||f.toString().contains("c:a")));
+    }
 }

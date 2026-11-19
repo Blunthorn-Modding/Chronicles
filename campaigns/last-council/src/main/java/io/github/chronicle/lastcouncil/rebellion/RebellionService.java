@@ -1,6 +1,8 @@
 package io.github.chronicle.lastcouncil.rebellion;
 
 import io.github.chronicle.core.persistence.AtomicDataFile;
+import io.github.chronicle.lastcouncil.progression.PoliticalOccurrence;
+import io.github.chronicle.lastcouncil.progression.PoliticalObserver;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -83,6 +85,8 @@ public final class RebellionService {
     private State state = replay(List.of());
     private boolean initialized;
     private boolean needsReload;
+    private PoliticalObserver observer = PoliticalObserver.NONE;
+    public synchronized void observer(PoliticalObserver value) { observer = Objects.requireNonNull(value); }
 
     public RebellionService(Path file) throws IOException {
         this(storage(file));
@@ -119,6 +123,17 @@ public final class RebellionService {
             needsReload = true;
             throw failure;
         }
+    }
+
+    @FunctionalInterface public interface Mutation { void apply(RebellionService service) throws IOException; }
+    /** Plan a validated child operation without changing this journal or calling its observer. */
+    public synchronized List<PoliticalOccurrence> politicalPlan(Mutation mutation) throws IOException {
+        verify(); byte[] snapshot=encode(state.entries());
+        RebellionService copy=new RebellionService(new Storage(){
+            public byte[] load(){return snapshot;}
+            public void save(byte[] ignored) { }
+        });
+        var result=new ArrayList<PoliticalOccurrence>(); copy.observer(result::addAll); mutation.apply(copy); return List.copyOf(result);
     }
 
     public synchronized boolean needsReload() {
@@ -202,6 +217,8 @@ public final class RebellionService {
         State candidate = replay(entries);
         byte[] bytes = encode(entries);
         if (!decode(bytes).equals(candidate)) throw new IOException("Rebellion candidate failed validation.");
+        List<PoliticalOccurrence> occurrences = occurrences(entry.id(), state, candidate);
+        if (!occurrences.isEmpty()) observer.before(occurrences);
         try {
             storage.save(bytes);
         } catch (IOException | RuntimeException failure) {
@@ -211,6 +228,39 @@ public final class RebellionService {
         state = candidate;
     }
 
+    /** Verified exact operation evidence, pinned to the complete preceding journal. */
+    public synchronized List<PoliticalOccurrence> politicalEvidence(String authority) throws IOException {
+        verify();
+        if(authority==null)throw new IOException("Invalid rebellion authority");
+        String[] parts=authority.split(":",-1);
+        if(parts.length!=3||!parts[0].equals("council-rebellion")||!parts[2].matches("[0-9a-f]{64}"))throw new IOException("Invalid rebellion authority");
+        final UUID id;
+        try {id=UUID.fromString(parts[1]);}
+        catch(IllegalArgumentException failure) {throw new IOException("Invalid rebellion authority",failure);}
+        if(!id.toString().equals(parts[1]))throw new IOException("Noncanonical rebellion authority");
+        List<Entry> entries=state.entries();
+        for(int i=0;i<entries.size();i++) if(entries.get(i).id().equals(id)) {
+            State before=replay(entries.subList(0,i));
+            if(!prefixHash(before).equals(parts[2]))throw new IOException("Rebellion evidence baseline changed");
+            List<PoliticalOccurrence> evidence=occurrences(id,before,replay(entries.subList(0,i+1)));
+            if(evidence.isEmpty())throw new IOException("Rebellion operation is not public political evidence");
+            return evidence;
+        }
+        if(!prefixHash(state).equals(parts[2]))throw new IOException("Rebellion evidence baseline changed");
+        return List.of();
+    }
+    private static String prefixHash(State state) {
+        try {return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(encode(state.entries())));}
+        catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
+    }
+    private static List<PoliticalOccurrence> occurrences(UUID operation,State before,State after) {
+        long revision=before.snapshot().revision(); String authority="council-rebellion:"+operation+":"+prefixHash(before);
+        var result=new ArrayList<PoliticalOccurrence>();
+        after.snapshot().factions().values().stream().sorted(java.util.Comparator.comparing(Faction::id)).forEach(f ->
+            f.history().stream().filter(e -> e.revision()>revision).forEach(e -> result.add(new PoliticalOccurrence(
+                authority,"last_council:rebellion_changed",e.house().houseId(),e.action().name().toLowerCase(java.util.Locale.ROOT)))));
+        return List.copyOf(result);
+    }
     static List<Target> exactTargets(List<Target> targets) {
         if (targets == null || targets.isEmpty() || targets.size() > MAX_TARGETS)
             throw new IllegalArgumentException("Choose one or more rebel Houses.");

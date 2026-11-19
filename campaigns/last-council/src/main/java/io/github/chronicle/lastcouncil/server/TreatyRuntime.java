@@ -78,6 +78,7 @@ public final class TreatyRuntime {
     private static void start(MinecraftServer server){
         try{var root=server.getSavePath(WorldSavePath.ROOT).resolve("chronicle/last-council");
             var next=new Runtime(new TreatyService(root.resolve("treaties.json")),new Bindings(root.resolve("treaty-lecterns.json")));
+            next.service.observer(facts->PoliticalSourcesRuntime.prepare(server,facts));
             var old=WORLDS.put(server,next);if(old!=null)for(var session:List.copyOf(old.sessions.values()))revoke(old,session,"Records reloaded. Return to the treaty lectern.");RuntimeHolds.release(server,HOLD);
         }catch(IOException|RuntimeException invalid){var old=WORLDS.remove(server);if(old!=null)for(var session:List.copyOf(old.sessions.values()))revoke(old,session,"Treaty records need repair. Return after recovery.");hold(server);}
     }

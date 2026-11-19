@@ -93,4 +93,27 @@ class TreatyServiceTest {
         store.bytes=json.replace("\"revision\":1","\"revision\":1.0").getBytes(StandardCharsets.UTF_8);assertThrows(IOException.class,()->new TreatyService(store));
         store.bytes=new byte[]{(byte)0xc3,(byte)0x28};assertThrows(IOException.class,()->new TreatyService(store));
     }
+    @Test void politicalEvidenceIsPublicAtTheHistoricalActionAndPrecedesSave() throws Exception {
+        Store store=new Store(); TreatyService s=new TreatyService(store); var seen=new ArrayList<io.github.chronicle.lastcouncil.progression.PoliticalOccurrence>();
+        s.observer(seen::addAll); s.create(id,a,doc(1,Visibility.PRIVATE,a,b)); s.sign(id,1,a);
+        assertTrue(seen.isEmpty()); s.edit(id,1,a,doc(2,Visibility.PUBLIC,a,b));
+        assertThrows(IOException.class,()->s.politicalEvidence("council-treaty:"+id+":1"));
+        String authority=s.politicalPlan(t->t.sign(id,2,a)).getFirst().authority();
+        s.observer(facts->{throw new IOException("refuse");}); assertThrows(IOException.class,()->s.sign(id,2,a));
+        assertTrue(s.politicalEvidence(authority).isEmpty());
+        s.observer(seen::addAll); store.failAfter=true; assertThrows(IOException.class,()->s.sign(id,2,a));
+        store.failAfter=false; s.reload(); assertEquals(seen,s.politicalEvidence(authority));
+        int count=seen.size(); s.sign(id,2,a); s.preview(t->t.sign(id,2,b));
+        assertEquals("signed",s.politicalPlan(t->t.sign(id,2,b)).getFirst().activity()); assertEquals(count,seen.size());
+        assertThrows(IOException.class,()->s.politicalEvidence("council-treaty:"+UUID.randomUUID()+":0"));
+        assertThrows(IOException.class,()->s.politicalEvidence("council-treaty:"+id+":100"));
+    }
+    @Test void politicalEvidenceRejectsDifferentValidPrefixOfSameLength() throws Exception {
+        var original=new TreatyService(new Store()); original.create(id,a,doc(1,Visibility.PUBLIC,a,b));
+        String authority=original.politicalPlan(t->t.sign(id,1,a)).getFirst().authority();
+        var other=new TreatyService(new Store());
+        other.create(id,a,new Document(id,1,"Different","Terms",Visibility.PUBLIC,List.of(p(a),p(b))));
+        assertThrows(IOException.class,()->other.politicalEvidence(authority));
+        other.sign(id,1,a); assertThrows(IOException.class,()->other.politicalEvidence(authority));
+    }
 }

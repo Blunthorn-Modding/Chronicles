@@ -74,6 +74,9 @@ class Driver:
             for activity in ('declared','joined','status_changed'):
                 self.chat('A','chronicle_event_sources_trial arm "last_council:conflict_changed" "*" '+json.dumps(activity))
                 self.wait('A',lambda s,a=activity:any('Event sources trial PASS arm last_council:conflict_changed * '+a in m for m in s.get('messages',[])),'source arm '+activity)
+            for activity in ('signed','sanctified','broken'):
+                self.chat('A','chronicle_event_sources_trial arm "last_council:treaty_changed" "*" '+json.dumps(activity))
+                self.wait('A',lambda state,a=activity:any('Event sources trial PASS arm last_council:treaty_changed * '+a in m for m in state.get('messages',[])),'treaty source arm')
             self.chat('A','chronicle editing off')
             for role in 'BCD':self.chat(role,'chronicle players join')
             time.sleep(1);self.chat('A','chronicle session start')
@@ -122,16 +125,27 @@ def fixture(w):
 
 def run():
     import workspace as w
-    w.require_eula();w.validate_server_runtime();w.validate_managed_mod_names();launch=json.loads((w.REPO/'campaigns/last-council/build/smoke/client-launch.json').read_text(encoding='utf-8'));root=fixture(w);reports=w.REPORTS/('council-conflicts-'+root.name);reports.mkdir();report={'result':'FAIL','world':str(root),'checks':[]};server=log=None;clients=[]
+    w.require_eula();w.validate_server_runtime();w.validate_managed_mod_names();launch=json.loads((w.REPO/'campaigns/last-council/build/smoke/client-launch.json').read_text(encoding='utf-8'));root=fixture(w);(root/'.political-sources-fixture').write_text('Disposable political source fixture\n',encoding='utf-8');reports=w.REPORTS/('council-conflicts-'+root.name);reports.mkdir();report={'result':'FAIL','world':str(root),'checks':[]};server=log=None;clients=[]
     try:
         for phase in ('initial','restart','renewal'):
-            directory=reports/phase;directory.mkdir();menu_smoke._reserve_ports();log=(directory/'server.log').open('w',encoding='utf-8');server=subprocess.Popen(w.server_command(),cwd=root,env=dict(w.env(),CHRONICLE_EVENT_SOURCES_TRIAL='true'),stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT,text=True,encoding='utf-8');menu_smoke._wait_ready(server,directory/'server.log')
+            directory=reports/phase;directory.mkdir();menu_smoke._reserve_ports();log=(directory/'server.log').open('w',encoding='utf-8');server=subprocess.Popen(w.server_command(),cwd=root,env=dict(w.env(),CHRONICLE_EVENT_SOURCES_TRIAL='true',CHRONICLE_POLITICAL_SOURCES_TRIAL='true'),stdin=subprocess.PIPE,stdout=log,stderr=subprocess.STDOUT,text=True,encoding='utf-8');menu_smoke._wait_ready(server,directory/'server.log')
             for role in 'ABCD':clients.append(fabric_smoke._client(w,launch,root,directory,'ChronicleFabric'+role,phase+'-'+role,{'CHRONICLE_CONFLICT_PROBE':str(directory),'CHRONICLE_CONFLICT_ROOT':str(root),'CHRONICLE_CONFLICT_ROLE':role,'CHRONICLE_MENU_WIDTH':'640','CHRONICLE_MENU_HEIGHT':'480'}))
             d=Driver(directory,clients);d.setup(phase)
+            if phase=='restart':
+                d.chat('A','chronicle_council_sources_trial unchanged');d.wait('A',lambda state:any('Council sources trial PASS unchanged' in m for m in state.get('messages',[])),'source restart stability')
             if phase=='initial':
-                d.open_all();d.treaty('B','CREATE',title='Private road pact',terms='Hidden non-aggression promise.',private=True,parties=['B','C'],purpose='NON_AGGRESSION');d.wait('B',lambda s:s['treaty']['detail'] is not None,'NAP draft');d.sign('BC');d.treaty('A','SANCTIFY');d.wait('B',lambda s:s['treaty']['detail']['status']=='Active','NAP active');assert d.state('D')['treaty']['rows']==[]
+                d.open_all();d.treaty('B','CREATE',title='Private road pact',terms='Hidden non-aggression promise.',private=True,parties=['B','C'],purpose='NON_AGGRESSION');d.wait('B',lambda s:s['treaty']['detail'] is not None,'NAP draft');d.sign('BC');d.treaty('A','SANCTIFY');d.wait('B',lambda s:s['treaty']['detail']['status']=='Active','NAP active');assert d.state('D')['treaty']['rows']==[];private_pact=d.detail('B')['id']
                 d.treaty('C','CREATE',title='Public pact between other houses',terms='Other parties only.',private=False,parties=['C','D'],purpose='NON_AGGRESSION');d.wait('C',lambda s:s['treaty']['detail'] is not None and s['treaty']['detail']['title']=='Public pact between other houses','unrelated public pact');other=d.detail('C')['id'];d.treaty('B','STATE',treaty=other);d.wait('B',lambda s:s['treaty']['detail']['id']==other,'visible public pact');d.sign('CD');d.treaty('A','SANCTIFY');d.wait('C',lambda s:s['treaty']['detail']['status']=='Active','public pact active')
                 id=d.make_war(report['checks'],private=True,authority_tests=True,fault_path=root/'world/chronicle/last-council/conflicts.json');d.conflict('D','JOIN',side=d.state('D')['conflict']['detail']['first'][0]['id']);d.wait('B',lambda s:len(s['conflict']['detail']['first'])==2,'supporter joins');assert 'Civil war' in d.state('B')['conflict']['detail']['status'];report['checks'].append('Native settings threshold and supporter join produce Civil war without changing founder rights');d.agreement(id,'PEACE','BCD',report['checks'],stale=True)
+                d.chat('A','chronicle_council_sources_trial private_absent '+private_pact)
+                d.wait('A',lambda state:any('Council sources trial PASS private_absent' in m for m in state.get('messages',[])),'private source suppression after auto-breach')
+                d.open_all();d.treaty('C','STATE',treaty=other);d.wait('C',lambda state:(state.get('treaty',{}).get('detail') or {}).get('id')==other,'public pact selected');d.treaty('C','BREAK');d.wait('C',lambda state:state['treaty']['detail']['status']=='Broken','public breach')
+                for activity in ('signed','sanctified','broken'):
+                    d.chat('A','chronicle_event_sources_trial verify "last_council:treaty_changed" "*" '+json.dumps(activity))
+                    d.wait('A',lambda state,a=activity:any('Event sources trial PASS verify last_council:treaty_changed * '+a in m for m in state.get('messages',[])),'public treaty Event/flag')
+                d.chat('A','chronicle_council_sources_trial snapshot');d.wait('A',lambda state:any('Council sources trial PASS snapshot' in m for m in state.get('messages',[])),'source snapshot')
+                d.close_all();d.chat('B','chronicle council conflicts');d.wait('B',lambda state:state.get('conflictOpen'),'return to conflicts')
+                report['checks'].append('Public treaty signatures/sanctification/breach drive Core Events/flags; private treaty and automatic private breach emit no public source')
                 for activity in ('declared','joined','status_changed'):
                     d.chat('A','chronicle_event_sources_trial verify "last_council:conflict_changed" "*" '+json.dumps(activity))
                     d.wait('A',lambda s,a=activity:any('Event sources trial PASS verify last_council:conflict_changed * '+a in m for m in s.get('messages',[])),'source verification '+activity)

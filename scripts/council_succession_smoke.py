@@ -22,6 +22,8 @@ def run():
     root = fabric_smoke._stage(w)
     (root / '.council-succession-fixture').write_text('Disposable Council succession smoke\n', encoding='utf-8')
     _fixture(root)
+    (root/'.event-sources-fixture').write_text('Disposable source fixture\n',encoding='utf-8')
+    (root/'.political-sources-fixture').write_text('Disposable political source fixture\n',encoding='utf-8')
     # Baseline suite keeps unrelated random complications disabled; the gate suite opts in explicitly.
     import os
     gate_trial=os.environ.get('CHRONICLE_COMPLICATION_GATE_SMOKE')=='1'
@@ -46,7 +48,7 @@ def run():
         for phase in ('initial', 'restart'):
             menu_smoke._reserve_ports()
             log = (reports / (phase + '-server.log')).open('w', encoding='utf-8')
-            server = subprocess.Popen(w.server_command(), cwd=root, env=w.env(), stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
+            server = subprocess.Popen(w.server_command(), cwd=root, env=dict(w.env(),CHRONICLE_EVENT_SOURCES_TRIAL='true',CHRONICLE_POLITICAL_SOURCES_TRIAL='true'), stdin=subprocess.PIPE, stdout=log, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
             menu_smoke._wait_ready(server, reports / (phase + '-server.log'))
             results = [reports / (phase + '-' + role + '.json') for role in ('A', 'B', 'C', 'D')]
             for role, result in zip(('A', 'B', 'C', 'D'), results):
@@ -60,6 +62,17 @@ def run():
             for _, handle in clients:
                 handle.close()
             clients.clear()
+            import time
+            verb='eliminated' if phase=='initial' else 'crowned'
+            server.stdin.write('chronicle_council_sources_trial verify_'+verb+'\n');server.stdin.flush()
+            deadline=time.monotonic()+30
+            while time.monotonic()<deadline:
+                output=(reports/(phase+'-server.log')).read_text(encoding='utf-8',errors='replace')
+                if 'Council sources trial PASS verify_'+verb in output:break
+                if 'Council sources trial FAIL verify_'+verb in output:raise RuntimeError('Regency source Event proof failed; see server log')
+                time.sleep(.1)
+            else:raise RuntimeError('Regency source Event proof timed out')
+            report['checks'].append('Actual secret Regency '+verb+' outcome drives Core Event and flag')
             fabric_smoke._stop(server); server = None
             log.close(); log = None
         report['result'] = 'PASS'

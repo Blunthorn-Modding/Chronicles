@@ -2,6 +2,8 @@ package io.github.chronicle.lastcouncil.council;
 
 import io.github.chronicle.core.authoring.AuthoringSite;
 import io.github.chronicle.core.ballots.*;
+import io.github.chronicle.lastcouncil.progression.PoliticalOccurrence;
+import io.github.chronicle.lastcouncil.progression.PoliticalObserver;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.*;
@@ -14,6 +16,8 @@ public final class ProceedingsService {
     private final BallotService ballots;
     private final Clock clock;
     private ProceedingsState state;
+    private PoliticalObserver observer = PoliticalObserver.NONE;
+    public void observer(PoliticalObserver value) { observer = Objects.requireNonNull(value); }
     private final java.util.function.IntUnaryOperator draw;
     private final ProgressionGate progression;
     private final MotionEffects effects;
@@ -202,6 +206,9 @@ public final class ProceedingsService {
         verifyUnchanged();
         SuccessionState.Round round=state.succession().rounds().get(id);
         SuccessionRules.Result result=round==null?null:regencyResult(id,draw);
+        Draft candidate = new Draft(state); candidate.pending = new Pending(Operation.CLOSE,id,actor,"",result);
+        candidate.build(Math.incrementExact(state.revision()));
+        observer.before(closeOccurrences(id, ballots.state().ballots().get(id), result));
         // Persist the draw before Core close, so a partial close cannot reroll it.
         publish(d -> d.pending=new Pending(Operation.CLOSE,id,actor,"",result));
         recover();return ballots.state().ballots().get(id);
@@ -240,6 +247,55 @@ public final class ProceedingsService {
             d.pending=null;
         });
         validateLinks();
+    }
+    /** Exact settled public evidence; never returns electorate or individual choices. */
+    public List<PoliticalOccurrence> politicalEvidence(UUID id) throws IOException {
+        verifyUnchanged();
+        Attempt attempt = state.attempts().get(id);
+        Ballot ballot = ballots.state().ballots().get(id);
+        if (attempt == null || ballot == null || ballot.status() != BallotStatus.CLOSED
+                || state.pending() != null && state.pending().ballot().equals(id)) return List.of();
+        Motion motion = state.motions().get(attempt.motion());
+        if (motion == null || motion.status() != MotionStatus.RECORDED || !ballot.definition().equals(attempt.definition()))
+            throw new IOException("Council close authority differs from its motion");
+        SuccessionState.Round round = state.succession().rounds().get(id);
+        if (round != null && (round.status() != BallotStatus.CLOSED || round.result() == null))
+            throw new IOException("Council succession result is incomplete");
+        return closeOccurrences(id, ballot, round == null ? null : round.result());
+    }
+    public List<PoliticalOccurrence> politicalEvidence(String authority) throws IOException {
+        if (authority == null || !authority.startsWith("council-outcome:")) throw new IOException("Invalid Council authority");
+        final UUID id;
+        try { id=UUID.fromString(authority.substring("council-outcome:".length())); }
+        catch (IllegalArgumentException e) { throw new IOException("Invalid Council ballot identity",e); }
+        if (!authority.equals("council-outcome:"+id)) throw new IOException("Noncanonical Council authority");
+        if (closeSourcePending(id)) throw new IOException("Council close is pending");
+        if (closeSourceAbsent(id)) return List.of();
+        List<PoliticalOccurrence> evidence=politicalEvidence(id);
+        if (evidence.isEmpty()) throw new IOException("Council close has no completed authority");
+        return evidence;
+    }
+    /** A verified existing OPEN baseline proves no close has yet been published. */
+    public boolean closeSourceAbsent(UUID id) throws IOException {
+        verifyUnchanged();
+        var attempt = state.attempts().get(id); var ballot = ballots.state().ballots().get(id);
+        if (attempt == null || ballot == null || !ballot.definition().equals(attempt.definition()))
+            throw new IOException("Council ballot baseline is missing or changed");
+        return ballot.status() == BallotStatus.OPEN && (state.pending() == null
+                || !state.pending().ballot().equals(id) || state.pending().operation() != Operation.CLOSE);
+    }
+    public boolean closeSourcePending(UUID id) throws IOException {
+        verifyUnchanged();
+        return state.pending() != null && state.pending().ballot().equals(id) && state.pending().operation() == Operation.CLOSE;
+    }
+    private List<PoliticalOccurrence> closeOccurrences(UUID id, Ballot ballot, SuccessionRules.Result result) {
+        String authority = "council-outcome:" + id;
+        boolean passed = ballot.definition().options().stream().filter(BallotOption::canPass)
+                .anyMatch(option -> ballot.votes().values().stream().filter(option.id()::equals).count() >= ballot.definition().threshold());
+        var facts = new ArrayList<PoliticalOccurrence>();
+        facts.add(new PoliticalOccurrence(authority, "last_council:vote_completed", result == null ? state.attempts().get(id).motion().toString() : "regency", passed ? "passed" : "rejected"));
+        if (result != null) facts.add(new PoliticalOccurrence(authority, "last_council:succession_result", "election", result.decision().name().toLowerCase(Locale.ROOT)));
+        return List.copyOf(facts);
     }
     private SuccessionRules.Result regencyResult(UUID id,java.util.function.IntUnaryOperator choice) {
         Ballot ballot=ballots.state().ballots().get(id);Map<String,Integer> totals=new HashMap<>();

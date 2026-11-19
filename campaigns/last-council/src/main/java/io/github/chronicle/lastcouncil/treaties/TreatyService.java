@@ -3,6 +3,8 @@ package io.github.chronicle.lastcouncil.treaties;
 import com.google.gson.*;
 import io.github.chronicle.core.books.BookConfig;
 import io.github.chronicle.core.persistence.AtomicDataFile;
+import io.github.chronicle.lastcouncil.progression.PoliticalOccurrence;
+import io.github.chronicle.lastcouncil.progression.PoliticalObserver;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.*;
@@ -50,6 +52,8 @@ public final class TreatyService {
     private Map<UUID,Treaty> treaties=Map.of();
     private long revision;
     private boolean poisoned;
+    private PoliticalObserver observer=PoliticalObserver.NONE;
+    public synchronized void observer(PoliticalObserver value){observer=Objects.requireNonNull(value);}
     public TreatyService(Path path) throws IOException { this(storage(path)); }
     public TreatyService(Storage storage) throws IOException { this.storage=Objects.requireNonNull(storage); reload(); }
     public synchronized void reload() throws IOException {
@@ -64,6 +68,12 @@ public final class TreatyService {
     @FunctionalInterface public interface Mutation {void apply(TreatyService service)throws IOException;}
     /** Authoritative preflight for a pinned cross-store operation. No real storage is changed. */
     public synchronized void preview(Mutation mutation)throws IOException {requireWritable();byte[] snapshot=encode(revision,treaties);TreatyService copy=new TreatyService(new Storage(){public byte[] load(){return snapshot;}public void save(byte[] ignored){}});mutation.apply(copy);}
+    /** Validate and plan child source facts on an isolated replay without publishing. */
+    public synchronized List<PoliticalOccurrence> politicalPlan(Mutation mutation)throws IOException {
+        requireWritable(); storage.verify(); byte[] snapshot=encode(revision,treaties);
+        TreatyService copy=new TreatyService(new Storage(){public byte[] load(){return snapshot;}public void save(byte[] ignored){}});
+        var result=new ArrayList<PoliticalOccurrence>(); copy.observer(result::addAll); mutation.apply(copy); return List.copyOf(result);
+    }
     public synchronized void checkpoint()throws IOException {requireWritable();storage.save(encode(revision,treaties));}
 
     public synchronized List<View> view(UUID viewer, boolean chancellor) {
@@ -120,8 +130,39 @@ public final class TreatyService {
         if(poisoned)throw new IOException("Reload required after uncertain write");
         Map<UUID,Treaty> next=new LinkedHashMap<>(treaties);next.put(id,treaty);long rev=Math.addExact(revision,1);
         byte[] bytes=storage instanceof Memory ? new byte[0] : encode(rev,next); if(bytes.length>MAX_BYTES)throw new IOException("Treaty data too large");
+        Event latest=treaty.history().get(treaty.history().size()-1);
+        PoliticalOccurrence occurrence=occurrence(id,treaty.history().size()-1,latest,treaty.history().subList(0,treaty.history().size()-1));
+        if(occurrence!=null)observer.before(List.of(occurrence));
         try {storage.save(bytes);}catch(IOException|RuntimeException failure){poisoned=true;throw failure;}
         treaties=Collections.unmodifiableMap(next);revision=rev;
+    }
+    /** Evidence is tied to the exact canonical prefix of this treaty's history. */
+    public synchronized List<PoliticalOccurrence> politicalEvidence(String authority)throws IOException {
+        verify();
+        if(authority==null)throw new IOException("Invalid treaty authority");
+        String[] parts=authority.split(":",-1);
+        if(parts.length!=4||!parts[0].equals("council-treaty")||!parts[2].matches("0|[1-9][0-9]*")||!parts[3].matches("[0-9a-f]{64}"))
+            throw new IOException("Invalid treaty authority");
+        final UUID id; final int index;
+        try {id=UUID.fromString(parts[1]);index=Integer.parseInt(parts[2]);}
+        catch(IllegalArgumentException failure){throw new IOException("Invalid treaty authority",failure);}
+        if(!id.toString().equals(parts[1]))throw new IOException("Noncanonical treaty identity");
+        Treaty treaty=treaties.get(id);
+        if(treaty==null||treaty.history().size()<index)throw new IOException("Treaty evidence baseline missing or older");
+        List<Event> prefix=treaty.history().subList(0,index);
+        if(!prefixHash(prefix).equals(parts[3]))throw new IOException("Treaty evidence baseline changed");
+        if(treaty.history().size()==index)return List.of();
+        PoliticalOccurrence result=occurrence(id,index,treaty.history().get(index),prefix);
+        if(result==null)throw new IOException("Treaty event is not a public political occurrence");
+        return List.of(result);
+    }
+    private static PoliticalOccurrence occurrence(UUID id,int index,Event event,List<Event> prefix) {
+        if(event.document().visibility()!=Visibility.PUBLIC || !(event.action()==Action.SIGNED||event.action()==Action.SANCTIFIED||event.action()==Action.BROKEN))return null;
+        return new PoliticalOccurrence("council-treaty:"+id+":"+index+":"+prefixHash(prefix),"last_council:treaty_changed","*",event.action().name().toLowerCase(Locale.ROOT));
+    }
+    private static String prefixHash(List<Event> prefix) {
+        try {return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(JSON.toJson(prefix).getBytes(StandardCharsets.UTF_8)));}
+        catch(java.security.NoSuchAlgorithmException impossible){throw new IllegalStateException(impossible);}
     }
     private static void plain(String s,int max,boolean newline){if(s==null||s.isBlank()||s.codePointCount(0,s.length())>max||s.codePoints().anyMatch(c->(Character.isISOControl(c)&&!(newline&&c=='\n'))||(c>=0xd800&&c<=0xdfff))||s.indexOf('\u00a7')>=0)throw new IllegalArgumentException("Invalid plain text");}
     private record Decoded(long revision,Map<UUID,Treaty> treaties){}
