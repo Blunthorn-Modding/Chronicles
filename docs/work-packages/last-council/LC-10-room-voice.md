@@ -1,6 +1,6 @@
 # LC-10 — Room acoustics and Simple Voice Chat
 
-Status: investigation/design package, added after the user's 4 November feedback. Independent of palace permission and rebellion. Reuse existing Regions for room bounds; any new room-voice adapter is an optional shared Core capability. No mod installation, server startup, pack update or voice implementation is part of this planning pass.
+Status: **Deferred by the owner on 19 November 2026** while integrated verification tooling is completed. No physical-acoustics or private-Region policy is selected. Existing listening samples remain available for a later decision. Voice integration and human audibility acceptance remain unpassed. The investigation below is retained; no voice dependency or adapter is added.
 
 ## Desired experience
 

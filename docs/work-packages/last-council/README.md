@@ -1,6 +1,6 @@
 # The Last Council work-package tree
 
-**Current slice:** [LC06 rebellion and Region access](LC06_RESULTS.md), approved by the owner, implemented and automatically verified. Matching dev.17 e4mc Host/Player packs include the new screens and setup instructions. [LC05B foreign affairs](LC05B_RESULTS.md) and [LC05A house conflicts](LC05A_RESULTS.md) remain delivered. Treaty, complication, conflict and rebellion group reviews remain deferred, not passed. [LC09](LC-09-verification-release.md) now includes an explicit sequential native-suite coordinator; final map/group/voice rehearsal and publication are still separate gates.
+**Current slice:** [LC06 rebellion and Region access](LC06_RESULTS.md), approved by the owner, implemented and automatically verified. Matching dev.17 e4mc Host/Player packs include the new screens and setup instructions. [LC05B foreign affairs](LC05B_RESULTS.md) and [LC05A house conflicts](LC05A_RESULTS.md) remain delivered. Treaty, complication, conflict and rebellion group reviews remain deferred, not passed. [LC09](LC-09-verification-release.md) now includes an explicit sequential native-suite coordinator; final map/group rehearsal and publication are still separate gates. Voice is explicitly deferred by the owner (19 November); no room-audio policy is selected.
 
 Planning baseline: 4 November 2026. Source: [gameplay brief revision 1.1](../../THE_LAST_COUNCIL_EVENT_BRIEF.md). The brief is preserved unchanged; its revision number is not a mod release number.
 
