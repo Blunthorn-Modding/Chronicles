@@ -1,6 +1,6 @@
 # LC-06 — Rebellion, reinstatement and guarded Regions
 
-Status: [UI proposal](LC06_UI_DESIGN.md) simplified after the 18 November owner review; native implementation awaits revised workflow approval. Rebellions has its own left-side entry under My house. Region access uses existing Region subtypes. The owner removed reinstatement without an eligible Council, superseding the earlier consent fallback. The owner retained one simple Allow one palace visit action in Chancellor proceedings; the visit ends on exit. Depends on LC-01/02/03; integrate LC-04/05. Brief: §§3, 5.3, 6.2, 8.4–8.5, 11–12, 14.
+Status: [UI proposal](LC06_UI_DESIGN.md) simplified after the 18 November owner review; the owner approved the revised workflow on 18 November and native implementation is automatically verified; human multiplayer review remains pending. See [implementation evidence](LC06_RESULTS.md). Rebellions has its own left-side entry under My house. Region access uses existing Region subtypes. The owner removed reinstatement without an eligible Council, superseding the earlier consent fallback. The owner retained one simple Allow one palace visit action in Chancellor proceedings; the visit ends on exit. Depends on LC-01/02/03; integrate LC-04/05. Brief: §§3, 5.3, 6.2, 8.4–8.5, 11–12, 14.
 
 ## Outcome and ownership
 

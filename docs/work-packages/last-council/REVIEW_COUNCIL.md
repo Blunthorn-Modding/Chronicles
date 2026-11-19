@@ -1,7 +1,19 @@
-# Council review - development build 0.2.0-dev.7
+# Council review - development build 0.2.0-dev.17
 
-Current review build: **0.2.0-dev.16**, matching e4mc [Host](../../../../client/Chronicle-Last-Council-0.2.0-dev.16-e4mc-Host.mrpack) / [Player](../../../../client/Chronicle-Last-Council-0.2.0-dev.16-e4mc-Player.mrpack) packs. See [foreign affairs](LC05B_RESULTS.md) and [conflicts/typed agreements](LC05A_RESULTS.md). No dedicated local review server is running. Existing treaty and complication group acceptance remains deferred. Earlier dated instructions below describe their respective checkpoints.
+Current review build: **0.2.0-dev.17**, matching e4mc [Host](../../../../client/Chronicle-Last-Council-0.2.0-dev.17-e4mc-Host.mrpack) / [Player](../../../../client/Chronicle-Last-Council-0.2.0-dev.17-e4mc-Player.mrpack) packs. See [rebellion and Region access](LC06_RESULTS.md), [foreign affairs](LC05B_RESULTS.md) and [conflicts/typed agreements](LC05A_RESULTS.md). No dedicated local review server is running. Human multiplayer acceptance remains deferred.
 
+## Rebellion review
+
+1. Import matching fresh Host and Player packs; only the Host opens the bundled world. Assign a separate Chancellor and participating House representatives, as before.
+2. While paused with Editing enabled, create an outside Point at **7.5,65,0.5** using Locations. The platform ends at x/z 8. In Regions, select the Council Region, enable Region access through Choose subtypes and choose that Point. Configure the safe exit before inviting guests into the guarded Region. Then turn Editing and Building Mode off and resume play.
+3. A House opens **My house > Rebellions**, declares a faction or joins one, and confirms. It must be ejected safely and lose Council rights while remaining a participant. Creative/Spectator do not bypass the boundary. `/chronicle council rebellions` opens the same public registry. An open ballot must prevent new membership changes.
+4. From proceedings, the Chancellor uses **Allow visit** for a rebel House. It may enter once; leaving ends that visit. Its Council rights remain absent. Reconnect while inside and then after leaving to check the distinction.
+5. Propose **Reinstate Houses**, choose the named rebels and pass its fixed two-thirds vote. Closing restores those exact memberships and palace access. Failed/void results do nothing. A previously withdrawn candidate does not rejoin an already locked succession.
+6. Reopen the public registry after changes/recovery to inspect history. Do not remove journal files to simulate a reset; use a new clean world for another complete scenario.
+
+The automatic four-client checks exercise movement, mounts, camera, dimension commands, respawn, visits, three restarts and interrupted reinstatement recovery. They do not certify physical portals, a final palace map, human negotiation or voice audibility. Complication and treaty group reviews remain pending.
+
+## Earlier review checkpoints (historical)
 
 **9 November follow-up:** the available review looks good to the owner. Human complication/recess/Regency testing with a larger group is explicitly deferred and remains an acceptance task. It does not block development. Dev.7 repairs the pool frame/footer, adds reusable pool/settings export/import and implements the initial treaty ceremony. Review deliveries are e4mc Host and Player only.
 

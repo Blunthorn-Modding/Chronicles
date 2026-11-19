@@ -1,13 +1,15 @@
 # Last Council implementation
 
-Source development version: `0.2.0-dev.16`. Branch: `feat/last-council-foreign-affairs`.
+Source development version: `0.2.0-dev.17`. Branch: `feat/last-council-rebellion`.
 
-Current implementation: [LC05B foreign affairs](LC05B_RESULTS.md), automatically verified and packaged; human acceptance remains deferred.
+Current implementation: [LC06 rebellion and guarded Regions](LC06_RESULTS.md). Core owns generic Region access; Last Council owns rebellion, one-visit permission and exact two-thirds reinstatement. Automated evidence and remaining human review gates are recorded there.
+
+Previous delivery: [LC05B foreign affairs](LC05B_RESULTS.md), automatically verified and packaged; human acceptance remains deferred.
 
 Previous delivery: [LC05A conflicts, typed treaties and recovery](LC05A_RESULTS.md). Both e4mc review packs are built; human multiplayer acceptance remains deferred.
 The approved scene prototype is the native UI authority. The original event brief and released alpha artifacts remain unchanged.
 
-## Current delivery
+## Earlier delivery checkpoints (historical)
 
 [DEV14_BANQUET_FEEDBACK.md](DEV14_BANQUET_FEEDBACK.md) records accepted food poisoning, the requested feedback/loot/death-message corrections and the hunger diagnosis.
 

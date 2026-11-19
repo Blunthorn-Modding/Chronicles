@@ -1,6 +1,6 @@
 # LC-09 — Integrated rehearsal, map gates and release
 
-Status: planned. Depends on LC-01–06/08, the chosen LC-10 voice behavior, and LC-07 if enabled. Brief: §§11–16 plus the user's room-acoustics clarification.
+Status: integrated verification tooling delivered and exercised across five native suites; human map/group/voice and release gates remain pending. Depends on LC-01–06/08, the chosen LC-10 voice behavior, and LC-07 if enabled. Brief: §§11–16 plus the user's room-acoustics clarification.
 
 ## Outcome
 
@@ -8,7 +8,7 @@ Deliver a coherent one-evening political campaign with recoverable procedures an
 
 ## Work and evidence
 
-1. Add a reusable `scripts/last_council_smoke.py` native runner with explicit named suites, bounded disposable worlds, real player/GM packets and compact reports. This runner is planned, not currently available.
+1. The existing `scripts/last_council_smoke.py` verifies the native foundation. `python scripts/council_suite.py --list` now lists named suites without launching anything. Use repeated `--suite` choices or explicit `--all` for sequential native runs. The coordinator records source-built JAR hashes, requires a fresh PASS child report plus zero exit status, refuses changed artifacts, and retains failed/partial evidence. Its mock checks cover stale/missing/failed reports, changed JARs, empty selections, fail-fast and cancellation. Each underlying suite owns its disposable processes and worlds; the coordinator does not delete them or establish human/voice acceptance.
    Include randomized card-bound handout generation, zero/one/multiple secret observers with no owner exposure marker, consistent actual knowledge and restart-safe private delivery, preserving old fixed assignments.
 2. Drive the brief's §14 scenarios through real interfaces, applying the later user corrections: sponsorship/agenda, public and secret **immutable confirmed votes**, later-meeting succession, treaties, house/civil/foreign wars, rebellion/exile and formal reinstatement. Reject vote replacement through stale packets, reconnect, popup reopen and alternate commands.
    Capture only eligible houses with online representatives inside the voting Region at opening. Prove five of eight present means majority3/two-thirds4; late arrivals cannot join; departure/disconnect does not lower N; captured representatives may return with their final vote preserved. Opening a later ballot captures new attendance. Zero present refuses opening without auto-passage or a vacant-throne result. Verify actual server Region/projection behavior and restart persistence, not just browser sample state.

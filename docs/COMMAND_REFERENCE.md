@@ -1,4 +1,4 @@
-# Chronicle commands (Core/Last Council0.2.0-dev.11)
+# Chronicle commands (Core/Last Council 0.2.0-dev.17)
 
 Use **O** or `/chronicle` to reopen your last editor page in this connection. An explicit page command opens that page instead. Reconnecting resets navigation and Editing. Menu drafts and confirmations are never restored across reconnects. An unsaved Source catalogue draft can be resumed within the same connection after a refused or timed-out save.
 
@@ -165,6 +165,7 @@ The native subtype fixture checks the actual merged dispatcher, removed roots, o
 
 | Command | Purpose | Access |
 | --- | --- | --- |
+| `/chronicle council rebellions` | Public rebellion registry; declarations and joins use authenticated confirmations | Public inspection; actions require eligible active House participation |
 | `/chronicle council` | Existing character card with My house / Other houses | Own card and own private papers; public house directory |
 | `/chronicle council characters` | Council setup: house assignment, explicit Chancellor and papers, also available through Players | Operator level2; non-active Editing; house/cast setup locks after issuance, office changes refused during ballots |
 | `/chronicle council proceedings` | Call/open meetings, agenda, individual ballots, regency, recess and archived results | Explicitly appointed Chancellor; most mutations active play |
