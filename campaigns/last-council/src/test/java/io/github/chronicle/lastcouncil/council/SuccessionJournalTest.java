@@ -114,7 +114,7 @@ class SuccessionJournalTest {
         var migrated=new ProceedingsService(new ProceedingsStore(journal),new BallotService(new BallotStore(ledger),Clock.systemUTC()),Clock.systemUTC());
         assertEquals(SuccessionState.empty(),migrated.state().succession());assertEquals(1,migrated.state().motions().size());
         assertNull(migrated.state().pending().result());migrated.recover();
-        assertEquals(5,JsonParser.parseString(Files.readString(journal)).getAsJsonObject().get("schemaVersion").getAsInt());
+        assertEquals(6,JsonParser.parseString(Files.readString(journal)).getAsJsonObject().get("schemaVersion").getAsInt());
         var reloaded=new ProceedingsService(new ProceedingsStore(journal),new BallotService(new BallotStore(ledger),Clock.systemUTC()),Clock.systemUTC());
         assertEquals(migrated.state(),reloaded.state());assertEquals(1,reloaded.state().attempts().size());
         assertEquals("yes",reloaded.view(b.definition().id(),A).ownChoice());

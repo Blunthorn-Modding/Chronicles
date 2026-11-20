@@ -40,7 +40,8 @@ class MotionProgressionTest {
         s.region(REGION.id());s.openMeeting();UUID id=UUID.randomUUID();s.propose(motion(id,HOST,"",true));s.defer(id,"Until later");
         var reloaded=new ProceedingsService(new ProceedingsStore(journal),new BallotService(new BallotStore(ledger),Clock.systemUTC()),Clock.systemUTC());
         assertTrue(reloaded.pendingMotions().isEmpty());assertEquals(1,reloaded.state().deferredAt().get(id));
-        var tree=JsonParser.parseString(Files.readString(journal)).getAsJsonObject();tree.addProperty("schemaVersion",2);tree.getAsJsonObject("state").remove("deferredAt");tree.getAsJsonObject("state").getAsJsonObject("motions").asMap().values().forEach(m->{m.getAsJsonObject().remove("foreign");m.getAsJsonObject().remove("reinstatement");});Files.writeString(journal,tree.toString());
+        var tree=JsonParser.parseString(Files.readString(journal)).getAsJsonObject();tree.addProperty("schemaVersion",2);tree.getAsJsonObject("state").remove("deferredAt");tree.getAsJsonObject("state").getAsJsonObject("motions").asMap().values().forEach(m->{m.getAsJsonObject().remove("foreign");m.getAsJsonObject().remove("reinstatement");});
+        tree.getAsJsonObject("state").getAsJsonObject("succession").remove("end");Files.writeString(journal,tree.toString());
         var legacy=new ProceedingsService(new ProceedingsStore(journal),new BallotService(new BallotStore(ledger),Clock.systemUTC()),Clock.systemUTC());
         assertEquals(List.of(id),legacy.pendingMotions());assertEquals(reloaded.state().motions().get(id).notes(),legacy.state().motions().get(id).notes());
     }

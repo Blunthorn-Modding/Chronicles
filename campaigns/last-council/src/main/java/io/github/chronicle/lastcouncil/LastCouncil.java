@@ -21,6 +21,7 @@ public final class LastCouncil implements ModInitializer {
         io.github.chronicle.lastcouncil.network.CatalogueEditorPayloads.register();
         io.github.chronicle.lastcouncil.network.PaperCopyPayloads.register();
         io.github.chronicle.lastcouncil.network.ProceedingsPayloads.register();
+        io.github.chronicle.lastcouncil.network.ElectionPayloads.register();
         CouncilRuntime.register();
         io.github.chronicle.lastcouncil.server.CouncilCatalogueRuntime.register();
         io.github.chronicle.lastcouncil.server.CouncilContentEditorRuntime.register();
@@ -35,6 +36,7 @@ public final class LastCouncil implements ModInitializer {
         io.github.chronicle.lastcouncil.server.TreatyRuntime.register();
         io.github.chronicle.lastcouncil.server.ConflictRuntime.register();
         io.github.chronicle.lastcouncil.server.PoliticalSourcesRuntime.register();
+        io.github.chronicle.lastcouncil.server.ElectionRuntime.register();
         if(io.github.chronicle.core.server.PackagedScenarios.defaultsFor(SCENARIO)) {
             io.github.chronicle.core.scenario.ScenarioEventTemplates.register(io.github.chronicle.lastcouncil.content.CouncilDefaults.meetingCall());
             for(var event:io.github.chronicle.lastcouncil.content.CouncilDefaults.complications())io.github.chronicle.core.scenario.ScenarioEventTemplates.register(event);

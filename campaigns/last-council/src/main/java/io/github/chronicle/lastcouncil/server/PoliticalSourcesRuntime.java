@@ -18,10 +18,10 @@ public final class PoliticalSourcesRuntime {
         if(CouncilRuntime.active()) {
             provider("vote_completed","Council vote completed","A completed Council ballot and its public outcome; never individual secret choices.",
                     List.of(),"passed","rejected");
-            provider("succession_result","Succession result","A recorded public Regency result.",List.of(choice("election","The election")),"crowned","eliminated","vacant");
+            provider("succession_result","Succession result","A recorded public Regency result.",List.of(choice("election","The election")),"crowned","eliminated","vacant","withdrawn","unresolved");
             provider("treaty_changed","Public treaty activity","Only public historical treaty actions. Private agreements never emit this source.",List.of(choice("*","Any public treaty")),"signed","sanctified","broken");
             provider("rebellion_changed","Rebellion or reinstatement","A completed public change for the selected House.",null,"declared","joined","reinstated");
-            for(String prefix:List.of("council-outcome:","council-treaty:","council-rebellion:"))
+            for(String prefix:List.of("council-outcome:","council-treaty:","council-rebellion:","council-election:"))
                 EventSources.registerAuthority(prefix,PoliticalSourcesRuntime::resolve,true);
         }
         // Run after parent startup/recovery: upgrading must not backfill old political history.
@@ -32,7 +32,7 @@ public final class PoliticalSourcesRuntime {
     private static void provider(String suffix,String title,String description,List<EventSources.Choice> targets,String... activities){
         EventSources.registerProvider("last_council:"+suffix,title,description,
                 s->{if(suffix.equals("vote_completed"))return ProceedingsRuntime.motionSourceChoices(s);if(targets!=null)return targets;var choices=new ArrayList<EventSources.Choice>();choices.add(choice("*","Any House"));CouncilRuntime.houses(s).values().forEach(h->choices.add(choice(h.id(),h.title())));return List.copyOf(choices);},
-                Arrays.stream(activities).map(a->choice(a,switch(a){case "passed"->"Passed";case "rejected"->"Did not pass";case "crowned"->"Ruler elected";case "eliminated"->"Candidate eliminated";case "vacant"->"Throne left vacant";case "signed"->"Signature recorded";case "sanctified"->"Agreement sanctified";case "broken"->"Agreement broken";case "declared"->"Rebellion declared";case "joined"->"House joined rebellion";default->"House reinstated";})).toList(),false);
+                Arrays.stream(activities).map(a->choice(a,switch(a){case "passed"->"Passed";case "rejected"->"Did not pass";case "crowned"->"Ruler elected";case "eliminated"->"Candidate eliminated";case "vacant"->"Throne left vacant";case "signed"->"Signature recorded";case "sanctified"->"Agreement sanctified";case "broken"->"Agreement broken";case "withdrawn"->"Candidate withdrew voluntarily";case "unresolved"->"Election ended unresolved";case "declared"->"Rebellion declared";case "joined"->"House joined rebellion";default->"House reinstated";})).toList(),false);
     }
     public static void prepare(MinecraftServer s,List<PoliticalOccurrence> occurrences) {
         if(!STARTED.contains(s)||RuntimeHolds.reason(s)!=null||!EventSources.activeOperation(s))return;
@@ -53,7 +53,10 @@ public final class PoliticalSourcesRuntime {
         if(!STARTED.contains(s))return false;
         try {
             List<PoliticalOccurrence> evidence;
-            if(receipt.authority().startsWith("council-outcome:")) {
+            if(receipt.authority().startsWith("council-election:")){
+                if(!ProceedingsRuntime.effectsReady(s))return false;
+                evidence=ProceedingsRuntime.electionAuthority(s).politicalElectionEvidence(receipt.authority());
+            }else if(receipt.authority().startsWith("council-outcome:")) {
                 if(!ProceedingsRuntime.effectsReady(s))return false;
                 evidence=ProceedingsRuntime.politicalEvidence(s,receipt.authority());
             }else if(receipt.authority().startsWith("council-treaty:")) {

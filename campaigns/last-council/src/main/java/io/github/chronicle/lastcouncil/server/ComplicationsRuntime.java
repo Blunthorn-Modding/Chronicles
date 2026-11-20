@@ -107,6 +107,7 @@ public final class ComplicationsRuntime {
             throw new IllegalStateException("Choose a pool with enough enabled manual once-only Events, without delays.");
     }
     /** Called after the durable meeting transition, also observed by tick after recovery. */
+    static List<Integer> declaredMeetings(MinecraftServer server)throws IOException{var r=runtime(server);ready(r);return r.config().meetings().stream().sorted().toList();}
     public static void beforeMeetingOpen(MinecraftServer server)throws IOException {
         var r=runtime(server);ready(r);if(!r.plan.isInitialized())validateSetup(server,r.settings.config());
     }

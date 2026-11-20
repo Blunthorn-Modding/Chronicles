@@ -57,6 +57,7 @@ public record ProceedingsState(long revision, int meeting, Phase phase, String v
         if (pending != null && !pending.ballot().equals(activeBallot)) throw new IllegalArgumentException("Pending ballot changed.");
         calls.forEach((id,c) -> { if (c.meeting()>meeting || !id.equals(c.id())) throw new IllegalArgumentException("Call identity or meeting mismatch."); });
         if(succession.withdrawals().stream().anyMatch(w->w.meeting()>meeting))throw new IllegalArgumentException("Withdrawal belongs to a future meeting.");
+        if(succession.end()!=null&&succession.end().meeting()>meeting)throw new IllegalArgumentException("Election end belongs to a future meeting.");
         for(var entry:succession.rounds().entrySet()) {
             Attempt a=attempts.get(entry.getKey());SuccessionState.Round round=entry.getValue();
             if(a==null||(motions.get(a.motion()).foreign()!=null||motions.get(a.motion()).reinstatement()!=null)||a.meeting()!=round.meeting()||a.definition().visibility()!=BallotVisibility.SECRET

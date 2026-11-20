@@ -82,7 +82,7 @@ def snapshot(root):
 def review_proceedings(document):
     """Reset the exported fixture, accepting each supported on-disk schema."""
     schema = document['schemaVersion']
-    if schema not in (1, 2, 3, 4, 5):
+    if schema not in (1, 2, 3, 4, 5, 6):
         raise RuntimeError('Unsupported Council proceedings schema')
     state = document['state']
     rounds = {} if schema == 1 else state['succession']['rounds']
@@ -94,13 +94,13 @@ def review_proceedings(document):
         clean = dict(motion, sponsors=[], status='AGENDA', ballots=[], notes=[], foreign=motion.get('foreign'), reinstatement=None)
         motions[identity] = clean
     return {
-        'schemaVersion': 5,
+        'schemaVersion': 6,
         'state': {'revision': 0, 'meeting': 0, 'phase': 'BETWEEN',
                   'votingRegion': state['votingRegion'], 'lecterns': state['lecterns'],
                   'motions': motions, 'attempts': {}, 'activeBallot': None,
                   'pending': None, 'calls': {}, 'deferredAt': {},
                   'succession': {'stage': 'NOT_STARTED', 'initial': [], 'remaining': [],
-                                 'crowned': '', 'rounds': {}, 'withdrawals': []}},
+                                 'crowned': '', 'rounds': {}, 'withdrawals': [], 'end': None}},
     }
 
 
@@ -146,6 +146,20 @@ Use the lectern to view/propose motions. Voters must be inside the Council
 Region (x/z -5..5, y 64..80) when the ballot opens. Creative mode is allowed.
 Later Regency ballots wait for every remaining candidate to return.
 
+ELECTION CONTROLS: My house > Election shows remaining candidates and public
+history. A participating candidate may withdraw with a public reason between
+ballots, keeping their House's Council vote. An open ballot or same-meeting
+void replacement blocks withdrawal. One remaining candidate still needs a
+later confirmation ballot; the last withdrawal leaves the throne vacant.
+The assigned Chancellor's proceedings > Election can end a contested
+election unresolved with a public reason and no open ballot. This keeps
+history and ordinary Council business, with no election reset/deposition.
+The planning warning is Chancellor-only and does not block play. Both
+panels update automatically. In Events/Flags, public completed votes,
+succession results, public treaty actions and rebellion changes can update
+flags through the existing trigger system; private agreements/choices do
+not appear as public triggers.
+
 HOUSE CONFLICTS: An eligible house representative can obtain a Challenge
 token using /chronicle council challenge-token. Use it on the other nearby
 representative and confirm a public reason. /chronicle council conflicts
@@ -182,7 +196,8 @@ open it together to create an agreement, then sign the exact terms individually.
 The appointed Chancellor opens the same lectern to sanctify after everyone
 has signed and returned. Signatures survive leaving/reconnecting. Changed
 drafts clear signatures. Private agreements and breaches remain private to
-their parties and the Chancellor. Realm ratification/amendments are not included.
+their parties and the Chancellor. Binding Council decisions use normal
+motions and votes; they do not need a separate ratification phase.
 
 LATE ARRIVAL: pause play, enable Editing, and assign an unused House to an
 unassigned online player. Existing papers and historical ballots stay fixed.

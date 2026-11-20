@@ -87,6 +87,9 @@ class CoordinatorTests(unittest.TestCase):
                 self.assertEqual(0, suite.main(['--list']))
             self.assertIn('rebellion', output.getvalue())
 
+    def test_election_suite_is_registered(self):
+        self.assertEqual(('council_election_smoke.py', 'council-election-'), suite.SUITES['election'])
+
     def test_interrupt_records_cancelled(self):
         def runner(*_):
             raise KeyboardInterrupt

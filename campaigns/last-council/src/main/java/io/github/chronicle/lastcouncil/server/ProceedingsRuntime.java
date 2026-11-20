@@ -122,6 +122,13 @@ public final class ProceedingsRuntime {
         var choices=new ArrayList<EventSources.Choice>();choices.add(new EventSources.Choice("*","Any Council vote","A completed ballot, without individual secret choices."));choices.add(new EventSources.Choice("regency","Regency ballot","Any completed Regency round."));
         var r=WORLDS.get(server);if(r!=null){var state=r.service.state();var regency=new HashSet<UUID>();state.succession().rounds().keySet().forEach(id->regency.add(state.attempts().get(id).motion()));state.motions().values().stream().filter(m->!regency.contains(m.id())).sorted(Comparator.comparing(Motion::title).thenComparing(m->m.id().toString())).forEach(m->choices.add(new EventSources.Choice(m.id().toString(),m.title(),"This motion's completed ballot.")));}return List.copyOf(choices);
     }
+    static ProceedingsService electionAuthority(MinecraftServer server)throws IOException{
+        var r=WORLDS.get(server);if(r==null||r.failed||!CouncilRuntime.active())throw new IOException("Council records unavailable");
+        try{r.service.verifyUnchanged();return r.service;}catch(IOException|RuntimeException failure){hold(server,failure);throw new IOException("Council records need recovery",failure);}
+    }
+    static void electionFailed(MinecraftServer server,Exception failure){hold(server,failure);}
+    static void electionChanged(MinecraftServer server){var r=WORLDS.get(server);if(r!=null)refresh(server,r);}
+    static String electionLabel(MinecraftServer server,String house){return candidateLabel(server,house);}
     public static boolean effectsReady(MinecraftServer server){var r=WORLDS.get(server);return r!=null&&!r.failed&&r.service.state().pending()==null;}
     /** Operator command may call this even when initial authority loading never produced a runtime. */
     public static boolean recoverAuthority(MinecraftServer server){if(!CouncilRuntime.active())return false;start(server);return effectsReady(server)&&RuntimeHolds.reason(server)==null;}

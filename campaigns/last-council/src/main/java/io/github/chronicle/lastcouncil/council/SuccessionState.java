@@ -1,12 +1,17 @@
 package io.github.chronicle.lastcouncil.council;
 
 import io.github.chronicle.core.ballots.BallotStatus;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 /** Scenario-owned succession history. No individual secret choices are stored here. */
 public record SuccessionState(Stage stage, Set<String> initial, Set<String> remaining, String crowned,
-        Map<UUID,Round> rounds, List<Withdrawal> withdrawals) {
+        Map<UUID,Round> rounds, List<Withdrawal> withdrawals, End end) {
     public enum Stage { NOT_STARTED, CONTESTED, CROWNED, VACANT, UNRESOLVED }
+    public SuccessionState(Stage stage, Set<String> initial, Set<String> remaining, String crowned,
+            Map<UUID,Round> rounds, List<Withdrawal> withdrawals) {
+        this(stage,initial,remaining,crowned,rounds,withdrawals,stage==Stage.UNRESOLVED?End.legacyMarker():null);
+    }
     public SuccessionState {
         Objects.requireNonNull(stage); Objects.requireNonNull(crowned);
         initial=Set.copyOf(initial); remaining=Set.copyOf(remaining); rounds=Map.copyOf(rounds); withdrawals=List.copyOf(withdrawals);
@@ -19,7 +24,8 @@ public record SuccessionState(Stage stage, Set<String> initial, Set<String> rema
         } else if(initial.size()<2||rounds.isEmpty())throw new IllegalArgumentException("The initial slate needs at least two candidates.");
         if(stage==Stage.CROWNED?!remaining.contains(crowned):!crowned.isEmpty())throw new IllegalArgumentException("Invalid crown.");
         if(stage==Stage.CONTESTED&&remaining.isEmpty())throw new IllegalArgumentException("No candidate remains.");
-        if(stage!=Stage.NOT_STARTED)validateHistory(stage,initial,remaining,crowned,rounds,withdrawals);
+        if((stage==Stage.UNRESOLVED)!=(end!=null))throw new IllegalArgumentException("Election end does not match its stage.");
+        if(stage!=Stage.NOT_STARTED)validateHistory(stage,initial,remaining,crowned,rounds,withdrawals,end);
 
     }
     public static SuccessionState empty(){return new SuccessionState(Stage.NOT_STARTED,Set.of(),Set.of(),"",Map.of(),List.of());}
@@ -34,8 +40,37 @@ public record SuccessionState(Stage stage, Set<String> initial, Set<String> rema
             if(result!=null&&!slate.containsAll(result.tiedLast()))throw new IllegalArgumentException("Draw is outside slate.");
         }
     }
-    public record Withdrawal(int order,String house,UUID actor,String reason,int meeting) {
-        public Withdrawal { SuccessionState.house(house);Objects.requireNonNull(actor);ProceedingsState.validText(reason,400,true);if(order<1||meeting<1)throw new IllegalArgumentException("Invalid withdrawal meeting."); }
+    public record Withdrawal(int order,String house,UUID actor,String reason,int meeting,UUID operation,boolean voluntary) {
+        public Withdrawal(int order,String house,UUID actor,String reason,int meeting) {
+            this(order,house,actor,reason,meeting,systemWithdrawalId(order,house,actor,reason,meeting),false);
+        }
+        public Withdrawal {
+            SuccessionState.house(house);
+            Objects.requireNonNull(actor);
+            Objects.requireNonNull(operation);
+            ProceedingsState.validText(reason,400,true);
+            if(order<1||meeting<1)throw new IllegalArgumentException("Invalid withdrawal meeting or order.");
+            if(!voluntary&&!operation.equals(systemWithdrawalId(order,house,actor,reason,meeting)))
+                throw new IllegalArgumentException("Invalid system withdrawal identity.");
+        }
+        private static UUID systemWithdrawalId(int order,String house,UUID actor,String reason,int meeting) {
+            String identity = "council-system-withdrawal\n"+order+"\n"+meeting+"\n"+house+"\n"+actor+"\n"+reason;
+            return UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+    public record End(UUID operation,UUID actor,String reason,int meeting,boolean legacy) {
+        public End {
+            if(legacy) {
+                if(operation!=null||actor!=null||reason!=null||meeting!=0)
+                    throw new IllegalArgumentException("A legacy end cannot contain invented audit details.");
+            } else {
+                Objects.requireNonNull(operation);
+                Objects.requireNonNull(actor);
+                ProceedingsState.validText(reason,400,true);
+                if(meeting<1)throw new IllegalArgumentException("Invalid election end meeting.");
+            }
+        }
+        static End legacyMarker() { return new End(null,null,null,0,true); }
     }
     public SuccessionState open(UUID id,int meeting,Set<String> candidates) {
         if(stage!=Stage.NOT_STARTED&&stage!=Stage.CONTESTED)throw new IllegalStateException("Succession has already ended.");
@@ -60,28 +95,42 @@ public record SuccessionState(Stage stage, Set<String> initial, Set<String> rema
         return new SuccessionState(outcome,initial,survivors,monarch,next,withdrawals);
     }
     public SuccessionState withdraw(String house,UUID actor,String reason,int meeting) {
+        return withdraw(new Withdrawal(rounds.size()+withdrawals.size()+1,house,actor,reason,meeting));
+    }
+    public SuccessionState withdraw(UUID operation,String house,UUID actor,String reason,int meeting) {
+        return withdraw(new Withdrawal(rounds.size()+withdrawals.size()+1,house,actor,reason,meeting,operation,true));
+    }
+    private SuccessionState withdraw(Withdrawal withdrawal) {
+        String house=withdrawal.house();
         if(stage!=Stage.CONTESTED||!remaining.contains(house)||rounds.values().stream().anyMatch(r->r.status()==BallotStatus.OPEN))
             throw new IllegalStateException("Only a remaining candidate may withdraw between ballots.");
         Round latest=rounds.values().stream().max(Comparator.comparingInt(Round::order)).orElseThrow();
-        if(latest.status()==BallotStatus.VOID&&latest.meeting()==meeting)
+        if(latest.status()==BallotStatus.VOID&&latest.meeting()==withdrawal.meeting())
             throw new IllegalStateException("A same-meeting replacement must retain the voided ballot's candidate slate.");
         Set<String> survivors=new HashSet<>(remaining);survivors.remove(house);
-        List<Withdrawal> next=new ArrayList<>(withdrawals);next.add(new Withdrawal(rounds.size()+withdrawals.size()+1,house,actor,reason,meeting));
+        List<Withdrawal> next=new ArrayList<>(withdrawals);next.add(withdrawal);
         return new SuccessionState(survivors.isEmpty()?Stage.VACANT:stage,initial,survivors,"",rounds,next);
     }
     public SuccessionState endUnresolved() {
+        return endUnresolved(End.legacyMarker());
+    }
+    public SuccessionState endUnresolved(UUID operation,UUID actor,String reason,int meeting) {
+        return endUnresolved(new End(operation,actor,reason,meeting,false));
+    }
+    private SuccessionState endUnresolved(End audit) {
         if(stage!=Stage.CONTESTED||rounds.values().stream().anyMatch(r->r.status()==BallotStatus.OPEN))
             throw new IllegalStateException("Only unfinished succession between ballots can be ended.");
-        return new SuccessionState(Stage.UNRESOLVED,initial,remaining,"",rounds,withdrawals);
+        return new SuccessionState(Stage.UNRESOLVED,initial,remaining,"",rounds,withdrawals,audit);
     }
     private record Step(int order,int meeting,Round round,Withdrawal withdrawal) { }
     private static void validateHistory(Stage stage,Set<String> initial,Set<String> remaining,String crowned,
-            Map<UUID,Round> rounds,List<Withdrawal> withdrawals) {
+            Map<UUID,Round> rounds,List<Withdrawal> withdrawals,End end) {
         List<Step> history=new ArrayList<>();
         rounds.values().forEach(r->history.add(new Step(r.order(),r.meeting(),r,null)));
         withdrawals.forEach(w->history.add(new Step(w.order(),w.meeting(),null,w)));
         history.sort(Comparator.comparingInt(Step::order));
         Set<String> expected=new HashSet<>(initial);Stage outcome=Stage.CONTESTED;String monarch="";
+        Set<UUID> operations=new HashSet<>();
         int sequence=0,lastMeeting=0,lastCompleted=0;boolean open=false;Round previousRound=null;
         for(Step step:history) {
             if(step.order()!=++sequence||step.meeting()<lastMeeting||open||outcome!=Stage.CONTESTED)
@@ -105,12 +154,17 @@ public record SuccessionState(Stage stage, Set<String> initial, Set<String> rema
             } else {
                 if(sequence==1||previousRound!=null&&previousRound.status()==BallotStatus.VOID&&previousRound.meeting()==step.meeting())
                     throw new IllegalArgumentException("A same-meeting replacement cannot change its candidate slate.");
+                if(!operations.add(step.withdrawal().operation()))throw new IllegalArgumentException("Duplicate election operation.");
                 if(!expected.remove(step.withdrawal().house()))throw new IllegalArgumentException("Invalid candidate withdrawal.");
                 if(expected.isEmpty())outcome=Stage.VACANT;
             }
         }
-        boolean unresolved=stage==Stage.UNRESOLVED&&outcome==Stage.CONTESTED&&!open;
-        if(!remaining.equals(expected)||!crowned.equals(monarch)||stage!=outcome&&!unresolved)
+        if(end!=null) {
+            if(outcome!=Stage.CONTESTED||open||!end.legacy()&&(end.meeting()<lastMeeting||!operations.add(end.operation())))
+                throw new IllegalArgumentException("Invalid terminal election audit.");
+            outcome=Stage.UNRESOLVED;
+        }
+        if(!remaining.equals(expected)||!crowned.equals(monarch)||stage!=outcome)
             throw new IllegalArgumentException("Succession state differs from its chronological history.");
     }
     private static void house(String id){if(id==null||id.length()>128||!id.matches("[a-z0-9_.-]+:[a-z0-9_./-]+"))throw new IllegalArgumentException("Invalid candidate ID.");}

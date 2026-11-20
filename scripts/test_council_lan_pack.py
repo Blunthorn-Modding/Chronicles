@@ -22,13 +22,13 @@ class CouncilLanPackTest(unittest.TestCase):
         return {'schemaVersion': schema, 'state': state}
 
     def test_supported_schemas_export_clean_authored_content(self):
-        for schema in (1, 2, 3, 4, 5):
+        for schema in (1, 2, 3, 4, 5, 6):
             with self.subTest(schema=schema):
                 source = self.fixture(schema)
                 saved = repr(source)
                 clean = pack.review_proceedings(source)
                 self.assertEqual(saved, repr(source))
-                self.assertEqual(clean['schemaVersion'], 5)
+                self.assertEqual(clean['schemaVersion'], 6)
                 state = clean['state']
                 self.assertEqual(set(state['motions']), {'ordinary'})
                 self.assertEqual(state['motions']['ordinary']['title'], 'Road')
@@ -38,6 +38,7 @@ class CouncilLanPackTest(unittest.TestCase):
                 self.assertIsNone(state['activeBallot'])
                 self.assertIsNone(state['pending'])
                 self.assertEqual(state['succession']['stage'], 'NOT_STARTED')
+                self.assertIsNone(state['succession']['end'])
 
     def test_reinstatement_with_live_memberships_is_not_exported(self):
         source=self.fixture(5)
@@ -46,7 +47,7 @@ class CouncilLanPackTest(unittest.TestCase):
 
     def test_unknown_schema_is_not_silently_exported(self):
         with self.assertRaises(RuntimeError):
-            pack.review_proceedings({'schemaVersion': 6, 'state': {}})
+            pack.review_proceedings({'schemaVersion': 7, 'state': {}})
 
     def test_guarded_map_travels_without_live_rebellion_progress(self):
         with TemporaryDirectory() as directory:

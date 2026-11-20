@@ -41,7 +41,7 @@ public final class ProceedingsStore implements ProceedingsRepository {
         if (!loaded) throw new IOException("Load proceedings before saving");
         try {
             JsonObject root = new JsonObject();
-            root.addProperty("schemaVersion", 5);
+            root.addProperty("schemaVersion", 6);
             root.add("state", JSON.toJsonTree(Objects.requireNonNull(state)));
             byte[] bytes = encodeUtf8(root + "\n");
             if (bytes.length > MAX_BYTES || !decode(decodeUtf8(bytes)).equals(state))
@@ -56,10 +56,11 @@ public final class ProceedingsStore implements ProceedingsRepository {
         JsonObject root = BookConfig.strictObject(text);
         if (!root.keySet().equals(Set.of("schemaVersion", "state"))) throw new IllegalArgumentException("Unexpected root fields");
         JsonElement version = root.get("schemaVersion");
-        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !Set.of("1","2","3","4","5").contains(version.getAsString()))
+        if (!version.isJsonPrimitive() || !version.getAsJsonPrimitive().isNumber() || !Set.of("1","2","3","4","5","6").contains(version.getAsString()))
             throw new IllegalArgumentException("Unsupported schema version");
-        if(version.getAsString().equals("1")) {
-            JsonObject state=root.getAsJsonObject("state");
+        int schema = version.getAsInt();
+        JsonObject state = root.getAsJsonObject("state");
+        if(schema==1) {
             if(state.has("succession"))throw new IllegalArgumentException("Unexpected legacy succession field");
             state.add("succession",JSON.toJsonTree(SuccessionState.empty()));
             JsonElement pending=state.get("pending");
@@ -68,26 +69,42 @@ public final class ProceedingsStore implements ProceedingsRepository {
                 pending.getAsJsonObject().add("result",JsonNull.INSTANCE);
             }
         }
-        if(Set.of("1","2").contains(version.getAsString())) {
-            JsonObject state=root.getAsJsonObject("state");
+        if(schema<=2) {
             if(state.has("deferredAt"))throw new IllegalArgumentException("Unexpected legacy deferral field");
             state.add("deferredAt",new JsonObject());
         }
-        if(Set.of("1","2","3").contains(version.getAsString())) {
-            for(var motion:root.getAsJsonObject("state").getAsJsonObject("motions").asMap().values()) {
+        if(schema<=3) {
+            for(var motion:state.getAsJsonObject("motions").asMap().values()) {
                 var object=motion.getAsJsonObject();
                 if(object.has("foreign"))throw new IllegalArgumentException("Unexpected legacy foreign subject");
                 object.add("foreign",JsonNull.INSTANCE);
             }
         }
-        if(!version.getAsString().equals("5")) {
-            for(var motion:root.getAsJsonObject("state").getAsJsonObject("motions").asMap().values()) {
+        if(schema<=4) {
+            for(var motion:state.getAsJsonObject("motions").asMap().values()) {
                 var object=motion.getAsJsonObject();if(object.has("reinstatement"))throw new IllegalArgumentException("Unexpected legacy reinstatement subject");
                 object.add("reinstatement",JsonNull.INSTANCE);
             }
         }
-        validate(root.get("state"), ProceedingsState.class, 0);
-        return Objects.requireNonNull(JSON.fromJson(root.get("state"), ProceedingsState.class));
+        if(schema>=2&&schema<=5)migrateElection(state.getAsJsonObject("succession"));
+        validate(state, ProceedingsState.class, 0);
+        return Objects.requireNonNull(JSON.fromJson(state, ProceedingsState.class));
+    }
+
+    private record LegacyWithdrawal(int order,String house,UUID actor,String reason,int meeting) { }
+
+    private static void migrateElection(JsonObject election) {
+        if(election.has("end"))throw new IllegalArgumentException("Unexpected legacy election end field");
+        election.add("end",new JsonPrimitive("UNRESOLVED").equals(election.get("stage"))
+                ?JSON.toJsonTree(SuccessionState.End.legacyMarker()):JsonNull.INSTANCE);
+        JsonArray withdrawals=election.getAsJsonArray("withdrawals");
+        if(withdrawals.size()>15)throw new IllegalArgumentException("Too many legacy withdrawals");
+        for(int i=0;i<withdrawals.size();i++) {
+            JsonElement entry=withdrawals.get(i);
+            validate(entry,LegacyWithdrawal.class,0);
+            LegacyWithdrawal old=Objects.requireNonNull(JSON.fromJson(entry,LegacyWithdrawal.class));
+            withdrawals.set(i,JSON.toJsonTree(new SuccessionState.Withdrawal(old.order(),old.house(),old.actor(),old.reason(),old.meeting())));
+        }
     }
 
     /** Only types reachable from the fixed ProceedingsState record are considered. */

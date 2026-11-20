@@ -8,7 +8,7 @@ import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.text.Text;
 public final class CouncilBusinessScreen extends CouncilScreen {
     private View view;
-    private boolean invalidated;
+    private boolean invalidated,election;
     private MotionDraftScreen retainedDraft;
     private UUID draftRequest;
     private final Map<UUID,Action> pending=new HashMap<>();
@@ -97,6 +97,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
     }
     @Override protected void init() {
         frame();
+        if(election&&!ElectionClient.owns(this))election=false;
         if(invalidated){body("The server could not update this view. Close and reopen it.\n\n"+feedback,left+12,top+36,panelWidth-24,panelHeight-68);return;}
         int x=left+10,y=top+32,h=panelHeight-62,w=panelWidth-20;
         boolean proceedings=view.mode()==Mode.PROCEEDINGS;
@@ -114,13 +115,14 @@ public final class CouncilBusinessScreen extends CouncilScreen {
                 actions.add(new Choice("call","Call meeting")); actions.add(new Choice("phase",phaseAction==Action.RECESS?"Recess":phaseAction==Action.RESUME?"Resume":"Open meeting"));
                 actions.add(new Choice("prepare","Prepare motion...")); actions.add(new Choice("motions","Motions"));
                 actions.add(new Choice("ballot",view.recoverable()?"Recover":active?"View ballot":"Ballot history"));
-                actions.add(new Choice("visit","Allow one palace visit...")); actions.add(new Choice("regency","Regency vote...")); actions.add(new Choice("finish","Close meeting"));
+                actions.add(new Choice("election","Election")); actions.add(new Choice("visit","Allow one palace visit...")); actions.add(new Choice("regency","Regency vote...")); actions.add(new Choice("finish","Close meeting"));
                 compactRows("proceedings-actions",actions,"",x,y,w,true,id->{
                     switch(id) {
-                        case "call" -> { if(view.playing()&&!view.recoverable())send(Action.CALL); }
+                        case "election" -> {election=true;ElectionClient.open(this);clearAndInit();}
+                        case "call" -> {if(election){election=false;ElectionClient.close();} if(view.playing()&&!view.recoverable())send(Action.CALL); }
                         case "phase" -> { if(view.playing()&&!active&&!view.recoverable())send(phaseAction); }
                         case "prepare" -> draft(Action.PREPARE);
-                        case "motions" -> { if(!active)send(Action.STATE,CouncilPayloads.NONE); }
+                        case "motions" -> { if(election){election=false;ElectionClient.close();clearAndInit();} if(!active)send(Action.STATE,CouncilPayloads.NONE); }
                         case "ballot" -> { if(view.recoverable())send(Action.RECOVER); else if(active)send(Action.BALLOT,view.activeBallot()); else choose("Recorded ballots",view.history().stream().map(v->new Choice(v.id().toString(),v.title())).toList(),v->send(Action.BALLOT,UUID.fromString(v))); }
                         case "visit" -> RebellionClient.visits(this);
                         case "regency" -> { if(view.regency().canOpen())confirm("Open the regency ballot?","The electorate is fixed at opening.",()->send(Action.OPEN_REGENCY,CouncilPayloads.NONE)); else feedback=view.regency().summary(); }
@@ -139,16 +141,18 @@ public final class CouncilBusinessScreen extends CouncilScreen {
             button("Call meeting",x,y,nav,()->send(Action.CALL)).active=view.playing()&&!view.recoverable();
             button(phaseLabel,x,y+22,nav,()->send(phaseAction)).active=view.playing()&&!active&&!view.recoverable();
             button("Prepare motion...",x,y+44,nav,()->draft(Action.PREPARE));
-            button("Motions",x,y+66,nav,()->send(Action.STATE,CouncilPayloads.NONE)).active=!active;
+            button("Motions",x,y+66,nav,()->{if(election){election=false;ElectionClient.close();clearAndInit();}send(Action.STATE,CouncilPayloads.NONE);}).active=!active;
             if(view.recoverable()) button("Recover",x,y+88,nav,()->send(Action.RECOVER));
             else if(active) button("View ballot",x,y+88,nav,()->send(Action.BALLOT,view.activeBallot()));
             else button("Ballot history",x,y+88,nav,()->choose("Recorded ballots",view.history().stream().map(v->new Choice(v.id().toString(),v.title())).toList(),id->send(Action.BALLOT,UUID.fromString(id))));
             button("Allow visit...",x,y+110,nav,()->RebellionClient.visits(this));
+            button("Election",x,y+132,nav,()->{election=true;ElectionClient.open(this);clearAndInit();});
             var regencyButton=button("Regency vote...",x,y+h-42,nav,()->confirm("Open the regency ballot?","The electorate is fixed at opening.",()->send(Action.OPEN_REGENCY,CouncilPayloads.NONE)));
             regencyButton.active=view.regency().canOpen();
             regencyButton.setTooltip(net.minecraft.client.gui.tooltip.Tooltip.of(Text.literal(view.regency().summary().isBlank()?"Regency":view.regency().summary())));
             button("Close meeting",x,y+h-20,nav,()->confirm("Close meeting?","This closes the current meeting.",()->send(Action.FINISH))).active=!active&&(phase.equals("DISCUSSION")||phase.equals("RECESS"));
         }
+        if(election){ElectionScreen.panel(this,compact?x:listX,y,compact?w:left+panelWidth-10-listX,h);return;}
         String chosen=view.detail()==null?"":view.detail().id().toString();
         var motionChoices=view.motions().stream().map(m->new Choice(m.id().toString(),m.title()+" ["+label(m.status())+"]")).toList();
         boolean motionEnabled=!(proceedings&&view.activeBallot()!=null&&!view.activeBallot().equals(CouncilPayloads.NONE));
@@ -242,6 +246,7 @@ public final class CouncilBusinessScreen extends CouncilScreen {
         }
     }
     @Override public void close() {
+        if(election)ElectionClient.close();
         if(ClientPlayNetworking.canSend(Request.ID))ClientPlayNetworking.send(new Request(UUID.randomUUID(),
                 Action.EXIT,view.revision(),CouncilPayloads.NONE,
                 view.mode()==Mode.PROCEEDINGS?"proceedings":"motions","","",false,false));

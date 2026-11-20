@@ -5,6 +5,9 @@ import io.github.chronicle.core.ballots.*;
 import io.github.chronicle.lastcouncil.progression.PoliticalOccurrence;
 import io.github.chronicle.lastcouncil.progression.PoliticalObserver;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.util.*;
 import java.util.function.Consumer;
@@ -12,6 +15,7 @@ import static io.github.chronicle.lastcouncil.council.ProceedingsState.*;
 
 /** Caller owns operator/session/presence checks. Durable intents bridge this journal and Core ballots. */
 public final class ProceedingsService {
+    private static final String ELECTION_AUTHORITY = "council-election:";
     private final ProceedingsRepository repository;
     private final BallotService ballots;
     private final Clock clock;
@@ -201,6 +205,46 @@ public final class ProceedingsService {
     public void endSuccessionUnresolved() throws IOException {
         idle();noBallot();publish(d->d.succession=d.succession.endUnresolved());
     }
+    public void withdrawCandidate(UUID operation,String house,UUID actor,String reason) throws IOException {
+        Objects.requireNonNull(operation);
+        verifyUnchanged();
+        SuccessionState.Withdrawal previous=electionWithdrawal(operation);
+        if(previous!=null) {
+            if(previous.voluntary()&&previous.house().equals(house)&&previous.actor().equals(actor)&&previous.reason().equals(reason))return;
+            throw new IllegalStateException("Election operation identity was already used.");
+        }
+        if(electionEnd(operation)!=null)throw new IllegalStateException("Election operation identity was already used.");
+        idle();noBallot();
+        SuccessionState election=state.succession().withdraw(operation,house,actor,reason,state.meeting());
+        publishElection(election,withdrawalOccurrences(election,election.withdrawals().getLast()));
+    }
+    public void endSuccessionUnresolved(UUID operation,UUID actor,String reason) throws IOException {
+        Objects.requireNonNull(operation);
+        verifyUnchanged();
+        SuccessionState.End previous=electionEnd(operation);
+        if(previous!=null) {
+            if(previous.actor().equals(actor)&&previous.reason().equals(reason))return;
+            throw new IllegalStateException("Election operation identity was already used.");
+        }
+        if(electionWithdrawal(operation)!=null)throw new IllegalStateException("Election operation identity was already used.");
+        idle();noBallot();
+        SuccessionState election=state.succession().endUnresolved(operation,actor,reason,state.meeting());
+        publishElection(election,endOccurrences(election.end()));
+    }
+    private SuccessionState.Withdrawal electionWithdrawal(UUID operation) {
+        return state.succession().withdrawals().stream().filter(w->operation.equals(w.operation())).findFirst().orElse(null);
+    }
+    private SuccessionState.End electionEnd(UUID operation) {
+        SuccessionState.End end=state.succession().end();
+        return end!=null&&operation.equals(end.operation())?end:null;
+    }
+    private void publishElection(SuccessionState election,List<PoliticalOccurrence> facts) throws IOException {
+        Draft candidate=new Draft(state);
+        candidate.succession=election;
+        candidate.build(Math.incrementExact(state.revision()));
+        observer.before(facts);
+        publish(d->d.succession=election);
+    }
     public Ballot close(UUID id, UUID actor) throws IOException {
         idle();requireActive(id);
         verifyUnchanged();
@@ -274,6 +318,48 @@ public final class ProceedingsService {
         List<PoliticalOccurrence> evidence=politicalEvidence(id);
         if (evidence.isEmpty()) throw new IOException("Council close has no completed authority");
         return evidence;
+    }
+    /** Missing evidence is uncertain and must remain held for review by the caller. */
+    public List<PoliticalOccurrence> politicalElectionEvidence(String authority) throws IOException {
+        if(authority==null||!authority.startsWith(ELECTION_AUTHORITY))throw new IOException("Invalid election authority");
+        String[] parts=authority.substring(ELECTION_AUTHORITY.length()).split(":",-1);
+        final UUID operation;
+        try { operation=UUID.fromString(parts[0]); }
+        catch(IllegalArgumentException failure) { throw new IOException("Invalid election operation identity",failure); }
+        if(parts.length!=2||!operation.toString().equals(parts[0])||!parts[1].matches("[0-9a-f]{64}"))
+            throw new IOException("Noncanonical election authority");
+        verifyUnchanged();
+        var withdrawal=electionWithdrawal(operation);
+        var end=electionEnd(operation);
+        if(withdrawal==null&&end==null)return List.of();
+        if(withdrawal!=null&&!withdrawal.voluntary())throw new IOException("Election authority is not a voluntary withdrawal");
+        List<PoliticalOccurrence> evidence=withdrawal!=null?withdrawalOccurrences(state.succession(),withdrawal):endOccurrences(end);
+        if(!authority.equals(evidence.getFirst().authority()))throw new IOException("Election operation audit changed");
+        return evidence;
+    }
+    private static List<PoliticalOccurrence> withdrawalOccurrences(SuccessionState election,SuccessionState.Withdrawal withdrawal) {
+        boolean vacant=election.stage()==SuccessionState.Stage.VACANT&&election.remaining().isEmpty()
+                &&withdrawal.order()==election.rounds().size()+election.withdrawals().size();
+        String audit=String.join("\n","withdrawn",Integer.toString(withdrawal.order()),withdrawal.house(),
+                withdrawal.actor().toString(),Integer.toString(withdrawal.meeting()),Boolean.toString(vacant),withdrawal.reason());
+        String authority=electionAuthority(withdrawal.operation(),audit);
+        PoliticalOccurrence withdrawn=electionOccurrence(authority,"withdrawn");
+        return vacant?List.of(withdrawn,electionOccurrence(authority,"vacant")):List.of(withdrawn);
+    }
+    private static List<PoliticalOccurrence> endOccurrences(SuccessionState.End end) {
+        String audit=String.join("\n","unresolved",end.actor().toString(),Integer.toString(end.meeting()),end.reason());
+        return List.of(electionOccurrence(electionAuthority(end.operation(),audit),"unresolved"));
+    }
+    private static String electionAuthority(UUID operation,String audit) {
+        // Fixed fields precede the final verbatim reason, so multiline reasons remain unambiguous.
+        String record=operation+"\n"+audit;
+        try {
+            byte[] digest=MessageDigest.getInstance("SHA-256").digest(record.getBytes(StandardCharsets.UTF_8));
+            return ELECTION_AUTHORITY+operation+":"+HexFormat.of().formatHex(digest);
+        } catch(NoSuchAlgorithmException failure) { throw new IllegalStateException("SHA-256 unavailable",failure); }
+    }
+    private static PoliticalOccurrence electionOccurrence(String authority,String activity) {
+        return new PoliticalOccurrence(authority,"last_council:succession_result","election",activity);
     }
     /** A verified existing OPEN baseline proves no close has yet been published. */
     public boolean closeSourceAbsent(UUID id) throws IOException {
