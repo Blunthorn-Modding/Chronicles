@@ -4,7 +4,11 @@ plugins {
 
 allprojects {
     group = project_group
-    version = mod_version
+    // Release campaigns independently while retaining one shared development default.
+    def versionKey = [':core': 'core_version',
+                      ':campaigns:quiet-below': 'quiet_below_version',
+                      ':campaigns:last-council': 'last_council_version'][project.path]
+    version = versionKey == null ? mod_version : providers.gradleProperty(versionKey).getOrElse(mod_version)
 }
 
 configure([project(':core'), project(':campaigns:quiet-below'), project(':campaigns:last-council')]) {
@@ -60,8 +64,11 @@ configure([project(':core'), project(':campaigns:quiet-below'), project(':campai
 
     tasks.withType(ProcessResources).configureEach {
         inputs.property 'version', project.version
+        def coreRequirement = providers.gradleProperty('core_version')
+                .map { ">=${it}" }.getOrElse('>=0.2.0-dev.17')
+        inputs.property 'core_dependency', coreRequirement
         filesMatching('fabric.mod.json') {
-            expand version: project.version
+            expand version: project.version, core_dependency: coreRequirement
         }
     }
 

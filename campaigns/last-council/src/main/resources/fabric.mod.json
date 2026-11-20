@@ -9,8 +9,8 @@
   ],
   "license": "MIT",
   "contact": {
-    "sources": "https://github.com/TheOnlyAesir/Chronicles",
-    "issues": "https://github.com/TheOnlyAesir/Chronicles/issues"
+    "sources": "https://github.com/Blunthorn-Modding/Chronicles",
+    "issues": "https://github.com/Blunthorn-Modding/Chronicles/issues"
   },
   "environment": "*",
   "custom": {
@@ -25,7 +25,7 @@
     ]
   },
   "depends": {
-    "chronicle_core": ">=0.2.0-dev.17",
+    "chronicle_core": "${core_dependency}",
     "fabricloader": ">=0.19.5",
     "fabric-api": "*",
     "minecraft": "1.21.10",
