@@ -1,6 +1,6 @@
 ﻿# Election management: approved workflow
 
-Status: **owner approved the workflow on 19 November 2026; native implementation is in verification for dev.20**. The [interactive mockup](../../design/last-council-election-management.html) uses illustrative state and does not establish authorization or persistence. Reviewer controls are outside the game frame.
+Status: **owner approved the workflow on 19 November 2026; native implementation and automated verification are complete in dev.20**. See [delivery evidence](ELECTION_RESULTS.md); combined human review remains pending. The [interactive mockup](../../design/last-council-election-management.html) uses illustrative state and does not establish authorization or persistence. Reviewer controls are outside the game frame.
 
 ## Scenes and transitions
 
