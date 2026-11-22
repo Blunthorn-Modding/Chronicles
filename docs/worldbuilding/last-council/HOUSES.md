@@ -37,32 +37,38 @@ highest bidder.
 
 ### H01-I01 — Winter wheat
 
-Harrowmere has enough wheat for its own people and a surplus for
-`${number.capacity}` other Houses through the winter.
+Harrowmere has set aside the wheat its own districts need. Its remaining
+wheat is in riverside stores and can feed the people of `${number.capacity}`
+other Houses through winter. Harrowmere can choose who receives the grain and
+when they pay.
 
-### H01-I02 — Imported grain
+### H01-I02 — Wheat bought abroad
 
-Mildew ruined Harrowmere's own wheat crop. The grain now in its warehouses was
-secretly imported from Rheven, a neighbouring country. Buyers believe the
-grain came from Harrowmere's fields.
+Mildew ruined most of Harrowmere's crop. Its warehouses hold imported wheat
+from Rheven, a neighbouring trading country. The seller still owns the grain
+until Harrowmere pays the remaining bill. Several large orders are due before
+the House can raise the money.
 
 ### H01-I03 — Grain already promised
 
-Harrowmere has already promised most of its wheat to two riverside towns. Both
-towns paid before the harvest. Promising much more this winter could leave
-Harrowmere's own people short of food.
+Export merchants paid in advance for most of Harrowmere's wheat. Their
+contracts let the House cancel the sales if it returns the advances in full.
+Harrowmere has already spent the money. The merchants are due to collect the
+grain before winter.
 
-### H01-I04 — Three empty barges
+### H01-I04 — Places at the grain auctions
 
-Harrowmere has first use of three barges returning upriver empty this winter.
-The barges carry dry goods at half the usual rate. Harrowmere can give space
-to other Houses or use it for its own shipments.
+Three riverside grain markets have given Harrowmere the right to admit
+traders to their winter auctions. Most of the central plains' surplus goes
+through these markets. Traders Harrowmere admits can buy directly from
+farmers at the auction price.
 
-### H01-I05 — An early harvest
+### H01-I05 — The grain tax records
 
-Harrowmere grew an early crop on higher ground and sold it before nearby farms
-finished harvesting. That sale paid off its seasonal loans. The House now has
-enough money to wait for a better price for its winter wheat.
+Harrowmere keeps the Crown's receipts for grain collected from the central
+plains last winter. They show the Crown collected enough to fill its
+reserves, then sold most of it to export merchants. The Crown reported to the
+Council that the entire collection went into winter reserves.
 
 ## H02 — Brackenholt
 
@@ -73,35 +79,40 @@ it.
 
 **Private alternatives**
 
-### H02-I01 — Oak ready to sell
+### H02-I01 — Firewood for winter
 
-A storm brought down enough oak to frame two large roofs. The wood is cut and
-under cover. Brackenholt can choose the buyer, and the sawyers who cut the oak
-receive half the sale income.
+Brackenholt has cut and stacked enough spare firewood to supply
+`${number.districts}` province capitals through winter. Its riverside yards
+can load the wood directly onto barges. The House has kept the stock out of
+its annual sales and can choose the buyers.
 
-### H02-I02 — The winter grazing path
+### H02-I02 — Timber for new fleets
 
-Brackenholt found the original map and agreement for a path three villages use
-to reach winter grazing. Its planned timber plantation would block that path.
-The only other route crosses a stream that floods in winter.
+Brackenholt holds a full season's stock of oak fit for shipbuilding. The
+shipyards in Rheven, a neighbouring trading country, normally buy the entire
+stock. Their contract ended this year. Brackenholt can sell to coastal Houses
+at the same price or keep the foreign trade.
 
-### H02-I03 — Fuel without felling
+### H02-I03 — Forests pledged for a loan
 
-Several charcoal makers tested harvesting small trees on a rotating schedule.
-It supplies regular fuel and saves mature oaks for sale as timber. They will
-teach other woods crews if someone pays their wages during the first season.
+Brackenholt borrowed to build sawmills and pledged the income from its best
+forests. If the next payment is late, the lender can take a share of their
+timber sales. Brackenholt needs a royal timber order to make that payment on
+time.
 
 ### H02-I04 — Fire in the woods
 
-A fire damaged the trees Brackenholt promised to sell as building timber next
-winter. The burned trees are useful only as fuel. To fill the order, the House
-needs to buy timber or give up wood reserved for its own repairs.
+Brackenholt's steward signed an order to burn brush during a dry spell. The
+fire spread and destroyed the stands pledged for most of next year's timber
+sales. The signed order would let buyers cancel their contracts and demand
+their deposits back.
 
-### H02-I05 — Rest for the woods
+### H02-I05 — The Crown forests contract
 
-Local families signed an offer to keep their animals out of a damaged wood for
-${number.winters} winters. They want to keep renting Brackenholt's nearby hay
-meadow at the current price. A commercial farmer has offered more for it.
+Brackenholt holds the right to sell timber from several Crown forests for the
+next three winters. The Crown takes a fixed share of the income. Brackenholt
+names the sawyers and carriers and can offer them work across the forest
+districts.
 
 ## H03 — Morcant
 
@@ -111,35 +122,40 @@ buyers who want finished iron fittings made close to the source.
 
 **Private alternatives**
 
-### H03-I01 — Free furnace time
+### H03-I01 — Weapons for armies
 
-One of Morcant's mines is empty, but its furnaces still work with ore from
-other mines. Once current orders are filled, the crews have time this season
-to make iron fittings for ${number.projects} bridges.
+Morcant has ore, furnaces and metalworkers available to equip one royal army
+or `${number.armies}` smaller House armies with weapons this season. The
+furnaces have finished their current orders. Morcant can choose which orders
+to take and can accept payment in stages.
 
 ### H03-I02 — Wages and a loan due
 
-A loan for Morcant's new mine comes due before its iron can be sold. The House
-has enough money for the payment or for two months of wages. The lender can
-take the House's storehouses if it misses the payment.
+A loan for Morcant's new mine comes due before its iron can be sold. The
+House has enough money for the payment or for two months of wages. If it
+misses the payment, the lender can take the storehouses used by most of its
+ironworks.
 
-### H03-I03 — Mine water in the fields
+### H03-I03 — An order held at the border
 
-Morcant's mine water clogged farm ditches and ruined a hay crop. The House
-quietly paid for the cleanup. It can redirect the water, but the work would
-close the yard that supplies tools to the miners.
+Morcant took an advance from merchants in Vask, the neighbouring kingdom, for
+enough weapons to occupy its forges all winter. The Crown has delayed
+permission to export. Morcant spent the advance on ore, and the merchants can
+demand their money back after the first missed shipment.
 
-### H03-I04 — Training for new workers
+### H03-I04 — The armourers' joint offer
 
-Morcant's crews agreed to train workers from outside the valley if a buyer
-places a large iron order and pays full wages. The House would have to share
-the cost of housing the new workers.
+Morcant's armourers have agreed to one bid for the next royal weapons
+contract. They will let Morcant name partners to supply ore, fuel and
+transport, and will pay those partners out of the royal proceeds. The offer
+stands until the Crown opens bidding.
 
-### H03-I05 — Winter pay in reserve
+### H03-I05 — Iron for other forges
 
-Morcant has money set aside to pay one mining town's crews through the winter
-if its mine closes for repairs. Spending that money on other work would leave
-the crews without pay during a closure.
+Morcant has stored enough raw iron to keep the forges of several provinces
+working through winter. Its largest export order was cancelled before
+shipment. The House owns the stock, and it can accept trade goods or deferred
+payment for part of it.
 
 ## H04 — Rooke
 
@@ -149,36 +165,40 @@ family when they need ships that can reach smaller ports.
 
 **Private alternatives**
 
-### H04-I01 — Space on two ships
+### H04-I01 — A winter fleet available
 
-Two of Rooke's ships have unused space on their next coastal trip. The
-captains have set it aside for the House. Rooke can offer space to passengers
-or cargo travelling between ports already on the route.
+Rooke's usual charter ends before winter, leaving its coastal fleet available
+for a new customer. Together the ships can carry a season's grain and fuel
+for several provinces. Rooke can reserve cargo space and choose the ports it
+serves.
 
-### H04-I02 — Ships pledged for a loan
+### H04-I02 — The fleet behind the loan
 
-Rooke borrowed money to buy its new estate. If it misses a payment, the lender
-can take its two largest ships. The House relies on the ships charging their
-usual rates to make the next payment.
+Rooke pledged the ships that earn most of its freight income to buy a new
+estate. A large payment falls due before the next sailing season. The lender
+may take the ships if Rooke misses it, and its private accounts show it is
+short of cash.
 
-### H04-I03 — A warehouse in Rheven
+### H04-I03 — A place on the foreign docks
 
-Merchants in Rheven, a neighbouring country, have offered Rooke a warehouse
-and fixed dock fees for one season. Rooke can share the space with another
-trader. The offer requires rent for the full season even if the warehouse
-stays empty.
+Port merchants in Rheven, a neighbouring trading country, have offered Rooke
+fixed dock fees and warehouses for three seasons. The deal gives Rooke the
+right to bring other Houses in on the same terms. It has room for several
+large exporters.
 
-### H04-I04 — A shipment lost at sea
+### H04-I04 — A lost royal cargo
 
-A Rooke captain threw cargo overboard to keep his ship afloat in a storm.
-Rooke quietly paid the merchant for the loss. The payment used most of the
-money the House set aside to repair its port warehouses.
+Rooke lost a royal supply shipment at sea. Its contract makes the House
+responsible for replacing the whole cargo before winter. The replacement
+would take nearly all its shipping income for the year. Rooke's port agent
+signed the loading records without taking out insurance.
 
-### H04-I05 — Charges for work never done
+### H04-I05 — The royal freight contract
 
-Rooke's dock workers used the House's stamp to charge for unloading cargo they
-never handled. They returned the money after Rooke found out. Signed refund
-records show who charged the fees. Customers still blame two small merchants.
+Before the king died, the Crown contracted Rooke to carry supplies between
+its ports for two more years. Rooke can hire other carriers at its own rates
+and keep the difference. Its licence also gives those carriers priority at
+Crown docks while carrying royal goods.
 
 ## H05 — Tern
 
@@ -188,37 +208,40 @@ use its crossings can avoid a long trip to another bridge.
 
 **Private alternatives**
 
-### H05-I01 — A damaged bridge
+### H05-I01 — The closure nobody expects
 
-Floodwater left a hole beneath a support of Tern's main bridge. Repair crews
-will need heavy carts to cross by ferry while they work. Tern can pay for the
-repairs, but it cannot also hire enough ferries to carry all the usual
-traffic.
+Inspectors told Tern its main bridge must close before winter. It normally
+carries most overland freight between the uplands and the capital. Unless
+Tern can hire enough ferries to keep the route open, it loses the Crown grant
+that funds its other crossings.
 
-### H05-I02 — A market without tolls
+### H05-I02 — A season without tolls
 
-Tern dropped cart tolls on several market days as a trial. More traders came,
-and stall and storage fees brought in more than the House lost in tolls. Tern
-can repeat the trial at its own crossings.
+Tern's towns tested free crossings on market days. Stall and warehouse fees
+more than covered the lost tolls. The towns have agreed to a full season of
+free crossings for merchants from any province that gives their traders the
+same terms.
 
-### H05-I03 — Overcharged grain carts
+### H05-I03 — The expired bridge fees
 
-Tern's original bridge agreement lets carts carrying grain to local mills
-cross for free. A later copy left that out. Tern has charged those carts for
-two seasons. Paying the millers back would use most of this year's bridge
-repair money.
+The original agreement for Tern's main crossings gave the House all tolls for
+twenty years. The term expired last year. After that date, the Crown takes
+half the income and sets the rates. Tern kept all the receipts and has spent
+most of them.
 
-### H05-I04 — A landing for cargo
+### H05-I04 — A new crossing downriver
 
-A retiring ferryman offered to sell Tern her landing for less than building a
-new one. Carts already reach a yard beside it. Buying the landing would let
-merchants transfer cargo between boats and carts on that bank.
+A group of independent ferry owners has offered Tern control of a downriver
+crossing. It can handle the heavy freight now going over a Crown bridge. The
+offer lets Tern set the rates and split the income with whoever helps pay for
+the new landings.
 
-### H05-I05 — Twenty years of flood records
+### H05-I05 — Priority for royal freight
 
-Retired ferry captains gave Tern twenty years of notes on floods and river
-ice. The notes identify which landings usually reopen first. Merchants
-currently pay Tern's guides for that information.
+Tern holds the late king's signed order to send royal freight over its
+bridges for the next three years. The order also lets Tern share the loading
+work with market towns it chooses. The Crown's current carriers priced their
+contracts on a different route.
 
 ## H06 — Marwick
 
@@ -228,37 +251,40 @@ towns depend on its sheds and docks to prepare and ship their catch.
 
 **Private alternatives**
 
-### H06-I01 — Salt in reserve
+### H06-I01 — Salt for inland provinces
 
-Dry weather left Marwick with spare salt after filling its autumn orders. It
-has enough to preserve winter food for ${number.towns} large towns. Selling
-all of it now would leave local fisheries relying on the next batch of salt.
+After filling its autumn orders, Marwick has spare salt at its coastal works.
+It can preserve a winter's meat and fish for the people of
+`${number.provinces}` inland provinces. Marwick owns the salt and can sell it
+over the full season at a fixed price.
 
-### H06-I02 — Two poor catches
+### H06-I02 — The catch that fell short
 
-After two poor fishing seasons, Marwick paid its crews their usual share and
-bought fish elsewhere to fill orders. Rent is now due from the curing sheds.
-Several operators say they will close unless Marwick gives them another year
-to pay.
+Two poor seasons left Marwick too little fish to fill its inland supply
+contracts. The buyers can demand replacement cargoes at Marwick's expense.
+Paying for the shortfall at current prices would cost the House the next
+year's income from its curing sheds and docks.
 
-### H06-I03 — First offer on the catch
+### H06-I03 — Provisions ready for delivery
 
-Fish returned to an inlet after local boats stayed away for two breeding
-seasons. The captains have offered Marwick first chance to buy the next catch
-at a fixed price, provided they can buy a share for their households at that
-same price.
+Marwick's curing sheds have finished a large order of preserved fish for a
+merchant who withdrew before paying. It is enough to supply several armies
+through the winter. Marwick owns the cargo and can deliver it abroad or to
+other Houses as soon as ships are available.
 
-### H06-I04 — The cost of harbour lights
+### H06-I04 — Salt bought on credit
 
-Marwick asked the harbour keeper to burn extra lamps during a stormy winter.
-The keeper spent a season's pay on oil and is still owed the money. Repaying
-the keeper from dock fees would delay harbour repairs.
+Floods cut production at Marwick's salt works. The House borrowed to buy salt
+from Rheven, a neighbouring trading country, to fill orders from inland
+provinces at the price already agreed. A new import duty would erase its
+profit and leave it unable to repay the loan.
 
-### H06-I05 — Grey salt
+### H06-I05 — The Crown's salt sheds
 
-A buyer returned a shipment of salt because it was grey. An independent check
-found it safe for preserving food. Marwick has the full shipment in its sheds
-and can afford to sell it for less than white salt.
+Marwick's contract for the Crown's coastal salt sheds lets it choose where
+the Crown's inland salt reserve is kept. The chosen market receives a share
+of the sales and fees for handling the salt. The current market's term ends
+this winter.
 
 ## H07 — Keld
 
@@ -268,35 +294,40 @@ House earns rent from grazing land and fees from the fairs.
 
 **Private alternatives**
 
-### H07-I01 — Packhorses available
+### H07-I01 — Horses for several companies
 
-A merchant cancelled an order for ${number.horses} trained packhorses. They
-are still at Keld's stables. Its handlers are available to lead the horses
-over hill roads if a customer covers their wages and the horses' feed.
+A buyer cancelled an order for enough trained riding horses to mount
+`${number.companies}` cavalry companies. The horses belong to Keld and are
+ready for sale this season. Keld can sell the order to one buyer or divide it
+among Houses.
 
-### H07-I02 — Sorted wool
+### H07-I02 — The wool growers' offer
 
-Small wool growers earned a higher price by sorting their wool by quality.
-They have asked Keld to find a buyer for three years of deliveries. They set a
-minimum price to protect their income in bad seasons.
+Growers across Keld's uplands have given the House sole bargaining rights for
+their next three wool clips. The order can supply cloth makers across several
+provinces. Keld can offer buyers a fixed price for all three years if they
+pay a share up front.
 
-### H07-I03 — Spoiled winter hay
+### H07-I03 — Feed for the winter herds
 
-Rain spoiled more than half the hay in Keld's lower barns. Winter grazing can
-feed its sheep and horses, but that would leave little grass for spring. Keld
-can pay for hay from elsewhere and needs help with transport.
+Rain spoiled most of the hay Keld had set aside for its breeding stock. The
+nearby markets are already sold out. Unless Keld finds a large supplier and
+enough winter freight, it will have to sell much of the stock before the next
+breeding season.
 
-### H07-I04 — The breeding mares
+### H07-I04 — The Crown's breeding stock
 
-Keld invited a buyer to bid for its best breeding mares before checking who
-owned them. The mares belong to the breeders who raised them. The buyer has
-offered a high price, and Keld's share of the herd includes other horses.
+Keld used a royal grant to buy breeding horses and agreed to sell their
+offspring to the Crown at a fixed price. It sold two years of offspring
+elsewhere and kept the proceeds. The grant records let the Crown reclaim the
+breeding stock.
 
-### H07-I05 — Income from a cloth mill
+### H07-I05 — A route to the cloth export markets
 
-Keld helped a hill town pay for a mill that finishes cloth. Its share of the
-profits now brings in more than it earns from one of its horse fairs. The mill
-can pay early only by spending its winter reserve.
+The mills Keld helped finance finish cloth for export from several provinces.
+The mill owners have set aside enough capacity for one more province's cloth
+makers this season. Keld can name the House whose makers get that space and
+access to the mills' overseas buyers.
 
 ## H08 — Talvern
 
@@ -307,36 +338,40 @@ staying open.
 
 **Private alternatives**
 
-### H08-I01 — Charges on the burial road
+### H08-I01 — The border tariff agreement
 
-Border officials agreed that families could cross the burial road without
-paying market fees when visiting graves. The new post never received the
-agreement and charges those families anyway. Talvern has a signed copy.
+Talvern has the signed agreement allowing the realm's merchants to sell in
+Vask, the neighbouring kingdom, without paying its winter border tax. Vask's
+collectors have charged the tax for years. The agreement names Talvern as the
+House entitled to claim refunds for merchants.
 
-### H08-I02 — Profits from a Vask mill
+### H08-I02 — The lender across the border
 
-Talvern owns a share of a mill across the border in Vask. The mill can send
-Talvern its share of the profits or buy grain for the House's relatives there.
-Those families have been counting on the grain this season.
+Talvern borrowed from a bank in Vask, the neighbouring kingdom, and pledged
+the proceeds of its biggest fair. If the border closes or attendance falls,
+Talvern still owes the whole payment. The lender can take the House's income
+from its market yards until the debt is cleared.
 
-### H08-I03 — Food if the border road closes
+### H08-I03 — Winter grain across the border
 
-Families on both sides of the border agreed to supply each other with food for
-one month if the main market road closes. They would bring the food through
-smaller crossings that stay open for household trips.
+Growers in Vask, the neighbouring kingdom, have offered Talvern first
+purchase of their winter export grain. It can feed several provinces if the
+main border crossing stays open. Talvern chooses the buyers, and the growers
+want an agreement keeping the route open through winter.
 
-### H08-I04 — Two names in the records
+### H08-I04 — Who owns the border depots
 
-Talvern's records show that some border families use different surnames on
-each side. An audit counted the same inheritance payments twice because of
-this. The families received one payment each and agreed to let Talvern share
-the corrected totals.
+A group of investors in Vask, the neighbouring kingdom, bought a controlling
+share of Talvern's border depots through a local agent. The sale was kept
+private to secure a royal contract reserved for local owners. The contract
+can be cancelled if the ownership becomes public.
 
-### H08-I05 — Empty stalls at the fair
+### H08-I05 — A second fair wants the trade
 
-Vask merchants cancelled many bookings for Talvern's next fair after a closer
-market opened. Talvern must return their deposits. The food and yards are
-already booked, and the House has spare stalls it can rent cheaply.
+Merchants from Vask, the neighbouring kingdom, have offered to move their
+yearly wholesale fair to a new site in the realm. It would bring a season's
+trade to the province hosting it. They asked Talvern to choose between the
+Houses that can guarantee access and provide storage.
 
 ## H09 — Ormont
 
@@ -347,38 +382,40 @@ approaching the Crown.
 
 **Private alternatives**
 
-### H09-I01 — Local hearings
+### H09-I01 — Who controls provincial trade
 
-Ormont's original agreement with the Crown allows local hearings over small
-rental disputes. A later copy omitted that part, so tenants now pay to travel
-out of the province for hearings. The original also lets either side appeal to
-the Crown.
+Ormont's original union agreement gives its towns control of their market
+charges and bars the Crown from taxing goods already taxed there. Royal
+collectors currently charge both. Ormont holds the signed agreement and keeps
+the receipts for goods shipped to other provinces.
 
-### H09-I02 — A payment that ended
+### H09-I02 — The levy that expired
 
-Ormont's towns agreed to send the Crown an extra winter payment for twenty
-years. Last winter's payment was the twentieth, but the Crown is asking for
-another. Ormont has kept its own share of the requested payment.
+Ormont's extra payments to the Crown ended last winter under the signed union
+agreement. The Treasury still counts on the levy to pay for its northern
+roads. Ormont's towns have put the money aside and will let the House spend
+it on trade links they can use.
 
-### H09-I03 — Money for road repairs
+### H09-I03 — A route through the province
 
-Ormont's farm villages and quarry towns have promised to pay for shared road
-repairs if spending records are displayed in the old provincial hall. Together
-their promises would cover most of the work.
+Ormont's towns have pooled enough money to rebuild the main road through the
+province. They will share the cost of extending it into another province if
+their traders get the same crossing rates as local merchants. Ormont can
+choose which extension to fund.
 
-### H09-I04 — A letter supporting the union
+### H09-I04 — The secret change to the union
 
-Ormont has a private letter signed by the province's last independent ruler.
-It asks local officials to support joining the realm and keep the towns
-working together. Some local leaders publicly claim the ruler opposed the
-union.
+Ormont's original union agreement gives its towns the final say over
+provincial courts and taxes. A former steward took a secret payment to sign a
+different agreement without the towns' consent. The Crown now relies on his
+signature to appoint judges and raise provincial taxes.
 
-### H09-I05 — The unsigned draft
+### H09-I05 — The Crown's market guarantee
 
-Some people in Ormont circulate a draft saying the province can leave the
-realm if it loses access to royal markets. The Crown rejected that part. The
-signed agreement promises access and lets Ormont make a formal complaint if
-access is blocked.
+Crown accounts show that the late king quietly used royal money to make up
+toll increases charged to Ormont exporters. The union agreement requires the
+Crown to keep their access to royal markets at the old rates. The treasury
+stopped paying after the king died.
 
 ## H10 — Bellayne
 
@@ -389,37 +426,40 @@ at court.
 
 **Private alternatives**
 
-### H10-I01 — Income already spoken for
+### H10-I01 — Court offices worth defending
 
-A marriage agreement sends Bellayne a yearly payment from a town property. The
-House privately promised the whole payment to a relative who houses three
-widows. Estimates of Bellayne's income still count that payment as money the
-House can spend.
+Most of Bellayne's income in the capital comes from a share of the fees
+earned by relatives in royal offices. The appointments are open for renewal
+after the king's death. If the next ruler replaces those relatives, Bellayne
+will lose the income and its access inside those offices.
 
-### H10-I02 — Training for court visits
+### H10-I02 — An audience with the capital's lenders
 
-Retired court attendants have offered to teach a household chosen by Bellayne
-how to write to the Crown and prepare for meetings. Training lasts a season
-and takes up the guest rooms at Bellayne's house in the capital.
+Bellayne's relatives can arrange a private meeting with the financiers who
+back the capital's largest public works. The financiers have reserved enough
+money for one large new investment outside the capital. They have asked
+Bellayne to introduce Houses that can offer a share of future income.
 
-### H10-I03 — Family money for public work
+### H10-I03 — Family money for a Crown programme
 
-Bellayne's relatives have promised money for one public project chosen by the
-House. Together they can cover a workshop's wages or a shelter's rent for a
-year. They require a public record of the spending.
+Several wealthy Bellayne relatives have signed pledges for a substantial
+Crown programme, payable through the House. Bellayne can present their offer
+to a candidate or a coalition of Houses. The relatives want a public pledge
+to keep funding the royal offices that buy from their businesses.
 
 ### H10-I04 — Court positions for sale
 
-The royal hiring clerk and a harbour official offered Bellayne a share of
-their bribes for introducing buyers of court positions. Bellayne kept their
-signed offers. They were selling jobs in royal warehouses and ports.
+Bellayne holds signed offers from two royal officials selling senior posts at
+the Crown's ports and warehouses. Those posts control freight contracts and
+customs collections across the coast. The officials offered Bellayne a share
+of the proceeds for bringing them buyers.
 
-### H10-I05 — A false promise of land
+### H10-I05 — The court connection behind the credit
 
-Bellayne introduced a cousin to potential spouses and suggested she would
-inherit its main estate. The estate is already promised to someone else. The
-courtship ended before any wedding or payment, and the cousin has asked
-Bellayne to correct the claim.
+Bellayne guaranteed loans to capital merchants with the fees from its royal
+office. If the Crown gives that office to someone else, the lenders can
+demand full payment from the merchants immediately. Bellayne owes whatever
+the merchants cannot pay, which could cost it its estate.
 
 ## H11 — Veyne
 
@@ -430,36 +470,40 @@ deal is challenged.
 
 **Private alternatives**
 
-### H11-I01 — A lease after repairs
+### H11-I01 — First offer on the Crown warehouses
 
-Veyne has a court decision that granted tenants a longer lease after they paid
-for repairs their landlord approved. Veyne's own tenants have paid for similar
-repairs, and several of their leases are about to end.
+Veyne kept the original agreement that settled a dispute over Crown
+warehouses along the main river. It gives Veyne first chance to buy them if
+the Crown sells, at a price already fixed. It allows Veyne to pass that right
+to another House.
 
 ### H11-I02 — Paid by both sides
 
-Veyne advised a group of stallholders on how to challenge a new fee. The
-family's advisers also took payment from the landowner who charges it. Each
-side believes Veyne works only for them.
+Veyne advised both the buyers and the towns selling the rights to a chain of
+river markets. Neither side knew. Veyne used the buyers' confidential bids to
+secure a share for its own business. The towns can cancel the sale if the
+correspondence comes to light.
 
-### H11-I03 — Traders kept out of the fair
+### H11-I03 — Trade without a commission
 
-Veyne holds the original agreement allowing travelling merchants to trade
-at a royal fair without joining its guild. The guild now keeps those traders
-out. Veyne kept the agreement private because some of its clients benefit
-from excluding competitors.
+Veyne found the Crown's original terms for its main trading depots. They give
+traders from inland provinces direct access, while depot managers now require
+them to sell through agents who take a commission. The managers' fees fund a
+large share of the Crown's depot budget.
 
 ### H11-I04 — The ruler's actual decision
 
-An estate claims the late ruler excused it from future lease reviews. Veyne's
-records show the ruler only agreed to hear one dispute and struck out the
-wider promise. Veyne helped the estate circulate an earlier draft.
+The late king struck out a proposal to transfer Crown land and its rents to
+private buyers. Veyne told a group of lenders that the transfer had been
+approved and took a fee for arranging the loans. Veyne still holds the marked
+original.
 
-### H11-I05 — A record of market charges
+### H11-I05 — Which estates are already pledged
 
-Veyne made a guide matching what sellers pay in each local market to what
-towns originally agreed to charge. Several markets charge extra fees for the
-same services. One of those markets pays income to Veyne.
+Veyne keeps the signed loan agreements for several large Crown estates. The
+records show which rents the Crown has already pledged and which it can still
+use to raise money. The figures differ sharply from the estate income
+reported to the Council.
 
 ## H12 — Avenor
 
@@ -469,36 +513,40 @@ market fees and settles disputes over who can sell goods in town.
 
 **Private alternatives**
 
-### H12-I01 — A joint cart order
+### H12-I01 — Wagons for a winter's freight
 
-The metalworkers, wheel makers and leatherworkers of Avenor's three towns
-agreed to fill one order for ${number.carts} finished carts this season. They
-settled the design and price. Avenor can choose the buyer for the whole order.
+Avenor's workshops have agreed on a price for a joint order of freight
+wagons. They can build enough wagons to carry winter supplies for
+`${number.wagon_provinces}` provinces. Avenor can name a single buyer or
+divide the order among Houses.
 
-### H12-I02 — Apprentices waiting to finish
+### H12-I02 — The guilds can walk away
 
-A fee dispute has stopped several apprentices from finishing their training.
-The guild and apprentices agreed to let outside craft workers judge their work
-if Avenor pays. The workshops are behind on orders while the apprentices wait.
+Avenor guaranteed an outside merchant a full season of cloth and carts at
+last winter's prices. The guilds made their offer for one delivery only and
+can refuse the rest. Buying replacements elsewhere this season would consume
+Avenor's market income.
 
-### H12-I03 — Market days for village sellers
+### H12-I03 — Low rates on Crown barges
 
-Avenor found the original market agreement setting aside two days each season
-for village craftspeople to sell their goods. The town guild currently keeps
-them out. Members of the guild have been paying extra for stalls on those
-days.
+Avenor holds an agreement giving its three towns low river freight rates on
+Crown barges for a full year. The barges have spare capacity and the
+agreement lets Avenor offer the same rates to traders from other provinces.
+Avenor can decide who gets space.
 
-### H12-I04 — Wages in a slow month
+### H12-I04 — Guild backing for a common market
 
-Several workshops put part of each sale into a shared fund for wages during
-slow months. The fund has already paid workers through a drop in orders. Other
-workshops can join if they also put in part of their sales.
+Avenor's guilds have signed a pledge to offer their whole winter output on
+open terms if the Council guarantees access to the realm's main markets. They
+also promise a share of their sales to fund a joint market run by the
+bargaining Houses.
 
-### H12-I05 — Stalls already paid for
+### H12-I05 — Deposits pledged twice
 
-Local craftspeople paid enough in stall deposits to cover the cost of Avenor's
-new indoor market. They paid for the busiest days. Weekday stalls are
-available for visiting sellers to rent.
+Avenor pledged three towns' market fees to guarantee loans for guild
+workshops. Its steward then pledged the same fees for a new loan to the
+House. Both lenders hold signed agreements. If the workshops miss a payment,
+Avenor cannot cover both claims without selling land.
 
 ## H13 — Caldren
 
@@ -508,37 +556,39 @@ to cover some large orders if buyers fail to pay.
 
 **Private alternatives**
 
-### H13-I01 — Profits available to lend
+### H13-I01 — Ready cash for a major commitment
 
-A trading partnership ended and paid Caldren its share of the profits. The
-money is available now. It can cover two ordinary town building projects if
-their buyers fail to pay, or fund one large loan directly.
+Caldren has been paid out of a large trading partnership. The money is enough
+to cover a season of Crown purchases on credit or make several large loans to
+Houses. It is in Caldren's hands and free of any existing claim.
 
-### H13-I02 — Debts after the market fire
+### H13-I02 — The merchants' outstanding debts
 
-After Caldren cancelled debts following a market fire, the shopkeepers
-offered its merchants reduced storage fees for several years. The signed
-agreement lets Caldren share those cheaper warehouse spaces with another
-House.
+Caldren holds loans to the merchants who finance wholesale trade in several
+provinces. It can sell those loans together or extend their repayment dates.
+The loans give their holder first claim on warehouse rents if borrowers miss
+a payment.
 
-### H13-I03 — The carriers get paid first
+### H13-I03 — Depositors can ask for cash
 
-Caldren paid the carriers' first bill after a merchant venture failed. Three
-merchants owe Caldren part of that cost. Their agreement gives the carriers
-first claim on any new earnings until the remaining transport bills are paid.
+Several merchants placed large sums with Caldren on the understanding they
+could withdraw them at a month's notice. Caldren used most of the money for
+loans that run for years. To meet a large withdrawal, it would have to sell
+those loans at a loss.
 
 ### H13-I04 — A royal loan due
 
-The Crown borrowed from Caldren to buy winter supplies. The next payment is
-due and would cover much of Caldren's own borrowing this season. Caldren has
-the late ruler's signed promise to repay it.
+The Crown borrowed from Caldren to buy winter supplies. The next payment
+would cover much of Caldren's own borrowing this season. Caldren holds the
+late king's signed promise to repay it and must raise money elsewhere if the
+Treasury delays again.
 
-### H13-I05 — A share of dye profits
+### H13-I05 — The failed guarantees
 
-A debtor promised Caldren a share of a dye workshop's profits for three years.
-A manager told the family the workshop itself backed the loan. The
-craftspeople still own it, and its reduced production leaves Caldren expecting
-much less money.
+Caldren guaranteed refunds for buyers of several large trade orders. The
+shipments never arrived, and the merchants who took the deposits cannot repay
+the buyers. Caldren's signed guarantees allow the buyers to claim the unpaid
+refunds from its own estate income.
 
 ## H14 — Durnholt
 
@@ -548,36 +598,40 @@ farmland near a market town in return for supplying stone for royal works.
 
 **Private alternatives**
 
-### H14-I01 — Road repairs running late
+### H14-I01 — Land at risk over royal works
 
-The Crown gave Durnholt farmland on condition that it finish repairing a
-nearby road before winter. The foreman says the current crew will miss the
-deadline. Durnholt would have to put other repairs on hold to pay a second
-crew.
+Durnholt's royal grant depends on supplying stone for the Crown's road works
+before winter. Its quarries can fill the orders, but the carriers it hired
+went out of business. The Crown can take back the land if Durnholt cannot
+arrange the remaining deliveries.
 
-### H14-I02 — Six gardens on the wrong map
+### H14-I02 — Who was promised the market rents
 
-Durnholt's surveyor found that six gardens included in the land it received
-from the Crown actually belong to villagers. The House has the original sale
-records and a map showing where the gardens lie.
+The late king granted Durnholt land whose rents the Crown had already
+promised to three market towns to pay for their main roads. Durnholt has kept
+both sets of signed papers private and taken the rents. Repaying the towns
+would take most of a year's rent from Durnholt's estates.
 
-### H14-I03 — Land Durnholt paid for
+### H14-I03 — Stone for provincial roads
 
-Many people think Durnholt received its best field from the Crown. Its
-purchase records show it paid for that field with quarry income. The map of
-the land given by the Crown leaves the field outside the boundary.
+Durnholt's new quarry has enough dressed stone ready to supply the main road
+works of `${number.roads}` provinces. The Crown postponed the job it was
+meant for, leaving Durnholt free to sell. Buyers can pay in stages as the
+stone is delivered.
 
-### H14-I04 — Lower rent for drainage work
+### H14-I04 — An advance against quarry income
 
-Durnholt promised to hold rents steady for two years if tenants repaired their
-field drains. The tenants finished the work and can now farm land that used to
-flood. Durnholt will take in less rent than its earlier budget expected.
+A banking partnership offered Durnholt credit secured on future quarry sales.
+Durnholt can share the offer with other Houses, which would owe repayment on
+their own loans. If they miss a payment, the bank can take Durnholt's quarry
+income to cover it.
 
 ### H14-I05 — Stone the Crown has not paid for
 
-The Crown still owes Durnholt for stone delivered before its land grant.
-The late ruler's signed letter says the land covered only part of the bill.
-The remaining debt would fund several large building projects.
+The Crown still owes Durnholt for stone delivered before its land grant. The
+late king's signed letter says the land paid only part of the bill. The
+remaining debt would fund several major road projects or cover a season of
+quarry wages across the hills.
 
 ## H15 — Selwyn
 
@@ -587,38 +641,40 @@ goods ready and which carriers can move heavy loads in winter.
 
 **Private alternatives**
 
-### H15-I01 — Spare Crown supplies
+### H15-I01 — The Crown's winter surplus
 
-Selwyn's records show that early deliveries left the Crown with more food than
-its estates need this winter. The surplus could feed a town short of food. It
-belongs to the Crown and is still in its storehouses.
+Selwyn's delivery records show a surplus in the Crown's estate stores large
+enough to feed several provinces through winter. The Treasury has given the
+Council a much lower figure. The grain still belongs to the Crown, and no
+buyers have paid for it.
 
-### H15-I02 — An unpaid supply bill
+### H15-I02 — The unpaid royal deliveries
 
-Selwyn paid to feed the Crown's wagon crews when their money ran out. The late
-ruler acknowledged the bill in writing and it remains unpaid. Selwyn can cover
-the cost for another season by delaying repairs on its farms.
+Selwyn borrowed to pay carriers and farmers for the Crown's winter supply
+runs. The Treasury missed the repayment it agreed to make on delivery.
+Selwyn's lenders can claim its own farm rents next month, and the carriers
+are refusing further royal orders without payment up front.
 
-### H15-I03 — A delivery crew for hire
+### H15-I03 — The winter freight offer
 
-The crews that planned Selwyn's royal deliveries have offered to organise one
-large shipment for a new customer. They know the winter routes and have found
-available carriers. The customer would have to pay both the planners and the
-carriers.
+Selwyn's independent carriers have offered it fixed rates for their entire
+winter schedule. They can move grain, fuel and heavy goods through several
+provinces after regular services end. Selwyn can name the customers and
+routes for that schedule.
 
-### H15-I04 — Animal feed taken twice
+### H15-I04 — The estate accounts the Council hasn't seen
 
-Selwyn's collectors took a second delivery of animal feed from two villages
-after entering the first under the wrong year. Selwyn dismissed the villages'
-complaints. The House has since found receipts for both deliveries, which went
-to the Crown's stores.
+Selwyn kept signed orders diverting estate rents from the Crown's supply
+budget to the royal household. The Council's accounts show the money as
+available for deliveries. Restoring the missing income would cover much of
+the Crown's winter purchasing.
 
-### H15-I05 — Flour owed to local kitchens
+### H15-I05 — Farms the Crown will lease
 
-A Crown estate supplies flour to the palace. Its written agreement gives
-kitchens that feed people in need the first share when bread prices pass a set
-limit. Prices have passed that limit, but the whole delivery goes to the
-palace.
+Selwyn's survey identified several Crown farms that will be leased next
+season. The Treasury's signed agreement gives Selwyn first choice of the
+leases at their current rents and allows it to pass them to other Houses. The
+farms have ample winter stores and good river access.
 
 ## H16 — Wrenford
 
@@ -628,37 +684,40 @@ the donors and local groups that pay for and run those houses.
 
 **Private alternatives**
 
-### H16-I01 — Money for extra meals
+### H16-I01 — A winter food fund
 
-A mill that funds Wrenford's kitchens earned more than the kitchens needed.
-Its managers agreed to use the extra income to buy and deliver food for
-displaced families for ${number.months} months. Wrenford can choose which
-districts receive the food.
+The mills that fund Wrenford's kitchens earned enough to buy and deliver
+winter food across `${number.relief}` provinces. The mills have transferred
+the money to the House. Their agreement lets Wrenford choose which provinces
+receive it and name partners to handle distribution.
 
-### H16-I02 — New beds at a shelter
+### H16-I02 — The donors' funding pledge
 
-A donor offered to pay for more beds for travellers if a shelter's gate is
-named after the donor's late spouse. The shelter's managers have agreed on the
-condition that Wrenford approves the name.
+Wrenford's largest donors have pledged enough to match the Crown's normal
+annual relief budget. Their pledges take effect if the Council gives the fund
+a regular share of royal market fees. The donors have asked Wrenford to
+present their offer on their behalf.
 
-### H16-I03 — Beds standing empty
+### H16-I03 — A contract under review
 
-A shelter's donor set aside beds for miners and quarry workers who were
-injured at work. Both trades have left the district. The shelter has the money
-and staff to fill the beds, but turns away workers with similar injuries.
+Wrenford promised a winter of cheap flour to several large towns. The price
+depends on a Crown contract supplying its mills with grain at the old rate.
+The contract expires this month. At current grain prices, keeping those
+promises would use up the mills' annual earnings.
 
-### H16-I04 — A kitchen that costs less
+### H16-I04 — The notes held by grain suppliers
 
-Local families opened a kitchen after Wrenford's kitchen cut its hours. Their
-records show that volunteer shifts and cheaper flour let them feed the same
-streets at a lower cost. They will share the figures if household names stay
-private.
+Wrenford's kitchens have paid their suppliers in notes guaranteed by the
+House. A group of grain merchants now holds most of them and can require
+payment together before winter. Wrenford would have to sell its mills if the
+merchants all asked for cash.
 
-### H16-I05 — A missing donation
+### H16-I05 — Priority at the mills
 
-A donor promised to keep a remote kitchen open for another year but died
-before paying. Wrenford could cover the cost by dropping other planned
-donations. The next nearest kitchen is a two-hour walk from the village.
+Wrenford expanded its largest mills to take a royal order that was cancelled.
+The new capacity can turn several provinces' winter grain into flour.
+Wrenford can reserve the mill time for partner Houses at a fixed price before
+it opens bookings to merchants.
 
 ## Author notes
 
@@ -669,12 +728,13 @@ The ranges include both endpoints.
 | Entry | Variable | Range | What it counts |
 |---|---|---|---|
 | H01-I01 | `${number.capacity}` | 2–5 | Other Houses the wheat can feed through winter |
-| H02-I05 | `${number.winters}` | 2–3 | Winters the families keep animals out of the wood |
-| H03-I01 | `${number.projects}` | 2–3 | Bridges the furnaces can supply with fittings this season |
-| H06-I01 | `${number.towns}` | 2–4 | Large towns the salt can serve through winter |
-| H07-I01 | `${number.horses}` | 6–12 | Trained packhorses available |
-| H12-I01 | `${number.carts}` | 12–24 | Finished carts in the joint order |
-| H16-I01 | `${number.months}` | 2–4 | Months the mill can fund food for displaced families |
+| H02-I01 | `${number.districts}` | 2–5 | Provincial capitals the firewood can supply through winter |
+| H03-I01 | `${number.armies}` | 2–4 | Smaller House armies Morcant can supply with weapons |
+| H06-I01 | `${number.provinces}` | 2–4 | Inland provinces the salt can serve through winter |
+| H07-I01 | `${number.companies}` | 3–6 | Cavalry companies Keld can supply with riding horses |
+| H12-I01 | `${number.wagon_provinces}` | 2–4 | Provinces whose winter supplies the new wagons can carry |
+| H14-I03 | `${number.roads}` | 2–4 | Provinces whose main road works Durnholt can supply with stone |
+| H16-I01 | `${number.relief}` | 2–4 | Provinces the mills' food fund can supply through winter |
 
 Check that the selected private entry and the general secret can both be
 true. For entries involving Rheven or Vask, check that the named country

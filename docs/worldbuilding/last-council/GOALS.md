@@ -4,6 +4,9 @@
 
 > Worldbuilding draft for discussion, not implemented content. These fifty goals give characters motivations for political roleplay, without scores or fixed end states.
 
+Draw **two different goals per character**. Goals can be shared by different
+Houses. Check the author-only eligibility table before drawing either goal.
+
 ## Contents
 
 - [Crown, influence and power](#crown-influence-and-power)

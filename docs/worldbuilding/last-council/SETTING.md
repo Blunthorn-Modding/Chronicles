@@ -38,6 +38,11 @@ entries include a short explanation so players do not need to learn this page.
   what happened: bribery, theft, a forged order or another clear act.
 - Financial descriptions explain the impact on a House. There is no invented
   currency or requirement to collect money items.
+- Each character receives two different goals; other Houses may share them.
+  There is no separate needs system.
+- House resources and weaknesses matter at the scale of provinces and royal
+  policy. Weapons, armies and supplies are bargaining commitments in the story;
+  they do not add a troop-management or battle system.
 - Home estates and outside events can exist in the story without being built
   on the palace map.
 - If a country is removed from the setting, revise entries that depend on it.

@@ -16,9 +16,16 @@
 
 ## The proposed draw
 
-Each House keeps its public identity. For a new game it receives one of its
-five private House entries and one general secret. Goals are drawn separately;
-the organizer chooses how many to give each player.
+Each House keeps its public identity. For a new game each character receives:
+
+- One of their House's five private entries.
+- One general secret.
+- **Two different goals.** Different Houses can receive the same goals.
+
+The House entry supplies a bargaining asset, an exploitable weakness or a
+dependency with political consequences. Small maintenance problems and good
+deeds alone are not enough. The general secret and goals remain independent
+of the House's main business.
 
 Other Houses may learn the selected private information. Nobody, one House
 or several may know it. Everyone learning the same entry receives the same
@@ -27,6 +34,15 @@ facts, and its owner is not told who knows.
 Goals describe what a character wants. They do not tell the player how to
 play or define a scored success state. Candidate-only goals are reserved for
 characters already assigned as candidates.
+
+Check that both goals are available to the character. Political tensions can
+be interesting; two goals do not need to come from different categories.
+Replace a pair only if its actual demands cannot sensibly be pursued together.
+Do not reject a principled goal just because the character has a shameful past.
+
+There is **no separate needs system**. A private entry can contain a specific
+problem, such as a debt or a failed weapons order, without giving every House
+a list of supplies it must collect.
 
 ## Variables
 
