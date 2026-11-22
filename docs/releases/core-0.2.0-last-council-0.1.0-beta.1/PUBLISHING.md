@@ -11,7 +11,8 @@ published by this build task.
    dependency in Modrinth after uploading Core.
 3. Both mods are required on client and server. Simple Voice Chat is optional;
    the tested version is **1.21.10-2.6.22**, with separate voice networking needed.
-4. Use `CHANGELOG.md`, `README.md`, `VERIFICATION.md` and
+4. Use `LAST_COUNCIL_DESCRIPTION.md` for The Last Council's project-page body.
+   Use `CHANGELOG.md`, `README.md`, `VERIFICATION.md` and
    `modrinth-metadata.json` as the upload reference. The metadata document is a
    checklist, not a ready-to-submit authenticated API request.
 5. Match each primary JAR upload against `SHA256SUMS`. The source repository is
