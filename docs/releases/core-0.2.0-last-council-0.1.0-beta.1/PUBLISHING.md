@@ -12,6 +12,8 @@ published by this build task.
 3. Both mods are required on client and server. Simple Voice Chat is optional;
    the tested version is **1.21.10-2.6.22**, with separate voice networking needed.
 4. Use `LAST_COUNCIL_DESCRIPTION.md` for The Last Council's project-page body.
+   Select `last-council-icon.png` for its project icon; `ICONS.md` records the
+   original Minecraft texture and preparation details.
    Use `CHANGELOG.md`, `README.md`, `VERIFICATION.md` and
    `modrinth-metadata.json` as the upload reference. The metadata document is a
    checklist, not a ready-to-submit authenticated API request.
