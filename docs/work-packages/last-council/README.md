@@ -1,5 +1,7 @@
 # The Last Council work-package tree
 
+**22 November worldbuilding review:** the editable [worldbuilding workbook](../../worldbuilding/last-council/README.md) proposes 16 public Houses with five private alternatives each, 50 general secrets, 50 open-ended goal motivations and 24 complications, with historical/literary sources. It is a discussion draft. Implementation is explicitly postponed and the beta defaults remain unchanged; goals are not scored tasks or prescribed end-success states.
+
 **Requested beta delivery:** The Last Council **0.1.0-beta.1** with Chronicle Core **0.2.0** packages the verified dev.20 implementation for combined multiplayer review. See the [release notes](../../releases/core-0.2.0-last-council-0.1.0-beta.1/README.md) and [human review checklist](BETA_REVIEW_CHECKLIST.md). The release uses plain JARs; existing dev.20 e4mc Host/Player packs remain available as a starting point after replacing both mod JARs. No dedicated review server is required.
 
 **Implementation baseline:** dev.20 [election controls](ELECTION_RESULTS.md), including the automatically verified dev.19 [political Event sources](POLITICAL_SOURCES_RESULTS.md) and dev.18 [Voice rooms](LC10_RESULTS.md). Candidate withdrawal, Chancellor unresolved ending, public audit and the advisory meeting warning are implemented.
