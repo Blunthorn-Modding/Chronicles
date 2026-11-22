@@ -1,324 +1,230 @@
 # General secrets
 
-[Worldbuilding index](README.md) | [Shared setting and rules](SETTING.md) | [Sources and inspiration](SOURCES.md)
+[Worldbuilding index](README.md) | [Shared setting](SETTING.md) | [Sources and inspiration](SOURCES.md)
 
-Draw exactly one general secret per participating House and use each entry at most once in a game. These are independent of the separate House-specific private draw. Check each selected truth against the actual cast, selected private entries and prior political records before issuing it; redraw any contradiction, including a conflicting debt, asset, transaction or past event. Do not silently rewrite an issued secret. A secret conveys only its stated facts and does not determine another player's conduct, candidacy or vote. The recipient knows the stated truth; any fabricated account is identified as such. A learned copy carries the same facts, and no physical prop is required. A recipient chooses whether and how to use or disclose it.
-
-Silver amounts are narrative accounts that establish relative stakes, not an inventory currency. A private handout supplies the relevant evidence in words; mentioning a ledger or letter does not require a separate prop. No secret instructs its owner to confess, blackmail, pay or seek a particular ending.
+Draw one general secret per participating House, separately from its private House information. Use each secret at most once per game. It can concern any part of the family's affairs. A separate random draw determines which other Houses learn each secret. It may be known to nobody else, to one other House, or to several. Every House that learns it receives the same facts.
 
 ## Browse the pool
-- [Money, authority and appearances](#money-authority-and-appearances) - S01 to S10
-- [Claims, obligations and choices](#claims-obligations-and-choices) - S11 to S20
-- [Trade, reputation and stewardship](#trade-reputation-and-stewardship) - S21 to S30
-- [Public credit and private records](#public-credit-and-private-records) - S31 to S40
-- [Accounts, commitments and concessions](#accounts-commitments-and-concessions) - S41 to S50
 
-## Money, authority and appearances
+- [Money and reputation](#money-and-reputation) (S01–S10)
+- [Claims and obligations](#claims-and-obligations) (S11–S20)
+- [Trade and property](#trade-and-property) (S21–S30)
+- [Public promises and private records](#public-promises-and-private-records) (S31–S40)
+- [Contracts and inheritances](#contracts-and-inheritances) (S41–S50)
 
-### S01 — The Quiet Tables
+## Money and reputation
 
-Your family owns a profitable public gambling room through a steward. It has no licence, and the steward's ledger records your ownership and the room's receipts. Household wagers are lawful; this public establishment is not. You have kept the ledger rather than destroying it.
+### S01 — The Gambling Room
 
-**Why it matters:** A licence, public admission or a negotiated settlement could end the vulnerability; rivals could also demand an account.
+Your family secretly owns an illegal gambling room that operates without a licence. It brings in much of the family's income. The steward's accounts show where the money goes.
 
 ### S02 — The Debt That Was Paid
 
-Your House repaid a 600-silver private loan in full, but the lender's account mistakenly carried the same 600 silver forward as still outstanding. Your signed receipt proves the payment; the loan carried no further interest. You have let the incorrect account circulate because it makes your finances look weaker than they are, discouraging requests for contributions.
+Your family repaid a large loan in full. The lender's accounts still show it as unpaid, but you have a signed receipt. You have let people think you owe the money so they ask you for less money.
 
-**Why it matters:** You can contest the claim or use the supposed weakness in negotiations.
+### S03 — The Forged Timber Order
 
-### S03 — The False Warrant
-
-A relative fabricated a royal warrant to secure a shipment of timber for your estate. The timber was delivered, and your family kept the forged document and the supplier's receipt. No monarch authorised it; you discovered the deception afterwards and concealed it.
-
-**Why it matters:** The offence is concrete, but the Council must decide any political response.
+A relative forged a royal order to get timber for your estate. The supplier delivered the timber and sent the bill to the Crown. Your family found out, kept the timber and concealed the forgery.
 
 ### S04 — The Bought Appointment
 
-Your family paid 250 silver to Orrin Hale, the late king's appointments clerk, to obtain a deputy's place in the royal storehouses. The deputy performed the ordinary work, but the payment was concealed and never entered in the public appointment register. Your private account identifies Hale, the amount and the favour; Hale has since died.
+Your family bribed the late monarch's appointments clerk to put a relative in charge of a royal storehouse. Your steward's private account records the payment and names the clerk.
 
-**Why it matters:** This was purchased access rather than an extra Council power. You can defend the appointment's usefulness, seek protection from retrospective enquiries, or offer disclosure as the price of a wider settlement.
+### S05 — The Stolen Relief Money
 
-### S05 — The Relief Chest
+Your family stole money donated to feed families during a hard winter and spent it repairing a private storehouse. The charity ran out of money early, and some families went without food.
 
-A fund of 500 silver donated legally for public relief was spent by your family on repairs to its private storehouse, without Council authorisation. Your accounts record the full diversion. You argued privately that a sound storehouse would protect future supplies, but the donors never agreed to that use and no repayment has been made.
+### S06 — The Hidden Family Tie
 
-**Why it matters:** A public change of use, restitution or criticism are possible political responses.
+The head of an independent transport company is your predecessor's child from an earlier marriage. Your steward kept the relationship secret and showed the company its rivals' bids before awarding it a large family contract.
 
-### S06 — The Anonymous Kitchens
+### S07 — The Hidden Inheritance
 
-During a bad winter, your family diverted 400 silver from its own planned celebrations to fund public kitchens. It allowed a local charitable fund to take the credit and later denounced the kitchens as wasteful, fearing that disclosure would expose the contradiction. The kitchens served people as intended; no relief endowment was diverted.
+Your predecessor left a profitable manor to a cousin from a poorer branch of the family. You hid the signed inheritance instructions after the funeral so your branch could keep the manor and collect its rents.
 
-**Why it matters:** Revealing the gift might support a relief proposal, but admitting the public criticism was insincere carries a political cost.
+### S08 — The Fake Royal Invitation
 
-### S07 — The Hidden Codicil
+A broker sold your family a forged invitation to meet the late monarch. Your family learned it was fake and still showed it to merchants, claiming it proved your influence at court. The merchants agreed to back you.
 
-Your predecessor left one income-producing manor to Mara, an adult cousin from a poorer branch of the family. You found the valid codicil after the funeral and withheld it, allowing the manor to pass into the main estate. Mara knows a promise was made but has not seen its written terms. The manor brings in 180 silver a year; the document says nothing about your Council seat or the Crown.
+### S09 — The Unpaid Import Tax
 
-**Why it matters:** A family obligation competes with useful income. You can acknowledge the gift, seek a negotiated family settlement or preserve a vulnerable claim without needing Mara to appear in play.
+Your family paid a carrier to unload imported cloth without declaring it. The family sold the goods without paying the required import tax and kept the extra profit. The carrier's bill records who gave the order.
 
-### S08 — The Purchased Audience
+### S10 — The Old Rebellion
 
-A court intermediary sold your family what appeared to be a private royal invitation. You later established that the invitation was forged: the royal household never issued it and the intermediary kept the 200-silver fee. You nevertheless let the story spread that the king had personally sought your advice. The invitation and payment are genuine evidence of the fraud, not of royal favour.
+During a past rebellion, your family publicly called for the rebels to be punished. It secretly sold them grain when royal officials had banned those sales. Your family's accounts show it made a large profit.
 
-**Why it matters:** Your family was deceived, then chose to profit from the misunderstanding. Exposing the scam would also expose a claim on which some of your prestige rests.
+## Claims and obligations
 
-### S09 — The Undeclared Convoy
+### S11 — The Road Money
 
-Your family invested 300 silver in a hired carrier's legal shipment of cloth from Rheven. The goods arrived and were sold, but the investment income of 90 silver was not declared as a foreign commercial payment. Your family chose concealment because it publicly opposed reliance on foreign credit.
+Your family collected road tolls on the condition that part of the money went to repairs. It kept the repair money and reported the work as finished. The road is still broken, and the toll accounts show the missing money.
 
-**Why it matters:** The undisclosed payment is an offence; lawful trade and the political hypocrisy are distinct. Use only if Rheven exists.
+### S12 — The Illegal Licence
 
-### S10 — The Borrowed Glory
+Your family bribed a royal clerk to issue a trading licence after inspectors had rejected its application for an unsafe warehouse. The licence let your family open the warehouse without fixing the problems. Your steward recorded the bribe.
 
-Your grandfather's celebrated royal service was performed by a paid substitute. The original muster roll names the substitute, while your family history claims your grandfather served in person and earned a commendation. His payment for the substitution was lawful; claiming the personal distinction was dishonest. Neither the title nor the family's present Council seat depended on that commendation.
+### S13 — The Right to Rent the Quarry
 
-**Why it matters:** You can stand on the family's present merits, acknowledge the forgotten participant or defend a story that has helped others take your family seriously.
+Your family holds a signed right to rent a quarry near a royal harbour. A survey found a large supply of good building stone. Your family can sell the right without asking the quarry owner again.
 
-## Claims, obligations and choices
+### S14 — The Unpaid Pledge
 
-### S11 — The Missing Duty
+Your family claimed it had paid its full pledge to a winter relief fund. It sent only a small share. The fund had planned its food purchases around the full amount.
 
-Under a temporary collection contract, your family agent collected 800 silver from an existing lawful road toll. The road's charter earmarked 250 silver for repairs; the agent kept that portion and the repairs were not paid for. Your family discovered the shortfall and concealed it. The contract has ended and gives your House no continuing right to collect the toll.
+### S15 — The Opened Royal Letter
 
-**Why it matters:** A motion for an accounting or a voluntary payment could address the grievance.
+Your family illegally opened a sealed royal letter and learned that warehouses at a royal harbour would soon be offered for rent. You rented the only loading yard beside the warehouses before the plan became public.
 
-### S12 — A Price for Mercy
+### S16 — The Buried Harvest Report
 
-Your family accepted an undisclosed payment of 450 silver in exchange for securing a wholesale trading licence for an outside merchant. The licence was issued, and your private receipt connects the payment to the favour. The merchant received the agreed licence and owes nothing further; the concealed payment remains an offence under Office and favour.
-
-**Why it matters:** The concealed payment is an offence and a possible subject for disclosure or settlement.
-
-### S13 — The Quarry Option
-
-Your family holds a lawful, transferable option to lease Greybank Quarry, a retired stonemason's property outside the royal harbour, for three years at 200 silver a year. An independent survey found sound building stone beneath shallow overburden. The option expires when delegations depart at the end of the gathering; no player House currently operates the quarry, and transferring the option needs no further consent from its owner.
-
-**Why it matters:** You can offer to share the option, exercise it privately, or let it expire; no delivery or off-map construction is required.
-
-### S14 — The Broken Relief Promise
-
-Your family publicly pledged 600 silver to a public relief fund but transferred only 150 silver. The remaining 450 has never been paid. The pledge was voluntary and no donated assets were taken; your steward nevertheless announced that the whole contribution had been delivered. Your family has sufficient assets to honour the remaining pledge if it chooses.
-
-**Why it matters:** The discrepancy can support negotiation without inventing a legal offence.
-
-### S15 — The Opened Dispatch
-
-Your family opened a sealed royal dispatch without authority before returning it to its courier. It announced plans to auction leases of three royal warehouses. Acting on the information before it became public, you bought the lease option to an adjoining yard for 150 silver. The plan was genuine but the auction has not happened, and the yard can still be offered to a partner.
-
-**Why it matters:** Useful commercial foresight was acquired through a specific breach of trust. You can bargain over the yard, support a transparent auction or try to keep the source of your advantage concealed.
-
-### S16 — The Costly Stand
-
-Your family declined a lucrative offer to raise rents on a group of tenants. It also paid the resulting shortfall in a local school's budget from its own purse. Your ledgers record both choices; the tenants owe no special loyalty in return.
-
-**Why it matters:** This principled decision explains a real expense and can support a public argument.
+During a poor harvest, the late monarch's tax office ordered its printers to hide reports of crop losses so it could keep collecting the full grain tax. Your family ran one of those presses and kept the signed orders.
 
 ### S17 — The Hidden Reserve
 
-Your family holds 1,000 silver in a private reserve, recorded in a household inventory. It is your own property, not relief money or a payment from abroad. Your public accounts omit it because no rule requires disclosure of this asset. You have preserved it for an emergency rather than allowing creditors or would-be allies to treat it as available for their plans.
+Your family has a reserve large enough to fund several projects without borrowing. It keeps the money separate from the estate accounts it shares with lenders and allies, who believe the family has little to spare.
 
-**Why it matters:** It can finance a voluntary offer, though no mechanical resource pool is created.
+### S18 — The Leaked Customs Plans
 
-### S18 — The Foreign Pension
+Your family stole confidential royal plans to change import taxes and sold them to merchants in Rheven, a neighbouring country. The merchants bought stock before the taxes rose. The stolen plans brought your family a steady income.
 
-For the past two years, a Rheven merchant consortium has paid your family 600 silver annually in exchange for early warnings of proposed customs changes. You supplied copies of public proposals before their scheduled publication, not military plans or anyone's secret ballot. None of the foreign payments was declared. The last payment has arrived, but no future policy or vote is promised.
+### S19 — The Inherited Crown
 
-**Why it matters:** The income has bought useful independence at home while making an outside interest expect access. You decide whether to continue, disclose or renounce the arrangement. Requires Rheven.
+Your family has long praised the Council's right to elect a ruler. A signed letter shows your predecessor paid to circulate a plan that would give the late monarch's relatives the throne by inheritance.
 
-### S19 — The Other Constitution
+### S20 — The Unpaid Builders
 
-Before the monarch died, your family commissioned and circulated a legal argument that the Crown should pass by hereditary settlement rather than Council election. The argument proposed giving the late king's extended family precedence, but secured no agreement and changed no law. A signed covering letter proves that you paid for its circulation among outside patrons.
+Your family opened its renovated hall with a feast and announced that every builder had been paid. The builders are still owed most of their wages. Paying them would use up this year's estate income.
 
-**Why it matters:** You retain full Council rights and may sincerely have changed your mind. Other people could nevertheless doubt the sincerity of your present defence of the Charter.
+## Trade and property
 
-### S20 — The Unpaid Repair
+### S21 — The Short Grain Measure
 
-Your family hired a carrier to repair a hired barge after a family shipment damaged it. The agreed final instalment of 120 silver remains unpaid, though your steward publicly claimed the account was settled. The work was completed and your family can choose whether to pay.
+Your family's trading agent charged buyers for ten measures of grain while delivering only nine. Your family found out and kept the money. Its own inspection report records the fraud and names the market where it happened.
 
-**Why it matters:** The outstanding claim is specific; acknowledgement, payment or negotiation may cost face as well as coin.
+### S22 — The Fixed Bread Price
 
-## Trade, reputation and stewardship
+Your family agreed with several bakers to keep bread prices high after grain prices fell. It supplied the bakers with cheaper flour in return. Its accounts record the agreement and the discounts given to each baker.
 
-### S21 — The Altered Measure
+### S23 — The Innkeeper's Accounts
 
-Your family's trading agent used a deliberately shortened grain measure at last spring's Bell Market fair, charging for ten measures while delivering nine. Your own inspection report records the practice and names that fair; the agent stopped after discovery. Your family has not made restitution to the buyers. This was your agent's trading practice, not ownership of the town or its market.
+Your family secretly owns a popular inn. The keeper's accounts show that the late monarch's tax adviser met tax collectors there and took a share of the illegal fees they charged to waive tax inspections.
 
-**Why it matters:** The report supplies a real past wrongdoing without attributing it to another player.
+### S24 — The Invented Ancestor
 
-### S22 — The Paid Endorsement
+Your family claims descent from the diplomat who secured tax exemptions for several towns. The family register shows an ancestor invented the connection to win court appointments. Your family still uses the story to claim it speaks for those towns.
 
-A cloth merchant paid your family 250 silver for a private endorsement. You praised the cloth as an independent judgement and concealed the payment; the goods met their advertised standard and no official favour was purchased. You still have the money.
+### S25 — The Unsafe Ferry Landing
 
-**Why it matters:** Disclosure could embarrass a family that claims independence; the private payment is not itself an undisclosed official favour.
+Your family owns part of a ferry business. It hid an inspection report warning that the landing could collapse under a crowd. The business still collects fares from passengers who use that landing.
 
-### S23 — Hospitality With a Purpose
+### S26 — The Overpriced Contract
 
-Your family paid the keeper of a fashionable coaching house to report which royal officials met visiting foreign merchants. The reports name only outside officials and visitors from an earlier season; they say nothing about the current player Houses. They reveal meetings, not what was said. You used the reports to approach officials when you believed they needed a commercial ally.
+A supplier bribed your steward to win a public contract. The public paid almost twice what another supplier had offered for the same goods. Your steward kept a receipt that ties the payment to the award.
 
-**Why it matters:** The network offers a plausible source of influence, but admitting it could make people wary of accepting your hospitality. It does not grant information about private conversations during this game.
+### S27 — The Secret Printer
 
-### S24 — The False Pedigree
+While praising a royal tax increase in public, your family paid to print the pamphlet that rallied towns against it. The printer's receipt names your steward as the person who paid for the whole print run.
 
-Your house publicly claims descent from a celebrated treaty-maker. A surviving family register proves the connection was invented by an ancestor to win patronage. The treaty itself is real, but the fabricated ancestry grants no title, vote or claim to the throne.
+### S28 — The Pump Plans
 
-**Why it matters:** A rival could challenge the family's authority to invoke that legacy; the owner can confess, defend its present principles, or remain silent.
+Your family bought the only set of plans for a pump that can drain flooded mines. The inventor's signed agreement gives your family the right to build the pump and sell copies of the plans.
 
-### S25 — The Dangerous Contract
+### S29 — The Village Pasture
 
-Your family invested 200 silver in a carrier's public crossing service. An inspection warned its landing was unsafe; your appointed agent suppressed the report for one month to protect the investment. The landing was repaired before it failed, and nobody was injured.
+An old survey proves a pasture claimed by your family belongs to a neighbouring village. Your steward found the survey and kept charging the villagers rent to graze their animals there.
 
-**Why it matters:** The owner must decide whether to admit the suppression and advocate inspection, or protect the family's commercial standing.
+### S30 — The Second River Route
 
-### S26 — The Cheaper Contract
+Your family hired a boat pilot to survey a little-used branch of a busy river. The pilot found it deep enough for cargo boats at normal water levels. The route avoids a costly toll and your family has the survey.
 
-Your family awarded a public supply contract for 500 silver after the successful supplier paid your steward 75 silver privately. A competing bid of 300 silver offered the same ordinary supplies. The payment was not disclosed; the receipt connects it to the award. The supplies were delivered, but the public account paid 200 silver more than the cheaper bid.
+## Public promises and private records
 
-**Why it matters:** The concealed payment for commercial favour is the issue, even though delivery occurred.
+### S31 — The Bridge Workers
 
-### S27 — The Quiet Patron
+Your family announced that local households had volunteered to repair a public bridge. It had threatened to evict tenants who refused to work for free. Your steward's work list marks every household that received the threat.
 
-Your family funded a pamphlet criticising royal tax policy while publicly distancing itself from the author. The pamphlet made no false claim of official authority. Its printer's receipt shows your payment, which you kept private to protect your public standing.
+### S32 — The Cost of the Truce
 
-**Why it matters:** Ordinary criticism is lawful; the political embarrassment is the concealed sponsorship.
+Your family won praise for settling a dispute between border towns. It secretly pledged a share of its estate rents to a lender who paid compensation to both towns. The first repayment is overdue.
 
-### S28 — The Borrowed Treasure
+### S33 — The Medicine Prices
 
-Your family displayed a jewelled ceremonial cup as an inherited treasure, but rented it for 80 silver from a dealer and returned it. The story was invented to support a claim that the house has always been a generous patron of the Crown. It affects no legal title.
+Your family bought a large share of the local medicine supply during an outbreak and resold it at several times its cost. It publicly urged merchants to hold prices down while making a large profit through its agent.
 
-**Why it matters:** The lie can undermine an appeal to tradition; a candid admission could reframe the family's actual contributions.
+### S34 — The Blackmail Payment
 
-### S29 — The Found Boundary
+A blackmailer accused your family of stealing a relief shipment. Delivery records prove the shipment arrived in full. Your family paid to keep the false accusation quiet and kept the blackmailer's written demand for money.
 
-An old survey shows a small pasture long claimed by your family belongs to a neighbouring village, not to another player House. Your steward continued collecting rent from village tenants after the discovery. The survey and rent accounts are in your possession.
+### S35 — The Loan Coming Due
 
-**Why it matters:** A return of the rent or public correction could resolve a tangible dispute.
+A large loan from a foreign lender comes due this autumn. Your family declared it to the Crown but kept it from other families. Without a new loan, repayment would force the sale of family land.
 
-### S30 — The Licensed Rival
+### S36 — The Empty Armoury
 
-Your family owns a properly licensed gambling house, although it has publicly condemned such establishments. The licence and ownership record are genuine, and all required declarations were made. Your interest is profitable but politically awkward.
+Your family agreed to keep a town militia equipped in exchange for part of the town's market fees. It sold most of the militia's equipment to cover private debts and kept collecting its share of the fees.
 
-**Why it matters:** The scandal is hypocrisy, not unlawful gambling.
+### S37 — The Sold Firewood Rights
 
-## Public credit and private records
+Your family accepted a large payment from a merchant for exclusive timber rights. You knew villagers already had a written right to gather firewood there, but hid that from the buyer.
 
-### S31 — The Paper Bridge
+### S38 — The Hidden Harvest Forecast
 
-Your family accepted a public contribution for a bridge repair and spent it on that repair, but advertised the entire cost as a gift from the family. The accounts show the public contribution and your own smaller share. The bridge itself was repaired.
+A surveyor your family hired found crop disease spreading across several farms in one district and warned that its harvest would suffer. Your family kept the warning private and used promises of abundant grain to sign new supply contracts.
 
-**Why it matters:** A correction could change public credit for the work without undoing it.
+### S39 — The Treasury's Hidden Debt
 
-### S32 — The Wager on Peace
+The Royal Treasury borrowed from your family to pay its staff. A signed agreement gives your family a share of harbour taxes until the debt is repaid. The Treasury concealed the debt and has missed its first payment.
 
-Your family won a lawful private wager of 400 silver that a border dispute would be settled peacefully. It publicly advocated an expensive show of force while privately hoping to win the wager. The settlement occurred and the wager was paid; there is no present conflict requirement.
+### S40 — The Double Sale
 
-**Why it matters:** Disclosing the wager raises a question about the sincerity of the family's advice without making the wager illegal.
+Your family took deposits from two merchants for the same cargo of wool. Both merchants have signed contracts promising the entire shipment. Your family spent both deposits and has enough wool to fill just one order.
 
-### S33 — The Hoarded Medicine
+## Contracts and inheritances
 
-Your family bought a small supply of medicine for 150 silver during a local sickness and resold half for 350 silver while publicly urging merchants to hold prices down. The medicine was ordinary private property, not relief supplies; the remainder was given away.
+### S41 — The Switched Cloth
 
-**Why it matters:** The contrast creates a concrete moral and political dilemma: defend the sale, return the profit, or disclose the gift and the sale together.
+A royal office paid your family for high-quality cloth. Your family delivered cheaper cloth, labelled it as the better grade and kept the price difference. Your steward's written order instructed the weavers to make the switch.
 
-### S34 — The Blackmail You Paid
+### S42 — The Missing Expiry Dates
 
-An outside swindler demanded 500 silver, claiming to possess a letter showing that your family financed attacks on a relief convoy. You know the accusation was false: the named convoy never travelled and the supposed letter misidentifies your steward. You paid anyway to avoid a public scandal. Your payment record survives alongside the demonstrably fabricated demand.
+Your family replaced the original record of its tax exemptions with a copy that leaves out the expiry dates. It still claims exemptions that ended years ago. Your steward kept the original dates in the estate accounts.
 
-**Why it matters:** A payment can look like an admission when separated from its context. You can explain the deception, argue against government by allegation or keep an embarrassing surrender to blackmail private.
+### S43 — The Staged Petition
 
-### S35 — The Declared Loan
+Several towns signed a petition to limit royal tolls. Your family wrote the petition and sent its agents to the towns to gather support. It publicly claimed the towns had organised the petition themselves.
 
-Your family borrowed 900 silver from a Rheven lender and declared it as required. All 900 remains outstanding, payable in three instalments of 300 at the next three autumns, with no interest or political concession. You concealed the borrowing from political peers because they might mistake lawful credit for divided loyalty. The written agreement permits another lender to refinance it on your behalf.
+### S44 — The Town's Market Fees
 
-**Why it matters:** The debt is negotiable leverage, not treason or an automatic penalty. Use only if Rheven exists.
-
-### S36 — The Staged Discovery
-
-Your family paid a work crew 100 silver to place an old family banner inside a ruined chapel, then announced it had been discovered there. The banner is genuine but its supposed discovery was staged to strengthen a public claim of longstanding local service. No legal right depends on it.
-
-**Why it matters:** The owner can retract the story or defend the family's actual record; the false display is potent ammunition for critics.
-
-### S37 — The Stolen Credit
-
-Your family publicly took credit for a town's privately funded well. The town's accounts name the local donors and show that your house made no contribution. You retained a copy after discovering the truth and never corrected the claim.
-
-**Why it matters:** Recognition can be offered to the town without requiring anyone to attend.
-
-### S38 — The Price of a Forecast
-
-Your family paid 120 silver for an independent harvest forecast and kept it private while publicly predicting a plentiful season. The forecast warned of a poor harvest in one district only; it does not establish current realm-wide supplies or any House's reserves.
-
-**Why it matters:** The owner can disclose the warning, share it selectively, or protect an embarrassing earlier prediction.
-
-### S39 — The Treasurer You Protected
-
-The previous deputy Treasurer admitted to you that he had concealed 900 silver in unlawful fees. You persuaded him to restore the money quietly and kept his written admission, but accepted his help in obtaining a favourable Crown lease. He has since died. The Treasury recovered its money without learning why, and no current House is implicated by this account.
-
-**Why it matters:** You prevented a loss while protecting misconduct and accepting a benefit. Disclosure could strengthen your case for an enquiry or raise awkward questions about the standards you apply to friends.
-
-### S40 — The Double Booking
-
-Your family sold two organisations exclusive use of a privately rented hall for the same day, accepting 100 silver from each. It then cancelled one booking but kept both deposits and publicly blamed the cancellation on the weather. The parties are outside associations, not player Houses.
-
-**Why it matters:** Returning the 100 silver and admitting the false explanation may resolve the dispute; silence protects face for now.
-
-## Accounts, commitments and concessions
-
-### S41 — The Altered Inventory
-
-Your family supplied 500 lengths of ordinary cloth to a public office at the price of premium cloth, receiving 600 silver more than the contract allowed. Your inspection identified the substitution before delivery, but your family proceeded and has not repaid the difference.
-
-**Why it matters:** The overcharge is a substantial, specific grievance and a public accounting or restitution proposal is possible.
-
-### S42 — The Family Archive
-
-Your family sold the originals of three celebrated ancestral letters for 500 silver and displayed accurate copies as originals. The sale was lawful; the contents were not changed. The buyer is an outside collector, and the sale created no ongoing claim on another House.
-
-**Why it matters:** The family can admit the sale, seek support for an archive policy, or defend the copies while risking its reputation for permanence.
-
-### S43 — The Popular Petition
-
-A petition demanding a limit on royal tolls was presented as the spontaneous work of several towns. Your family actually paid a scribe to draft it and gathered the genuine signatures through its own agents. No signatures were forged, but you publicly insisted you had not organised it. The demand was never adopted and creates no present legal obligation.
-
-**Why it matters:** The petition contained real grievances as well as manufactured appearances. You may champion the policy honestly now, acknowledge your sponsorship or let others continue to mistake organisation for spontaneous public enthusiasm.
-
-### S44 — The Endowment Lease
-
-Your family leases a building donated legally for public relief at a fair recorded rent, but uses it as a private warehouse. The trustees never received Council authorisation for the change of use. Your lease and inventory show the arrangement.
-
-**Why it matters:** A Council-recorded change of use or return to relief could resolve the conflict.
+Your family holds the original charter for a nearby town's cattle market. It gives the market fees to the town. Royal collectors have kept those fees for years, claiming the Crown owns the income.
 
 ### S45 — Shelter for a Forger
 
-Your family shelters Tomas, a former royal clerk who admits forging a warrant for the release of relief grain during a winter emergency. The grain reached the hungry settlements; he took no personal payment. The forged warrant falsely claimed permission that the Crown had refused. You know these facts from his signed account and the matching delivery record. He is elsewhere, safe under your protection.
+Your family is hiding a former royal clerk who forged permission to release relief grain after the Crown refused. His signed account and delivery records show the grain fed villages cut off by winter storms.
 
-**Why it matters:** Law, mercy and loyalty point in different directions. You could seek a narrow pardon or a broader policy, defend the emergency action or keep your protection secret. No appearance or testimony from Tomas is required.
+### S46 — The Grain Supply Deal
 
-### S46 — The Border Invoice
+Your family has a signed deal to buy emergency grain from a foreign supplier at last winter's prices. It can name any royal harbour for delivery. Merchants already selling grain in the realm are charging much more.
 
-Your family purchased ordinary tools from Vask for 200 silver and declared the imported goods, but omitted a separate rebate of 50 silver paid back by the foreign supplier. The invoice records both amounts. The trade was lawful; concealing the foreign commercial payment breached the customs declaration rule.
+### S47 — The Forged Loan Agreement
 
-**Why it matters:** A correction or settlement could be discussed. Use only if Vask exists.
+Your steward forged a landowner's signature to take out a loan against their land. The money went into your family's accounts. The landowner learned of the fraud when the lender threatened to take the land.
 
-### S47 — The Misused Signature
+### S48 — The Glassworks Inheritance
 
-Your family's steward copied a deceased relative's signature onto a private sale agreement after that relative died. The steward had no authority to sign for them; the buyer paid and received the goods. Your family kept the original instruction showing the deception.
+A distant relative died and left your family a share of a thriving glassworks. Your family has kept the signed will private. The share earns almost as much each year as the rest of your estate.
 
-**Why it matters:** The affected bargain can be disputed without changing Council rights.
+### S49 — The Missing Ransom Money
 
-### S48 — The Inheritance Bargain
+Your family negotiated the release of merchants held for ransom. It stole much of the money their families raised by claiming the captors had demanded it all. Your steward's accounts show how much the captors actually received.
 
-An adult member of a junior branch of your family accepted cancellation of a 700-silver private debt in exchange for half the future income of a small inherited manor. Your family publicly describes that manor as an unencumbered gift proving its generosity. The agreement is lawful and genuine, and involves an outside creditor, not another player House.
+### S50 — The Second Grant
 
-**Why it matters:** The family can defend a practical rescue, admit how little income the supposed gift provides or seek backing to buy out the claim. No player is assigned a marriage or personal relationship.
+Your family asked for public money to repair a harbour wall after the work had already been fully funded. It received the second grant, used it to repay a private loan and claimed both grants went to the repair.
 
-### S49 — The Profitable Rescue
+## Author notes
 
-Your family arranged the release of three independent carriers held by bandits last year. The carriers' families supplied a ransom of 1,200 silver; your agents negotiated a price of 800 and secretly retained the remaining 400 as a fee. Everyone was released. Your private account records the full difference, while your public version describes an entirely selfless rescue.
+Draw entries that fit the participating Houses, their selected private facts and established events. Draw again if a fact conflicts. S18 requires Rheven to exist in the setting.
 
-**Why it matters:** The rescue was real and the concealed profit was substantial. You can defend the fee, return it or decide how much truth your reputation can bear.
-
-### S50 — The Duplicate Grant
-
-Your family accepted 500 silver in public funds for a road repair already fully paid for by an earlier 500-silver grant. It knew the two grants covered the same work and retained the second payment. The road was repaired; no other House is implicated.
-
-**Why it matters:** Return or publicly reallocate the second grant, or risk defending a double claim on public funds.
+Unnamed merchants, lenders and landowners are outside people, not other
+participating Houses.

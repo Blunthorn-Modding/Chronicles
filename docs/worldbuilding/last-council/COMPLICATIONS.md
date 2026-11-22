@@ -1,159 +1,171 @@
 # Council complications
 
-[Worldbuilding index](README.md) | [Shared setting and rules](SETTING.md) | [Sources and inspiration](SOURCES.md)
+[Workbook](README.md) · [Setting](SETTING.md)
 
-Choose eligible entries at concealed points in active Council meetings, at a safe boundary between ballots and before that meeting's succession vote. The Chancellor presents the opening without seeing the live selection, future targets or countdown beforehand. Allow discussion; never compel a vote, signature, disclosure or outcome. Each entry is used at most once. A written offer contains the outside actor's complete terms; no visitor or response needs to be improvised. Counterproposals are possible, but do not assume an outside party accepts different terms.
+Each entry is an announcement for the Council. The Chancellor learns which
+one was chosen when it arrives. No announcement decides how the Houses respond.
 
-Check the actual cast, committed private truths, prior decisions and realm prerequisites before selection. Exclude an entry if its premise or offer contradicts an issued fact, or was already decided, superseded or made impossible. Exclude conflicting alternatives involving the same named asset or shipment. No entry requires a particular participating House, minimum signature count or outside attendance. Discussion, a voluntary political response or an ordinary Council motion are possible routes; no entry forces a formal vote. A Council record creates a political decision, not automatic off-map delivery or construction.
+## Trade and foreign pressure
 
-[Foreign pressure and public credibility](#foreign-pressure-and-public-credibility) | [Privileges, sanctuary and competing claims](#privileges-sanctuary-and-competing-claims) | [Finance, relief and contested policy](#finance-relief-and-contested-policy)
+### C01 — Grain for a tax exemption
 
-## Foreign pressure and public credibility
+Rheven, a neighbouring trading country, offers four grain shipments over two
+seasons. In return, its grain merchants want three years without import taxes.
+The offer expires when this meeting closes.
 
-### C01 — The Grain Bargain
+### C02 — A failed foreign harvest
 
-> Rheven offers to reserve four grain convoys over the next two seasons if the Council grants Rheven merchants a three-year exemption from customs duties on grain. The proposal retains the duty to declare goods and payments. The offer expires when this Council meeting closes; acceptance must be recorded by the Council. The letter makes no threat of war.
+Rheven, a neighbouring trading country, has suffered a poor harvest. Only two
+of its usual six uncommitted grain shipments are available this season. It asks
+the Council which hungry districts should receive priority.
 
-**Play and stake:** Members might bargain publicly over food security and equal treatment. Without acceptance, the convoys are not reserved and existing duties remain. Requires Rheven.
+### C03 — A loan with conditions
 
-### C02 — Harvest Across the Sea
+Foreign bankers offer the Crown enough money to cover its immediate bills.
+Repayment would take two years and cost considerably more. They also demand
+a promise that the Crown will not raise harbour taxes during that time.
 
-> A crop failure in Rheven has sharply reduced grain available for export. Rheven announces that only two of its usual six merchant convoys can be offered this season and invites the Council to record which public relief programme should receive first access. The report guarantees neither price nor delivery.
+### C04 — The king promised it twice
 
-**Play and stake:** Members can debate priority, seek other sources or decline to choose. Without a decision no recipient receives Council priority. Requires Rheven; exclude if the same convoys have already been committed. Rheven's shortage does not determine any House's reserves.
+Two charities hold genuine letters from the late king, each promising them
+exclusive use of the same royal orchard. Both planned to use its income for
+their work. Neither has taken possession.
 
-### C03 — Credit With a Price
+### C05 — A forged royal order
 
-> A consortium of outside bankers offers the Treasury a loan of 2,000 silver, repayable as 2,400 silver in two years. The condition is a public Council promise not to increase the existing Crown Quay harbour duty during those two years. A recorded Council acceptance takes the offer, and the Treasury alone would owe the loan.
+Treasury clerks stopped a large payment after discovering that its royal order
+was forged. The payment was meant for a business that does not exist. Nobody
+knows who wrote the order.
 
-**Play and stake:** Discuss the value of immediate credit against the constraint on future policy. Without acceptance there is no loan or promise.
+### C06 — Families across the border
 
-### C04 — Two Royal Promises
+A village divided by the border with Vask, a neighbouring kingdom, asks to keep
+its weekly market open to families from both sides. Vask agrees, provided the
+Council also accepts. Neither country would give up its claim to the land.
 
-> Lantern Trust and Roads Trust each possess an authentic written promise from the late monarch granting them use of Eastgate Orchard for the coming year. Neither promise says it supersedes the other; both cannot have exclusive use at once. Each foundation asks the Council to recognise its claim, and neither has yet taken possession.
+### C07 — Coins worth less than promised
 
-**Play and stake:** Members can recognise either claim, offer shared use, or leave the dispute unresolved. Without a decision neither has a Council-recognised exclusive grant. Exclude if Eastgate Orchard has already been committed incompatibly, including by C12.
+An independent inspection found less precious metal than promised in a recent
+batch of royal coins. The mint's contractor blames faulty equipment. The tests
+prove the coins are worth less, but do not prove deliberate fraud.
 
-### C05 — The Counterfeit Warrant
+### C08 — The Crown loses a lender
 
-> Treasury clerks have intercepted a warrant ordering 600 silver paid to the invented firm Grey and Sons. Comparison with the official seal proves the warrant is counterfeit, and the firm has no registered existence. No money has been paid. The document claims royal authority without a genuine countersignature; its author has not been identified.
+A wealthy guild refuses to lend the Crown any more money unless it publishes
+regular accounts of payments to suppliers. Existing loans remain due. The guild
+will resume lending if the Council agrees to publish the accounts.
 
-**Play and stake:** The Council can publicise the attempted fraud, improve verification, or debate whether publicity might invite imitation. No forged payment is made unless separately authorised.
+## Rights and competing claims
 
-### C06 — The Divided Village
+### C09 — Towns want their own officials
 
-> Hearthford submits a joint plea from residents on both sides of an old boundary marker: allow their weekly market to continue without either realm treating attendance as a sovereignty claim. Vask offers the same assurance in writing if the Council records it. Neither the plea nor the offer settles the boundary or waives customs declarations.
+Several towns want to choose their own market officials instead of accepting
+royal appointees. They offer to publish their market income in return. The
+change would remove a useful source of royal appointments.
 
-**Play and stake:** Discuss practical access against fears of ambiguity. Without recorded acceptance, no joint assurance is made. Requires Vask.
+### C10 — Trade for lower taxes
 
-### C07 — The Silver Assay
+Rheven, a neighbouring trading country, offers to send more cloth shipments to
+a royal harbour for two seasons. It wants those shipments exempt from harbour
+taxes. Local traders would gain business, but the Crown would lose tax income.
 
-> Independent assayers tested ten coins from a recent public Treasury batch and found each contained 10 percent less silver than the stated standard. The tested coins were made by an outside mint contractor. The contractor's written explanation blames faulty equipment; the test establishes the content, not intent or the quality of untested coins.
+### C11 — Shelter for an informer
 
-**Play and stake:** Consider a public warning, an inquiry, or a limited exchange of the tested batch. Without a decision no new remedy is promised and the cause remains unproven.
+A former customs official from Vask, a neighbouring kingdom, asks for shelter.
+The official published genuine accounts showing a superior stealing tax money.
+Vask wants the official returned for publishing confidential records.
 
-### C08 — Credit Withdrawn
+### C12 — Rent or relief
 
-> The Goldworkers' Guild announces it will extend no new credit to the Crown unless the Council publishes quarterly accounts of its payments to suppliers. Existing contracts and debts remain in force. The guild offers to restore new credit upon a recorded commitment to publish; it demands neither a House signature nor an appointment.
+The Crown can rent out a royal orchard. A charity offers a modest rent and
+will use the fruit to feed poor households. A merchant offers much more money
+for the orchard's produce. Both want a three-year agreement.
 
-**Play and stake:** Debate transparency against the Council's freedom to keep commercial negotiations private. Without the commitment, the guild offers no new credit.
+### C13 — A flooded road
 
-## Privileges, sanctuary and competing claims
+A flood has closed a major public road. Independent carriers can use an
+alternative route to keep food moving, but want the Crown to cover a large
+extra cost. They need an answer before this meeting ends.
 
-### C09 — The Towns Ask to Govern
+### C14 — Payment for a pardon
 
-> The Chartered Towns' Assembly asks the Council to let each chartered town choose its own market officers for three years, replacing royal appointment for those offices only. The petition preserves existing Council and House rights and offers a yearly public account of market fees. The Assembly asks for a recorded decree.
+A merchant admits bribing an official to obtain a trading licence. The merchant
+offers a substantial payment to the Crown in exchange for a pardon. The
+confession does not name the official who accepted the bribe.
 
-**Play and stake:** Members can support local choice, protect appointment patronage, or propose narrower terms. Without a decree, existing appointment rules remain.
+### C15 — One building, two promises
 
-### C10 — The Diverted Trade
+Two royal offices have prepared conflicting plans for the same public
+storehouse. One needs it for winter food supplies; the other needs it for road
+repair equipment. Neither plan has final approval, and both need an answer soon.
 
-> Rheven offers a two-season pact: its merchants will direct four annual cloth shipments to Crown Quay instead of their usual foreign destination if the Council waives that harbour's cloth duty for those shipments. The pact grants no monopoly or military access. Acceptance requires a Council record.
+### C16 — Carriers refuse new work
 
-**Play and stake:** Debate the harbour's business against the lost duty and effects on other routes. Without acceptance, no shipments are redirected. Requires Rheven.
+Independent carriers refuse new Crown contracts unless they are paid within
+a month of delivery. The Crown has relied on longer payment periods to cover
+other expenses. Existing transport agreements will still be honoured.
 
-### C11 — A Plea for Sanctuary
+## Money and public trust
 
-> Elian Sorell, an adult former Vask customs official, petitions for sanctuary at the neutral palace. Vask dismissed Sorell after publication of authenticated ledger extracts showing that a Vask customs officer diverted 600 silver in public duties into a private account. Vask requests Sorell's return for unauthorised publication. The ledger establishes the transfers, not whether publication violated Vask law. Sorell asks for protection while the Council considers the request.
+### C17 — A cheaper way out of debt
 
-**Play and stake:** Discuss protection, the return request and the evidence, or leave the petition unanswered. Without a decision no new sanctuary undertaking is made. Requires Vask; the petition is written and Sorell need not appear.
+A lender offers to forgive a large part of the Crown's debt if the rest is paid
+now. The smaller payment would still take most of the money available for other
+immediate needs. The offer ends with this meeting.
 
-### C12 — The Royal Orchard Lease
+### C18 — A new border charge
 
-> The Treasury can lease Eastgate Orchard for three years to one of two written bidders. A relief trust offers 300 silver a year and will use the orchard for public meals; a merchant offers 500 silver a year for private trade. Both offers require a Council record.
+Vask, a neighbouring kingdom, plans a new charge on goods using one border
+crossing. It will drop the charge if its carriers receive the same treatment
+as local carriers inside the realm. Other crossings remain open.
 
-**Play and stake:** Weigh the higher public income against the direct relief use; a different proposal needs a fresh offer. Without acceptance, neither lease is granted. Exclude if Eastgate Orchard has already been committed incompatibly, including by C04.
+### C19 — Repairs or meals
 
-### C13 — The Flooded Road
+A charity wants to use part of its food fund to repair the roof of a public
+shelter. That would leave less money for meals this winter. Its donors promised
+the money for food, so it asks the Council to approve the change.
 
-> A sudden flood has closed Millford Road, a Crown road outside the palace; an independently maintained alternative remains open. The Free Carriers offer a temporary service on the alternative for 400 silver from the Treasury, provided the Council records acceptance this meeting.
+### C20 — Two towns want one fair
 
-**Play and stake:** Discuss relief access, the cost, or other arrangements. Without acceptance this particular service is not reserved; no physical map change is required.
+Two towns request the exclusive right to host the same royal fair. One offers
+the Crown a larger fee. The other offers less money but promises free stalls
+for small traders. Neither already holds the right.
 
-### C14 — A Pardon for a Price
+### C21 — Missing public accounts
 
-> An outside merchant admits paying 300 silver for a commercial licence without disclosing the payment. The merchant offers to contribute a further 300 silver to the public account if the Council grants a pardon limited to this stated past offence. The written admission identifies no official who received the payment.
+Several pages are missing from a royal payment ledger. The missing pages
+prevent clerks from explaining part of the Crown's spending. Nobody knows
+whether the pages were lost or deliberately removed.
 
-**Play and stake:** Members may debate a scoped pardon, payment without a pardon, or ordinary accountability. Only the stated offer is guaranteed; without acceptance no settlement occurs.
+### C22 — More time, at a price
 
-### C15 — The Rival Seals
+Rheven lenders offer to replace a large Crown debt due tomorrow with a loan
+repayable in three years. The Crown would pay more overall. Rheven, a
+neighbouring trading country, also wants its merchants considered first for
+one future transport contract.
 
-> Two authentic office seals appear on conflicting unsigned draft warrants: one reserves Long Hall Storehouse for winter meals and the other for road equipment. Neither draft is a valid completed warrant, and neither programme has occupied the building. Relief trustees request a recorded decision before they commit their remaining preparations.
+### C23 — The square belongs to both
 
-**Play and stake:** Choose a use, propose sharing, or defer. Without a new warrant neither draft allocates the building. Exclude if a prior decision has committed Long Hall Storehouse incompatibly.
+A town has permission to hold its weekly market in the same square that a
+royal road project needs for its carts. Both permissions are genuine. The town
+and the road workers ask the Council to settle how they can use the space.
 
-### C16 — The Carrier Strike
+### C24 — A foreign port opens
 
-> The Free Carriers announce that their members will refuse new Crown carriage contracts unless payment is due within thirty days of a completed delivery. Existing contracts remain in force, and the carriers make the condition in a signed collective notice. The Council can record a commitment for future contracts or decline it.
+A port in Rheven, a neighbouring trading country, offers six months without
+taxes on cloth arriving from the realm. In return, it wants the same exemption
+for its tools sold at a royal market.
 
-**Play and stake:** Discuss reliable transport against the Treasury's flexibility. Without a commitment, the carriers offer no new Crown contracts on these terms.
+## Author notes
 
-## Finance, relief and contested policy
-
-### C17 — The Debt at a Discount
-
-> An outside lender offers to settle a registered Crown debt of 1,000 silver for 700 silver if the Council records acceptance during this meeting. The debt and terms are documented; the Treasury alone owes it. The offer ends at the meeting's close, after which the original claim remains unless otherwise settled.
-
-**Play and stake:** Members may prefer a cheaper settlement or dispute the use of public funds now. Without acceptance, the 1,000-silver claim remains.
-
-### C18 — The Border Toll
-
-> Vask announces a new 10 percent toll on declared goods using the Hearthford crossing, beginning next season. Its written offer withdraws the toll if the Council grants Vask carriers the same access and customary domestic tolls as local carriers for two years. Other crossings remain open; Vask has issued no threat of war.
-
-**Play and stake:** Debate reciprocity or alternative routes. Without acceptance the announced toll remains Vask's stated policy; no House is forced to trade. Requires Vask.
-
-### C19 — The Relief Chest
-
-> Relief trustees hold 800 silver legally donated for public meals. They request Council authorisation to spend 300 silver on repairing the roof of the public shelter instead, leaving 500 silver for meals. The donor's terms do not permit private use; the proposed repair benefits the shelter, and no work has begun.
-
-**Play and stake:** Debate immediate meals against protecting the shelter. Without a recorded change of use the donated funds remain dedicated to meals.
-
-### C20 — The Competing Fairs
-
-> Bell Market and Reedmarket each request the sole right to hold a royal fair during the same week. Bell Market offers 200 silver for a licence and free stalls for small traders; Reedmarket offers 400 silver with no free stalls. Both offers are written, and neither town has an existing exclusive right.
-
-**Play and stake:** Members can choose, seek nonexclusive fairs, or refuse both. Without a decree neither receives a royal exclusive privilege.
-
-### C21 — The Lost Ledger
-
-> A public ledger of Crown payments has been found with three pages missing. The remaining pages show no recipient or amount for the missing entries, and there is no evidence they were stolen. Treasury clerks can reconstruct future accounts but cannot establish the missing transactions from this document alone.
-
-**Play and stake:** Members can discuss an inquiry or future disclosure rules without accusing anyone. No debt, offence or House involvement follows automatically from the missing pages.
-
-### C22 — The Foreign Bond
-
-> Rheven lenders offer to refinance a 1,000-silver Crown debt due at the next sunrise, replacing it with a three-year loan at 100 silver annual interest, with the 1,000-silver principal due at the end of the term. In exchange they ask the Council to publish the repayment schedule and give Rheven merchants first opportunity to bid on one future public carriage contract; no contract is awarded by the offer. Acceptance requires a Council record.
-
-**Play and stake:** Weigh three years of additional time and 300 silver in interest against immediate repayment and a commercial advantage for foreign bidders. Without acceptance, the original debt remains. Requires Rheven.
-
-### C23 — The Disputed Privilege
-
-> Bell Market's town charter guarantees a weekly market, while a later public road warrant reserves the same square for carts on the same day. Both documents are valid, neither grants exclusive use, and the town asks for clarification before the next market. Neither document names a private owner.
-
-**Play and stake:** Members can schedule different hours, favour one use, or leave the issue open. Without a decree neither document gains a new exclusive interpretation.
-
-### C24 — The Broken Embargo
-
-> Rheven has lifted its restriction on ordinary cloth imports at its port of Salt Haven and offers the realm a six-month window of duty-free access. In return it seeks a six-month exemption from duties on its declared tools at Crown Quay. The offer is commercial, carries no military terms and is accepted only by a Council record.
-
-**Play and stake:** Discuss the gain for cloth sellers against lost tool duties and competing domestic suppliers. Without acceptance, neither proposed exemption is granted. Requires Rheven.
+- Deliver during an active Council meeting, between ballots and before that
+  meeting's succession vote. A late arrival needs time for discussion.
+- Use each entry at most once. C01 and C02 must not promise the same shipments;
+  C04 and C12 cannot both grant the same orchard to different recipients.
+- Foreign entries require the named country in the setting. No foreign visitor
+  has to appear in person.
+- A report about Crown property does not secretly change a player's reserves
+  or invent wrongdoing by their House. Missing records do not prove guilt.
+- These are outside developments, not private secrets automatically exposed.
+  Players remain free to debate, bargain, propose a decision or leave a matter
+  unresolved.

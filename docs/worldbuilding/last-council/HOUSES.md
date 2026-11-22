@@ -4,1110 +4,678 @@
 
 [Workbook index](README.md) · [Shared setting](SETTING.md) · [Historical and literary sources](SOURCES.md)
 
-Every delegation can know a House's public history. Each House privately
-receives one of the five starting circumstances below, one independently
-drawn [general secret](GENERAL_SECRETS.md), and its assigned
-[motivations](GOALS.md). Treat the private entries as alternatives. A
-motivation can take a character in any direction, regardless of how the
-family made its name. If someone else learns the House's private
-information, they receive the same facts and any resolved number.
+Each House has a public profile and five private alternatives. Draw one
+private alternative per House, alongside a separate
+[general secret](GENERAL_SECRETS.md) and [motivations](GOALS.md).
 
 | House | Public identity |
 |---|---|
-| [H01 — Harrowmere](#h01--harrowmere) | Grain estates and river markets of the central plains |
-| [H02 — Brackenholt](#h02--brackenholt) | Forest wardens, timber and chartered common rights |
-| [H03 — Morcant](#h03--morcant) | Iron hills, pit settlements and the towns that grew around them |
-| [H04 — Rooke](#h04--rooke) | A young fortune built on shipping |
-| [H05 — Tern](#h05--tern) | River crossings, old tolls and towns on both banks |
-| [H06 — Marwick](#h06--marwick) | Coastal salts, fisheries and winter harbour towns |
-| [H07 — Keld](#h07--keld) | Upland wool, horse fairs and scattered hill communities |
-| [H08 — Talvern](#h08--talvern) | The Vask border and families with kin across it |
-| [H09 — Ormont](#h09--ormont) | A formerly independent province and its union settlement |
-| [H10 — Bellayne](#h10--bellayne) | A court family with extensive marriage ties and few acres |
-| [H11 — Veyne](#h11--veyne) | Jurists and keepers of charter precedents |
-| [H12 — Avenor](#h12--avenor) | Chartered guild towns and the settlements they bargain with |
-| [H13 — Caldren](#h13--caldren) | Credit, guarantees and the obligations that sustain them |
-| [H14 — Durnholt](#h14--durnholt) | An established hill family with recent royal land grants |
-| [H15 — Selwyn](#h15--selwyn) | Crown estate administration and provisioning |
-| [H16 — Wrenford](#h16--wrenford) | Relief houses, public endowments and their donors |
+| [H01 — Harrowmere](#h01--harrowmere) | Grain farms and river markets |
+| [H02 — Brackenholt](#h02--brackenholt) | Timber and shared woodland rights |
+| [H03 — Morcant](#h03--morcant) | Iron mines and metalworking towns |
+| [H04 — Rooke](#h04--rooke) | Coastal shipping and a port town |
+| [H05 — Tern](#h05--tern) | River crossings and tolls |
+| [H06 — Marwick](#h06--marwick) | Coastal salt and preserved fish |
+| [H07 — Keld](#h07--keld) | Upland wool and horse fairs |
+| [H08 — Talvern](#h08--talvern) | Farms and markets on the Vask border |
+| [H09 — Ormont](#h09--ormont) | A province with its own union agreement |
+| [H10 — Bellayne](#h10--bellayne) | Court contacts and family ties |
+| [H11 — Veyne](#h11--veyne) | Legal advice and public records |
+| [H12 — Avenor](#h12--avenor) | Craft guilds and river towns |
+| [H13 — Caldren](#h13--caldren) | Farm lending and trade credit |
+| [H14 — Durnholt](#h14--durnholt) | Hill quarries and recent royal land |
+| [H15 — Selwyn](#h15--selwyn) | Royal estates and supply deliveries |
+| [H16 — Wrenford](#h16--wrenford) | Farms, mills and relief houses |
 
 ## H01 — Harrowmere
 
-**Public.** The central plain is flat enough for the people of Harrowmere to
-watch a storm crossing three estates at once. The family owes its standing
-to marriages that joined ribbons of farmland along the same river, and to a
-grandmother who built granaries above the flood line after losing two
-harvests in six years. Millers, tenant farmers and barge crews gather at the
-family's autumn market, where they disagree every year about which of them
-really feeds the realm. At court, Harrowmere is famous for promising
-deliveries through the winter. At home, people remember a lean year when the
-House chose to pay its carters before itself. The quantities it can spare
-vary with what comes in from the fields and what it has promised before
-harvest.
+**Public.** Harrowmere rules the fertile central plains. Its farms grow wheat
+for its own people and sell the surplus to other Houses, usually to the
+highest bidder.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H01-I01 — A sound winter margin
+### H01-I01 — Winter wheat
 
-On an ordinary harvest like this year's, Harrowmere has enough grain to feed
-its own districts and fulfil its standing sales, with a dependable surplus
-for two to five other Houses' usual winter shortfalls. The margin is
-reliable because the stock is already dry and in store. Sending all of it
-away would leave Harrowmere very little to draw on if its own winter proves
-unusually long.
+Harrowmere has enough wheat for its own people and a surplus for
+`${number.capacity}` other Houses through the winter.
 
-**Possible leverage.** Offer some of the margin in a treaty or retain it for
-a later deal. Resolve the number once for the game.
+### H01-I02 — Imported grain
 
-### H01-I02 — Grain under another sky
+Mildew ruined Harrowmere's own wheat crop. The grain now in its warehouses was
+secretly imported from Rheven, a neighbouring country. Buyers believe the
+grain came from Harrowmere's fields.
 
-Mildew ruined a third of Harrowmere's crop. It kept its recent deliveries up
-with Rheven grain and falsely declared that grain as domestic on the customs
-returns. The reserve now in Harrowmere's granaries is real and sound.
-Harrowmere can keep its winter commitments by sharing the reserve carefully.
-New shipments would cost the going price. Declaring the origin and settling
-the missing duty would put the arrangement on a lawful footing for future
-shipments and explain why Harrowmere needs continuing access to sea trade.
+### H01-I03 — Grain already promised
 
-**Possible leverage.** Bargain from stock already in hand, or seek a customs
-settlement before someone else frames the issue.
+Harrowmere has already promised most of its wheat to two riverside towns. Both
+towns paid before the harvest. Promising much more this winter could leave
+Harrowmere's own people short of food.
 
-### H01-I03 — A full granary already promised
+### H01-I04 — Three empty barges
 
-Two riverside baking towns bought most of the market surplus in exchange for
-advances that Harrowmere used to rehouse flood victims. Their signed
-contracts specify winter deliveries at the price already paid. The doors at
-the granaries stand open during counting days, giving visitors the
-impression there is grain to spare. A new customer could buy the little
-uncommitted stock or pay for a separate delivery next harvest. A large
-promise now could leave the House choosing between its credit and the towns'
-bread.
+Harrowmere has first use of three barges returning upriver empty this winter.
+The barges carry dry goods at half the usual rate. Harrowmere can give space
+to other Houses or use it for its own shipments.
 
-### H01-I04 — The boats returning empty
+### H01-I05 — An early harvest
 
-The Free Carriers have granted Harrowmere first use of three empty return
-barges this winter. Their downriver runs are already paid for by existing
-customers. Harrowmere can nominate whose dry cargo they carry upriver at
-half the usual rate. It has paid the deposit and can pass on the benefit in
-one bargain or split it across several. The barges leave on fixed dates.
-Using them for someone else's cargo leaves fewer cheap places for the
-House's own winter shipments.
-
-### H01-I05 — The fields above the flood
-
-A trial of early sowing on land above the river produced a second marketable
-crop after three uncertain years. It sold before the neighbouring lowland
-estates finished cutting, and the proceeds cleared the House's short-term
-seasonal borrowing. Harrowmere can wait for a fair price this winter and can
-refuse any bargain that expects it to sell at once for cash. Replicating the
-result would mean taking good pasture out of use, a cost borne first by
-families who keep sheep there.
-
-**Possible leverage.** Use the freedom to wait in any negotiation, or share
-the planting experience on terms that protect the upland tenants.
+Harrowmere grew an early crop on higher ground and sold it before nearby farms
+finished harvesting. That sale paid off its seasonal loans. The House now has
+enough money to wait for a better price for its winter wheat.
 
 ## H02 — Brackenholt
 
-**Public.** Brackenholt's forebears marked the royal woods before they owned
-estates beside them. One winter a keeper seized bundles of fallen branches
-from families whose ovens had gone cold. The ensuing dispute went to the
-Crown and produced charters that preserve grazing, fuel gathering and some
-rights of passage. Copies still hang in village meeting halls. The family
-now buys and sells standing timber, and the villages depend on the same
-woods for charcoal, winter fodder and a trade in worked wood. The trees are
-managed in strips of different ages, so a decision about one year's cutting
-can matter for a generation. At court, Brackenholt is remembered both for
-defending its villagers against outside buyers and for bargaining hard over
-what those villagers may take.
+**Public.** Brackenholt governs a forest district where sawyers sell timber
+and villagers gather fuel and graze animals. The House manages much of the
+woodland and negotiates with both timber buyers and the people who depend on
+it.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H02-I01 — Oak from the windthrow
+### H02-I01 — Oak ready to sell
 
-A spring gale brought down straight old oaks in the private wood. The best
-logs were milled promptly and are now stacked under cover, enough for the
-frames of two large roofs or the timberwork of one substantial crossing.
-Half the sale income belongs to the sawyers under their recovery agreement,
-while the House can bargain over who receives the wood. Downriver delivery
-would take carts and barges at the buyer's expense. Keeping one share back
-would spare Brackenholt a costly order for repairs at home.
+A storm brought down enough oak to frame two large roofs. The wood is cut and
+under cover. Brackenholt can choose the buyer, and the sawyers who cut the oak
+receive half the sale income.
 
-### H02-I02 — The path in the grant
+### H02-I02 — The winter grazing path
 
-Brackenholt's own copy of a founding grant unambiguously reserves passage
-between three villages and their winter grazing. Later maps show the strip
-as private woodland. The new plantation proposed by the House's stewards
-would fence that very path. A longer route exists, but it crosses a stream
-that floods in winter. The grant gives Brackenholt a strong case for
-protecting access across the strip, at the cost of acreage that its estate
-managers have already advertised as fit for planting.
+Brackenholt found the original map and agreement for a path three villages use
+to reach winter grazing. Its planned timber plantation would block that path.
+The only other route crosses a stream that floods in winter.
 
-### H02-I03 — A cut that leaves the roots
+### H02-I03 — Fuel without felling
 
-Several charcoal families tried cutting low branches in rotation and found
-they could get a steady fuel crop while saving the older trunks. They have
-given Brackenholt their rotation schedule to share with anyone willing to
-pay the cutters for the first slow years. It would give households cheaper
-fuel without consuming the timber needed for building. Wholesale buyers used
-to clear-cut contracts would lose cheap fuel for a few years and are likely
-to oppose adopting the practice across more woods.
+Several charcoal makers tested harvesting small trees on a rotating schedule.
+It supplies regular fuel and saves mature oaks for sale as timber. They will
+teach other woods crews if someone pays their wages during the first season.
 
-### H02-I04 — The blackened woods
+### H02-I04 — Fire in the woods
 
-A fire spread through a strip that supplied much of Brackenholt's future
-building timber. The oaks already delivered to customers are sound, but some
-of the stands a merchant has agreed to buy for next winter will yield only
-fuel wood. The contract specifies a quantity of building timber and leaves
-its source to Brackenholt. The House can make good by buying elsewhere or
-redirecting timber reserved for repairs on its own estates. Admitting the loss
-early may buy room for a renegotiation.
+A fire damaged the trees Brackenholt promised to sell as building timber next
+winter. The burned trees are useful only as fuel. To fill the order, the House
+needs to buy timber or give up wood reserved for its own repairs.
 
-### H02-I05 — Common ground for the winter
+### H02-I05 — Rest for the woods
 
-The families who exercise the broadest common grazing rights have privately
-agreed in writing to rest a depleted woodland strip for two winters if
-Brackenholt keeps the adjacent hay meadow available to them at its customary
-rate. The House holds the signed offer. It could protect regrowth and settle
-an old grievance without taking anyone's rights away. The meadow was set
-aside for a more profitable commercial letting, and accepting the offer
-would give up that projected revenue.
+Local families signed an offer to keep their animals out of a damaged wood for
+${number.winters} winters. They want to keep renting Brackenholt's nearby hay
+meadow at the current price. A commercial farmer has offered more for it.
 
 ## H03 — Morcant
 
-**Public.** The oldest houses of Morcant's mining towns are built from the
-same reddish stone as the spoil heaps. The towns began as winter quarters
-for pit crews and grew around smithies, schools and the pay tables at the
-mine gates. A Morcant heir once used the rents from a good seam to buy out
-the merchants who had advanced wages through a bad year. The family gained
-control of several pits that way and the towns gained a patron they could
-argue with in person. Smelters and mine crews dispute the price of fuel, the
-water farmers can spare and who gets steady work through winter. Other
-provinces sell iron too. Buyers come to Morcant because its communities can
-usually take an order from ore to finished fittings without sending it away.
+**Public.** Morcant governs the iron hills. Its towns employ miners, furnace
+crews and metalworkers. The House earns money from its mines and attracts
+buyers who want finished iron fittings made close to the source.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H03-I01 — The idle casting floor
+### H03-I01 — Free furnace time
 
-One mine has been worked out. Its smelter still has good furnaces, and
-Morcant has arranged to feed them with ore from its other pits. After
-existing orders, the works could cast fittings for two large public projects
-at agreed wages. The work would keep crews in town until a decision on a new
-shaft. An order for both projects would leave little free furnace time, so
-the House would give up more profitable short jobs if they came in later.
-Delivery beyond the valley would be a separate term.
+One of Morcant's mines is empty, but its furnaces still work with ore from
+other mines. Once current orders are filled, the crews have time this season
+to make iron fittings for ${number.projects} bridges.
 
-### H03-I02 — Pay on the wrong side of winter
+### H03-I02 — Wages and a loan due
 
-Morcant paid for a new shaft with a merchant advance that comes due before
-the new ore can be sold. Cash in hand covers either the scheduled repayment
-or two full monthly wage bills. Missing the repayments puts the House's
-privately pledged storehouses at risk, while cutting wages would break the
-pit contracts and drive experienced crews away. The new mine is yielding the
-expected iron. A short loan, advance sale or renegotiation could give the
-House time to get the finished iron to market.
+A loan for Morcant's new mine comes due before its iron can be sold. The House
+has enough money for the payment or for two months of wages. The lender can
+take the House's storehouses if it misses the payment.
 
-### H03-I03 — What the water carried
+### H03-I03 — Mine water in the fields
 
-Morcant's own inspection found that the drainage channel from one pit
-carried grit into farm irrigation ditches and ruined a season's hay. The
-family paid for cleaning the ditches in quiet settlements with the people
-who lost crops. Its contractors can divert the mine water into an abandoned
-settling pond, but that cuts through land the House rents cheaply for sheds
-and would interrupt production. The matter remains largely local. The
-inspection gives notice of a continuing risk and evidence of who can fix it.
+Morcant's mine water clogged farm ditches and ruined a hay crop. The House
+quietly paid for the cleanup. It can redirect the water, but the work would
+close the yard that supplies tools to the miners.
 
-### H03-I04 — Terms from the pay table
+### H03-I04 — Training for new workers
 
-The pit crews have already signed a proposal to apprentice workers from
-outside the valley as part of a large new iron order. Each crew will give
-training and a season's work if the buyer pays full wages and Morcant shares
-the cost of putting up the apprentices. The House could offer both fittings
-and a route into work for families displaced elsewhere in the realm. The
-crew's terms leave Morcant with a thinner margin than employing only
-experienced local hands.
+Morcant's crews agreed to train workers from outside the valley if a buyer
+places a large iron order and pays full wages. The House would have to share
+the cost of housing the new workers.
 
-### H03-I05 — The safety account
+### H03-I05 — Winter pay in reserve
 
-After a shaft collapse a decade ago, Morcant created a household reserve to
-pay mining families while an unsafe pit is closed. The fund is large enough
-to pay one town's crews through a winter. It remains untouched and is known
-locally. The money remains the House's own, set aside through promises to
-the crews. Morcant could close a pit for work without asking a patron for
-aid, or share the model with allies. Spending the reserve elsewhere would
-leave workers exposed the next time.
+Morcant has money set aside to pay one mining town's crews through the winter
+if its mine closes for repairs. Spending that money on other work would leave
+the crews without pay during a closure.
 
 ## H04 — Rooke
 
-**Public.** Earlier courtiers knew Rooke as the name painted on hired hulls.
-The family gained a landed title after its ships kept the Crown supplied
-through the bad winters when roads inland closed. It invested the proceeds
-in a coastal town, tenant farms and berths for vessels too small to use the
-great ports. Some older families still call the Rookes shipowners at formal
-dinners. In their own town an argument about the family's right to sit with
-nobles is likely to become an argument about how much its sailors are paid.
-Its captains and merchant partners work for their own profit. Rooke's
-standing rests as much on its ability to persuade those people to carry a
-difficult cargo as on the property the family owns.
+**Public.** Rooke owns farms and a small port town. Its money comes mainly
+from coastal shipping. Merchants deal with the
+family when they need ships that can reach smaller ports.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H04-I01 — Berths on the next run
+### H04-I01 — Space on two ships
 
-Two Rooke ships are due to make a coastal circuit with unused space. Their
-captains have already committed those spaces to the family, which may offer
-passage for goods, passengers or both to callers at the existing ports. The
-right covers a single circuit this season and requires ordinary dock safety
-and declared cargo. Rooke can use the spaces to open a coastal outlet for
-someone else. Saving some space would let Rooke help its own merchants if a
-contracted carrier fails to arrive.
+Two of Rooke's ships have unused space on their next coastal trip. The
+captains have set it aside for the House. Rooke can offer space to passengers
+or cargo travelling between ports already on the route.
 
-### H04-I02 — The hulls belong to the lender
+### H04-I02 — Ships pledged for a loan
 
-Rooke mortgaged its two largest ships to pay for the purchase of its new
-estate. An ordinary season would cover the instalments, and the House has
-paid the first. The debt agreement lets the lender accept either silver or
-insured cargo contracts of a specified value in payment. Other nobles see
-new stone hallways and assume Rooke has ready money. Its ships have kept
-their schedule, but committing their cargo cheaply for political goodwill
-could force the family to cut spending on land or give up a vessel.
+Rooke borrowed money to buy its new estate. If it misses a payment, the lender
+can take its two largest ships. The House relies on the ships charging their
+usual rates to make the next payment.
 
-### H04-I03 — A foreign warehouse
+### H04-I03 — A warehouse in Rheven
 
-Rheven merchants have already signed a commercial option reserving a
-warehouse and fixed dock prices for Rooke for one season. The House can use
-it for its own declared trade or share the space with another realm
-merchant. The option expires if Rooke fails to lease the berth for the full
-season. Accepting would give it an advantage while rival shipping costs
-rise, with the risk of paying rent on empty sheds. The written terms grant
-no exemption from Rheven law and involve no political undertaking.
+Merchants in Rheven, a neighbouring country, have offered Rooke a warehouse
+and fixed dock fees for one season. Rooke can share the space with another
+trader. The offer requires rent for the full season even if the warehouse
+stays empty.
 
-### H04-I04 — The commanding captain
+### H04-I04 — A shipment lost at sea
 
-A Rooke captain jettisoned his employer's cargo during a storm to keep his
-passengers' food aboard. Rooke paid the merchant the value of the goods,
-then quietly shielded the captain from merchants who wanted him dismissed.
-Surviving passengers know they arrived safely, but the reason they still had
-food is little known. The decision cost enough that the House has delayed
-refurbishing its new hall. Rooke can stand behind the captain when
-discussing obligations at sea and risks reopening the quarrel with merchants
-who depend on the House.
+A Rooke captain threw cargo overboard to keep his ship afloat in a storm.
+Rooke quietly paid the merchant for the loss. The payment used most of the
+money the House set aside to repair its port warehouses.
 
-### H04-I05 — Cargo with an owner's name
+### H04-I05 — Charges for work never done
 
-Rooke found that its dock contractors were using the House's name on stamped
-receipts to charge handling fees for goods they had never unloaded. The
-contractors returned the charges when confronted and their use of the stamps
-ended. The signed settlements identify two innocent small merchants whom
-customers still blame for overcharging. Naming the contractors could clear
-the merchants and show buyers how to check a receipt. Some customers may
-also ask how the family let its seal circulate so freely.
+Rooke's dock workers used the House's stamp to charge for unloading cargo they
+never handled. They returned the money after Rooke found out. Signed refund
+records show who charged the fees. Customers still blame two small merchants.
 
 ## H05 — Tern
 
-**Public.** The Terns built their seat where the old inland road meets the
-river, then spread town by town along both banks. Before the first stone
-bridge, a Tern ancestor made a living ferrying court messengers and sacks of
-turnips in the same boat. Current tolls pay for bridge crews, dredging and
-river steps as well as the household. On market mornings the two sides of
-the largest crossing argue over whether a town divided by water counts as
-one town. A trader going farther downstream can find other ways across,
-though a detour might cost a day. The family has spent generations sitting
-between people who want a reliable crossing and people who would prefer
-somebody else to pay for it.
+**Public.** Tern holds towns on both banks of a main river. It charges tolls
+at its bridges and earns money from ferries and riverside markets. Traders who
+use its crossings can avoid a long trip to another bridge.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H05-I01 — The spring pier
+### H05-I01 — A damaged bridge
 
-Soundings after a flood expose a cavity under one pier of Tern's main stone
-bridge. It is usable under its present limits. Engineers recommend moving
-heavy carts to a ferry during spring repairs. The House can pay the masons
-or hire enough ferries to maintain the full usual traffic, but it cannot do
-both alone. Sharing the report would explain a request for help and let
-other delegations protect their own shipments. Traders who learn the news
-through rumours may simply take a longer road.
+Floodwater left a hole beneath a support of Tern's main bridge. Repair crews
+will need heavy carts to cross by ferry while they work. Tern can pay for the
+repairs, but it cannot also hire enough ferries to carry all the usual
+traffic.
 
-### H05-I02 — A week without tolls
+### H05-I02 — A market without tolls
 
-Tern tried suspending its customary cart charge on market days. Bigger
-crowds spent enough at its own stalls and warehouses to more than cover the
-lost dues. The trial ran on warm days when boat crossings were also cheap.
-The House can offer another short toll holiday on its own routes, perhaps to
-help a partner reach a new market. A permanent exemption would reduce the
-money available for winter repairs unless the extra trade holds up year
-round.
+Tern dropped cart tolls on several market days as a trial. More traders came,
+and stall and storage fees brought in more than the House lost in tolls. Tern
+can repeat the trial at its own crossings.
 
-### H05-I03 — The clause for the millers
+### H05-I03 — Overcharged grain carts
 
-A genuine grant permits Tern to collect dues from laden vehicles at one
-bridge. A schedule attached to the original expressly exempts carts carrying
-grain to local mills and returning empty. A later clerk copied the grant and
-omitted the schedule, and Tern has charged those carts for two seasons on
-the strength of the copy. The family has since found the original. Restoring
-the exemption could settle growing discontent among millers, though repaying
-charges would consume much of the year's maintenance income.
+Tern's original bridge agreement lets carts carrying grain to local mills
+cross for free. A later copy left that out. Tern has charged those carts for
+two seasons. Paying the millers back would use most of this year's bridge
+repair money.
 
-### H05-I04 — The landing across town
+### H05-I04 — A landing for cargo
 
-A ferryman's retirement gave Tern the option to buy her steps and landing on
-the opposite bank. The ferryman had forbidden transfers between her landing
-and a nearby cart yard after a quarrel. That restriction ends with the old
-lease. Tern can link river and road traffic without building a new bridge,
-but it needs to choose which kinds of cargo get priority. Giving priority to
-one partner would leave customers on both banks watching how the family
-handles congestion and delays.
+A retiring ferryman offered to sell Tern her landing for less than building a
+new one. Carts already reach a yard beside it. Buying the landing would let
+merchants transfer cargo between boats and carts on that bank.
 
-### H05-I05 — The river watch
+### H05-I05 — Twenty years of flood records
 
-Retired ferry captains have quietly kept records of ice, landings and flood
-crests at every Tern crossing for twenty years. They gave the House leave to
-share the finished account and showed where the river typically drops early.
-The information could save a convoy days of waiting or help towns put stores
-where floods seldom reach. Merchants who currently pay Tern for guides would
-need fewer of them if the account were widely published.
+Retired ferry captains gave Tern twenty years of notes on floods and river
+ice. The notes identify which landings usually reopen first. Merchants
+currently pay Tern's guides for that information.
 
 ## H06 — Marwick
 
-**Public.** Marwick's coast is an alternating line of fishing coves and salt
-pans. A small fishery can earn little after a poor catch and still keep a
-town alive if its people can afford to preserve what comes in. Marwick rose
-when it began hiring boats to carry local salt and cured fish to inland
-markets, where winter demand outlasted the fishing season. The old family
-hall is beside a harbour clay bank, close enough to hear the boats drag
-anchor in a storm. The House grants leases for pans and sheds and relies on
-people who mend nets, boil brine and salvage wrecks. Some towns remember
-Marwick opening stores during a long winter, while others remember how hard
-its factors still bargained the next spring.
+**Public.** Marwick governs a coast of fishing villages, salt works and small
+harbours. It earns money from selling salt and preserved fish inland. Coastal
+towns depend on its sheds and docks to prepare and ship their catch.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H06-I01 — Salt before the rains
+### H06-I01 — Salt in reserve
 
-Dry weather let Marwick's pans put up more clean salt than its autumn buyers
-took. The unpledged reserve can preserve a winter's provisions for two large
-towns or supply several smaller buyers. Salt keeps, so the House can wait
-for a high price, trade some for transport, or use it to make a relief
-shipment worth carrying inland. Selling the whole reserve now would leave
-the fishing towns depending on the next run of clear weather for affordable
-supplies.
+Dry weather left Marwick with spare salt after filling its autumn orders. It
+has enough to preserve winter food for ${number.towns} large towns. Selling
+all of it now would leave local fisheries relying on the next batch of salt.
 
-### H06-I02 — The fleet came home light
+### H06-I02 — Two poor catches
 
-The boats have returned from two fishing seasons with poor catches. Marwick
-paid the crews the usual share out of the household purse and bought fish
-elsewhere to keep its promised deliveries. The leaseholders at the curing
-sheds have borrowed against a third good season and now want a year to pay.
-Marwick can give them that time if it sells some of its salt income in
-advance. It would preserve local employment at the price of a lower margin
-and less freedom in future bargains.
+After two poor fishing seasons, Marwick paid its crews their usual share and
+bought fish elsewhere to fill orders. Rent is now due from the curing sheds.
+Several operators say they will close unless Marwick gives them another year
+to pay.
 
-### H06-I03 — The catch set aside
+### H06-I03 — First offer on the catch
 
-One inlet has recovered after its local captains voluntarily left it alone
-for two spawning seasons. Together they have given Marwick the first option
-to buy the next catch at a fixed price on the condition that part of it goes
-straight to their households at that price. The House can make a dependable
-food offer or adopt the same bargain along another part of its coast if
-people there choose it. The local portion limits what it can offer others,
-even if fish are fetching unusually high prices inland.
+Fish returned to an inlet after local boats stayed away for two breeding
+seasons. The captains have offered Marwick first chance to buy the next catch
+at a fixed price, provided they can buy a share for their households at that
+same price.
 
-### H06-I04 — The keeper's lights
+### H06-I04 — The cost of harbour lights
 
-Marwick encouraged its harbour keeper to keep lamps burning through an
-unusually stormy winter. Small vessels reached shelter instead of trying the
-open coast. The keeper spent a season's pay on oil and is still owed the
-money. By daylight the lights look like a minor service, and the family's
-prepared accounts omit the extra cost. Paying from dock dues would delay
-some repairs. Publishing the keeper's log could give a wider group of
-coastal traders a reason to help support lights without raising everyone's
-charges.
+Marwick asked the harbour keeper to burn extra lamps during a stormy winter.
+The keeper spent a season's pay on oil and is still owed the money. Repaying
+the keeper from dock fees would delay harbour repairs.
 
-### H06-I05 — The salt without a buyer
+### H06-I05 — Grey salt
 
-A merchant insisted upon white salt and declined an entire delivery because
-it was grey. An agreed grading report shows that it is fit for curing meat,
-preserving hides and most other ordinary uses. Marwick has the delivery back
-in its own sheds and can sell or give it away. A buyer who prizes colour
-will still refuse it. Explaining the grade publicly could open a market for
-an inexpensive supply, while reminding buyers that some of the House's pans
-do produce a less prestigious product.
+A buyer returned a shipment of salt because it was grey. An independent check
+found it safe for preserving food. Marwick has the full shipment in its sheds
+and can afford to sell it for less than white salt.
 
 ## H07 — Keld
 
-**Public.** Keld's uplands rise in strips of pasture broken by walls and
-winter hamlets. Families move their flocks with the seasons, and horse
-breeders bargain at fairs frequented by cloth merchants and couriers. Keld's
-ancestors held their ground through a series of hard winters by pooling hay
-between valleys. They later bound some of those agreements into written
-grazing rights. A wool buyer watching a fair may think the family speaks for
-every shepherd on the hill. In a bad winter its rents depend on people who
-remember the old arrangements better than the family's own agents. The
-finest Keld horses are familiar at court, while most of the breeding stock
-earns its keep carrying goods and travellers over the upland roads.
+**Public.** Keld governs hill villages and upland pastures. Its farms supply
+wool to cloth makers and its fairs sell horses to traders and couriers. The
+House earns rent from grazing land and fees from the fairs.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H07-I01 — The carrier's lot
+### H07-I01 — Packhorses available
 
-Keld has trained a lot of sure-footed packhorses from lines usually
-overlooked by buyers who want tall mounts. A merchant released his option
-after abandoning an inland route, so they are available for one sizable
-overland service or several smaller ones. Keld's own grooms can keep them on
-the road through a difficult season if a partner helps pay for fodder. A
-sale now would bring money quickly. Keeping the horses would let the House
-take better-paying work when traffic on that route picks up again.
+A merchant cancelled an order for ${number.horses} trained packhorses. They
+are still at Keld's stables. Its handlers are available to lead the horses
+over hill roads if a customer covers their wages and the horses' feed.
 
-### H07-I02 — The wool classers
+### H07-I02 — Sorted wool
 
-Keld's smallest growers agreed to sort their fleeces jointly and commission
-independent grading. Their first shipment received a better price than the
-larger estates' usual mixed bales. The growers have given the House
-authority to offer a buyer the same lot each season for three years on the
-same grades and terms. Their commission includes a minimum price for the
-weakest years. Keld could secure access to an inland cloth market by backing
-that promise, with some exposure if cheaper wool floods the market.
+Small wool growers earned a higher price by sorting their wool by quality.
+They have asked Keld to find a buyer for three years of deliveries. They set a
+minimum price to protect their income in bad seasons.
 
-### H07-I03 — The wet hay winter
+### H07-I03 — Spoiled winter hay
 
-Rain spoiled more than half the hay in Keld's lower barns. The current
-flocks and horses can overwinter if turned onto uncropped upland pastures,
-which grazing families would then lose in the spring. The family has already
-paid its local hay buyers in full and can afford some imported fodder, but
-transport is the expense it cannot easily meet. A House seeking wool or
-horses later could save Keld real trouble by guaranteeing delivery now.
-Selling breeding stock remains an expensive fallback.
+Rain spoiled more than half the hay in Keld's lower barns. Winter grazing can
+feed its sheep and horses, but that would leave little grass for spring. Keld
+can pay for hay from elsewhere and needs help with transport.
 
-### H07-I04 — The mare keeper's reservation
+### H07-I04 — The breeding mares
 
-A lease from Keld to an upland breeding community lets the family sell most
-of its share of surplus horses. The signed schedule reserves the oldest
-family of mares to the keepers who kept it through two harsh winters. A
-wealthy buyer offered a premium for those mares. Keld's factor invited a bid
-before checking the schedule. The House can redirect that bid to other stock
-or acknowledge the mistake. Losing the mares would endanger the line and
-revive an argument over who owns what past generations kept alive.
+Keld invited a buyer to bid for its best breeding mares before checking who
+owned them. The mares belong to the breeders who raised them. The buyer has
+offered a high price, and Keld's share of the herd includes other horses.
 
-### H07-I05 — The winter room
+### H07-I05 — Income from a cloth mill
 
-A Keld aunt advanced the purchase price for a small town's fulling mill, so
-the town could finish cloth locally while the hill roads were closed. The
-agreement pays Keld a share of earnings and sets aside some winter work for
-people who cannot go back up to the flocks until spring. The share now earns
-more than an outlying horse fair. Keld could finance a new commitment from
-that income. Asking the mill to pay it early would leave the mill less cash
-to ride out a slow winter.
+Keld helped a hill town pay for a mill that finishes cloth. Its share of the
+profits now brings in more than it earns from one of its horse fairs. The mill
+can pay early only by spending its winter reserve.
 
 ## H08 — Talvern
 
-**Public.** The country Talvern governs lies along the land frontier with
-Vask, where villages share wells, marriages and family names across the
-boundary. Before there was a proper customs post, people kept track of the
-crossing by the graves they passed on the road. One of the House's branches
-married into a Vask community long before the current border arrangements
-and kept ties when both governments grew more particular about tolls.
-Talvern's fairs serve traders in both directions. Border officials expect
-the family to explain local customs at court. Its villages expect it to
-explain court decisions when a family visit becomes hard. Its own farms and
-workshops rely on that traffic, but many residents can name a relative who
-would suffer if either realm mistook kinship for allegiance.
+**Public.** Talvern governs farms and market villages along the border with
+Vask, a neighbouring kingdom. Its fairs serve traders from both sides. Many
+local families have relatives across the border and depend on the roads
+staying open.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H08-I01 — The burial road
+### H08-I01 — Charges on the burial road
 
-A signed memorandum between border authorities reserves the old burial road
-for visits to family graves. Visitors may bring food for the day and undergo
-ordinary inspections. Pack trade remains subject to its usual charges. Its
-text never reached the newest post, whose clerks have charged families the
-ordinary market levy. Talvern can present the true scope of the arrangement
-and ask for it to be applied to its own side. Sharing the wording also means
-dropping the broader commercial exemption that estate factors have been
-suggesting at home.
+Border officials agreed that families could cross the burial road without
+paying market fees when visiting graves. The new post never received the
+agreement and charges those families anyway. Talvern has a signed copy.
 
-### H08-I02 — The branch across the border
+### H08-I02 — Profits from a Vask mill
 
-The late head of the Vask branch left Talvern a legally acquired share in a
-mill across the frontier. The share and its past payments were declared. The
-mill agreed in writing that Talvern could take each season's dividend in
-silver or have it paid in grain to kin on the Vask side. At a bad moment for
-cross-border trade, local families expect the House to leave the dividend
-with them. Bringing it home would finance a new pledge instantly and make
-those expectations harder to meet next time.
+Talvern owns a share of a mill across the border in Vask. The mill can send
+Talvern its share of the profits or buy grain for the House's relatives there.
+Those families have been counting on the grain this season.
 
-### H08-I03 — When the post closed
+### H08-I03 — Food if the border road closes
 
-During a past dispute about the boundary, households on both sides agreed in
-writing to guarantee each other's supplies for a month if the market road
-closed. The border reopened before anyone claimed supplies. The terms send
-aid through inspected traffic each side can allow under its own law. Talvern
-has permission from its signatories to circulate the model. It could help
-the Council discuss what a future closure would cost, while people who see
-the House chiefly as a frontier guard might question its priorities.
+Families on both sides of the border agreed to supply each other with food for
+one month if the main market road closes. They would bring the food through
+smaller crossings that stay open for household trips.
 
-### H08-I04 — The second family name
+### H08-I04 — Two names in the records
 
-Talvern has a privately compiled list of border households who use one
-surname on each side. The households consented to its use in reconciling
-unpaid inheritances. It shows why two records people call proof of double
-payments actually name the same households. The compilers agreed to share
-totals beyond Talvern and offered to let it use the method elsewhere.
-Publishing the names themselves would expose private family connections
-without improving the accounting case.
+Talvern's records show that some border families use different surnames on
+each side. An audit counted the same inheritance payments twice because of
+this. The families received one payment each and agreed to let Talvern share
+the corrected totals.
 
-### H08-I05 — The fair with no wagons
+### H08-I05 — Empty stalls at the fair
 
-Talvern's factors contracted stallholders for the next fair using last
-year's levels of trade. Many Vask merchants have since cancelled because the
-open roads on their side now lead to a closer fair. Talvern has to return
-their deposits. The stalls and yards would be cheap to offer to domestic
-merchants, and their food supply is already contracted. A smaller fair could
-keep wages coming and reduce reliance on traffic from Vask. Steep
-introductory discounts might anger locals who paid full rates.
-
-**Draw note.** H08-I04 can use existing family records from both sides of
-the frontier without putting Vask trade or diplomacy in play. Vask still
-exists in Talvern's background; if the country is removed from the fiction,
-revise that public background or omit Talvern entirely.
+Vask merchants cancelled many bookings for Talvern's next fair after a closer
+market opened. Talvern must return their deposits. The food and yards are
+already booked, and the House has spare stalls it can rent cheaply.
 
 ## H09 — Ormont
 
-**Public.** Ormont was once an independent province with a court of its own.
-A generation of disputes ended in a settlement that brought its hills, farms
-and quarry towns into the realm. The old hall remained standing, and people
-still bring village petitions there before sending them to the wider court.
-A hill farmer might remember the union for opening a market for sheep. A
-town clerk might remember it for making the journey to an appeal much
-longer. The family speaks of its settlement with the Crown the way other
-families speak of ancestral lands. The old title can draw a crowd at a home
-ceremony, and the right to speak for that crowd remains a subject of local
-argument.
+**Public.** Ormont governs a province of hill farms and quarry towns that once
+ruled itself. Its agreement with the Crown still sets terms for local courts
+and trade. Village leaders bring common concerns to the House before
+approaching the Crown.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H09-I01 — Two courts in one charter
+### H09-I01 — Local hearings
 
-An original of the union settlement says small lease disputes may be heard
-in a local court and appealed to the Crown. A copy used by the last royal
-circuit leaves out the first clause. Tenants have been paying travel costs
-to take small cases outside the province. Ormont can substantiate a case for
-restoring local hearings, and the original would also preserve the tenant's
-right of appeal where the family would prefer a local ruling to stand.
+Ormont's original agreement with the Crown allows local hearings over small
+rental disputes. A later copy omitted that part, so tenants now pay to travel
+out of the province for hearings. The original also lets either side appeal to
+the Crown.
 
-### H09-I02 — The missing winter levy
+### H09-I02 — A payment that ended
 
-When Ormont joined the realm, its towns agreed to underwrite a winter
-payment to the Crown for twenty years. The Treasury has carried the amount
-forward as ordinary revenue. The signed settlement shows the twentieth
-payment was made last year. The family has held back its share of the next
-instalment and has money to bargain with. A council that needs the revenue
-could ask for a replacement contribution. Ormont can show exactly what it
-would be giving up by agreeing.
+Ormont's towns agreed to send the Crown an extra winter payment for twenty
+years. Last winter's payment was the twentieth, but the Crown is asking for
+another. Ormont has kept its own share of the requested payment.
 
-### H09-I03 — The old hall's open door
+### H09-I03 — Money for road repairs
 
-Representatives of farming villages and quarry towns have sent Ormont a
-joint petition. They offer to raise a contribution for new public works if
-spending is reported publicly in the old provincial hall, where both groups
-can see it. Each assembly has already pledged its portion on those terms.
-Ormont may endorse the account, offer a different location and cover any
-lost shares itself, or keep the initiative for home use. Endorsing it would
-expose the family's own contribution to the same scrutiny.
+Ormont's farm villages and quarry towns have promised to pay for shared road
+repairs if spending records are displayed in the old provincial hall. Together
+their promises would cover most of the work.
 
-### H09-I04 — The name on the tomb
+### H09-I04 — A letter supporting the union
 
-The last independent ruler left instructions to be buried alongside the
-first Ormont officeholders who accepted the union. The burial is complete,
-but the instructions have stayed in the family archive. They expressly
-forbid styling the deceased a sovereign on the tomb and ask future
-generations to remember the people who kept the province whole. Publishing
-the words might answer accusations that the House's local ceremonies harbour
-a claim to a rival throne. Families who take pride in the old title would
-hear a different message from the same words.
+Ormont has a private letter signed by the province's last independent ruler.
+It asks local officials to support joining the realm and keep the towns
+working together. Some local leaders publicly claim the ruler opposed the
+union.
 
-### H09-I05 — The unused door out
+### H09-I05 — The unsigned draft
 
-The papers include an unsigned proposal that would have allowed Ormont to
-reconsider union if the Crown failed to reopen its towns' trade after a
-year. The executed settlement instead guarantees access to markets and gives
-Ormont the ordinary right to petition when it is denied. A copy of the draft
-circulates at home with its heading trimmed away. Sharing both versions
-would let the House press the real guarantee with more credibility, at the
-risk of spoiling a powerful claim some at home want it to make.
+Some people in Ormont circulate a draft saying the province can leave the
+realm if it loses access to royal markets. The Crown rejected that part. The
+signed agreement promises access and lets Ormont make a formal complaint if
+access is blocked.
 
 ## H10 — Bellayne
 
-**Public.** Bellayne's estate consists of a few tenancies, an orchard and a
-house large enough to accommodate an improbable number of cousins. At court,
-the family is better known for arranging marriages and bringing relatives of
-opposing families to the same meal. Its fortunes improved when a Bellayne
-widow kept a household in the capital and lent rooms to visitors whose
-business at court took longer than expected. Some of the best introductions
-in the realm still start in that house. So do awkward requests for benefits
-on the strength of relationships nobody has quite defined. Bellayne's
-relatives have long memories and their own interests, and a favour that
-costs little to one branch may matter a great deal to another.
+**Public.** Bellayne owns a small estate and keeps a house in the capital. It
+has family ties across several noble households and is known for arranging
+introductions. Visiting families often stay with Bellayne while doing business
+at court.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H10-I01 — The bride's annuity
+### H10-I01 — Income already spoken for
 
-A Bellayne marriage settlement promised the House a yearly payment from a
-town property. The court branch offered that payment back to the bride for a
-lifetime if she sheltered three widowed relatives. She accepted, and the
-House kept the agreement private to spare them public charity. The incoming
-payment appears in estimates of Bellayne wealth and nominally passes through
-its hands. The family can still host people or call on contacts, but any
-large cash pledge would require other income while it keeps the widows
-housed.
+A marriage agreement sends Bellayne a yearly payment from a town property. The
+House privately promised the whole payment to a relative who houses three
+widows. Estimates of Bellayne's income still count that payment as money the
+House can spend.
 
-### H10-I02 — A place under the widow's roof
+### H10-I02 — Training for court visits
 
-Several retired court attendants signed an offer to train a small household
-for one season in hospitality, court correspondence and audience
-preparation. Bellayne can choose whom the training serves, so long as it
-supplies rooms at the old family house. The attendants bring genuine
-experience and have already agreed to the terms. Using them to help a new
-ally would displace Bellayne's own guests and could make older dependants
-fear that the family has begun to prefer younger company.
+Retired court attendants have offered to teach a household chosen by Bellayne
+how to write to the Crown and prepare for meetings. Training lasts a season
+and takes up the guest rooms at Bellayne's house in the capital.
 
-### H10-I03 — Gifts at the wedding breakfast
+### H10-I03 — Family money for public work
 
-A gift from distant relatives was kept sealed until Bellayne's last wedding.
-It contains independently pledged contributions to one public undertaking
-proposed by the family. The pledges can pay for rooms or wages for a year,
-with the project and amounts entered in a public account. The signatories
-exclude private wedding bills and a candidate's personal expenses. Bellayne
-can bring money and a publicly defensible purpose to an agreement, at the
-cost of inviting questions about how little of the gift it supplied itself.
+Bellayne's relatives have promised money for one public project chosen by the
+House. Together they can cover a workshop's wages or a shelter's rent for a
+year. They require a public record of the spending.
 
-### H10-I04 — Two letters for one banquet
+### H10-I04 — Court positions for sale
 
-Two elderly branches wrote separately after a dinner was called off. Each
-letter says its own absence was prompted by fear of sitting below the other
-in rank. Each would attend a gathering where the host leaves titles off the
-seating plan. Both letters are genuine. Bellayne can share their terms
-without names, and the exchange gives it a reason to propose a dinner where
-rival negotiators can speak without giving either side ceremonial
-precedence.
+The royal hiring clerk and a harbour official offered Bellayne a share of
+their bribes for introducing buyers of court positions. Bellayne kept their
+signed offers. They were selling jobs in royal warehouses and ports.
 
-### H10-I05 — A name lent for the season
+### H10-I05 — A false promise of land
 
-A distant cousin received potential suitors at the Bellayne house using the
-family's name. That name was hers by birth, but Bellayne's letters gave the
-impression she was heir to its main estate. Courtship broke off before any
-vows or payments. The House kept the letters, and the woman asked Bellayne
-to correct the story if it resurfaces. A correction could protect her from
-the next person who expects to marry into land. It would also show why some
-of the family's introductions deserve to be treated cautiously.
+Bellayne introduced a cousin to potential spouses and suggested she would
+inherit its main estate. The estate is already promised to someone else. The
+courtship ended before any wedding or payment, and the cousin has asked
+Bellayne to correct the claim.
 
 ## H11 — Veyne
 
-**Public.** Veyne's reputation grew when members of the same household began
-serving at the desks of both town petitioners and royal justices. They
-carried home copies of charters, judgments and unsigned drafts and taught
-enough people to read them that a market dispute on Veyne land can draw an
-argumentative crowd. Its farms and small towns live under different grants,
-each with something a neighbour may envy. A merchant who needs a durable
-agreement or a village that wants to contest a levy may find help in the
-same family archive. Clients can disagree about whether the Veynes prefer a
-sound argument or a profitable one. Their jurists remain advisers, and any
-rule they propose still needs the approval of the body that can make it.
+**Public.** Veyne owns farms and small market towns. Its legal advisers help
+towns and landowners write agreements and settle disputes. The family keeps
+copies of court decisions and agreements that other Houses may need when a
+deal is challenged.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H11-I01 — A judgment with the tenants' names
+### H11-I01 — A lease after repairs
 
-The archive holds a settled judgment in which the Crown recognised repairs
-paid for by tenants as part of their case for a longer lease. The text
-specifies that the improvements were agreed beforehand and excludes claims
-based solely on work a tenant undertook unasked. Veyne can make a precise
-argument for recognising tenant investments in new deeds. Its own estate
-uses short leases, and tenants there could reasonably ask the family to
-adopt the same protection it proposes to other people.
+Veyne has a court decision that granted tenants a longer lease after they paid
+for repairs their landlord approved. Veyne's own tenants have paid for similar
+repairs, and several of their leases are about to end.
 
-### H11-I02 — Instructions from both sides
+### H11-I02 — Paid by both sides
 
-Veyne drafted an account of the terms under which town stallholders could
-keep a regular hearing. It separately agreed to advise the town's landowner
-on whether charging for the hearing was permissible. Both sides paid for
-lawful private advice and would speak for themselves in any public dispute.
-The conflict is new to the clients. Disclosing it could preserve Veyne's
-credibility as a mediator and still cost it one of two long-standing fees.
+Veyne advised a group of stallholders on how to challenge a new fee. The
+family's advisers also took payment from the landowner who charges it. Each
+side believes Veyne works only for them.
 
-### H11-I03 — The charter that settled the fair
+### H11-I03 — Traders kept out of the fair
 
-A Veyne clerk drafted a settlement that let a town keep its annual fair,
-reserved its customary dues and gave visiting sellers a recorded place to
-complain about additional charges. Two years of complaint registers show the
-deal worked in that town. Veyne can bring the model and its limits to a
-negotiation. The town's merchants gave up the ability to raise their own
-market fees mid-season. Other grant holders who want the benefits may balk
-at accepting that same restraint.
+Veyne holds the original agreement allowing travelling merchants to trade
+at a royal fair without joining its guild. The guild now keeps those traders
+out. Veyne kept the agreement private because some of its clients benefit
+from excluding competitors.
 
-### H11-I04 — The order the king left unsigned
+### H11-I04 — The ruler's actual decision
 
-Veyne has the authentic negotiating file for a widely discussed royal
-favour. The last monarch approved a public hearing of an estate's lease
-grievance. An unsigned draft also proposed an exemption from future lease
-reviews, and the file shows that the monarch expressly struck out the
-exemption before sealing the hearing order. The family once advised the
-beneficiaries to circulate only the extracts helpful to them. Correcting the
-rumour would give the Council the actual precedent and reveal Veyne's role
-in sustaining it.
+An estate claims the late ruler excused it from future lease reviews. Veyne's
+records show the ruler only agreed to hear one dispute and struck out the
+wider promise. Veyne helped the estate circulate an earlier draft.
 
-### H11-I05 — A common language for agreements
+### H11-I05 — A record of market charges
 
-Veyne's clerks catalogued the different words towns use for their ordinary
-dues, separating charges with the same name from charges with the same
-effect. The work can help delegations write an agreement that treats
-different privileges consistently. Veyne owns the completed tables and can
-share or licence them. It would give up future fees for explaining some of
-the very ambiguities the archive records, and readers could use the tables
-to challenge Veyne's own market practices.
+Veyne made a guide matching what sellers pay in each local market to what
+towns originally agreed to charge. Several markets charge extra fees for the
+same services. One of those markets pays income to Veyne.
 
 ## H12 — Avenor
 
-**Public.** The name Avenor is heard as often at a guildhall as at one of
-the family's country seats. Three chartered towns grew along the river
-estates after a forebear bargained for regular markets and authorised
-craftspeople to set their own admission rules. The towns keep separate books
-and guard their privileges jealously. People working outside the guilds
-still make carts, cloth and dishes in the nearby villages and take issue
-with being treated as outsiders in a market down the road from their homes.
-The family has made its position by arranging compromises both sides can
-live with. The larger guilds bring Avenor money and prestige, and the people
-who supply them or compete with them remember that this influence has a
-price.
+**Public.** Avenor governs three river towns where guilds run workshops and
+markets. Villages nearby also make carts, cloth and pottery. The House earns
+market fees and settles disputes over who can sell goods in town.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H12-I01 — One order for three towns
+### H12-I01 — A joint cart order
 
-The metalworkers, wheelwrights and leatherworkers of the three towns have
-already proposed a joint order of completed carts, with agreed prices and
-shared specifications. Avenor has permission to accept a buyer for one large
-order. This is unusual after years of each guild demanding the main
-contract. The agreement would open a new market for the towns and gives the
-House something more useful to offer than introductions. It leaves little
-room to favour one town or substitute a friend who charges more.
+The metalworkers, wheel makers and leatherworkers of Avenor's three towns
+agreed to fill one order for ${number.carts} finished carts this season. They
+settled the design and price. Avenor can choose the buyer for the whole order.
 
-### H12-I02 — The empty benches
+### H12-I02 — Apprentices waiting to finish
 
-A guild dispute over fees has left apprentices barred from finishing their
-training at a number of town shops. The guild council and the excluded
-apprentices have both signed a proposal for independent masters to examine
-work already completed. Avenor can consent to funding the examiners from its
-family income and offer the terms as an example for other towns. Several
-masters stand to lose admission fees if the proposal goes through, though
-reopening the benches would help the workshops finish late orders.
+A fee dispute has stopped several apprentices from finishing their training.
+The guild and apprentices agreed to let outside craft workers judge their work
+if Avenor pays. The workshops are behind on orders while the apprentices wait.
 
-### H12-I03 — The right to sell at the gate
+### H12-I03 — Market days for village sellers
 
-An annex to one of Avenor's town charters expressly reserves two market days
-a season for unlicensed country craftspeople. The gate currently admits only
-members of the town guild that makes the same goods. Avenor's steward
-discovered the annex when settling the estate papers and retained the
-original. Restoring the days could make goods more affordable and make the
-village producers useful allies. The guild that stands to lose sales has
-paid for workshops on the assumption that its existing custom will continue.
+Avenor found the original market agreement setting aside two days each season
+for village craftspeople to sell their goods. The town guild currently keeps
+them out. Members of the guild have been paying extra for stalls on those
+days.
 
-### H12-I04 — The wage pots
+### H12-I04 — Wages in a slow month
 
-Several guild masters have been pooling small sums from each sale to pay one
-another's workers through a slow month. The arrangement is voluntary and has
-paid its first claims. Its organisers have shared the rules and figures with
-Avenor on condition that the names of those who sought support stay private.
-Avenor can spread the model or pledge a contribution to extend its reach.
-Some merchants seeking lower prices may object to anything that lets workers
-wait longer for an offer.
+Several workshops put part of each sale into a shared fund for wages during
+slow months. The fund has already paid workers through a drop in orders. Other
+workshops can join if they also put in part of their sales.
 
-### H12-I05 — A new guildhall already paid for
+### H12-I05 — Stalls already paid for
 
-A dozen town artisans paid deposits for stalls in a new guildhall which
-Avenor built on private land. The lease they were given promises a covered
-market year round at stated prices. The roof is finished and the House's
-costs have been covered. There is room for visiting sellers during the week,
-but the paid leases reserve the best market days. Forcing open the premium
-days would leave the family liable to the very craftspeople who financed the
-building.
+Local craftspeople paid enough in stall deposits to cover the cost of Avenor's
+new indoor market. They paid for the busiest days. Weekday stalls are
+available for visiting sellers to rent.
 
 ## H13 — Caldren
 
-**Public.** Caldren's earliest surviving accounts are the loans of seed
-grain a mill owner made to neighbouring farms. Later generations took silver
-across market towns and began guaranteeing orders that would have been too
-large for any one buyer. The family still owns the mill, tenants still farm
-its land and the local roads still flood. Most of its influence now comes
-from property it has promised someone else it can pay for, or money someone
-else has promised to return. Some towns remember Caldren waiting patiently
-for a harvest. Others remember a collector with very good shoes at the door.
-The House bargains from good records and a reputation for keeping terms,
-among people who can sometimes prosper only by asking it to change those
-terms.
+**Public.** Caldren owns farmland and a mill near several market towns. Most
+of its influence comes from lending to farmers and merchants. It also promises
+to cover some large orders if buyers fail to pay.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H13-I01 — Silver after the last voyage
+### H13-I01 — Profits available to lend
 
-A trading partnership wound up after a long, profitable run. Caldren's
-realised share is already back in its own accounts, free of the
-partnership's old obligations. The House can guarantee two ordinary public
-undertakings or extend one much larger loan without tapping money pledged to
-existing customers. Using all the proceeds would concentrate its risk in one
-moment of political uncertainty. Quietly reserving a share would give the
-family room if a different borrower later needed time.
+A trading partnership ended and paid Caldren its share of the profits. The
+money is available now. It can cover two ordinary town building projects if
+their buyers fail to pay, or fund one large loan directly.
 
-### H13-I02 — The quarrel forgiven
+### H13-I02 — Debts after the market fire
 
-Caldren cancelled the debts of shops destroyed in a market fire. Several
-merchants held other loans and initially demanded repayment. The merchants'
-signed settlement shows they eventually accepted a longer schedule for
-viable shops after seeing Caldren's own write-offs. The shops are now
-trading again, and Caldren kept the figures from public view at their
-request. It can share the terms without identifying particular borrowers.
-The account would give Caldren's neighbours an example of lenders sharing a
-loss instead of competing to collect first.
+After Caldren cancelled debts following a market fire, the shopkeepers
+offered its merchants reduced storage fees for several years. The signed
+agreement lets Caldren share those cheaper warehouse spaces with another
+House.
 
-### H13-I03 — The guaranteed convoy
+### H13-I03 — The carriers get paid first
 
-Caldren guaranteed the cost of carts for a merchant venture that failed
-after a quay collapsed. The guarantee has been called and paid in full.
-Three merchant partners owe Caldren partial reimbursement, but the finished
-agreement says their first new earnings must pay the carriers. They can
-trade again, so waiting is plausible. If the House took its losses now, it
-could offer someone else the claims at a discount and regain ready money. It
-would give up influence over how patiently the claims are handled.
+Caldren paid the carriers' first bill after a merchant venture failed. Three
+merchants owe Caldren part of that cost. Their agreement gives the carriers
+first claim on any new earnings until the remaining transport bills are paid.
 
-### H13-I04 — The Treasury's winter note
+### H13-I04 — A royal loan due
 
-A registered note recognises a loan Caldren made to buy supplies for the
-Crown and names an instalment currently due from the Treasury. The note
-carries neither customs revenue nor a title as security. Caldren can offer
-to delay one payment. It could also offer to accept part of that payment in
-Crown goods, if the Council records their value. It would give up the chance
-to demand money now and would need to account for its own obligations in
-either bargain.
+The Crown borrowed from Caldren to buy winter supplies. The next payment is
+due and would cover much of Caldren's own borrowing this season. Caldren has
+the late ruler's signed promise to repay it.
 
-### H13-I05 — Property on paper
+### H13-I05 — A share of dye profits
 
-A factor led family members to believe a debt was secured on a profitable
-dye works. The signed deed actually pledges the debtor's share of the
-business profits for three years, while ownership of the works stays with
-its craftspeople. Production has slowed, so the pledged income is worth less
-than it looked. Caldren can work with the debtor to find new buyers or
-accept a reduced settlement. Boasting that the House owns a valuable works
-would invite a correction from people it still needs to trade with.
+A debtor promised Caldren a share of a dye workshop's profits for three years.
+A manager told the family the workshop itself backed the loan. The
+craftspeople still own it, and its reduced production leaves Caldren expecting
+much less money.
 
 ## H14 — Durnholt
 
-**Public.** Durnholt's old estate is a collection of quarry villages, sheep
-walks and hillside farms. It acquired valuable land much closer to market in
-the late reign, when the Crown rewarded a generation of work supplying stone
-for roads and storehouses. The new tenants sometimes travel past the family
-hall on their way to complain about a rent demand that an old Durnholt
-tenant would know whom to question. Some locals welcome repairs the Crown
-had been slow to make. Others still measure the new lord against the
-community's arrangements before the grants. During an interregnum even an
-heirloom title seems precarious to some families. For Durnholt, papers
-issued within living memory are part of every argument about its future.
+**Public.** Durnholt governs sheep farms and quarry villages in the hills. It
+sells stone for roads and buildings. The Crown recently gave the House
+farmland near a market town in return for supplying stone for royal works.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H14-I01 — The grant with a date
+### H14-I01 — Road repairs running late
 
-A recent grant confirms Durnholt's possession on the condition that it
-maintain a road and produce a completed repair account by the end of a
-specified year. The road is open and the work is almost done. The foreman's
-report shows the remaining section cannot be finished before the stated date
-at the present pace. A Council decree could record an extension on stated
-terms. Finishing in time would require Durnholt to pay for a second crew
-when rural labour is already scarce.
+The Crown gave Durnholt farmland on condition that it finish repairing a
+nearby road before winter. The foreman says the current crew will miss the
+deadline. Durnholt would have to put other repairs on hold to pay a second
+crew.
 
-### H14-I02 — Whose land it was
+### H14-I02 — Six gardens on the wrong map
 
-An old resident's petition alleges that the royal survey included six tenant
-gardens which villagers bought and enclosed decades ago. Durnholt's own
-surveyor found the original sale and plotted the gardens. They are indeed
-within the current grant boundary and the Crown's description wrongly treats
-them as royal land. The family could support correcting the boundary, make
-voluntary offers to buy those gardens, or contest what the grant conveys.
-Correcting a genuine error would also show other communities where to look
-for similar mistakes.
+Durnholt's surveyor found that six gardens included in the land it received
+from the Crown actually belong to villagers. The House has the original sale
+records and a map showing where the gardens lie.
 
-### H14-I03 — Two deeds to the same road
+### H14-I03 — Land Durnholt paid for
 
-A strip of especially fertile land linked to the new estate was advertised
-widely as part of Durnholt's reward. Its purchase deed actually shows the
-family paid full market price for it with its old quarry income. Documents
-for the adjacent Crown grant leave it outside the land subject to the
-grant's repair conditions. Durnholt can pledge proceeds from the purchased
-land in an independent bargain, even while the grant is debated. Producing
-both deeds would clarify how much of the estate really came from royal
-favour.
+Many people think Durnholt received its best field from the Crown. Its
+purchase records show it paid for that field with quarry income. The map of
+the land given by the Crown leaves the field outside the boundary.
 
-### H14-I04 — The rent Durnholt declined
+### H14-I04 — Lower rent for drainage work
 
-One grant schedules the customary tenants for a rise in cash rents when the
-Crown's lease ends. Durnholt wrote into their new leases that the existing
-rate would hold for two more years if they helped repair field drains. The
-tenants have done their share and the House's stewards found the work has
-made previously wet fields productive. Durnholt can show why those tenants
-might prefer to retain it as their landlord. A family budget built on the
-original projected rents would give partners the wrong picture.
+Durnholt promised to hold rents steady for two years if tenants repaired their
+field drains. The tenants finished the work and can now farm land that used to
+flood. Durnholt will take in less rent than its earlier budget expected.
 
-### H14-I05 — The gift that carried a name
+### H14-I05 — Stone the Crown has not paid for
 
-The late monarch's genuine letter calls the grant a reward for stone
-supplied. It asks Durnholt to maintain a communal shed named for a
-minister who died during the works. The request makes no change to the
-grant's binding terms. Durnholt kept the letter private and used the shed's
-local name after the minister's unpopular final decisions. Reading the
-letter can answer rumours that the land was bought with a personal favour.
-It would give the people who miss the minister a reason to press for the old
-name.
+The Crown still owes Durnholt for stone delivered before its land grant.
+The late ruler's signed letter says the land covered only part of the bill.
+The remaining debt would fund several large building projects.
 
 ## H15 — Selwyn
 
-**Public.** Selwyn became familiar at court through the work of making
-estates answer to the same Crown that depended on their rents and supplies.
-Selwyn relatives once rode from farm to farm to count sacks the Crown was
-owed. Later ones kept winter lists of who had delivered fodder, who had been
-paid and which roads could carry a heavily loaded cart. Their own land
-includes farms and a market town whose residents can tell the difference
-between a household agent and a collector with a Crown commission. The
-distinction has often mattered during a short harvest. The family can offer
-experience of what a royal order costs to carry out. Its members sit as a
-House at Council. The Chancellor runs proceedings separately.
+**Public.** Selwyn owns farms and a market town. The family manages supplies
+and keeps accounts for several Crown estates. Its staff know which farms have
+goods ready and which carriers can move heavy loads in winter.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H15-I01 — Stores owed to the Crown
+### H15-I01 — Spare Crown supplies
 
-Selwyn reconciled estate receipts after the late monarch's last provisioning
-round. Several suppliers delivered early, so combined Crown stocks exceed
-its standing winter orders by a useful margin. The excess could supply one
-substantial relief effort. Its ownership is clear. Selwyn's family cannot
-pledge it, but its delegation has enough information to propose a bounded
-allocation through the Council. Using the margin now would leave much less
-room for a bad harvest on other royal estates.
+Selwyn's records show that early deliveries left the Crown with more food than
+its estates need this winter. The surplus could feed a town short of food. It
+belongs to the Crown and is still in its storehouses.
 
-### H15-I02 — A contract that pays after delivery
+### H15-I02 — An unpaid supply bill
 
-Selwyn used private funds to feed royal carters when a Crown payment failed
-to arrive. The late monarch later signed an account recognising
-reimbursement for the documented deliveries. Payment is still due. The
-family can continue carrying the cost for a season if it delays repairs on
-its own farms. It can ask the Council to record a deferred schedule or
-bargain over a smaller prompt settlement. Publicly presenting the bill would
-show how last winter's smooth deliveries were financed.
+Selwyn paid to feed the Crown's wagon crews when their money ran out. The late
+ruler acknowledged the bill in writing and it remains unpaid. Selwyn can cover
+the cost for another season by delaying repairs on its farms.
 
-### H15-I03 — The crews without a commission
+### H15-I03 — A delivery crew for hire
 
-The monarch's death ended Selwyn's latest provisioning commission. Several
-of the crews and route clerks it employed have signed a conditional offer to
-organise one delivery schedule using privately contracted carriers and
-wages. They can plan sequences and loads for a commercial or relief
-shipment. Selwyn can bring that service to a new bargain, paying for it
-itself or asking a partner to contribute. Using it would leave fewer
-experienced people free for work on its own estates.
+The crews that planned Selwyn's royal deliveries have offered to organise one
+large shipment for a new customer. They know the winter routes and have found
+available carriers. The customer would have to pay both the planners and the
+carriers.
 
-### H15-I04 — The levy taken twice
+### H15-I04 — Animal feed taken twice
 
-Selwyn found Crown receipts that show customary fodder deliveries from two
-villages were counted against the wrong year. Its own collectors, relying on
-the register, took the same customary levy again. Enough evidence survives
-to identify the affected holdings and actual overpayment. The fodder went to
-Crown stores. The family defended the register when the villages complained.
-The Council could recognise repayment or a credit against the next levy.
-Selwyn would have to explain why the first complaints went unheeded.
+Selwyn's collectors took a second delivery of animal feed from two villages
+after entering the first under the wrong year. Selwyn dismissed the villages'
+complaints. The House has since found receipts for both deliveries, which went
+to the Crown's stores.
 
-### H15-I05 — The palace table and the poor tithe
+### H15-I05 — Flour owed to local kitchens
 
-A royal estate has delivered high-grade flour to the palace for years.
-Selwyn's archived grant directs the first share of that estate's flour to
-its district's relief kitchens during winters when a fixed price threshold
-is crossed. Verified prices are above the threshold. Clerks used a palace
-requisition that failed to mention the clause. Selwyn can show the Council
-how to recognise the relief share. Doing so means finding another supplier
-if the current level of palace provisions is to be maintained.
+A Crown estate supplies flour to the palace. Its written agreement gives
+kitchens that feed people in need the first share when bread prices pass a set
+limit. Prices have passed that limit, but the whole delivery goes to the
+palace.
 
 ## H16 — Wrenford
 
-**Public.** Wrenford grew rich on farms and mills. It became known outside
-its district when a member of the family gave the income from a mill to feed
-and house people travelling after a flood. Later neighbours left rooms, land
-and money for other kinds of relief. The family's name still draws a crowd
-to an opening, but trustees and local congregations do much of the work and
-sometimes quarrel with the people who pay for it. When rents at home fall,
-Wrenford's private income can suffer while a public endowment carries on.
-When an endowment is short, people ask why the family cannot make up the
-difference. Its influence comes from giving people a reason to trust
-promises that should outlast the person who made them.
+**Public.** Wrenford owns farmland and mills. The family helps fund kitchens
+and shelters for people who need food or a place to stay. It has close ties to
+the donors and local groups that pay for and run those houses.
 
-**Private House information - draw one alternative.**
+**Private alternatives**
 
-### H16-I01 — Two mill seasons in reserve
+### H16-I01 — Money for extra meals
 
-An endowed mill earned more than its kitchens needed in two successive
-seasons. Its trustees have signed an offer to use the resulting reserve to
-feed displaced people for several months, with Wrenford free to propose the
-districts most in need. The terms permit relief purchases and necessary
-transport. The mill and its income stay in trust. Helping people far from
-the mill would make the endowment useful where it is needed. Keeping some
-back would insure the kitchens against their next poor season.
+A mill that funds Wrenford's kitchens earned more than the kitchens needed.
+Its managers agreed to use the extra income to buy and deliver food for
+displaced families for ${number.months} months. Wrenford can choose which
+districts receive the food.
 
-### H16-I02 — The named gate
+### H16-I02 — New beds at a shelter
 
-A donor will fund new shelter beds for travellers if the new gate bears the
-name of the donor's late spouse. The trustees agreed in writing to accept
-the offer if Wrenford endorses the name. The existing local beds and the
-income set aside for them would stay in place. Wrenford could help people
-currently turned away at no cost to its own purse. Older donors who gave to
-serve only their own district may take a dim view of the new patron.
+A donor offered to pay for more beds for travellers if a shelter's gate is
+named after the donor's late spouse. The shelter's managers have agreed on the
+condition that Wrenford approves the name.
 
-### H16-I03 — Beds that stand empty
+### H16-I03 — Beds standing empty
 
-One existing hostel's endowment limits its beds to workers injured in trades
-that no longer operate nearby. The stewards have turned away people with
-similar injuries because the written gift names the old trades. The building
-and fund could serve those people if the Council authorises a stated change
-of use and records it publicly. Wrenford can show that there are funds for
-the change. Honouring the original wording would preserve the founder's
-precise intent while many beds remain unused.
+A shelter's donor set aside beds for miners and quarry workers who were
+injured at work. Both trades have left the district. The shelter has the money
+and staff to fill the beds, but turns away workers with similar injuries.
 
-### H16-I04 — The neighbours' own bread
+### H16-I04 — A kitchen that costs less
 
-Recipients of aid organised a winter kitchen themselves after the local
-trustees cut the hours of the endowed one. They bought lower-grade flour fit
-for bread and took turns baking. Their signed accounts show how they served
-the same streets on substantially less money. They will share the system if
-the House keeps household names out of the published records. Wrenford can
-give the organisers credit and back a broader experiment. It would have to
-face trustees who regard control over each kitchen as part of their
-responsibility.
+Local families opened a kitchen after Wrenford's kitchen cut its hours. Their
+records show that volunteer shifts and cheaper flour let them feed the same
+streets at a lower cost. They will share the figures if household names stay
+private.
 
-### H16-I05 — The gift that never arrived
+### H16-I05 — A missing donation
 
-Wrenford normally pays the cook and buys fuel for a remote relief room. One
-donor pledged the next year's costs but died before making a binding gift.
-The trustees can keep two other rooms open under their deed. The family can
-cover the remote room itself at the cost of foregoing several other private
-gifts. Closing it would leave villagers two hours' walk from the nearest
-alternative. The missing money offers an honest reason to seek someone
-else's patronage, with room to negotiate what that donor receives in
-recognition.
+A donor promised to keep a remote kitchen open for another year but died
+before paying. Wrenford could cover the cost by dropping other planned
+donations. The next nearest kitchen is a two-hour walk from the village.
 
-## Compatibility notes for the draw
+## Author notes
 
-- H01-I02, H04-I03, H08-I01, H08-I02, H08-I03 and H08-I05 require
-  the named foreign realm in the game setup. Use one of the other
-  alternatives when that realm is outside the evening's scope.
-- Resolve a range once and use the same number in every copy. For
-  Harrowmere's H01-I01, the number describes potential winter commitments.
-  With a small cast, some capacity can stay in reserve.
-- Keep the incidents in the two private pools distinct. H01-I02 records
-  falsely declared grain imports, while S09 records undeclared investment
-  income from a cloth shipment. H14-I02 concerns six privately bought
-  gardens, while S29 concerns rent charged for a village's pasture.
-  Check any proposed shared reference against both entries before drawing.
+Resolve each variable once for the selected entry. Use that value in every
+copy, including copies shared with anyone who learns the information.
+The ranges include both endpoints.
+
+| Entry | Variable | Range | What it counts |
+|---|---|---|---|
+| H01-I01 | `${number.capacity}` | 2–5 | Other Houses the wheat can feed through winter |
+| H02-I05 | `${number.winters}` | 2–3 | Winters the families keep animals out of the wood |
+| H03-I01 | `${number.projects}` | 2–3 | Bridges the furnaces can supply with fittings this season |
+| H06-I01 | `${number.towns}` | 2–4 | Large towns the salt can serve through winter |
+| H07-I01 | `${number.horses}` | 6–12 | Trained packhorses available |
+| H12-I01 | `${number.carts}` | 12–24 | Finished carts in the joint order |
+| H16-I01 | `${number.months}` | 2–4 | Months the mill can fund food for displaced families |
+
+Check that the selected private entry and the general secret can both be
+true. For entries involving Rheven or Vask, check that the named country
+and any trade or border crossings mentioned fit the setup.
