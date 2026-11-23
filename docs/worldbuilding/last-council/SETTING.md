@@ -38,8 +38,9 @@ entries include a short explanation so players do not need to learn this page.
   what happened: bribery, theft, a forged order or another clear act.
 - Financial descriptions explain the impact on a House. There is no invented
   currency or requirement to collect money items.
-- Each character receives two different goals; other Houses may share them.
-  There is no separate needs system.
+- The proposed in-game goal-count setting defaults to two different goals
+  per House; other Houses may share them. Needs are under discussion again,
+  with no needs system approved or implemented.
 - House resources and weaknesses matter at the scale of provinces and royal
   policy. Weapons, armies and supplies are bargaining commitments in the story;
   they do not add a troop-management or battle system.
@@ -47,5 +48,8 @@ entries include a short explanation so players do not need to learn this page.
   on the palace map.
 - If a country is removed from the setting, revise entries that depend on it.
   Talvern's public description assumes Vask exists.
+- The [rough geography](MAP.md) places the Houses, principal roads and river.
+  It is an editable proposal for a world map, separate from the palace build.
 
-This remains a worldbuilding draft. No mod defaults, map or code have changed.
+This remains a worldbuilding draft. No mod defaults, Minecraft worlds or code
+have changed.

@@ -4,8 +4,11 @@
 
 > Worldbuilding draft for discussion, not implemented content. These fifty goals give characters motivations for political roleplay, without scores or fixed end states.
 
-Draw **two different goals per character**. Goals can be shared by different
-Houses. Check the author-only eligibility table before drawing either goal.
+The proposed in-game setting **Goals per House** controls how many different
+goals to draw; **2 is the default**. Different Houses can receive the same
+goals. Check the author-only eligibility table before drawing, and validate
+that each House has enough eligible entries for the configured count.
+See [the setup notes](NEEDS_AND_GOAL_COUNT.md#goal-count-requested-in-game-setting).
 
 ## Contents
 

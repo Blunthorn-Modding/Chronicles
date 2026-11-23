@@ -1,6 +1,6 @@
 # Houses of the Last Council
 
-> **Worldbuilding draft · 22 November 2026**
+> **Worldbuilding draft · 23 November 2026**
 
 [Workbook index](README.md) · [Shared setting](SETTING.md) · [Historical and literary sources](SOURCES.md)
 
@@ -10,28 +10,29 @@ private alternative per House, alongside a separate
 
 | House | Public identity |
 |---|---|
-| [H01 — Harrowmere](#h01--harrowmere) | Grain farms and river markets |
-| [H02 — Brackenholt](#h02--brackenholt) | Timber and shared woodland rights |
-| [H03 — Morcant](#h03--morcant) | Iron mines and metalworking towns |
-| [H04 — Rooke](#h04--rooke) | Coastal shipping and a port town |
-| [H05 — Tern](#h05--tern) | River crossings and tolls |
-| [H06 — Marwick](#h06--marwick) | Coastal salt and preserved fish |
-| [H07 — Keld](#h07--keld) | Upland wool and horse fairs |
-| [H08 — Talvern](#h08--talvern) | Farms and markets on the Vask border |
-| [H09 — Ormont](#h09--ormont) | A province with its own union agreement |
-| [H10 — Bellayne](#h10--bellayne) | Court contacts and family ties |
-| [H11 — Veyne](#h11--veyne) | Legal advice and public records |
-| [H12 — Avenor](#h12--avenor) | Craft guilds and river towns |
-| [H13 — Caldren](#h13--caldren) | Farm lending and trade credit |
-| [H14 — Durnholt](#h14--durnholt) | Hill quarries and recent royal land |
-| [H15 — Selwyn](#h15--selwyn) | Royal estates and supply deliveries |
-| [H16 — Wrenford](#h16--wrenford) | Farms, mills and relief houses |
+| [H01 — Harrowmere](#h01--harrowmere) | Central grain and the realm's breadbasket |
+| [H02 — Brackenholt](#h02--brackenholt) | Forests, timber and winter fuel |
+| [H03 — Morcant](#h03--morcant) | Iron hills and arms workshops |
+| [H04 — Rooke](#h04--rooke) | Merchant fleet and foreign ports |
+| [H05 — Tern](#h05--tern) | Inland crossings and transport tolls |
+| [H06 — Marwick](#h06--marwick) | Salt coast and preserved provisions |
+| [H07 — Keld](#h07--keld) | Upland horses and cavalry supply |
+| [H08 — Talvern](#h08--talvern) | Fortified Vask border and cross-border trade |
+| [H09 — Ormont](#h09--ormont) | Formerly independent province and local autonomy |
+| [H10 — Bellayne](#h10--bellayne) | Royal court, offices and noble connections |
+| [H11 — Veyne](#h11--veyne) | Archives, agreements and contested claims |
+| [H12 — Avenor](#h12--avenor) | Guild-led manufacturing towns |
+| [H13 — Caldren](#h13--caldren) | Credit, lending and investment |
+| [H14 — Durnholt](#h14--durnholt) | Quarries and royal construction |
+| [H15 — Selwyn](#h15--selwyn) | Crown estates, accounts and provisioning |
+| [H16 — Wrenford](#h16--wrenford) | Relief network and public goodwill |
 
 ## H01 — Harrowmere
 
-**Public.** Harrowmere rules the fertile central plains. Its farms grow wheat
-for its own people and sell the surplus to other Houses, usually to the
-highest bidder.
+**Public.** Harrowmere governs the fertile central plains, the kingdom's great
+grain-growing region. Its wheat supplies its own people and reaches
+markets across the realm. The House earns its influence from the harvest
+and from deciding where its surplus is sold.
 
 **Private alternatives**
 
@@ -72,10 +73,10 @@ Council that the entire collection went into winter reserves.
 
 ## H02 — Brackenholt
 
-**Public.** Brackenholt governs a forest district where sawyers sell timber
-and villagers gather fuel and graze animals. The House manages much of the
-woodland and negotiates with both timber buyers and the people who depend on
-it.
+**Public.** Brackenholt governs vast forests that supply timber for building and
+charcoal for industry. Its woodland also provides winter fuel to towns
+across the realm. The House negotiates access with merchants and the
+communities whose livelihoods depend on the forest.
 
 **Private alternatives**
 
@@ -116,9 +117,10 @@ districts.
 
 ## H03 — Morcant
 
-**Public.** Morcant governs the iron hills. Its towns employ miners, furnace
-crews and metalworkers. The House earns money from its mines and attracts
-buyers who want finished iron fittings made close to the source.
+**Public.** Morcant governs the iron hills, where mines and furnaces supply
+workshops that make arms for armies across the kingdom. Its wealth comes
+from both iron and finished weapons, making its workshops important to
+Houses seeking to equip their forces.
 
 **Private alternatives**
 
@@ -159,9 +161,10 @@ payment for part of it.
 
 ## H04 — Rooke
 
-**Public.** Rooke owns farms and a small port town. Its money comes mainly
-from coastal shipping. Merchants deal with the
-family when they need ships that can reach smaller ports.
+**Public.** Rooke's coastal ports are home to a merchant fleet that carries goods
+along the kingdom's shores and to foreign ports. The House earns its
+living from shipping and maintains connections with merchants abroad as
+well as buyers at home.
 
 **Private alternatives**
 
@@ -202,9 +205,10 @@ Crown docks while carrying royal goods.
 
 ## H05 — Tern
 
-**Public.** Tern holds towns on both banks of a main river. It charges tolls
-at its bridges and earns money from ferries and riverside markets. Traders who
-use its crossings can avoid a long trip to another bridge.
+**Public.** Tern holds the main inland crossings of a great river. Bridges, ferries
+and roads bring merchants through its towns, where the House collects
+tolls and market fees. Access to these crossings shapes the movement and
+cost of trade between provinces.
 
 **Private alternatives**
 
@@ -245,9 +249,10 @@ contracts on a different route.
 
 ## H06 — Marwick
 
-**Public.** Marwick governs a coast of fishing villages, salt works and small
-harbours. It earns money from selling salt and preserved fish inland. Coastal
-towns depend on its sheds and docks to prepare and ship their catch.
+**Public.** Marwick governs a salt-producing coast of fishing villages and harbours.
+Its salt works and storehouses supply preserved food to coastal and
+inland markets. The House earns its income from preparing and moving
+provisions that can be kept through winter.
 
 **Private alternatives**
 
@@ -288,9 +293,10 @@ this winter.
 
 ## H07 — Keld
 
-**Public.** Keld governs hill villages and upland pastures. Its farms supply
-wool to cloth makers and its fairs sell horses to traders and couriers. The
-House earns rent from grazing land and fees from the fairs.
+**Public.** Keld governs upland pastures known for breeding and training horses. Its
+fairs bring buyers seeking mounts, including horses for cavalry, while
+local wool supplies cloth makers. The House draws income from its herds,
+grazing land and trade at the fairs.
 
 **Private alternatives**
 
@@ -331,10 +337,10 @@ access to the mills' overseas buyers.
 
 ## H08 — Talvern
 
-**Public.** Talvern governs farms and market villages along the border with
-Vask, a neighbouring kingdom. Its fairs serve traders from both sides. Many
-local families have relatives across the border and depend on the roads
-staying open.
+**Public.** Talvern governs the fortified border with Vask, a neighbouring kingdom.
+Its wardens watch the crossings, while fairs and roads support trade
+between the two countries. Many families have relatives on both sides
+and depend on the border remaining open.
 
 **Private alternatives**
 
@@ -375,10 +381,10 @@ Houses that can guarantee access and provide storage.
 
 ## H09 — Ormont
 
-**Public.** Ormont governs a province of hill farms and quarry towns that once
-ruled itself. Its agreement with the Crown still sets terms for local courts
-and trade. Village leaders bring common concerns to the House before
-approaching the Crown.
+**Public.** Ormont governs a province that was once independent. Its union agreement
+with the Crown sets terms for local courts and trade, giving provincial
+towns a distinct place in their own affairs. Ormont represents those
+interests alongside the other Houses in Council.
 
 **Private alternatives**
 
@@ -419,10 +425,11 @@ stopped paying after the king died.
 
 ## H10 — Bellayne
 
-**Public.** Bellayne owns a small estate and keeps a house in the capital. It
-has family ties across several noble households and is known for arranging
-introductions. Visiting families often stay with Bellayne while doing business
-at court.
+**Public.** Bellayne keeps a house in the capital and has ties across the royal
+court and several noble households. Relatives serve in royal offices,
+and visiting families often stay with Bellayne while conducting court
+business. These connections give the House access to people and
+appointments.
 
 **Private alternatives**
 
@@ -463,10 +470,10 @@ the merchants cannot pay, which could cost it its estate.
 
 ## H11 — Veyne
 
-**Public.** Veyne owns farms and small market towns. Its legal advisers help
-towns and landowners write agreements and settle disputes. The family keeps
-copies of court decisions and agreements that other Houses may need when a
-deal is challenged.
+**Public.** Veyne keeps an archive of agreements, court decisions and other records
+from across the kingdom. Its advisers help towns and landowners make
+agreements and settle disputes. The documents can protect an established
+claim or challenge one when its terms are contested.
 
 **Private alternatives**
 
@@ -507,9 +514,10 @@ reported to the Council.
 
 ## H12 — Avenor
 
-**Public.** Avenor governs three river towns where guilds run workshops and
-markets. Villages nearby also make carts, cloth and pottery. The House earns
-market fees and settles disputes over who can sell goods in town.
+**Public.** Avenor governs three manufacturing towns where guilds organise workshops
+and markets. Their makers produce carts, cloth and other goods for
+buyers across the realm. The House earns market fees and deals with
+guilds whose combined output can supply large orders.
 
 **Private alternatives**
 
@@ -550,9 +558,10 @@ Avenor cannot cover both claims without selling land.
 
 ## H13 — Caldren
 
-**Public.** Caldren owns farmland and a mill near several market towns. Most
-of its influence comes from lending to farmers and merchants. It also promises
-to cover some large orders if buyers fail to pay.
+**Public.** Caldren is a family of lenders and investors. It finances merchants,
+other Houses and large trading ventures across the kingdom. Much of its
+wealth is tied up in other people's business, giving the House a stake in
+debts and promises far beyond its own lands.
 
 **Private alternatives**
 
@@ -592,9 +601,10 @@ refunds from its own estate income.
 
 ## H14 — Durnholt
 
-**Public.** Durnholt governs sheep farms and quarry villages in the hills. It
-sells stone for roads and buildings. The Crown recently gave the House
-farmland near a market town in return for supplying stone for royal works.
+**Public.** Durnholt governs quarry towns in the hills and supplies stone for major
+royal roads and buildings. Construction contracts have brought the House
+wealth and recent Crown grants of land. Its quarries also sell stone for
+works undertaken by other provinces.
 
 **Private alternatives**
 
@@ -635,9 +645,10 @@ quarry wages across the hills.
 
 ## H15 — Selwyn
 
-**Public.** Selwyn owns farms and a market town. The family manages supplies
-and keeps accounts for several Crown estates. Its staff know which farms have
-goods ready and which carriers can move heavy loads in winter.
+**Public.** Selwyn manages supplies and accounts for several Crown estates. Its
+stewards know the estate stores, the rents that fund purchases and the
+carriers who move goods for the Crown. That work gives the House a close
+view of royal provisioning across the realm.
 
 **Private alternatives**
 
@@ -678,9 +689,10 @@ farms have ample winter stores and good river access.
 
 ## H16 — Wrenford
 
-**Public.** Wrenford owns farmland and mills. The family helps fund kitchens
-and shelters for people who need food or a place to stay. It has close ties to
-the donors and local groups that pay for and run those houses.
+**Public.** Wrenford supports a network of kitchens, hospitals and shelters serving
+people across the kingdom. Donors, mills and local groups help fund and
+run its relief work. The House's connections to that network and its
+public goodwill give it influence beyond its estates.
 
 **Private alternatives**
 

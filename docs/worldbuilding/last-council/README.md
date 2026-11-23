@@ -1,6 +1,6 @@
 # The Last Council — worldbuilding drafts
 
-> **Revised after review · 22 November 2026.** Editable documents only; not
+> **Revised after review · 23 November 2026.** Editable documents only; not
 > implemented or approved as final content.
 
 ## Open a document
@@ -12,15 +12,19 @@
 | [Goals](GOALS.md) | 50 character ambitions and political positions, without player advice or scoring. |
 | [Complications](COMPLICATIONS.md) | 24 announcements that can change the Council's discussion. |
 | [Setting](SETTING.md) | The basic situation and the two neighbouring countries. |
+| [Rough map](MAP.md) | Proposed House locations, roads and rivers; editable SVG and PNG reference. |
+| [Needs and goal count](NEEDS_AND_GOAL_COUNT.md) | Design comparison of needs, resource bargaining and the requested configurable goal count. |
 | [Research sources](SOURCES.md) | Historical and literary inspiration, with links. Author reference only. |
 
 ## The proposed draw
 
-Each House keeps its public identity. For a new game each character receives:
+Each House keeps its public identity. For a new game each House receives:
 
-- One of their House's five private entries.
+- One of its five private entries.
 - One general secret.
-- **Two different goals.** Different Houses can receive the same goals.
+- **A configurable number of different goals; default 2.** Different Houses
+  can receive the same goals. Record this as an in-game scenario setting,
+  chosen before papers are issued.
 
 The House entry supplies a bargaining asset, an exploitable weakness or a
 dependency with political consequences. Small maintenance problems and good
@@ -35,14 +39,16 @@ Goals describe what a character wants. They do not tell the player how to
 play or define a scored success state. Candidate-only goals are reserved for
 characters already assigned as candidates.
 
-Check that both goals are available to the character. Political tensions can
-be interesting; two goals do not need to come from different categories.
-Replace a pair only if its actual demands cannot sensibly be pursued together.
+Check that the configured number of goals is available to each House.
+Political tensions can be interesting; goals do not need to come from
+different categories. Redraw only goals whose actual demands cannot sensibly
+be pursued together.
 Do not reject a principled goal just because the character has a shameful past.
 
-There is **no separate needs system**. A private entry can contain a specific
-problem, such as a debt or a failed weapons order, without giving every House
-a list of supplies it must collect.
+The needs question is open again. The [design analysis](NEEDS_AND_GOAL_COUNT.md)
+compares optional needs with the current draw and a full resource system.
+No needs system has been approved or implemented. Existing private entries
+can already contain a pressure, such as a debt or a failed weapons order.
 
 ## Variables
 
